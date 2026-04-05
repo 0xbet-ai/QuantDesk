@@ -1,0 +1,270 @@
+[
+  {
+    "id": "nt_ema_cross",
+    "name": "EMA Cross",
+    "category": "trend_following",
+    "difficulty": "easy",
+    "description": "NautilusTrader built-in EMA crossover. Live trading ready",
+    "indicators": [
+      "EMA"
+    ],
+    "default_params": {
+      "fast_ema_period": 10,
+      "slow_ema_period": 20
+    },
+    "timeframes": [
+      "tick",
+      "1m",
+      "5m",
+      "1h"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/ema_cross.py"
+  },
+  {
+    "id": "nt_ema_cross_twap",
+    "name": "EMA Cross + TWAP",
+    "category": "trend_following",
+    "difficulty": "medium",
+    "description": "EMA cross signal + TWAP execution to minimize slippage",
+    "indicators": [
+      "EMA"
+    ],
+    "default_params": {
+      "fast_ema_period": 10,
+      "slow_ema_period": 20,
+      "twap_horizon_secs": 10
+    },
+    "timeframes": [
+      "tick",
+      "1m"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/ema_cross_twap.py"
+  },
+  {
+    "id": "nt_ema_bracket",
+    "name": "EMA Cross + Bracket Order",
+    "category": "trend_following",
+    "difficulty": "medium",
+    "description": "EMA cross + automatic TP/SL bracket orders",
+    "indicators": [
+      "EMA",
+      "ATR"
+    ],
+    "default_params": {
+      "fast_ema_period": 10,
+      "slow_ema_period": 20,
+      "bracket_distance_atr": 2.0
+    },
+    "timeframes": [
+      "1m",
+      "5m",
+      "1h"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/ema_cross_bracket.py"
+  },
+  {
+    "id": "nt_ema_trailing",
+    "name": "EMA Cross + Trailing Stop",
+    "category": "trend_following",
+    "difficulty": "medium",
+    "description": "EMA cross + trailing stop to protect profits",
+    "indicators": [
+      "EMA",
+      "ATR"
+    ],
+    "default_params": {
+      "fast_ema_period": 10,
+      "slow_ema_period": 20,
+      "trailing_atr_multiple": 2.0
+    },
+    "timeframes": [
+      "1m",
+      "5m",
+      "1h"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/ema_cross_trailing_stop.py"
+  },
+  {
+    "id": "nt_market_maker",
+    "name": "Market Maker",
+    "category": "market_making",
+    "difficulty": "advanced",
+    "description": "NautilusTrader built-in MM with precise orderbook simulation",
+    "indicators": [
+      "orderbook",
+      "mid_price"
+    ],
+    "default_params": {
+      "spread": 0.001
+    },
+    "timeframes": [
+      "tick"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/market_maker.py"
+  },
+  {
+    "id": "nt_orderbook_imbalance",
+    "name": "Orderbook Imbalance",
+    "category": "momentum",
+    "difficulty": "advanced",
+    "description": "Detect bid/ask volume imbalance to predict short-term direction",
+    "indicators": [
+      "orderbook_bid_vol",
+      "orderbook_ask_vol"
+    ],
+    "default_params": {
+      "imbalance_threshold": 0.6
+    },
+    "timeframes": [
+      "tick"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/orderbook_imbalance.py"
+  },
+  {
+    "id": "nt_volatility_mm",
+    "name": "Volatility Market Maker",
+    "category": "market_making",
+    "difficulty": "advanced",
+    "description": "MM with spread auto-adjusted by volatility",
+    "indicators": [
+      "ATR",
+      "mid_price"
+    ],
+    "default_params": {
+      "atr_period": 20,
+      "spread_multiplier": 1.5
+    },
+    "timeframes": [
+      "tick",
+      "1m"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/volatility_market_maker.py"
+  },
+  {
+    "id": "nt_bb_mean_reversion",
+    "name": "BB Mean Reversion",
+    "category": "mean_reversion",
+    "difficulty": "medium",
+    "description": "Long when price touches lower BB with RSI < 0.30, short at upper BB with RSI > 0.70, exit at middle band",
+    "indicators": [
+      "BB",
+      "RSI"
+    ],
+    "default_params": {
+      "bb_period": 20,
+      "rsi_period": 14
+    },
+    "timeframes": [
+      "1m",
+      "5m",
+      "1h"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/bb_mean_reversion.py"
+  },
+  {
+    "id": "nt_ema_cross_long_only",
+    "name": "EMA Cross Long Only",
+    "category": "trend_following",
+    "difficulty": "easy",
+    "description": "Long-only EMA crossover for cash accounts. Buy on fast > slow, close on fast < slow",
+    "indicators": [
+      "EMA"
+    ],
+    "default_params": {
+      "fast_ema_period": 10,
+      "slow_ema_period": 20
+    },
+    "timeframes": [
+      "1m",
+      "5m",
+      "1h"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/ema_cross_long_only.py"
+  },
+  {
+    "id": "nt_ema_cross_stop_entry",
+    "name": "EMA Cross + Stop Entry",
+    "category": "trend_following",
+    "difficulty": "advanced",
+    "description": "EMA cross with MARKET_IF_TOUCHED entry at bar high/low + ATR trailing stop exit",
+    "indicators": [
+      "EMA",
+      "ATR"
+    ],
+    "default_params": {
+      "fast_ema_period": 10,
+      "slow_ema_period": 20
+    },
+    "timeframes": [
+      "1m",
+      "5m"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/ema_cross_stop_entry.py"
+  },
+  {
+    "id": "nt_ema_cross_hedge_mode",
+    "name": "EMA Cross Hedge Mode",
+    "category": "trend_following",
+    "difficulty": "medium",
+    "description": "EMA crossover for hedge-mode accounts allowing simultaneous long and short positions",
+    "indicators": [
+      "EMA"
+    ],
+    "default_params": {
+      "fast_ema_period": 10,
+      "slow_ema_period": 20
+    },
+    "timeframes": [
+      "1m",
+      "5m",
+      "1h"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/ema_cross_hedge_mode.py"
+  },
+  {
+    "id": "nt_grid_market_maker",
+    "name": "Grid Market Maker",
+    "category": "market_making",
+    "difficulty": "advanced",
+    "description": "Grid MM with inventory-based skewing (Avellaneda-Stoikov inspired). Symmetric limit order grids around mid-price",
+    "indicators": [
+      "mid_price"
+    ],
+    "default_params": {
+      "grid_levels": 5,
+      "grid_spacing": 0.001
+    },
+    "timeframes": [
+      "tick"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/grid_market_maker.py"
+  },
+  {
+    "id": "nt_simpler_quoter",
+    "name": "Simple Quoter",
+    "category": "market_making",
+    "difficulty": "easy",
+    "description": "Places one bid/ask at configurable tick offset from top-of-book. Replaces on fill",
+    "indicators": [],
+    "default_params": {
+      "tick_offset": 1
+    },
+    "timeframes": [
+      "tick"
+    ],
+    "engine": "nautilus",
+    "source": "https://raw.githubusercontent.com/nautechsystems/nautilus_trader/develop/nautilus_trader/examples/strategies/simpler_quoter.py"
+  }
+]

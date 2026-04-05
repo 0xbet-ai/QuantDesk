@@ -1,0 +1,386 @@
+[
+  {
+    "id": "ft_strategy001",
+    "name": "Strategy001 (ADX+FastD)",
+    "category": "trend_following",
+    "difficulty": "easy",
+    "description": "ADX + FastD + Fisher RSI combo for trend entry",
+    "indicators": [
+      "ADX",
+      "FastD",
+      "Fisher_RSI"
+    ],
+    "default_params": {
+      "adx_period": 14
+    },
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/Strategy001.py"
+  },
+  {
+    "id": "ft_strategy002",
+    "name": "Strategy002 (RSI+BB+MACD)",
+    "category": "mean_reversion",
+    "difficulty": "easy",
+    "description": "RSI + Bollinger Band + MACD combo for mean reversion entry",
+    "indicators": [
+      "RSI",
+      "BB",
+      "MACD"
+    ],
+    "default_params": {
+      "rsi_period": 14
+    },
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/Strategy002.py"
+  },
+  {
+    "id": "ft_strategy003",
+    "name": "Strategy003 (BB+EMA+MFI)",
+    "category": "mean_reversion",
+    "difficulty": "easy",
+    "description": "Bollinger Band + EMA100 + MFI combo",
+    "indicators": [
+      "BB",
+      "EMA",
+      "MFI"
+    ],
+    "default_params": {
+      "bb_period": 20
+    },
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/Strategy003.py"
+  },
+  {
+    "id": "ft_strategy004",
+    "name": "Strategy004 (MACD+MFI+SAR)",
+    "category": "trend_following",
+    "difficulty": "easy",
+    "description": "MACD + MFI + Parabolic SAR trend following",
+    "indicators": [
+      "MACD",
+      "MFI",
+      "SAR"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/Strategy004.py"
+  },
+  {
+    "id": "ft_strategy005",
+    "name": "Strategy005 (SMA+EMA+momentum)",
+    "category": "momentum",
+    "difficulty": "easy",
+    "description": "SMA/EMA crossover with momentum and CCI filter",
+    "indicators": [
+      "SMA",
+      "EMA",
+      "CCI",
+      "momentum"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/Strategy005.py"
+  },
+  {
+    "id": "ft_freqai_rl",
+    "name": "FreqAI Reinforcement Learning",
+    "category": "ml_based",
+    "difficulty": "advanced",
+    "description": "FreqAI reinforcement learning adaptive strategy with self-training models",
+    "indicators": [
+      "FreqAI_model"
+    ],
+    "default_params": {
+      "model": "ReinforcementLearner"
+    },
+    "timeframes": [
+      "5m",
+      "15m",
+      "1h"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade/develop/freqtrade/freqai/RL/BaseReinforcementLearningModel.py"
+  },
+  {
+    "id": "ft_bandtastic",
+    "name": "Bandtastic (RSI+MFI+BB)",
+    "category": "mean_reversion",
+    "difficulty": "medium",
+    "description": "RSI + MFI + multi-level Bollinger Bands (4 std levels) with EMA filter",
+    "indicators": [
+      "RSI",
+      "MFI",
+      "BB",
+      "EMA"
+    ],
+    "default_params": {
+      "bb_period": 20
+    },
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/Bandtastic.py"
+  },
+  {
+    "id": "ft_supertrend",
+    "name": "Supertrend",
+    "category": "trend_following",
+    "difficulty": "medium",
+    "description": "ATR-based Supertrend with hyperoptable multiplier/period (3 buy + 3 sell)",
+    "indicators": [
+      "Supertrend",
+      "ATR"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/Supertrend.py"
+  },
+  {
+    "id": "ft_pattern_recognition",
+    "name": "Pattern Recognition",
+    "category": "pattern",
+    "difficulty": "medium",
+    "description": "All ta-lib candlestick patterns for buy/sell signals",
+    "indicators": [
+      "candlestick_patterns"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/PatternRecognition.py"
+  },
+  {
+    "id": "ft_godstra",
+    "name": "GodStra (All Indicators)",
+    "category": "multi_indicator",
+    "difficulty": "advanced",
+    "description": "Uses all ta-lib indicators via add_all_ta_features. Ichimoku, Keltner, MFI, KST",
+    "indicators": [
+      "all_ta_features"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/GodStra.py"
+  },
+  {
+    "id": "ft_hlhb",
+    "name": "HLHB (EMA+RSI+ADX)",
+    "category": "trend_following",
+    "difficulty": "easy",
+    "description": "Classic HLHB system — EMA5/EMA10 cross with RSI and ADX filter",
+    "indicators": [
+      "EMA",
+      "RSI",
+      "ADX"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/hlhb.py"
+  },
+  {
+    "id": "ft_adx_momentum",
+    "name": "ADX Momentum",
+    "category": "momentum",
+    "difficulty": "easy",
+    "description": "ADX + directional indicators (+DI/-DI) with SAR and momentum",
+    "indicators": [
+      "ADX",
+      "DI",
+      "SAR",
+      "momentum"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/berlinguyinca/ADXMomentum.py"
+  },
+  {
+    "id": "ft_bband_rsi",
+    "name": "BBand RSI",
+    "category": "mean_reversion",
+    "difficulty": "easy",
+    "description": "RSI + Bollinger Bands mean reversion",
+    "indicators": [
+      "RSI",
+      "BB"
+    ],
+    "default_params": {
+      "rsi_period": 14
+    },
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/berlinguyinca/BbandRsi.py"
+  },
+  {
+    "id": "ft_combined_binh_cluc",
+    "name": "CombinedBinHAndCluc",
+    "category": "mean_reversion",
+    "difficulty": "medium",
+    "description": "Combined BinH + Cluc strategy with custom BB, EMA50, and volume filter",
+    "indicators": [
+      "BB",
+      "EMA",
+      "volume"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/berlinguyinca/CombinedBinHAndCluc.py"
+  },
+  {
+    "id": "ft_scalp",
+    "name": "Scalp",
+    "category": "scalping",
+    "difficulty": "easy",
+    "description": "Quick scalping with BB, EMA, StochFast, ADX",
+    "indicators": [
+      "BB",
+      "EMA",
+      "StochFast",
+      "ADX"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/berlinguyinca/Scalp.py"
+  },
+  {
+    "id": "ft_td_sequential",
+    "name": "TD Sequential",
+    "category": "pattern",
+    "difficulty": "medium",
+    "description": "Tom DeMark TD Sequential pattern-based strategy",
+    "indicators": [
+      "TD_Sequential"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/berlinguyinca/TDSequentialStrategy.py"
+  },
+  {
+    "id": "ft_freqai_example",
+    "name": "FreqAI Example",
+    "category": "ml_based",
+    "difficulty": "advanced",
+    "description": "ML feature engineering with RSI, MFI, ADX, SMA, EMA, BB, ROC, relative volume",
+    "indicators": [
+      "FreqAI_model",
+      "RSI",
+      "MFI",
+      "ADX"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade/develop/freqtrade/templates/FreqaiExampleStrategy.py"
+  },
+  {
+    "id": "ft_freqai_hybrid",
+    "name": "FreqAI Hybrid",
+    "category": "ml_based",
+    "difficulty": "advanced",
+    "description": "TEMA + MACD + RSI combined with FreqAI ML classifier",
+    "indicators": [
+      "FreqAI_model",
+      "TEMA",
+      "MACD",
+      "RSI"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade/develop/freqtrade/templates/FreqaiExampleHybridStrategy.py"
+  },
+  {
+    "id": "ft_f_supertrend",
+    "name": "Futures Supertrend",
+    "category": "trend_following",
+    "difficulty": "medium",
+    "description": "Supertrend for futures with shorting support (can_short=True)",
+    "indicators": [
+      "Supertrend"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/futures/FSupertrendStrategy.py"
+  },
+  {
+    "id": "ft_volatility_system",
+    "name": "Volatility System",
+    "category": "volatility",
+    "difficulty": "medium",
+    "description": "ATR resampled 3h with absolute close change for volatility breakout",
+    "indicators": [
+      "ATR"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/futures/VolatilitySystem.py"
+  },
+  {
+    "id": "ft_ott",
+    "name": "OTT Strategy (Futures)",
+    "category": "trend_following",
+    "difficulty": "medium",
+    "description": "Optimized Trend Tracker with VAR and ADX for futures",
+    "indicators": [
+      "OTT",
+      "VAR",
+      "ADX"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "5m"
+    ],
+    "engine": "freqtrade",
+    "source": "https://raw.githubusercontent.com/freqtrade/freqtrade-strategies/main/user_data/strategies/futures/FOttStrategy.py"
+  }
+]

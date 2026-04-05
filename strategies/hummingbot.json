@@ -1,0 +1,251 @@
+[
+  {
+    "id": "hb_pmm",
+    "name": "Pure Market Making",
+    "category": "market_making",
+    "difficulty": "advanced",
+    "description": "Place bid/ask orders simultaneously to earn spread. Basic MM strategy",
+    "indicators": [
+      "mid_price",
+      "spread"
+    ],
+    "default_params": {
+      "bid_spread": 0.001,
+      "ask_spread": 0.001
+    },
+    "timeframes": [
+      "1s"
+    ],
+    "engine": "hummingbot",
+    "source": "https://raw.githubusercontent.com/hummingbot/hummingbot/master/hummingbot/strategy/pure_market_making/pure_market_making.pyx"
+  },
+  {
+    "id": "hb_avellaneda",
+    "name": "Avellaneda Market Making",
+    "category": "market_making",
+    "difficulty": "advanced",
+    "description": "Optimal quoting based on Avellaneda-Stoikov model with inventory risk management",
+    "indicators": [
+      "mid_price",
+      "volatility",
+      "inventory"
+    ],
+    "default_params": {
+      "risk_factor": 0.5
+    },
+    "timeframes": [
+      "1s"
+    ],
+    "engine": "hummingbot",
+    "source": "https://raw.githubusercontent.com/hummingbot/hummingbot/master/hummingbot/strategy/avellaneda_market_making/avellaneda_market_making.pyx"
+  },
+  {
+    "id": "hb_xemm",
+    "name": "Cross-Exchange Market Making",
+    "category": "market_making",
+    "difficulty": "advanced",
+    "description": "Market make on one exchange, hedge on another. Cross-exchange spread capture",
+    "indicators": [
+      "mid_price_maker",
+      "mid_price_taker"
+    ],
+    "default_params": {
+      "min_profitability": 0.003
+    },
+    "timeframes": [
+      "1s"
+    ],
+    "engine": "hummingbot",
+    "source": "https://raw.githubusercontent.com/hummingbot/hummingbot/master/hummingbot/strategy/cross_exchange_market_making/cross_exchange_market_making.py"
+  },
+  {
+    "id": "hb_perpetual_mm",
+    "name": "Perpetual Market Making",
+    "category": "market_making",
+    "difficulty": "advanced",
+    "description": "Market making specifically for perpetual futures markets",
+    "indicators": [
+      "mid_price",
+      "funding_rate"
+    ],
+    "default_params": {
+      "leverage": 1
+    },
+    "timeframes": [
+      "1s"
+    ],
+    "engine": "hummingbot",
+    "source": "https://raw.githubusercontent.com/hummingbot/hummingbot/master/hummingbot/strategy/perpetual_market_making/perpetual_market_making.py"
+  },
+  {
+    "id": "hb_amm_arb",
+    "name": "AMM Arbitrage",
+    "category": "arbitrage",
+    "difficulty": "advanced",
+    "description": "Arbitrage price differences between DEX (AMM) and CEX",
+    "indicators": [
+      "price_dex",
+      "price_cex"
+    ],
+    "default_params": {
+      "min_profitability": 0.01
+    },
+    "timeframes": [
+      "1s"
+    ],
+    "engine": "hummingbot",
+    "source": "https://raw.githubusercontent.com/hummingbot/hummingbot/master/hummingbot/strategy/amm_arb/amm_arb.py"
+  },
+  {
+    "id": "hb_spot_perp_arb",
+    "name": "Spot-Perpetual Arbitrage",
+    "category": "arbitrage",
+    "difficulty": "advanced",
+    "description": "Arbitrage funding rate between spot and perpetual futures",
+    "indicators": [
+      "spot_price",
+      "perp_price",
+      "funding_rate"
+    ],
+    "default_params": {
+      "min_divergence": 0.02
+    },
+    "timeframes": [
+      "1s",
+      "1m"
+    ],
+    "engine": "hummingbot",
+    "source": "https://raw.githubusercontent.com/hummingbot/hummingbot/master/hummingbot/strategy/spot_perpetual_arbitrage/spot_perpetual_arbitrage.py"
+  },
+  {
+    "id": "hb_hedge",
+    "name": "Hedge",
+    "category": "arbitrage",
+    "difficulty": "advanced",
+    "description": "Auto-hedge positions across exchanges",
+    "indicators": [
+      "position_A",
+      "position_B"
+    ],
+    "default_params": {
+      "hedge_ratio": 1.0
+    },
+    "timeframes": [
+      "1s"
+    ],
+    "engine": "hummingbot",
+    "source": "https://raw.githubusercontent.com/hummingbot/hummingbot/master/hummingbot/strategy/hedge/hedge.py"
+  },
+  {
+    "id": "hb_liquidity_mining",
+    "name": "Liquidity Mining",
+    "category": "market_making",
+    "difficulty": "advanced",
+    "description": "Order placement optimized for exchange liquidity reward programs",
+    "indicators": [
+      "mid_price",
+      "spread"
+    ],
+    "default_params": {
+      "spread": 0.002
+    },
+    "timeframes": [
+      "1s"
+    ],
+    "engine": "hummingbot",
+    "source": "https://raw.githubusercontent.com/hummingbot/hummingbot/master/hummingbot/strategy/liquidity_mining/liquidity_mining.py"
+  },
+  {
+    "id": "hb_cross_exchange_mining",
+    "name": "Cross-Exchange Mining",
+    "category": "arbitrage",
+    "difficulty": "advanced",
+    "description": "Arbitrage across exchanges with automatic rebalancing, slippage buffers, and fee accounting",
+    "indicators": [
+      "price_differential",
+      "trade_profitability"
+    ],
+    "default_params": {
+      "min_profitability": 0.003
+    },
+    "timeframes": [
+      "1s"
+    ],
+    "engine": "hummingbot",
+    "source": "https://github.com/hummingbot/hummingbot/tree/master/hummingbot/strategy/cross_exchange_mining"
+  },
+  {
+    "id": "hb_v2_funding_rate_arb",
+    "name": "Funding Rate Arbitrage (V2)",
+    "category": "arbitrage",
+    "difficulty": "advanced",
+    "description": "Exploit funding rate differentials between perp exchanges. Long/short across two connectors",
+    "indicators": [
+      "funding_rate_spread",
+      "position_pnl"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "1s",
+      "1m"
+    ],
+    "engine": "hummingbot",
+    "source": "https://github.com/hummingbot/hummingbot/blob/master/scripts/v2_funding_rate_arb.py"
+  },
+  {
+    "id": "hb_simple_pmm",
+    "name": "Simple PMM (V2)",
+    "category": "market_making",
+    "difficulty": "easy",
+    "description": "Lightweight pure market making. Buy/sell around mid price, refresh at intervals",
+    "indicators": [
+      "mid_price"
+    ],
+    "default_params": {
+      "spread": 0.001
+    },
+    "timeframes": [
+      "1s"
+    ],
+    "engine": "hummingbot",
+    "source": "https://github.com/hummingbot/hummingbot/blob/master/scripts/simple_pmm.py"
+  },
+  {
+    "id": "hb_simple_vwap",
+    "name": "Simple VWAP Execution",
+    "category": "execution",
+    "difficulty": "medium",
+    "description": "VWAP execution — break large orders into smaller pieces to minimize market impact",
+    "indicators": [
+      "orderbook_volume",
+      "mid_price",
+      "vwap"
+    ],
+    "default_params": {},
+    "timeframes": [
+      "1s",
+      "1m"
+    ],
+    "engine": "hummingbot",
+    "source": "https://github.com/hummingbot/hummingbot/blob/master/scripts/simple_vwap.py"
+  },
+  {
+    "id": "hb_simple_xemm",
+    "name": "Simple XEMM (V2)",
+    "category": "market_making",
+    "difficulty": "medium",
+    "description": "Simplified cross-exchange MM. Limit orders on maker, hedge fills on taker",
+    "indicators": [
+      "mid_price_maker",
+      "mid_price_taker"
+    ],
+    "default_params": {
+      "min_profitability": 0.003
+    },
+    "timeframes": [
+      "1s"
+    ],
+    "engine": "hummingbot",
+    "source": "https://github.com/hummingbot/hummingbot/blob/master/scripts/simple_xemm.py"
+  }
+]
