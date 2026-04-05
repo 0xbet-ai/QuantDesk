@@ -14,6 +14,7 @@ One strategy workspace.
 | strategy_id | TEXT? | Catalog strategy ID (nullable for custom) |
 | engine | TEXT | Default: `freqtrade` |
 | config | JSONB | Default params — pairs, timeframe, etc. |
+| description | TEXT? | Strategy description |
 | status | TEXT | `active` / `archived` |
 | created_at | TIMESTAMPTZ | |
 | updated_at | TIMESTAMPTZ | |
@@ -35,7 +36,7 @@ A thread of work within a desk. Agent proposes new Experiments when direction ch
 
 ## Run
 
-A single backtest execution within an Experiment.
+A single backtest or live trading execution within an Experiment.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -43,14 +44,27 @@ A single backtest execution within an Experiment.
 | experiment_id | UUID | FK -> experiments |
 | run_number | INTEGER | Sequential within experiment |
 | is_baseline | BOOLEAN | True for first run in each experiment |
-| status | TEXT | `pending` / `running` / `completed` / `failed` |
+| mode | TEXT | `backtest` / `live` |
+| status | TEXT | `pending` / `running` / `completed` / `stopped` / `failed` |
 | config | JSONB | Override params for this run (merged with desk defaults) |
 | result | JSONB | Return, drawdown, win_rate, trades |
 | commit_hash | TEXT | Git commit hash in desk workspace |
-| dataset_id | UUID? | FK -> datasets |
+| dataset_id | UUID? | FK -> datasets (backtest only) |
 | error | TEXT? | Error message if failed |
 | created_at | TIMESTAMPTZ | |
 | completed_at | TIMESTAMPTZ? | |
+
+## Run Log
+
+Individual events within a Run. Backtest runs have trade logs; live runs additionally have pnl snapshots, errors, and status changes.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | UUID | Primary key |
+| run_id | UUID | FK -> runs |
+| type | TEXT | `trade` / `pnl` / `error` / `status` |
+| data | JSONB | Event data (price, quantity, pnl, etc.) |
+| created_at | TIMESTAMPTZ | |
 
 ## Dataset
 

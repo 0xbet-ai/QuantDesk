@@ -2,7 +2,7 @@
 
 ## Analytics
 
-Fetches data, writes/modifies strategy code, runs backtests, posts results as comments.
+Fetches data, writes/modifies strategy code, runs backtests, manages live trading, posts results as comments.
 
 If results look anomalous (e.g. unrealistic returns, suspicious drawdown), proposes Risk Manager validation to the user.
 
@@ -22,6 +22,7 @@ Examples:
 - New Experiment: "This seems like a different direction. Start a new Experiment?"
 - Risk validation: "Results look unusual. Run Risk Manager validation?"
 - Data re-download: "Data might be stale. Re-download?"
+- Go live: "Backtest looks solid. Go live?"
 
 ## New Experiment Criteria
 
@@ -34,6 +35,20 @@ Stay in the same Experiment for:
 - Parameter tuning (ADX period 14 -> 21)
 - Adding/removing filters on the same strategy
 - Re-running with same data
+
+## Proposal Protocol
+
+Agent uses structured markers in comment output to propose actions:
+
+| Marker | Action |
+|--------|--------|
+| `[PROPOSE_VALIDATION]` | Suggest Risk Manager validation |
+| `[PROPOSE_NEW_EXPERIMENT] {title}` | Suggest creating a new experiment |
+| `[PROPOSE_GO_LIVE] {run_id}` | Suggest going live with a backtest run |
+
+Server detects markers → shows proposal to user → user replies to approve/decline.
+
+Approval keywords: `approve`, `yes`, `ok`, `go`. Anything else = decline.
 
 ## Execution Flow
 

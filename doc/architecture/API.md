@@ -14,6 +14,9 @@
 | POST | /api/experiments/:id/comments | Post comment (triggers agent) |
 | GET | /api/experiments/:id/comments | Comment thread |
 | GET | /api/strategies | Catalog strategies |
+| POST | /api/runs/:id/go-live | Approve strategy for live trading |
+| POST | /api/runs/:id/stop | Stop a live trading run |
+| GET | /api/runs/:id/status | Live run status and metrics |
 
 ## WebSocket
 
@@ -24,5 +27,6 @@ ws://localhost:3000/api/experiments/:experimentId/events/ws
 One-way broadcast. No client-to-server messages.
 
 Events:
-- `run.status` — run started / completed / failed
+- `run.status` — run started / completed / stopped / failed
+- `run.live` — live trading metrics update (P&L, position, etc.)
 - `comment.new` — new comment posted by agent

@@ -17,7 +17,7 @@ No heartbeat or scheduler. Simple request-response triggered by user comments.
 5. Output parsed from JSONL stream:
    - Claude: `system`, `assistant`, `result` events → session ID, usage, summary
    - Codex: `thread.started`, `item.completed`, `turn.completed` events → thread ID, usage, summary
-6. Agent posts result as comment + creates Run record if backtest was executed
+6. Agent posts result as comment + creates Run record (backtest or live)
 7. Session ID persisted for resume on next comment
 
 ## Session Management

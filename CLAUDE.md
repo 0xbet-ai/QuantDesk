@@ -21,6 +21,9 @@ Product:
 4. `doc/product/DOMAIN_MODEL.md` — DB schema (Desk, Experiment, Run, Dataset, Comment, ...)
 5. `doc/product/AGENTS.md` — Analytics, Risk Manager, interaction pattern
 
+Plan:
+- `doc/PLAN.md` — TDD implementation phases with done-when criteria
+
 References:
 - `doc/REFERENCES.md` — Paperclip, Hipocampus, Freqtrade, etc.
 
