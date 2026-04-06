@@ -1,5 +1,7 @@
 import { Activity, Code, Database, FlaskConical, Settings } from "lucide-react";
-import type { Desk, Experiment } from "../lib/api.js";
+import { useEffect, useState } from "react";
+import type { Desk, Experiment, Run } from "../lib/api.js";
+import { listRuns } from "../lib/api.js";
 import { SidebarNavItem } from "./SidebarNavItem.js";
 import { SidebarSection } from "./SidebarSection.js";
 import { StatusDot } from "./StatusDot.js";
@@ -20,7 +22,28 @@ function formatUSD(value: string | number): string {
 	return num.toLocaleString("en-US");
 }
 
+function bestReturn(runs: Run[]): number | null {
+	const completed = runs.filter((r) => r.result != null);
+	if (completed.length === 0) return null;
+	return Math.max(...completed.map((r) => r.result!.returnPct));
+}
+
 export function DeskPanel({ desk, experiments, selectedExperimentId, onSelectExperiment }: Props) {
+	const [bestReturns, setBestReturns] = useState<Record<string, number | null>>({});
+
+	useEffect(() => {
+		for (const exp of experiments) {
+			if (bestReturns[exp.id] !== undefined) continue;
+			listRuns(exp.id)
+				.then((runs) => {
+					setBestReturns((prev) => ({ ...prev, [exp.id]: bestReturn(runs) }));
+				})
+				.catch(() => {
+					setBestReturns((prev) => ({ ...prev, [exp.id]: null }));
+				});
+		}
+	}, [experiments, bestReturns]);
+
 	return (
 		<div className="flex flex-col h-full">
 			{/* Desk header */}
@@ -73,27 +96,39 @@ export function DeskPanel({ desk, experiments, selectedExperimentId, onSelectExp
 				<div className="flex flex-col gap-4 py-2">
 					{/* Experiments */}
 					<SidebarSection label="Experiments">
-						{experiments.map((exp) => (
-							<button
-								key={exp.id}
-								type="button"
-								onClick={() => onSelectExperiment(exp.id)}
-								className={`w-full text-left px-3 py-2 text-[13px] font-medium transition-colors flex items-center gap-2.5 ${
-									exp.id === selectedExperimentId
-										? "bg-accent text-accent-foreground"
-										: "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
-								}`}
-							>
-								<FlaskConical className="h-4 w-4 shrink-0 text-muted-foreground" />
-								<span className="flex-1 truncate">
-									#{exp.number} {exp.title}
-								</span>
-								<span className="ml-auto flex items-center gap-1.5 shrink-0">
-									<StatusDot status={exp.status} />
-									<span className="text-[11px] text-foreground/50">{exp.status}</span>
-								</span>
-							</button>
-						))}
+						{experiments.map((exp) => {
+							const best = bestReturns[exp.id];
+							return (
+								<button
+									key={exp.id}
+									type="button"
+									onClick={() => onSelectExperiment(exp.id)}
+									className={`w-full text-left px-3 py-2 text-[13px] font-medium transition-colors flex items-center gap-2.5 ${
+										exp.id === selectedExperimentId
+											? "bg-accent text-accent-foreground"
+											: "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
+									}`}
+								>
+									<FlaskConical className="h-4 w-4 shrink-0 text-muted-foreground" />
+									<span className="flex-1 truncate">
+										#{exp.number} {exp.title}
+									</span>
+									{best != null && (
+										<span
+											className={`text-[11px] font-medium shrink-0 ${
+												best >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"
+											}`}
+										>
+											{best >= 0 ? "+" : ""}
+											{best.toFixed(1)}%
+										</span>
+									)}
+									<span className="flex items-center gap-1.5 shrink-0">
+										<StatusDot status={exp.status} />
+									</span>
+								</button>
+							);
+						})}
 						{experiments.length === 0 && (
 							<div className="px-3 py-2 text-[13px] text-muted-foreground">No experiments yet</div>
 						)}

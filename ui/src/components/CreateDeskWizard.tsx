@@ -505,7 +505,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 							const categories = [...new Set(filteredStrategies.map((s) => s.category))];
 							return (
 								<div className="space-y-8">
-									<div className="flex items-center gap-3 mb-1">
+									<div className="flex items-center gap-3">
 										<FlaskConical className="size-5 text-foreground/60" />
 										<div>
 											<h3 className="text-sm font-semibold">Choose a strategy</h3>
@@ -514,52 +514,6 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											</p>
 										</div>
 									</div>
-
-									{/* Custom strategy card */}
-									<button
-										type="button"
-										aria-pressed={selectedStrategyId === "custom"}
-										onClick={() => setSelectedStrategyId("custom")}
-										className={cn(
-											"w-full text-left p-5 rounded-lg border-2 border-dashed transition-colors focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-											selectedStrategyId === "custom"
-												? "border-foreground bg-accent"
-												: "border-muted-foreground/30 hover:border-muted-foreground/60 hover:bg-accent/50",
-										)}
-									>
-										<div className="flex items-center gap-4">
-											<div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-												<Sparkles className="size-5 text-foreground/70" />
-											</div>
-											<div>
-												<div className="text-[13px] font-medium text-foreground">
-													Custom Strategy
-												</div>
-												<div className="text-xs text-foreground/60 mt-0.5">
-													Agent writes the strategy from your description
-												</div>
-											</div>
-										</div>
-									</button>
-
-									{selectedStrategyId === "custom" && (
-										<div className="max-w-md">
-											<label
-												htmlFor="strategy-prompt"
-												className="text-xs text-foreground/60 mb-1.5 block"
-											>
-												Describe your strategy
-											</label>
-											<Textarea
-												id="strategy-prompt"
-												value={customStrategyPrompt}
-												onChange={(e) => setCustomStrategyPrompt(e.target.value)}
-												rows={3}
-												placeholder="e.g. A momentum strategy that buys when RSI crosses above 30 and sells when it crosses below 70..."
-												required
-											/>
-										</div>
-									)}
 
 									{/* Search */}
 									<div className="relative max-w-sm">
@@ -572,8 +526,58 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 										/>
 									</div>
 
+									{/* Custom strategy — same grid card style */}
+									{!strategySearch && (
+										<div>
+											<button
+												type="button"
+												aria-pressed={selectedStrategyId === "custom"}
+												onClick={() => setSelectedStrategyId("custom")}
+												className={cn(
+													"text-left p-4 rounded-lg border transition-colors w-full focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+													selectedStrategyId === "custom"
+														? "border-foreground bg-accent"
+														: "border-border hover:bg-accent/50",
+												)}
+											>
+												<div className="flex items-start gap-3">
+													<div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted mt-0.5">
+														<Sparkles className="size-4 text-foreground/70" />
+													</div>
+													<div className="min-w-0">
+														<div className="text-[13px] font-medium text-foreground leading-tight">
+															Custom Strategy
+														</div>
+														<div className="text-xs text-foreground/60 mt-1 line-clamp-2">
+															Describe what you want and the agent writes the strategy code
+														</div>
+													</div>
+												</div>
+											</button>
+
+											{selectedStrategyId === "custom" && (
+												<div className="mt-3 max-w-md">
+													<label
+														htmlFor="strategy-prompt"
+														className="text-xs text-muted-foreground mb-1.5 block"
+													>
+														Describe your strategy
+													</label>
+													<Textarea
+														id="strategy-prompt"
+														value={customStrategyPrompt}
+														onChange={(e) => setCustomStrategyPrompt(e.target.value)}
+														rows={3}
+														placeholder="e.g. A momentum strategy that buys when RSI crosses above 30 and sells when it crosses below 70..."
+														required
+													/>
+												</div>
+											)}
+										</div>
+									)}
+
 									{filteredStrategies.length === 0 && strategySearch && (
-										<p className="text-sm text-muted-foreground py-6 text-center">
+										<p className="text-[13px] text-muted-foreground py-6 text-center">
 											No strategies match &ldquo;{strategySearch}&rdquo;
 										</p>
 									)}
