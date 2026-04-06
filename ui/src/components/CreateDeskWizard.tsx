@@ -7,6 +7,7 @@ import {
 	Bot,
 	Brain,
 	CandlestickChart,
+	Code2,
 	Crosshair,
 	FlaskConical,
 	GitBranch,
@@ -46,7 +47,7 @@ interface Props {
 	onCreated: (deskId: string) => void;
 }
 
-type Step = "desk" | "venue" | "strategy" | "config" | "launch";
+type Step = "desk" | "venue" | "strategy" | "agent" | "config" | "launch";
 
 const categoryMeta: Record<string, { label: string; icon: typeof TrendingUp }> = {
 	trend_following: { label: "Trend Following", icon: TrendingUp },
@@ -122,6 +123,7 @@ const stepTabs: { key: Step; label: string; icon: React.ComponentType<{ classNam
 		{ key: "desk", label: "Desk", icon: DeskIcon },
 		{ key: "venue", label: "Venue", icon: Store },
 		{ key: "strategy", label: "Strategy", icon: FlaskConical },
+		{ key: "agent", label: "Agent", icon: Bot },
 		{ key: "config", label: "Config", icon: Settings2 },
 		{ key: "launch", label: "Launch", icon: Rocket },
 	];
@@ -161,6 +163,10 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 	const [budget, setBudget] = useState("10000");
 	const [targetReturn, setTargetReturn] = useState("15");
 	const [stopLoss, setStopLoss] = useState("5");
+	const [adapterType, setAdapterType] = useState<"claude" | "codex">("claude");
+	const [adapterModel, setAdapterModel] = useState("default");
+	const [adapterTesting, setAdapterTesting] = useState(false);
+	const [adapterTestResult, setAdapterTestResult] = useState<"success" | "error" | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 	const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -302,6 +308,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 			case "strategy":
 				if (selectedStrategyId === "custom") return customStrategyPrompt.trim().length > 0;
 				return selectedStrategyId.length > 0;
+			case "agent":
+				return true;
 			case "launch":
 				return true;
 		}
@@ -646,6 +654,131 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 								</div>
 							);
 						})()}
+
+					{step === "agent" && (
+						<div className="space-y-8">
+							<div className="flex items-center gap-3 mb-1">
+								<Bot className="size-5 text-foreground/60" />
+								<div>
+									<h3 className="text-sm font-semibold">Configure agent</h3>
+									<p className="text-xs text-foreground/50">
+										Choose how the AI agent will run tasks for this desk.
+									</p>
+								</div>
+							</div>
+
+							<div className="space-y-4 max-w-md">
+								<div>
+									<label className="text-xs text-foreground/60 mb-2 block">Adapter type</label>
+									<div className="grid grid-cols-2 gap-3">
+										<button
+											type="button"
+											onClick={() => setAdapterType("claude")}
+											className={cn(
+												"relative p-4 rounded-lg border text-center transition-colors",
+												adapterType === "claude"
+													? "border-foreground bg-accent"
+													: "border-border hover:bg-accent/50",
+											)}
+										>
+											{adapterType === "claude" && (
+												<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-green-500 text-white rounded-full">
+													Selected
+												</span>
+											)}
+											<Sparkles className="size-5 mx-auto mb-2 text-foreground/70" />
+											<div className="text-[13px] font-medium">Claude Code</div>
+											<div className="text-[11px] text-muted-foreground mt-0.5">
+												Local Claude agent
+											</div>
+										</button>
+										<button
+											type="button"
+											onClick={() => setAdapterType("codex")}
+											className={cn(
+												"relative p-4 rounded-lg border text-center transition-colors",
+												adapterType === "codex"
+													? "border-foreground bg-accent"
+													: "border-border hover:bg-accent/50",
+											)}
+										>
+											{adapterType === "codex" && (
+												<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-green-500 text-white rounded-full">
+													Selected
+												</span>
+											)}
+											<Code2 className="size-5 mx-auto mb-2 text-foreground/70" />
+											<div className="text-[13px] font-medium">Codex</div>
+											<div className="text-[11px] text-muted-foreground mt-0.5">
+												Local Codex agent
+											</div>
+										</button>
+									</div>
+								</div>
+
+								<div>
+									<label className="text-xs text-foreground/60 mb-1.5 block">Model</label>
+									<select
+										value={adapterModel}
+										onChange={(e) => setAdapterModel(e.target.value)}
+										className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+									>
+										<option value="default">Default</option>
+										{adapterType === "claude" && (
+											<>
+												<option value="claude-opus-4-6">Claude Opus 4.6</option>
+												<option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
+											</>
+										)}
+										{adapterType === "codex" && (
+											<>
+												<option value="o3">o3</option>
+												<option value="o4-mini">o4-mini</option>
+											</>
+										)}
+									</select>
+								</div>
+
+								<div className="rounded-lg border border-border p-4 flex items-center justify-between">
+									<div>
+										<div className="text-[13px] font-medium">Adapter environment check</div>
+										<div className="text-xs text-muted-foreground mt-0.5">
+											Runs a live probe that asks the adapter CLI to respond with hello.
+										</div>
+									</div>
+									<Button
+										variant="outline"
+										size="sm"
+										disabled={adapterTesting}
+										onClick={async () => {
+											setAdapterTesting(true);
+											setAdapterTestResult(null);
+											try {
+												const res = await fetch(`/api/agent/test?adapter=${adapterType}`);
+												setAdapterTestResult(res.ok ? "success" : "error");
+											} catch {
+												setAdapterTestResult("error");
+											} finally {
+												setAdapterTesting(false);
+											}
+										}}
+									>
+										{adapterTesting
+											? "Testing..."
+											: adapterTestResult === "success"
+												? "Passed"
+												: "Test now"}
+									</Button>
+								</div>
+								{adapterTestResult === "error" && (
+									<div className="text-xs text-destructive">
+										{adapterType === "claude" ? "Claude CLI" : "Codex CLI"} not found or not
+										responding. Make sure it's installed.
+									</div>
+								)}
+							</div>
+						</div>
+					)}
 
 					{step === "config" && (
 						<div className="space-y-8">
