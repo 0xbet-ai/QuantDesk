@@ -398,12 +398,12 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 
 					{step === "venue" && (
 						<div className="space-y-8">
-							<div className="flex items-center gap-3 mb-1">
+							<div className="flex items-center gap-3 mb-6">
 								<Store className="size-5 text-foreground/60" />
 								<div>
 									<h3 className="text-sm font-semibold">Select venues</h3>
 									<p className="text-xs text-foreground/50">
-										Where do you trade? Select one or more.
+										Where do you trade? Select one or more. This cannot be changed later.
 									</p>
 								</div>
 							</div>
@@ -510,7 +510,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 										<div>
 											<h3 className="text-sm font-semibold">Choose a strategy</h3>
 											<p className="text-xs text-foreground/50">
-												Pick from catalog or let the agent write one from scratch.
+												Pick from catalog or let the agent write one from scratch. This cannot be
+												changed later.
 											</p>
 										</div>
 									</div>
@@ -663,10 +664,12 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									</label>
 									<Input
 										id="cfg-budget"
-										type="number"
-										min="1"
-										value={budget}
-										onChange={(e) => setBudget(e.target.value)}
+										inputMode="numeric"
+										value={Number(budget).toLocaleString("en-US")}
+										onChange={(e) => {
+											const raw = e.target.value.replace(/,/g, "");
+											if (/^\d*$/.test(raw)) setBudget(raw);
+										}}
 									/>
 								</div>
 								<div>
