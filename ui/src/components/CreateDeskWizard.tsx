@@ -1,6 +1,7 @@
 import {
 	Activity,
 	Anchor,
+	ArrowLeft,
 	ArrowLeftRight,
 	ArrowRight,
 	BarChart3,
@@ -328,12 +329,14 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 		>
 			{/* Header */}
 			<div className="shrink-0">
-				<div className="max-w-xl mx-auto w-full px-8">
-					<div className="pt-6 pb-4">
-						<Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close wizard">
-							<X className="size-4" />
-						</Button>
-					</div>
+				{/* X close — top left */}
+				<div className="px-6 pt-6 pb-2">
+					<Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close wizard">
+						<X className="size-4" />
+					</Button>
+				</div>
+				{/* Tabs — centered, same width as content */}
+				<div className="max-w-md mx-auto w-full px-8">
 					<div className="flex gap-1 border-b border-border">
 						{stepTabs.map((tab, i) => {
 							const Icon = tab.icon;
@@ -364,8 +367,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 			</div>
 
 			{/* Content */}
-			<div className="flex-1 overflow-y-auto flex flex-col">
-				<div className="max-w-xl mx-auto w-full px-8 py-12 my-auto">
+			<div className="flex-1 overflow-y-auto">
+				<div className="max-w-md mx-auto w-full px-8 py-8">
 					{step === "desk" && (
 						<div className="space-y-8">
 							<div className="flex items-center gap-3 mb-1">
@@ -962,9 +965,17 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 				</div>
 			</div>
 
-			{/* Footer */}
-			<div className="shrink-0 border-t border-border">
-				<div className="max-w-xl mx-auto w-full flex justify-end px-8 py-4">
+			{/* Footer — inside content flow */}
+			<div className="shrink-0">
+				<div className="max-w-md mx-auto w-full flex items-center justify-between px-8 py-6">
+					{stepIndex > 0 ? (
+						<Button variant="ghost" onClick={() => setStepIndex(stepIndex - 1)} className="gap-1.5">
+							<ArrowLeft className="size-4" />
+							Back
+						</Button>
+					) : (
+						<div />
+					)}
 					{step === "launch" ? (
 						<Button onClick={handleSubmit} disabled={submitting || !canLaunch} className="gap-1.5">
 							<Rocket className="size-4" />
