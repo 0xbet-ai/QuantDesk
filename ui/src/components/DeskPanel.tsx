@@ -1,5 +1,6 @@
 import { Activity, Code, Database, FlaskConical, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
+import venues from "../../../strategies/venues.json";
 import type { Desk, Experiment, Run } from "../lib/api.js";
 import { listRuns } from "../lib/api.js";
 import { SidebarNavItem } from "./SidebarNavItem.js";
@@ -91,11 +92,14 @@ export function DeskPanel({
 				{/* Venues */}
 				{desk.venues.length > 0 && (
 					<div className="flex flex-wrap gap-1">
-						{(desk.venues as string[]).map((v) => (
-							<Badge key={v} variant="secondary" className="text-[9px]">
-								{v}
-							</Badge>
-						))}
+						{(desk.venues as string[]).map((v) => {
+							const venue = venues.find((ven) => ven.id === v);
+							return (
+								<Badge key={v} variant="secondary" className="text-[9px]">
+									{venue?.name ?? v}
+								</Badge>
+							);
+						})}
 					</div>
 				)}
 			</div>

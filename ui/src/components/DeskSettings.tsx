@@ -1,8 +1,8 @@
-import { ChevronRight, Settings } from "lucide-react";
+import { ChevronRight, Download, Settings, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Desk } from "../lib/api.js";
 import { archiveDesk, updateDesk } from "../lib/api.js";
-import { Badge } from "./ui/badge.js";
+
 import { Button } from "./ui/button.js";
 import { Input } from "./ui/input.js";
 import { Textarea } from "./ui/textarea.js";
@@ -137,32 +137,30 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 						</Field>
 					</Section>
 
-					{/* Venues & Engine (read-only) */}
-					<Section label="Venues & Engine">
-						<Field label="Engine">
-							<div className="text-[13px] font-medium">{desk.engine}</div>
-						</Field>
-						<Field label="Venues">
-							{desk.venues.length > 0 ? (
-								<div className="flex flex-wrap gap-1.5">
-									{(desk.venues as string[]).map((v) => (
-										<Badge key={v} variant="secondary">
-											{v}
-										</Badge>
-									))}
-								</div>
-							) : (
-								<div className="text-[13px] text-muted-foreground">No venues selected</div>
-							)}
-						</Field>
-					</Section>
-
 					{/* Save */}
 					{hasChanges && (
 						<Button onClick={handleSave} disabled={saving || !name.trim()}>
 							{saving ? "Saving..." : "Save changes"}
 						</Button>
 					)}
+
+					{/* Export / Import */}
+					<Section label="Desk Package">
+						<p className="text-[13px] text-muted-foreground">
+							Export this desk as a JSON package (settings, strategy, experiments) or import from a
+							file.
+						</p>
+						<div className="flex gap-2">
+							<Button variant="outline" size="sm" disabled>
+								<Download className="size-4" />
+								Export
+							</Button>
+							<Button variant="outline" size="sm" disabled>
+								<Upload className="size-4" />
+								Import
+							</Button>
+						</div>
+					</Section>
 
 					{/* Danger Zone */}
 					<div>
