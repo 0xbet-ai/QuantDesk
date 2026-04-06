@@ -1,0 +1,27 @@
+{
+  "total_pnl": 1230.0,
+  "total_return": 12.3,
+  "max_drawdown": 3.1,
+  "win_rate": 0.65,
+  "total_trades": 47,
+  "trades": [
+    {
+      "instrument_id": "BTC/USDT.BINANCE",
+      "side": "BUY",
+      "avg_price": 42150.5,
+      "quantity": 0.237,
+      "realized_pnl": 102.0,
+      "ts_opened": "2025-01-15T10:30:00Z",
+      "ts_closed": "2025-01-15T11:45:00Z"
+    },
+    {
+      "instrument_id": "BTC/USDT.BINANCE",
+      "side": "SELL",
+      "avg_price": 43200.0,
+      "quantity": 0.231,
+      "realized_pnl": -69.0,
+      "ts_opened": "2025-01-20T14:00:00Z",
+      "ts_closed": "2025-01-20T15:30:00Z"
+    }
+  ]
+}

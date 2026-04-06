@@ -1,0 +1,37 @@
+{
+  "strategy_name": "QuantDeskStrategy",
+  "backtest_start": "2025-01-01 00:00:00",
+  "backtest_end": "2025-03-31 23:59:00",
+  "timeframe": "5m",
+  "max_drawdown": 3.1,
+  "profit_total": 0.123,
+  "profit_total_abs": 1230,
+  "trade_count": 47,
+  "win_rate": 0.65,
+  "trades": [
+    {
+      "pair": "BTC/USDT",
+      "open_date": "2025-01-15 10:30:00",
+      "close_date": "2025-01-15 11:45:00",
+      "trade_duration": 75,
+      "open_rate": 42150.5,
+      "close_rate": 42580.3,
+      "profit_ratio": 0.0102,
+      "profit_abs": 102.0,
+      "amount": 0.237,
+      "is_short": false
+    },
+    {
+      "pair": "BTC/USDT",
+      "open_date": "2025-01-20 14:00:00",
+      "close_date": "2025-01-20 15:30:00",
+      "trade_duration": 90,
+      "open_rate": 43200.0,
+      "close_rate": 42900.0,
+      "profit_ratio": -0.0069,
+      "profit_abs": -69.0,
+      "amount": 0.231,
+      "is_short": false
+    }
+  ]
+}
