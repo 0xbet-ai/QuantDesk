@@ -6,6 +6,7 @@ import {
 	Loader2,
 	Send,
 	Shield,
+	Square,
 	User,
 	XCircle,
 } from "lucide-react";
@@ -442,12 +443,29 @@ export function CommentThread({ experiment }: Props) {
 					<Input
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
-						onKeyDown={(e) => e.key === "Enter" && handleSend()}
-						placeholder="Type a comment..."
+						onKeyDown={(e) => e.key === "Enter" && !thinkingRole && handleSend()}
+						placeholder={thinkingRole ? "Agent is working..." : "Type a comment..."}
+						disabled={!!thinkingRole}
 					/>
-					<Button size="sm" onClick={handleSend} disabled={sending || !input.trim()}>
-						<Send className="size-4" />
-					</Button>
+					{thinkingRole ? (
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={async () => {
+								await fetch(`/api/experiments/${experiment.id}/agent/stop`, {
+									method: "POST",
+								});
+								setThinkingRole(null);
+								setStreamEntries([]);
+							}}
+						>
+							<Square className="size-3.5 fill-current" />
+						</Button>
+					) : (
+						<Button size="sm" onClick={handleSend} disabled={sending || !input.trim()}>
+							<Send className="size-4" />
+						</Button>
+					)}
 				</div>
 			</div>
 		</div>

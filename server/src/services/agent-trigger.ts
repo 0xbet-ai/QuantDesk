@@ -1,3 +1,4 @@
+import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import { getAgentAdapter } from "@quantdesk/adapters";
 import { db } from "@quantdesk/db";
@@ -16,9 +17,28 @@ import { createComment } from "./comments.js";
 import { autoIncrementRunNumber } from "./logic.js";
 import { commitCode, hasChanges } from "./workspace.js";
 
+// Track running agent processes per experiment
+const activeAgents = new Map<string, ChildProcess>();
+
+export function stopAgent(experimentId: string): boolean {
+	const child = activeAgents.get(experimentId);
+	if (child) {
+		child.kill("SIGTERM");
+		activeAgents.delete(experimentId);
+		publishExperimentEvent({
+			experimentId,
+			type: "agent.done",
+			payload: { agentRole: "analyst", stopped: true },
+		});
+		return true;
+	}
+	return false;
+}
+
 interface StreamingSpawnOptions {
 	onLine?: (line: string) => void;
 	cwd?: string;
+	experimentId?: string;
 }
 
 function spawnCli(
@@ -33,6 +53,12 @@ function spawnCli(
 			cwd: options?.cwd,
 			stdio: ["pipe", "pipe", "pipe"],
 		});
+
+		// Track active agent process
+		if (options?.experimentId) {
+			activeAgents.set(options.experimentId, child);
+			child.on("close", () => activeAgents.delete(options.experimentId!));
+		}
 
 		const allLines: string[] = [];
 		let buffer = "";
@@ -122,6 +148,7 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 	const streamingSpawn = (args: string[], stdin: string) =>
 		spawnCli(args, stdin, {
 			cwd: desk.workspacePath ?? undefined,
+			experimentId,
 			onLine: (line) => {
 				const chunk = adapter.parseStreamLine(line);
 				if (chunk) {
