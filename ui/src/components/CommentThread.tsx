@@ -145,6 +145,68 @@ function parseProposals(content: string): { cleanContent: string; proposals: Pro
 	return { cleanContent: cleanContent.trim(), proposals };
 }
 
+function ProposalCard({
+	proposal,
+	experimentId,
+	onAction,
+}: { proposal: Proposal; experimentId: string; onAction: () => void }) {
+	const [status, setStatus] = useState<"pending" | "approved" | "declined">("pending");
+
+	const handleApprove = async () => {
+		setStatus("approved");
+		const message = `Approved: ${proposalLabels[proposal.type]}${proposal.value ? ` — ${proposal.value}` : ""}`;
+		await postComment(experimentId, message);
+		onAction();
+	};
+
+	const handleDecline = async () => {
+		setStatus("declined");
+		const message = `Declined: ${proposalLabels[proposal.type]}`;
+		await postComment(experimentId, message);
+		onAction();
+	};
+
+	return (
+		<div className="mt-2 flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2">
+			<span className="text-xs text-foreground flex-1">
+				{proposalLabels[proposal.type]}
+				{proposal.value && <span className="text-muted-foreground ml-1">— {proposal.value}</span>}
+			</span>
+			{status === "pending" ? (
+				<>
+					<Button
+						size="sm"
+						variant="outline"
+						className="h-6 px-2 text-xs gap-1"
+						onClick={handleApprove}
+					>
+						<CheckCircle2 className="size-3" />
+						Approve
+					</Button>
+					<Button
+						size="sm"
+						variant="ghost"
+						className="h-6 px-2 text-xs gap-1 text-muted-foreground"
+						onClick={handleDecline}
+					>
+						<XCircle className="size-3" />
+						Decline
+					</Button>
+				</>
+			) : (
+				<span
+					className={cn(
+						"text-xs font-medium",
+						status === "approved" ? "text-green-500" : "text-muted-foreground",
+					)}
+				>
+					{status === "approved" ? "Approved" : "Declined"}
+				</span>
+			)}
+		</div>
+	);
+}
+
 export function CommentThread({ experiment }: Props) {
 	const [comments, setComments] = useState<Comment[]>([]);
 	const [input, setInput] = useState("");
@@ -184,7 +246,7 @@ export function CommentThread({ experiment }: Props) {
 		}
 		if (event.type === "agent.streaming") {
 			const text = (event.payload as { text?: string }).text ?? "";
-			setStreamingText(text);
+			setStreamingText((prev) => `${prev}\n\n${text}`);
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
 		if (event.type === "agent.done" || event.type === "comment.new") {
@@ -250,37 +312,16 @@ export function CommentThread({ experiment }: Props) {
 								</div>
 							)}
 							{proposals.map((p) => (
-								<div
+								<ProposalCard
 									key={p.type}
-									className="mt-2 flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2"
-								>
-									<span className="text-xs text-foreground flex-1">
-										{proposalLabels[p.type]}
-										{p.value && <span className="text-muted-foreground ml-1">— {p.value}</span>}
-									</span>
-									<Button
-										size="sm"
-										variant="outline"
-										className="h-6 px-2 text-xs gap-1"
-										onClick={() => {
-											/* TODO: handle approve */
-										}}
-									>
-										<CheckCircle2 className="size-3" />
-										Approve
-									</Button>
-									<Button
-										size="sm"
-										variant="ghost"
-										className="h-6 px-2 text-xs gap-1 text-muted-foreground"
-										onClick={() => {
-											/* TODO: handle decline */
-										}}
-									>
-										<XCircle className="size-3" />
-										Decline
-									</Button>
-								</div>
+									proposal={p}
+									experimentId={experiment.id}
+									onAction={() => {
+										refresh();
+										setThinkingRole("analyst");
+										setStreamingText("");
+									}}
+								/>
 							))}
 						</div>
 					);

@@ -48,6 +48,27 @@ export class ClaudeAdapter implements AgentAdapter {
 		try {
 			const event: ClaudeEvent = JSON.parse(line);
 			if (event.type === "assistant" && "message" in event) {
+				const toolLabels: Record<string, string> = {
+					Write: "Writing",
+					Edit: "Editing",
+					Read: "Reading",
+					Bash: "Running",
+					Glob: "Searching",
+					Grep: "Searching",
+				};
+
+				// Check for tool_use blocks in assistant message
+				const toolBlock = event.message.content.find((b) => b.type === "tool_use") as
+					| { type: string; name?: string; input?: Record<string, unknown> }
+					| undefined;
+				if (toolBlock?.name) {
+					const label = toolLabels[toolBlock.name] ?? toolBlock.name;
+					const input = toolBlock.input as { file_path?: string; command?: string } | undefined;
+					const detail = input?.file_path ?? input?.command?.slice(0, 60);
+					return detail ? `🔧 ${label}: \`${detail}\`` : `🔧 ${label}...`;
+				}
+
+				// Check for text blocks
 				const texts = event.message.content
 					.filter((b) => b.type === "text" && b.text)
 					.map((b) => b.text!);
