@@ -1,0 +1,4 @@
+{"type":"thread.started","thread_id":"019d6039-8675-7241-9e79-cbfcbcb3fd44"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"I'll analyze the strategy and run a backtest."}}
+{"type":"turn.completed","usage":{"input_tokens":14972,"cached_input_tokens":3456,"output_tokens":33}}

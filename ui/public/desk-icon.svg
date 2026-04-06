@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <!-- desk top surface -->
+  <rect x="8" y="18" width="48" height="6" rx="2" />
+  <!-- left leg -->
+  <line x1="14" y1="24" x2="14" y2="46" />
+  <!-- right leg -->
+  <line x1="50" y1="24" x2="50" y2="46" />
+  <!-- drawer panel -->
+  <rect x="20" y="24" width="24" height="14" rx="1" />
+  <!-- drawer handle -->
+  <line x1="28" y1="31" x2="36" y2="31" />
+</svg>

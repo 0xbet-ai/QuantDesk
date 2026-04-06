@@ -1,0 +1,3 @@
+{"type":"system","subtype":"init","session_id":"aa5defe3-f519-40f0-8fdf-38644707da55","tools":["Bash","Edit","Read"],"model":"claude-opus-4-6[1m]"}
+{"type":"assistant","message":{"id":"msg_015z","type":"message","role":"assistant","content":[{"type":"text","text":"I'll analyze the strategy and run a backtest."}],"usage":{"input_tokens":1500,"output_tokens":42}},"session_id":"aa5defe3-f519-40f0-8fdf-38644707da55"}
+{"type":"result","subtype":"success","is_error":false,"result":"I'll analyze the strategy and run a backtest.","session_id":"aa5defe3-f519-40f0-8fdf-38644707da55","usage":{"input_tokens":1500,"output_tokens":42},"total_cost_usd":0.053}
