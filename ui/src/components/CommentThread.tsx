@@ -205,7 +205,7 @@ export function CommentThread({ experiment, onOpenRun }: Props) {
 						})
 						.catch(() => {});
 				}
-				setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
+				setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "auto" }), 50);
 			})
 			.catch(() => {});
 	}, [experiment.id]);
