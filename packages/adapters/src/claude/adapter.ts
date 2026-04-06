@@ -61,12 +61,8 @@ export class ClaudeAdapter implements AgentAdapter {
 			};
 		}
 
-		// ── system events (hooks, etc.) ──
+		// ── system events — skip internal noise (hooks, turn started) ──
 		if (eventType === "system") {
-			const subtype = typeof parsed.subtype === "string" ? parsed.subtype : "";
-			if (subtype) {
-				return { type: "system", content: subtype.replace(/_/g, " ") };
-			}
 			return null;
 		}
 

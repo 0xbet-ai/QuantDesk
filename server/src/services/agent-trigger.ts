@@ -139,8 +139,6 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 	// 4. Clear previous log and notify UI that agent is thinking
 	clearAgentLog(experimentId);
 	const ts = () => new Date().toISOString();
-	appendAgentLog(experimentId, { ts: ts(), type: "system", content: "run started" });
-	appendAgentLog(experimentId, { ts: ts(), type: "system", content: "adapter invocation" });
 
 	publishExperimentEvent({
 		experimentId,

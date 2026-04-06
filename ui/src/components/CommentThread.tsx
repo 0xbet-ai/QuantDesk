@@ -219,10 +219,7 @@ export function CommentThread({ experiment, onOpenRun }: Props) {
 		if (event.type === "agent.thinking") {
 			const role = (event.payload as { agentRole?: string }).agentRole ?? "analyst";
 			setThinkingRole(role);
-			setStreamEntries([
-				{ type: "system", content: "run started" },
-				{ type: "system", content: "adapter invocation" },
-			]);
+			setStreamEntries([]);
 			setRunStartedAt(new Date());
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
