@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import { ActivityView } from "./components/ActivityView.js";
 import { CommentThread } from "./components/CommentThread.js";
 import { CreateDeskWizard } from "./components/CreateDeskWizard.js";
+import type { DeskPage } from "./components/DeskPanel.js";
 import { DeskPanel } from "./components/DeskPanel.js";
+import { DeskSettings } from "./components/DeskSettings.js";
 import { Layout } from "./components/Layout.js";
 import { PropsPanel } from "./components/PropsPanel.js";
 import type { Desk, Experiment } from "./lib/api.js";
@@ -13,6 +16,7 @@ export function App() {
 	const [experiments, setExperiments] = useState<Experiment[]>([]);
 	const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
 	const [showWizard, setShowWizard] = useState(false);
+	const [deskPage, setDeskPage] = useState<DeskPage>("experiments");
 
 	const selectedDesk = desks.find((d) => d.id === selectedDeskId) ?? null;
 	const selectedExperiment = experiments.find((e) => e.id === selectedExperimentId) ?? null;
@@ -31,6 +35,7 @@ export function App() {
 	}, [refreshDesks]);
 
 	useEffect(() => {
+		setDeskPage("experiments");
 		if (!selectedDeskId) {
 			setExperiments([]);
 			setSelectedExperimentId(null);
@@ -60,25 +65,43 @@ export function App() {
 							desk={selectedDesk}
 							experiments={experiments}
 							selectedExperimentId={selectedExperimentId}
-							onSelectExperiment={setSelectedExperimentId}
+							activePage={deskPage}
+							onSelectExperiment={(id) => {
+								setSelectedExperimentId(id);
+								setDeskPage("experiments");
+							}}
+							onPageChange={setDeskPage}
 						/>
 					) : null
 				}
 				main={
-					selectedExperiment ? (
+					selectedDesk && deskPage === "settings" ? (
+						<DeskSettings
+							desk={selectedDesk}
+							onUpdated={() => refreshDesks()}
+							onArchived={() => {
+								setSelectedDeskId(null);
+								refreshDesks();
+							}}
+						/>
+					) : selectedDesk && deskPage === "activity" ? (
+						<ActivityView desk={selectedDesk} />
+					) : selectedExperiment && deskPage === "experiments" ? (
 						<CommentThread experiment={selectedExperiment} />
+					) : selectedDesk && deskPage !== "experiments" ? (
+						<div className="flex-1 flex items-center justify-center text-[13px] text-muted-foreground">
+							{deskPage.charAt(0).toUpperCase() + deskPage.slice(1)} — coming soon
+						</div>
 					) : (
-						<div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+						<div className="flex-1 flex items-center justify-center text-[13px] text-muted-foreground">
 							Select a desk and experiment to get started
 						</div>
 					)
 				}
 				panel={
-					selectedExperimentId ? (
+					deskPage === "experiments" && selectedExperimentId ? (
 						<PropsPanel experiment={selectedExperiment} experimentId={selectedExperimentId} />
-					) : (
-						<div className="p-3 text-xs text-muted-foreground">No experiment selected</div>
-					)
+					) : null
 				}
 			/>
 

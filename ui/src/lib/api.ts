@@ -51,6 +51,22 @@ export interface Comment {
 	createdAt: string;
 }
 
+export interface ActivityItem {
+	id: string;
+	type:
+		| "experiment_created"
+		| "run_created"
+		| "run_completed"
+		| "run_failed"
+		| "comment"
+		| "go_live"
+		| "run_stopped";
+	actor: string;
+	summary: string;
+	detail: string | null;
+	timestamp: string;
+}
+
 export interface Strategy {
 	id: string;
 	name: string;
@@ -84,6 +100,10 @@ export const createDesk = (data: Partial<Desk>) =>
 		body: JSON.stringify(data),
 	});
 
+export const updateDesk = (id: string, data: Partial<Desk>) =>
+	api<Desk>(`/desks/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+export const archiveDesk = (id: string) => api<Desk>(`/desks/${id}/archive`, { method: "POST" });
+
 export const listExperiments = (deskId: string) =>
 	api<Experiment[]>(`/desks/${deskId}/experiments`);
 export const listRuns = (experimentId: string) => api<Run[]>(`/experiments/${experimentId}/runs`);
@@ -97,6 +117,8 @@ export const postComment = (experimentId: string, content: string) =>
 
 export const listStrategies = (engine?: string) =>
 	api<Strategy[]>(`/strategies${engine ? `?engine=${engine}` : ""}`);
+
+export const listActivity = (deskId: string) => api<ActivityItem[]>(`/desks/${deskId}/activity`);
 
 export const goLive = (runId: string) => api<Run>(`/runs/${runId}/go-live`, { method: "POST" });
 export const stopRun = (runId: string) => api<Run>(`/runs/${runId}/stop`, { method: "POST" });

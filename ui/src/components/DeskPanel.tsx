@@ -10,11 +10,15 @@ import { Badge } from "./ui/badge.js";
 import { ScrollArea } from "./ui/scroll-area.js";
 import { Separator } from "./ui/separator.js";
 
+export type DeskPage = "experiments" | "datasets" | "code" | "activity" | "settings";
+
 interface Props {
 	desk: Desk;
 	experiments: Experiment[];
 	selectedExperimentId: string | null;
+	activePage: DeskPage;
 	onSelectExperiment: (id: string) => void;
+	onPageChange: (page: DeskPage) => void;
 }
 
 function formatUSD(value: string | number): string {
@@ -28,7 +32,14 @@ function bestReturn(runs: Run[]): number | null {
 	return Math.max(...completed.map((r) => r.result!.returnPct));
 }
 
-export function DeskPanel({ desk, experiments, selectedExperimentId, onSelectExperiment }: Props) {
+export function DeskPanel({
+	desk,
+	experiments,
+	selectedExperimentId,
+	activePage,
+	onSelectExperiment,
+	onPageChange,
+}: Props) {
 	const [bestReturns, setBestReturns] = useState<Record<string, number | null>>({});
 
 	useEffect(() => {
@@ -143,10 +154,30 @@ export function DeskPanel({ desk, experiments, selectedExperimentId, onSelectExp
 
 			{/* Bottom nav — desk-scoped pages */}
 			<div className="shrink-0 border-t border-border px-2 py-2 flex flex-col gap-0.5">
-				<SidebarNavItem label="Datasets" icon={Database} />
-				<SidebarNavItem label="Code" icon={Code} />
-				<SidebarNavItem label="Activity" icon={Activity} />
-				<SidebarNavItem label="Settings" icon={Settings} />
+				<SidebarNavItem
+					label="Datasets"
+					icon={Database}
+					active={activePage === "datasets"}
+					onClick={() => onPageChange("datasets")}
+				/>
+				<SidebarNavItem
+					label="Code"
+					icon={Code}
+					active={activePage === "code"}
+					onClick={() => onPageChange("code")}
+				/>
+				<SidebarNavItem
+					label="Activity"
+					icon={Activity}
+					active={activePage === "activity"}
+					onClick={() => onPageChange("activity")}
+				/>
+				<SidebarNavItem
+					label="Settings"
+					icon={Settings}
+					active={activePage === "settings"}
+					onClick={() => onPageChange("settings")}
+				/>
 			</div>
 		</div>
 	);
