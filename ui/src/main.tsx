@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import { App } from "./App.js";
+import { TooltipProvider } from "./components/ui/tooltip.js";
 import { ThemeProvider } from "./context/ThemeContext.js";
 
 // Set initial theme from localStorage
@@ -17,7 +18,9 @@ if (root) {
 	createRoot(root).render(
 		<StrictMode>
 			<ThemeProvider>
-				<App />
+				<TooltipProvider>
+					<App />
+				</TooltipProvider>
 			</ThemeProvider>
 		</StrictMode>,
 	);

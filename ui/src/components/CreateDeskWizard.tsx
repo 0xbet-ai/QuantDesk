@@ -42,6 +42,7 @@ import { Badge } from "./ui/badge.js";
 import { Button } from "./ui/button.js";
 import { Input } from "./ui/input.js";
 import { Textarea } from "./ui/textarea.js";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip.js";
 
 interface Props {
 	onClose: () => void;
@@ -429,20 +430,26 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 										</div>
 										<div className="flex flex-wrap gap-2">
 											{venuesByType[type].map((v) => (
-												<button
-													key={v.id}
-													type="button"
-													aria-pressed={selectedVenues.includes(v.id)}
-													onClick={() => toggleVenue(v.id)}
-													className={cn(
-														"px-3 py-1.5 rounded-md text-xs border transition-colors focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-														selectedVenues.includes(v.id)
-															? "bg-primary text-primary-foreground border-primary"
-															: "bg-card border-border dark:border-foreground/20 text-foreground hover:bg-accent",
+												<Tooltip key={v.id}>
+													<TooltipTrigger asChild>
+														<button
+															type="button"
+															aria-pressed={selectedVenues.includes(v.id)}
+															onClick={() => toggleVenue(v.id)}
+															className={cn(
+																"px-3 py-1.5 rounded-md text-xs border transition-colors focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+																selectedVenues.includes(v.id)
+																	? "bg-primary text-primary-foreground border-primary"
+																	: "bg-card border-border dark:border-foreground/20 text-foreground hover:bg-accent",
+															)}
+														>
+															{v.name}
+														</button>
+													</TooltipTrigger>
+													{v.url && (
+														<TooltipContent>{v.url.replace("https://", "")}</TooltipContent>
 													)}
-												>
-													{v.name}
-												</button>
+												</Tooltip>
 											))}
 										</div>
 									</div>
