@@ -1,0 +1,25 @@
+{
+  "name": "@quantdesk/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "migrate": "drizzle-kit migrate",
+    "generate": "drizzle-kit generate",
+    "seed": "tsx src/seed.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.39.3",
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.30.5",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}

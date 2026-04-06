@@ -1,0 +1,26 @@
+{
+  "name": "quantdesk",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter server dev & pnpm --filter ui dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "test": "vitest run",
+    "db:migrate": "pnpm --filter @quantdesk/db migrate",
+    "db:generate": "pnpm --filter @quantdesk/db generate",
+    "db:seed": "pnpm --filter @quantdesk/db seed"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "typescript": "^5.7.3",
+    "vitest": "^3.1.1"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=8"
+  },
+  "packageManager": "pnpm@8.15.5"
+}
