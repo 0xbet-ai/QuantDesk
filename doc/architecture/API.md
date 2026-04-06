@@ -7,6 +7,7 @@
 | POST | /api/desks | Create desk |
 | GET | /api/desks | List desks |
 | GET | /api/desks/:id | Desk detail |
+| PATCH | /api/desks/:id | Update desk (name, description, budget, target, stop-loss, venues) |
 | GET | /api/desks/:id/experiments | List experiments |
 | POST | /api/desks/:id/experiments | Create experiment |
 | GET | /api/experiments/:id | Experiment detail |

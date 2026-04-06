@@ -61,3 +61,25 @@ export async function getDesk(id: string) {
 	const [desk] = await db.select().from(desks).where(eq(desks.id, id));
 	return desk ?? null;
 }
+
+interface UpdateDeskInput {
+	name?: string;
+	description?: string;
+	budget?: string;
+	targetReturn?: string;
+	stopLoss?: string;
+	venues?: string[];
+}
+
+export async function updateDesk(id: string, input: UpdateDeskInput) {
+	const updates: Record<string, unknown> = { updatedAt: new Date() };
+	if (input.name !== undefined) updates.name = input.name;
+	if (input.description !== undefined) updates.description = input.description;
+	if (input.budget !== undefined) updates.budget = input.budget;
+	if (input.targetReturn !== undefined) updates.targetReturn = input.targetReturn;
+	if (input.stopLoss !== undefined) updates.stopLoss = input.stopLoss;
+	if (input.venues !== undefined) updates.venues = input.venues;
+
+	const [desk] = await db.update(desks).set(updates).where(eq(desks.id, id)).returning();
+	return desk ?? null;
+}
