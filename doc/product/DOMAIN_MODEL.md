@@ -98,16 +98,23 @@ Comments on an Experiment. User posts a comment, agents reply async (not real-ti
 
 ## Agent Session
 
-Persists AI CLI session for `--resume`. Scoped to desk (shared across experiments).
+Persists AI CLI session for `--resume`. Scoped to desk (shared across experiments). Adapter pattern follows Paperclip — `process` for local CLI subprocess, `http` for remote API.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | id | UUID | Primary key |
 | desk_id | UUID | FK -> desks |
 | agent_role | TEXT | `analytics` / `risk_manager` |
-| session_id | TEXT | AI CLI session ID |
+| adapter_type | TEXT | `process` / `http` |
+| adapter_config | JSONB | See below |
+| session_id | TEXT | AI CLI session ID (Claude session or Codex thread) |
 | total_cost | NUMERIC | Accumulated cost |
 | updated_at | TIMESTAMPTZ | |
+
+`adapter_config` examples:
+- Process: `{ "cli": "claude", "model": "claude-opus-4-6", "flags": ["--verbose"] }`
+- Process: `{ "cli": "codex", "model": "o3", "flags": [] }`
+- HTTP: `{ "url": "https://api.anthropic.com/v1/messages", "api_key_ref": "secret:claude_key" }`
 
 ## Memory Summary
 

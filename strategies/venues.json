@@ -18,7 +18,6 @@
   { "id": "btc_markets", "name": "BTC Markets", "type": "cex", "engines": ["hummingbot"] },
   { "id": "cube", "name": "Cube", "type": "cex", "engines": ["hummingbot"] },
   { "id": "bitmex", "name": "BitMEX", "type": "cex", "engines": ["nautilus"] },
-  { "id": "interactive_brokers", "name": "Interactive Brokers", "type": "tradfi", "engines": ["nautilus"] },
   { "id": "deribit", "name": "Deribit", "type": "cex", "engines": ["nautilus"] },
   { "id": "hyperliquid", "name": "Hyperliquid", "type": "dex", "engines": ["freqtrade", "hummingbot", "nautilus"] },
   { "id": "dydx", "name": "dYdX", "type": "dex", "engines": ["hummingbot", "nautilus"] },
@@ -38,6 +37,5 @@
   { "id": "dexalot", "name": "Dexalot", "type": "dex", "engines": ["hummingbot"] },
   { "id": "xrp_ledger", "name": "XRP Ledger", "type": "dex", "engines": ["hummingbot"] },
   { "id": "polymarket", "name": "Polymarket", "type": "prediction", "engines": ["nautilus"] },
-  { "id": "betfair", "name": "Betfair", "type": "prediction", "engines": ["nautilus"] },
   { "id": "kalshi", "name": "Kalshi", "type": "prediction", "engines": ["generic"] }
 ]

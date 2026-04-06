@@ -1,16 +1,17 @@
 # Agent Execution
 
-No heartbeat or scheduler. Simple request-response triggered by user comments.
+No heartbeat or scheduler. Simple request-response triggered by comments.
 
 ## Flow
 
-1. User posts comment on experiment
-2. Server spawns AI CLI subprocess via adapter
+1. Comment posted on experiment (user or system-generated on desk creation)
+2. Server reads `adapter_type` + `adapter_config` from Agent Session
    ```bash
-   # Claude CLI
+   # process + cli: claude
    claude --print - --output-format stream-json --verbose --resume {sessionId}
-   # Codex CLI
+   # process + cli: codex
    codex exec --json resume {threadId} -
+   # http → POST to adapter_config.url with API key
    ```
 3. Prompt piped via stdin (desk config, experiment context, run history, comment)
 4. Agent executes: writes code in workspace, runs engine backtest/live, collects results

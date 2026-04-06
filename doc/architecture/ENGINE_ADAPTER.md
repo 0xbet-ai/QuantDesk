@@ -94,7 +94,7 @@ Resolution order:
 1. **Catalog strategy**: engine is specified in the strategy JSON.
 2. **Custom strategy, known venues**: intersect engines from selected venues in `venues.json`. If one engine covers all venues, use it. If ambiguous, agent decides.
 3. **Custom strategy, custom venue**: defaults to `generic`.
-4. **Fallback**: `generic` when no existing engine fits (e.g. Polymarket prediction markets).
+4. **Fallback**: `generic` when no existing engine fits (e.g. Kalshi, custom venues).
 
 ## Generic Engine
 

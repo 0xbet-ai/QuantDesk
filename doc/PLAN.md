@@ -55,13 +55,13 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 - [ ] Venue multi-select chips from `strategies/venues.json` with "+ Add" custom venue
 - [ ] Strategy catalog browser filtered by selected venues, with category/difficulty filters
 - [ ] ExperimentList + Live list in col2
-- [ ] RunTable (sticky top in col3) with baseline delta display
+- [ ] RunTable in props panel (top section) with baseline delta display
 - [ ] CommentThread (scrollable bottom in col3) with role tags
 - [ ] Props panel: experiment props when no run selected, run metrics + [Go Live] button when run selected
 
 **Tests:**
 ```
-- Wizard creates desk with venues + first experiment in single flow
+- Wizard creates desk with venues + first experiment + system comment (triggers agent) in single flow
 - RunTable correctly shows "—" for baseline delta, computed delta for other rows
 - CommentThread renders [user], [analytics], [risk_manager] tags from author field
 - Default: most recent experiment auto-selected when desk is clicked
@@ -91,33 +91,62 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 - getDiff between two commits → shows only the changed lines
 - Two desks get isolated workspaces (changes in one don't appear in other)
 - initWorkspace with engine=freqtrade → creates strategy.py + config.json
+- initWorkspace with engine=hummingbot → creates strategy.py + conf_*.yml
+- initWorkspace with engine=nautilus → creates strategy.py + config.py
+- initWorkspace with engine=generic → creates empty workspace with README
 ```
 
 **Done when:** `pnpm test --filter=server -- workspace` passes.
 
 ---
 
-### 3.2 Freqtrade Engine Adapter
+### 3.2 Engine Adapters
+
+All four engines implemented in parallel. Each adapter implements the full `EngineAdapter` interface.
 
 **Tasks:**
-- [ ] `packages/engines/freqtrade/` — FreqtradeAdapter implementing EngineAdapter interface
-- [ ] `ensureInstalled()`, `downloadData()`, `runBacktest()`, `parseResult()`
-- [ ] `startLive()`, `stopLive()`, `getLiveStatus()`
+- [ ] `packages/engines/freqtrade/` — FreqtradeAdapter
+- [ ] `packages/engines/hummingbot/` — HummingbotAdapter
+- [ ] `packages/engines/nautilus/` — NautilusAdapter
+- [ ] `packages/engines/generic/` — GenericAdapter (agent-written scripts)
+- [ ] Each: `ensureInstalled()`, `downloadData()`, `runBacktest()`, `parseResult()`
+- [ ] Each: `startLive()`, `stopLive()`, `getLiveStatus()`
 - [ ] Trade entries parsed into TradeEntry[] for run_logs
+- [ ] Engine registry: `getAdapter(engine) → EngineAdapter`
 
-**Tests:**
+**Tests (per engine):**
 ```
+Freqtrade:
 - parseResult with real freqtrade JSON fixture → correct returnPct, drawdownPct, winRate, totalTrades
 - parseResult extracts individual TradeEntry[] with pair, side, price, amount, pnl, timestamps
 - parseResult with freqtrade error output → throws with meaningful message
+
+Hummingbot:
+- parseResult with hummingbot trade CSV fixture → correct NormalizedResult
+- parseResult extracts TradeEntry[] from hummingbot format
+- parseResult with hummingbot error output → throws with meaningful message
+
+Nautilus:
+- parseResult with nautilus backtest result fixture → correct NormalizedResult
+- parseResult extracts TradeEntry[] from nautilus format
+- parseResult with nautilus error output → throws with meaningful message
+
+Generic:
+- runBacktest executes agent-written script, parses stdout JSON → NormalizedResult
+- runBacktest with non-JSON stdout → throws with meaningful message
+- downloadData executes agent-written data script at expected workspace path
+
+All engines:
 - downloadData creates files at expected workspace path
 - runBacktest with a known strategy produces non-empty result (integration, skippable in CI)
 - startLive returns LiveHandle with process ID
 - getLiveStatus on running handle → { running: true, unrealizedPnl, ... }
 - stopLive → process terminated, getLiveStatus → { running: false }
+- getAdapter("freqtrade") → FreqtradeAdapter instance
+- getAdapter("unknown") → throws
 ```
 
-**Done when:** `pnpm test --filter=engines-freqtrade` passes.
+**Done when:** `pnpm test --filter=engines-*` passes.
 
 ---
 
@@ -210,7 +239,7 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 - Agent output with [PROPOSE_NEW_EXPERIMENT] My Title → proposal UI shown
 - User approves → experiment created with title "My Title", number auto-incremented
 - Agent output with [PROPOSE_COMPLETE_EXPERIMENT] → proposal UI shown
-- User approves → experiment status set to "completed", memory compaction triggered
+- User approves → experiment status set to "completed", experiment summary generated
 - Agent output with [PROPOSE_GO_LIVE] <runId> → proposal UI shown
 - User approves → POST /api/runs/:id/go-live triggered
 - Go-live without Risk Manager validation → warning shown, user can still proceed
