@@ -53,8 +53,8 @@ export function CommentThread({ experiment }: Props) {
 		<div className="flex flex-col h-full">
 			{/* Header */}
 			<div className="px-4 h-12 flex items-center gap-2 shrink-0">
-				<span className="text-sm font-semibold">Experiment #{experiment.number}</span>
-				<span className="text-sm text-muted-foreground">— {experiment.title}</span>
+				<span className="text-[13px] font-semibold">Experiment #{experiment.number}</span>
+				<span className="text-[13px] text-muted-foreground">— {experiment.title}</span>
 			</div>
 			<Separator />
 
@@ -82,7 +82,7 @@ export function CommentThread({ experiment }: Props) {
 									})}
 								</span>
 							</div>
-							<p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+							<p className="text-[13px] text-foreground whitespace-pre-wrap leading-relaxed">
 								{c.content}
 							</p>
 						</div>

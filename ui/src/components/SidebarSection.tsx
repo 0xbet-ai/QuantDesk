@@ -10,7 +10,7 @@ export function SidebarSection({ label, action, children }: Props) {
 	return (
 		<div>
 			<div className="flex items-center justify-between px-3 py-1.5">
-				<span className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground/60">
+				<span className="text-[10px] font-medium uppercase tracking-widest font-mono text-foreground/40">
 					{label}
 				</span>
 				{action}

@@ -361,7 +361,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 							<div className="flex items-center gap-3 mb-1">
 								<DeskIcon className="size-5 text-foreground/60" />
 								<div>
-									<h3 className="text-base font-semibold">Name your desk</h3>
+									<h3 className="text-sm font-semibold">Name your desk</h3>
 									<p className="text-xs text-foreground/50">
 										This is the workspace for your trading strategy.
 									</p>
@@ -401,7 +401,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 							<div className="flex items-center gap-3 mb-1">
 								<Store className="size-5 text-foreground/60" />
 								<div>
-									<h3 className="text-base font-semibold">Select venues</h3>
+									<h3 className="text-sm font-semibold">Select venues</h3>
 									<p className="text-xs text-foreground/50">
 										Where do you trade? Select one or more.
 									</p>
@@ -508,7 +508,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									<div className="flex items-center gap-3 mb-1">
 										<FlaskConical className="size-5 text-foreground/60" />
 										<div>
-											<h3 className="text-base font-semibold">Choose a strategy</h3>
+											<h3 className="text-sm font-semibold">Choose a strategy</h3>
 											<p className="text-xs text-foreground/50">
 												Pick from catalog or let the agent write one from scratch.
 											</p>
@@ -532,7 +532,9 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 												<Sparkles className="size-5 text-foreground/70" />
 											</div>
 											<div>
-												<div className="text-sm font-medium text-foreground">Custom Strategy</div>
+												<div className="text-[13px] font-medium text-foreground">
+													Custom Strategy
+												</div>
 												<div className="text-xs text-foreground/60 mt-0.5">
 													Agent writes the strategy from your description
 												</div>
@@ -616,7 +618,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																		<SIcon className="size-4 text-foreground/70" />
 																	</div>
 																	<div className="min-w-0">
-																		<div className="text-sm font-medium text-foreground leading-tight">
+																		<div className="text-[13px] font-medium text-foreground leading-tight">
 																			{s.name}
 																		</div>
 																		<div className="text-xs text-foreground/60 mt-1 line-clamp-2">
@@ -643,7 +645,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 							<div className="flex items-center gap-3 mb-1">
 								<Settings2 className="size-5 text-foreground/60" />
 								<div>
-									<h3 className="text-base font-semibold">Configure constraints</h3>
+									<h3 className="text-sm font-semibold">Configure constraints</h3>
 									<p className="text-xs text-foreground/50">
 										Set budget and risk parameters for this desk.
 									</p>
@@ -698,7 +700,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 							<div className="flex items-center gap-3 mb-1">
 								<Rocket className="size-5 text-foreground/60" />
 								<div>
-									<h3 className="text-base font-semibold">Review and launch</h3>
+									<h3 className="text-sm font-semibold">Review and launch</h3>
 									<p className="text-xs text-foreground/50">Confirm your desk configuration.</p>
 								</div>
 							</div>
