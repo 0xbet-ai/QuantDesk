@@ -335,9 +335,9 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 						<X className="size-4" />
 					</Button>
 				</div>
-				{/* Tabs — centered, same width as content */}
+				{/* Tabs — centered */}
 				<div className="max-w-md mx-auto w-full px-8">
-					<div className="flex gap-1 border-b border-border">
+					<div className="flex justify-center gap-1 border-b border-border">
 						{stepTabs.map((tab, i) => {
 							const Icon = tab.icon;
 							return (
