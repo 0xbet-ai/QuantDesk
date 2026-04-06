@@ -213,6 +213,7 @@ export function CommentThread({ experiment }: Props) {
 	const [sending, setSending] = useState(false);
 	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
 	const [streamingText, setStreamingText] = useState("");
+	const [toolLog, setToolLog] = useState<string[]>([]);
 	const { displayed: typedText, isTyping } = useTypewriter(streamingText, 4);
 	const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -242,16 +243,22 @@ export function CommentThread({ experiment }: Props) {
 			const role = (event.payload as { agentRole?: string }).agentRole ?? "analyst";
 			setThinkingRole(role);
 			setStreamingText("");
+			setToolLog([]);
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
 		if (event.type === "agent.streaming") {
 			const text = (event.payload as { text?: string }).text ?? "";
-			setStreamingText((prev) => `${prev}\n\n${text}`);
+			if (text.startsWith("🔧")) {
+				setToolLog((prev) => [...prev, text]);
+			} else {
+				setStreamingText(text);
+			}
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
 		if (event.type === "agent.done" || event.type === "comment.new") {
 			setThinkingRole(null);
 			setStreamingText("");
+			setToolLog([]);
 			refresh();
 		}
 	});
@@ -352,8 +359,17 @@ export function CommentThread({ experiment }: Props) {
 							<Loader2 className="size-3 animate-spin text-muted-foreground ml-1" />
 							<ElapsedTimer />
 						</div>
+						{toolLog.length > 0 && (
+							<div className="mt-1 space-y-0.5">
+								{toolLog.map((entry) => (
+									<div key={entry} className="text-xs text-muted-foreground font-mono">
+										{entry}
+									</div>
+								))}
+							</div>
+						)}
 						{typedText ? (
-							<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2 prose-strong:text-foreground">
+							<div className="mt-2 text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2 prose-strong:text-foreground">
 								<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
 									{typedText}
 								</Markdown>
@@ -363,7 +379,9 @@ export function CommentThread({ experiment }: Props) {
 							</div>
 						) : (
 							<div className="flex items-center gap-1.5 mt-1">
-								<span className="text-xs text-muted-foreground">Thinking…</span>
+								<span className="text-xs text-muted-foreground">
+									{toolLog.length > 0 ? "" : "Thinking…"}
+								</span>
 							</div>
 						)}
 					</div>
