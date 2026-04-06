@@ -1,5 +1,5 @@
 import { db } from "@quantdesk/db";
-import { agentSessions, comments, desks, experiments } from "@quantdesk/db/schema";
+import { agentSessions, comments, desks, experiments, strategyCatalog } from "@quantdesk/db/schema";
 import { eq } from "drizzle-orm";
 import { autoIncrementExperimentNumber } from "./logic.js";
 
@@ -46,10 +46,19 @@ export async function createDesk(input: CreateDeskInput) {
 		})
 		.returning();
 
+	let strategyLabel = "Custom strategy";
+	if (input.strategyId) {
+		const [catalogEntry] = await db
+			.select({ name: strategyCatalog.name })
+			.from(strategyCatalog)
+			.where(eq(strategyCatalog.id, input.strategyId));
+		strategyLabel = catalogEntry?.name ?? input.strategyId;
+	}
+
 	await db.insert(comments).values({
 		experimentId: experiment!.id,
 		author: "system",
-		content: `Desk created: ${desk!.name}. Strategy: ${input.description ?? input.strategyId ?? "custom"}. Venues: ${input.venues.join(", ")}. Budget: $${Number(input.budget).toLocaleString("en-US")}, target: ${input.targetReturn}%, stop-loss: ${input.stopLoss}%.`,
+		content: `Desk created: ${desk!.name}. Strategy: ${strategyLabel}. Venues: ${input.venues.join(", ")}. Budget: $${Number(input.budget).toLocaleString("en-US")}, target: ${input.targetReturn}%, stop-loss: ${input.stopLoss}%.`,
 	});
 
 	// Create agent session for this desk
