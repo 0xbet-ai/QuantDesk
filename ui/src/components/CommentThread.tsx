@@ -1,4 +1,15 @@
-import { Bot, Loader2, Send, Shield, User } from "lucide-react";
+import {
+	Bot,
+	CheckCircle2,
+	ChevronRight,
+	Code2,
+	Loader2,
+	Send,
+	Shield,
+	User,
+	XCircle,
+} from "lucide-react";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -34,6 +45,73 @@ function ElapsedTimer() {
 			{mins > 0 ? `${mins}m ${secs}s` : `${secs}s`}
 		</span>
 	);
+}
+
+function CollapsibleCode({ lang, children }: { lang: string; children: ReactNode }) {
+	const [open, setOpen] = useState(false);
+	return (
+		<div className="my-2 rounded-md border border-border overflow-hidden">
+			<button
+				type="button"
+				onClick={() => setOpen((o) => !o)}
+				className="flex items-center gap-1.5 w-full px-3 py-1.5 bg-muted/70 hover:bg-muted text-xs text-muted-foreground transition-colors"
+			>
+				<ChevronRight className={cn("size-3 transition-transform", open && "rotate-90")} />
+				<Code2 className="size-3" />
+				<span>{lang || "code"}</span>
+			</button>
+			{open && (
+				<pre className="overflow-x-auto p-3 text-xs bg-zinc-950 text-zinc-200">
+					<code>{children}</code>
+				</pre>
+			)}
+		</div>
+	);
+}
+
+const markdownComponents = {
+	pre({ children }: { children?: ReactNode }) {
+		return <>{children}</>;
+	},
+	code({
+		className,
+		children,
+		...props
+	}: { className?: string; children?: ReactNode; node?: unknown }) {
+		const match = /language-(\w+)/.exec(className ?? "");
+		if (match) {
+			return <CollapsibleCode lang={match[1]!}>{children}</CollapsibleCode>;
+		}
+		return (
+			<code className="bg-muted px-1 py-0.5 rounded text-[12px]" {...props}>
+				{children}
+			</code>
+		);
+	},
+};
+
+interface Proposal {
+	type: "VALIDATION" | "NEW_EXPERIMENT" | "COMPLETE_EXPERIMENT" | "GO_LIVE";
+	value: string;
+}
+
+const proposalLabels: Record<Proposal["type"], string> = {
+	VALIDATION: "Run Risk Manager validation",
+	NEW_EXPERIMENT: "Create new experiment",
+	COMPLETE_EXPERIMENT: "Mark experiment as completed",
+	GO_LIVE: "Go live with this run",
+};
+
+const PROPOSAL_RE =
+	/^\[PROPOSE_(VALIDATION|NEW_EXPERIMENT|COMPLETE_EXPERIMENT|GO_LIVE)\]\s*(?:—\s*)?(.*)$/gm;
+
+function parseProposals(content: string): { cleanContent: string; proposals: Proposal[] } {
+	const proposals: Proposal[] = [];
+	const cleanContent = content.replace(PROPOSAL_RE, (_, type: Proposal["type"], value: string) => {
+		proposals.push({ type, value: value.trim() });
+		return "";
+	});
+	return { cleanContent: cleanContent.trim(), proposals };
 }
 
 export function CommentThread({ experiment }: Props) {
@@ -105,6 +183,7 @@ export function CommentThread({ experiment }: Props) {
 				{comments.map((c) => {
 					const config = authorConfig[c.author] ?? authorConfig.system!;
 					const Icon = config.icon;
+					const { cleanContent, proposals } = parseProposals(c.content);
 					return (
 						<div key={c.id} className="rounded-md border border-border p-3">
 							<div className="flex items-center gap-2 mb-1.5">
@@ -124,9 +203,46 @@ export function CommentThread({ experiment }: Props) {
 									})}
 								</span>
 							</div>
-							<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-headings:my-2 prose-strong:text-foreground">
-								<Markdown remarkPlugins={[remarkGfm]}>{c.content}</Markdown>
-							</div>
+							{cleanContent && (
+								<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2 prose-strong:text-foreground">
+									<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+										{cleanContent}
+									</Markdown>
+								</div>
+							)}
+							{proposals.map((p) => (
+								<div
+									key={p.type}
+									className="mt-2 flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2"
+								>
+									<span className="text-xs text-foreground flex-1">
+										{proposalLabels[p.type]}
+										{p.value && <span className="text-muted-foreground ml-1">— {p.value}</span>}
+									</span>
+									<Button
+										size="sm"
+										variant="outline"
+										className="h-6 px-2 text-xs gap-1"
+										onClick={() => {
+											/* TODO: handle approve */
+										}}
+									>
+										<CheckCircle2 className="size-3" />
+										Approve
+									</Button>
+									<Button
+										size="sm"
+										variant="ghost"
+										className="h-6 px-2 text-xs gap-1 text-muted-foreground"
+										onClick={() => {
+											/* TODO: handle decline */
+										}}
+									>
+										<XCircle className="size-3" />
+										Decline
+									</Button>
+								</div>
+							))}
 						</div>
 					);
 				})}
@@ -157,8 +273,10 @@ export function CommentThread({ experiment }: Props) {
 							<ElapsedTimer />
 						</div>
 						{streamingText ? (
-							<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-headings:my-2 prose-strong:text-foreground">
-								<Markdown remarkPlugins={[remarkGfm]}>{streamingText}</Markdown>
+							<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2 prose-strong:text-foreground">
+								<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+									{streamingText}
+								</Markdown>
 								<span className="inline-block w-1.5 h-4 bg-green-400 animate-pulse ml-0.5 align-text-bottom" />
 							</div>
 						) : (
