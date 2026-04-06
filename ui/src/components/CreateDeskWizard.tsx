@@ -962,35 +962,40 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 							)}
 						</div>
 					)}
-				</div>
-			</div>
-
-			{/* Footer — inside content flow */}
-			<div className="shrink-0">
-				<div className="max-w-md mx-auto w-full flex items-center justify-between px-8 py-6">
-					{stepIndex > 0 ? (
-						<Button variant="ghost" onClick={() => setStepIndex(stepIndex - 1)} className="gap-1.5">
-							<ArrowLeft className="size-4" />
-							Back
-						</Button>
-					) : (
-						<div />
-					)}
-					{step === "launch" ? (
-						<Button onClick={handleSubmit} disabled={submitting || !canLaunch} className="gap-1.5">
-							<Rocket className="size-4" />
-							{submitting ? "Creating..." : "Launch"}
-						</Button>
-					) : (
-						<Button
-							onClick={() => setStepIndex(stepIndex + 1)}
-							disabled={!canProceed}
-							className="gap-1.5"
-						>
-							<ArrowRight className="size-4" />
-							Next
-						</Button>
-					)}
+					{/* Footer — inside content */}
+					<div className="flex items-center justify-between pt-8">
+						{stepIndex > 0 ? (
+							<Button
+								variant="ghost"
+								onClick={() => setStepIndex(stepIndex - 1)}
+								className="gap-1.5"
+							>
+								<ArrowLeft className="size-4" />
+								Back
+							</Button>
+						) : (
+							<div />
+						)}
+						{step === "launch" ? (
+							<Button
+								onClick={handleSubmit}
+								disabled={submitting || !canLaunch}
+								className="gap-1.5"
+							>
+								<Rocket className="size-4" />
+								{submitting ? "Creating..." : "Launch"}
+							</Button>
+						) : (
+							<Button
+								onClick={() => setStepIndex(stepIndex + 1)}
+								disabled={!canProceed}
+								className="gap-1.5"
+							>
+								<ArrowRight className="size-4" />
+								Next
+							</Button>
+						)}
+					</div>
 				</div>
 			</div>
 		</dialog>
