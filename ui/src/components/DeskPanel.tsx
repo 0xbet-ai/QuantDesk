@@ -100,6 +100,14 @@ export function DeskPanel({
 					</div>
 				</div>
 
+				{/* Strategy */}
+				{(strategy || desk.strategyId) && (
+					<div className="flex items-center justify-between">
+						<span className="text-xs text-muted-foreground">Strategy</span>
+						<span className="text-xs font-medium truncate ml-4">{strategy?.name ?? "Custom"}</span>
+					</div>
+				)}
+
 				{/* Venues */}
 				{desk.venues.length > 0 && (
 					<div className="flex flex-wrap gap-1">
