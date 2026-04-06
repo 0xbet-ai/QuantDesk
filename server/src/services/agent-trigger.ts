@@ -14,7 +14,15 @@ import { publishExperimentEvent } from "../realtime/live-events.js";
 import { AgentRunner } from "./agent-runner.js";
 import { createComment } from "./comments.js";
 
-function spawnCli(args: string[], stdin: string): Promise<string[]> {
+interface StreamingSpawnOptions {
+	onLine?: (line: string) => void;
+}
+
+function spawnCli(
+	args: string[],
+	stdin: string,
+	options?: StreamingSpawnOptions,
+): Promise<string[]> {
 	return new Promise((resolve, reject) => {
 		const cmd = args[0]!;
 		const child = spawn(cmd, args.slice(1), {
@@ -22,8 +30,21 @@ function spawnCli(args: string[], stdin: string): Promise<string[]> {
 			stdio: ["pipe", "pipe", "pipe"],
 		});
 
-		const chunks: Buffer[] = [];
-		child.stdout.on("data", (data: Buffer) => chunks.push(data));
+		const allLines: string[] = [];
+		let buffer = "";
+
+		child.stdout.on("data", (data: Buffer) => {
+			buffer += data.toString();
+			const lines = buffer.split("\n");
+			// Keep the last incomplete line in the buffer
+			buffer = lines.pop() ?? "";
+			for (const line of lines) {
+				if (line.trim().length > 0) {
+					allLines.push(line);
+					options?.onLine?.(line);
+				}
+			}
+		});
 
 		let stderr = "";
 		child.stderr.on("data", (data: Buffer) => {
@@ -32,11 +53,15 @@ function spawnCli(args: string[], stdin: string): Promise<string[]> {
 
 		child.on("error", reject);
 		child.on("close", (code) => {
-			const stdout = Buffer.concat(chunks).toString();
+			// Flush remaining buffer
+			if (buffer.trim().length > 0) {
+				allLines.push(buffer);
+				options?.onLine?.(buffer);
+			}
 			if (code !== 0) {
 				reject(new Error(`CLI exited with code ${code}: ${stderr}`));
 			} else {
-				resolve(stdout.split("\n").filter((line) => line.trim().length > 0));
+				resolve(allLines);
 			}
 		});
 
@@ -87,9 +112,24 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 		payload: { agentRole: session.agentRole },
 	});
 
-	// 5. Get adapter and run
+	// 5. Get adapter and build streaming spawn
 	const adapter = getAgentAdapter(session.adapterType);
-	const runner = new AgentRunner(adapter, spawnCli);
+
+	const streamingSpawn = (args: string[], stdin: string) =>
+		spawnCli(args, stdin, {
+			onLine: (line) => {
+				const text = adapter.parseStreamLine(line);
+				if (text) {
+					publishExperimentEvent({
+						experimentId,
+						type: "agent.streaming",
+						payload: { agentRole: session.agentRole, text },
+					});
+				}
+			},
+		});
+
+	const runner = new AgentRunner(adapter, streamingSpawn);
 
 	const result = await runner.run({
 		desk: {

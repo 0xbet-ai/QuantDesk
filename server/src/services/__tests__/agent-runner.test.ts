@@ -9,6 +9,7 @@ const mockAdapter = {
 		if (sessionId) args.push("--resume", sessionId);
 		return args;
 	}),
+	parseStreamLine: vi.fn(() => null),
 	parseOutputStream: vi.fn(() => ({
 		sessionId: "session-abc",
 		resultText: "I ran a backtest. Return +12.3%, DD -3.1%. Run #1 complete.",

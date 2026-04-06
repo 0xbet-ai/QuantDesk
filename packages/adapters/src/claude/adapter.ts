@@ -35,6 +35,22 @@ export class ClaudeAdapter implements AgentAdapter {
 		return args;
 	}
 
+	parseStreamLine(line: string): string | null {
+		if (!line.trim()) return null;
+		try {
+			const event: ClaudeEvent = JSON.parse(line);
+			if (event.type === "assistant" && "message" in event) {
+				const texts = event.message.content
+					.filter((b) => b.type === "text" && b.text)
+					.map((b) => b.text!);
+				return texts.length > 0 ? texts.join("") : null;
+			}
+		} catch {
+			/* ignore */
+		}
+		return null;
+	}
+
 	parseOutputStream(lines: string[]): SpawnResult {
 		let sessionId = "";
 		let resultText = "";

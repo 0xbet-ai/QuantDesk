@@ -27,6 +27,19 @@ export class CodexAdapter implements AgentAdapter {
 		return ["codex", "exec", "--json", prompt];
 	}
 
+	parseStreamLine(line: string): string | null {
+		if (!line.trim()) return null;
+		try {
+			const event: CodexEvent = JSON.parse(line);
+			if (event.type === "item.completed" && "item" in event) {
+				return event.item.text;
+			}
+		} catch {
+			/* ignore */
+		}
+		return null;
+	}
+
 	parseOutputStream(lines: string[]): SpawnResult {
 		let threadId = "";
 		let resultText = "";

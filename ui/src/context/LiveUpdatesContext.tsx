@@ -4,7 +4,13 @@ import type { ReactNode } from "react";
 interface LiveEvent {
 	id: number;
 	experimentId: string;
-	type: "comment.new" | "run.status" | "run.live" | "agent.thinking" | "agent.done";
+	type:
+		| "comment.new"
+		| "run.status"
+		| "run.live"
+		| "agent.thinking"
+		| "agent.streaming"
+		| "agent.done";
 	payload: Record<string, unknown>;
 	createdAt: string;
 }

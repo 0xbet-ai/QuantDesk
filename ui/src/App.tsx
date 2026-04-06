@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityView } from "./components/ActivityView.js";
 import { CommentThread } from "./components/CommentThread.js";
 import { CreateDeskWizard } from "./components/CreateDeskWizard.js";
