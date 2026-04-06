@@ -118,3 +118,8 @@ export async function getCode(cwd: string, commitHash: string, filePath: string)
 export async function getDiff(cwd: string, hash1: string, hash2: string): Promise<string> {
 	return git(cwd, "diff", hash1, hash2);
 }
+
+export async function hasChanges(cwd: string): Promise<boolean> {
+	const status = await git(cwd, "status", "--porcelain");
+	return status.length > 0;
+}

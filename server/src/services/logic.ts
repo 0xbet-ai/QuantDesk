@@ -6,6 +6,10 @@ export function autoIncrementExperimentNumber(existingCount: number): number {
 	return existingCount + 1;
 }
 
+export function autoIncrementRunNumber(existingCount: number): number {
+	return existingCount + 1;
+}
+
 interface RunResult {
 	returnPct: number;
 	drawdownPct: number;

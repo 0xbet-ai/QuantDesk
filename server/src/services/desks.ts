@@ -1,7 +1,11 @@
+import { join } from "node:path";
 import { db } from "@quantdesk/db";
 import { agentSessions, comments, desks, experiments, strategyCatalog } from "@quantdesk/db/schema";
 import { eq } from "drizzle-orm";
 import { autoIncrementExperimentNumber } from "./logic.js";
+import { initWorkspace } from "./workspace.js";
+
+const WORKSPACES_ROOT = process.env.WORKSPACES_ROOT ?? join(process.cwd(), "workspaces");
 
 interface CreateDeskInput {
 	name: string;
@@ -32,6 +36,10 @@ export async function createDesk(input: CreateDeskInput) {
 			description: input.description ?? null,
 		})
 		.returning();
+
+	// Initialize workspace for this desk
+	const workspacePath = await initWorkspace(desk!.id, input.engine, WORKSPACES_ROOT);
+	await db.update(desks).set({ workspacePath }).where(eq(desks.id, desk!.id));
 
 	const existingCount = 0;
 	const number = autoIncrementExperimentNumber(existingCount);

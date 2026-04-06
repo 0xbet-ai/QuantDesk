@@ -13,9 +13,12 @@ import { eq } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { AgentRunner } from "./agent-runner.js";
 import { createComment } from "./comments.js";
+import { autoIncrementRunNumber } from "./logic.js";
+import { commitCode, hasChanges } from "./workspace.js";
 
 interface StreamingSpawnOptions {
 	onLine?: (line: string) => void;
+	cwd?: string;
 }
 
 function spawnCli(
@@ -27,6 +30,7 @@ function spawnCli(
 		const cmd = args[0]!;
 		const child = spawn(cmd, args.slice(1), {
 			env: { ...process.env, TERM: "dumb" },
+			cwd: options?.cwd,
 			stdio: ["pipe", "pipe", "pipe"],
 		});
 
@@ -68,11 +72,11 @@ function spawnCli(
 		child.stdin.write(stdin);
 		child.stdin.end();
 
-		// Timeout after 2 minutes
+		// Timeout after 10 minutes (agent may write code + run backtests)
 		setTimeout(() => {
 			child.kill();
-			reject(new Error("Agent CLI timed out after 120s"));
-		}, 120_000);
+			reject(new Error("Agent CLI timed out after 600s"));
+		}, 600_000);
 	});
 }
 
@@ -117,6 +121,7 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 
 	const streamingSpawn = (args: string[], stdin: string) =>
 		spawnCli(args, stdin, {
+			cwd: desk.workspacePath ?? undefined,
 			onLine: (line) => {
 				const text = adapter.parseStreamLine(line);
 				if (text) {
@@ -170,13 +175,83 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 			.where(eq(agentSessions.id, session.id));
 	}
 
-	// 7. Post agent response as comment
+	// 7. Post-process workspace: commit code changes
+	let latestCommitHash: string | null = null;
+	if (desk.workspacePath) {
+		try {
+			const changed = await hasChanges(desk.workspacePath);
+			if (changed) {
+				latestCommitHash = await commitCode(
+					desk.workspacePath,
+					`Agent: Experiment #${experiment.number} — ${experiment.title}`,
+				);
+			}
+		} catch {
+			/* workspace commit failed, non-fatal */
+		}
+	}
+
+	// 8. Extract backtest results from agent output and create Run
 	if (result.resultText) {
-		await createComment({
-			experimentId,
-			author: session.agentRole,
-			content: result.resultText,
-		});
+		const backtestMatch = result.resultText.match(
+			/\[BACKTEST_RESULT\]\s*([\s\S]*?)\s*\[\/BACKTEST_RESULT\]/,
+		);
+		if (backtestMatch?.[1]) {
+			try {
+				const parsed = JSON.parse(backtestMatch[1]);
+				const existingRuns = await db
+					.select()
+					.from(runs)
+					.where(eq(runs.experimentId, experimentId));
+				const runNumber = autoIncrementRunNumber(existingRuns.length);
+				const isBaseline = existingRuns.length === 0;
+
+				const [run] = await db
+					.insert(runs)
+					.values({
+						experimentId,
+						runNumber,
+						isBaseline,
+						mode: "backtest",
+						status: "completed",
+						result: {
+							returnPct: parsed.returnPct,
+							drawdownPct: parsed.drawdownPct,
+							winRate: parsed.winRate,
+							totalTrades: parsed.totalTrades,
+						},
+						commitHash: latestCommitHash,
+						completedAt: new Date(),
+					})
+					.returning();
+
+				publishExperimentEvent({
+					experimentId,
+					type: "run.status",
+					payload: {
+						runId: run!.id,
+						status: "completed",
+						result: run!.result,
+					},
+				});
+			} catch {
+				/* backtest result parse failed, non-fatal */
+			}
+		}
+	}
+
+	// 9. Post agent response as comment (strip backtest markers)
+	if (result.resultText) {
+		const cleanText = result.resultText
+			.replace(/\[BACKTEST_RESULT\][\s\S]*?\[\/BACKTEST_RESULT\]/g, "")
+			.trim();
+		if (cleanText) {
+			await createComment({
+				experimentId,
+				author: session.agentRole,
+				content: cleanText,
+			});
+		}
 	} else if (result.error) {
 		await createComment({
 			experimentId,
@@ -185,7 +260,7 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 		});
 	}
 
-	// 8. Notify UI that agent is done
+	// 10. Notify UI that agent is done
 	publishExperimentEvent({
 		experimentId,
 		type: "agent.done",

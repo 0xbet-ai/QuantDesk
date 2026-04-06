@@ -1,0 +1,1 @@
+ALTER TABLE "desks" ADD COLUMN "workspace_path" text;

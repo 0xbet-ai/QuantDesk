@@ -20,6 +20,7 @@ export const desks = pgTable("desks", {
 	engine: text("engine").notNull(),
 	config: jsonb("config").notNull().$type<Record<string, unknown>>().default({}),
 	description: text("description"),
+	workspacePath: text("workspace_path"),
 	status: text("status").notNull().default("active"),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

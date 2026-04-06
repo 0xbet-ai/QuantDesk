@@ -28,7 +28,15 @@ export class ClaudeAdapter implements AgentAdapter {
 	readonly name = "claude";
 
 	buildSpawnArgs(_prompt: string, sessionId?: string): string[] {
-		const args = ["claude", "--print", "-", "--output-format", "stream-json", "--verbose"];
+		const args = [
+			"claude",
+			"-p",
+			"-",
+			"--output-format",
+			"stream-json",
+			"--verbose",
+			"--dangerously-skip-permissions",
+		];
 		if (sessionId) {
 			args.push("--resume", sessionId);
 		}
