@@ -653,7 +653,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																			{s.name}
 																		</div>
 																		<div className="text-xs text-foreground/60 mt-1 line-clamp-2">
-																			{s.description}
+																			{s.summary ?? s.description}
 																		</div>
 																		<div className={cn("text-[11px] mt-2 font-medium", diffColor)}>
 																			{s.difficulty}
@@ -885,7 +885,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											</div>
 											<div className="text-[13px] font-medium">{selectedStrategy.name}</div>
 											<div className="text-xs text-muted-foreground">
-												{selectedStrategy.description}
+												{selectedStrategy.summary ?? selectedStrategy.description}
 											</div>
 											{selectedStrategy.indicators.length > 0 && (
 												<div className="flex flex-wrap gap-1">

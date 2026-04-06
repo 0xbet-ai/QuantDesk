@@ -73,6 +73,7 @@ export interface Strategy {
 	category: string;
 	difficulty: string;
 	description: string;
+	summary?: string;
 	indicators: string[];
 	defaultParams: Record<string, unknown>;
 	timeframes: string[];

@@ -35,6 +35,7 @@ interface AnalystPromptInput {
 	runs: RunContext[];
 	comments: CommentContext[];
 	memorySummaries: MemorySummary[];
+	isResume?: boolean;
 }
 
 interface RiskManagerPromptInput {
@@ -74,6 +75,11 @@ export function buildAnalystPrompt(input: AnalystPromptInput): string {
 You research, write strategy code, run backtests, and analyze results.
 You use the ${desk.engine} engine for backtesting and live trading.
 
+Rules:
+- Do NOT repeat or echo back previous conversation messages. Only provide your new response.
+- Do NOT include [user], [system], or [analyst] prefixes in your output.
+- Write your response in the user's language (match the language of the most recent user message).
+
 When you want to propose actions, use these markers at the start of a line:
 - [PROPOSE_VALIDATION] — suggest Risk Manager validation
 - [PROPOSE_NEW_EXPERIMENT] <title> — suggest a new experiment
@@ -111,8 +117,9 @@ ${desk.description ?? ""}
 		sections.push(`## Context Summary\n${summaryLines.join("\n\n")}`);
 	}
 
-	// Comments (trimmed to token budget)
-	const trimmedComments = trimCommentsToTokenBudget(comments, 4000);
+	// Comments (trimmed to token budget, exclude system comments from conversation)
+	const userComments = comments.filter((c) => c.author !== "system");
+	const trimmedComments = trimCommentsToTokenBudget(userComments, 4000);
 	if (trimmedComments.length > 0) {
 		const commentLines = trimmedComments.map((c) => `[${c.author}] ${c.content}`);
 		sections.push(`## Conversation\n${commentLines.join("\n\n")}`);

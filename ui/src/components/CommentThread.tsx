@@ -105,12 +105,16 @@ const proposalLabels: Record<Proposal["type"], string> = {
 const PROPOSAL_RE =
 	/^\[PROPOSE_(VALIDATION|NEW_EXPERIMENT|COMPLETE_EXPERIMENT|GO_LIVE)\]\s*(?:—\s*)?(.*)$/gm;
 
+// Strip [user]/[analyst]/[system]/[risk_manager] prefixes that the agent may echo
+const AUTHOR_PREFIX_RE = /^\[(user|analyst|system|risk_manager)\]\s*/gm;
+
 function parseProposals(content: string): { cleanContent: string; proposals: Proposal[] } {
 	const proposals: Proposal[] = [];
-	const cleanContent = content.replace(PROPOSAL_RE, (_, type: Proposal["type"], value: string) => {
+	let cleanContent = content.replace(PROPOSAL_RE, (_, type: Proposal["type"], value: string) => {
 		proposals.push({ type, value: value.trim() });
 		return "";
 	});
+	cleanContent = cleanContent.replace(AUTHOR_PREFIX_RE, "");
 	return { cleanContent: cleanContent.trim(), proposals };
 }
 
@@ -126,6 +130,13 @@ export function CommentThread({ experiment }: Props) {
 		listComments(experiment.id)
 			.then((data) => {
 				setComments(data);
+				// Show thinking if agent response is expected:
+				// - only 1 comment (desk just created, agent trigger in progress)
+				// - last comment is from user (waiting for agent reply)
+				const last = data[data.length - 1];
+				if (last && (data.length === 1 || last.author === "user")) {
+					setThinkingRole("analyst");
+				}
 				setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 			})
 			.catch(() => {});
