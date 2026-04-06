@@ -32,6 +32,33 @@ const authorConfig: Record<string, { icon: typeof User; color: string; label: st
 	system: { icon: Bot, color: "text-muted-foreground", label: "System" },
 };
 
+function useTypewriter(text: string, charsPerTick = 3) {
+	const [displayed, setDisplayed] = useState("");
+	const targetRef = useRef(text);
+	targetRef.current = text;
+
+	useEffect(() => {
+		if (!text) {
+			setDisplayed("");
+			return;
+		}
+		// If new text is longer, animate from current position
+		const interval = setInterval(() => {
+			setDisplayed((prev) => {
+				const target = targetRef.current;
+				if (prev.length >= target.length) {
+					clearInterval(interval);
+					return target;
+				}
+				return target.slice(0, prev.length + charsPerTick);
+			});
+		}, 16);
+		return () => clearInterval(interval);
+	}, [text, charsPerTick]);
+
+	return { displayed, isTyping: displayed.length < text.length };
+}
+
 function ElapsedTimer() {
 	const [elapsed, setElapsed] = useState(0);
 	useEffect(() => {
@@ -124,6 +151,7 @@ export function CommentThread({ experiment }: Props) {
 	const [sending, setSending] = useState(false);
 	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
 	const [streamingText, setStreamingText] = useState("");
+	const { displayed: typedText, isTyping } = useTypewriter(streamingText, 4);
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	const refresh = useCallback(() => {
@@ -283,12 +311,14 @@ export function CommentThread({ experiment }: Props) {
 							<Loader2 className="size-3 animate-spin text-muted-foreground ml-1" />
 							<ElapsedTimer />
 						</div>
-						{streamingText ? (
+						{typedText ? (
 							<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2 prose-strong:text-foreground">
 								<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-									{streamingText}
+									{typedText}
 								</Markdown>
-								<span className="inline-block w-1.5 h-4 bg-green-400 animate-pulse ml-0.5 align-text-bottom" />
+								{isTyping && (
+									<span className="inline-block w-1.5 h-4 bg-green-400 animate-pulse ml-0.5 align-text-bottom" />
+								)}
 							</div>
 						) : (
 							<div className="flex items-center gap-1.5 mt-1">

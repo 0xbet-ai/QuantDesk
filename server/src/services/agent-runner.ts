@@ -51,6 +51,7 @@ export class AgentRunner {
 						runs: input.runs,
 						comments: input.comments,
 						memorySummaries: input.memorySummaries,
+						isResume: !!input.sessionId,
 					});
 
 		const args = this.adapter.buildSpawnArgs(prompt, input.sessionId);

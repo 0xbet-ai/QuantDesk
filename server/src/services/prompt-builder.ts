@@ -117,12 +117,20 @@ ${desk.description ?? ""}
 		sections.push(`## Context Summary\n${summaryLines.join("\n\n")}`);
 	}
 
-	// Comments (trimmed to token budget, exclude system comments from conversation)
+	// Comments: on resume, only send the latest user message (session already has history)
+	// On first run, send the full conversation (trimmed to token budget)
 	const userComments = comments.filter((c) => c.author !== "system");
-	const trimmedComments = trimCommentsToTokenBudget(userComments, 4000);
-	if (trimmedComments.length > 0) {
-		const commentLines = trimmedComments.map((c) => `[${c.author}] ${c.content}`);
-		sections.push(`## Conversation\n${commentLines.join("\n\n")}`);
+	if (input.isResume) {
+		const lastUserComment = [...userComments].reverse().find((c) => c.author === "user");
+		if (lastUserComment) {
+			sections.push(`## Latest Message\n${lastUserComment.content}`);
+		}
+	} else {
+		const trimmedComments = trimCommentsToTokenBudget(userComments, 4000);
+		if (trimmedComments.length > 0) {
+			const commentLines = trimmedComments.map((c) => `[${c.author}] ${c.content}`);
+			sections.push(`## Conversation\n${commentLines.join("\n\n")}`);
+		}
 	}
 
 	return sections.join("\n\n");
