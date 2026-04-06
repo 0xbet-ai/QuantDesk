@@ -32,10 +32,10 @@ quantdesk/
 ├── packages/
 │   ├── db/                       # Drizzle ORM schema + migrations
 │   ├── adapters/                 # AI CLI subprocess adapters (claude, codex)
-│   ├── engines/                  # engine adapters (freqtrade, hummingbot, nautilus)
+│   ├── engines/                  # engine adapters (freqtrade, hummingbot, nautilus, generic)
 │   ├── adapter-utils/            # child process, log parsing
 │   └── shared/                   # Zod schemas, cross-package types
-├── strategies/                   # curated catalog JSON + template code
+├── strategies/                   # curated catalog JSON + venues.json + template code
 ├── workspaces/                   # per-desk git repos (strategy code + data)
 ├── docker-compose.yml            # PostgreSQL
 └── package.json                  # pnpm workspace root

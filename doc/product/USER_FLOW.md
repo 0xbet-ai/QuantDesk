@@ -16,15 +16,17 @@ Step-by-step wizard on first visit (or "+" button):
 
 **Step 1 — Desk**: name and description for this strategy workspace.
 
-**Step 2 — Strategy**: pick from curated catalog (`strategies/*.json`) or describe in natural language. Agent will write the strategy code.
+**Step 2 — Venue**: where to trade? Multi-select chips from curated list (`strategies/venues.json`). Custom venue can be added via "+ Add". Multi-venue strategies (e.g. CEX-DEX arbitrage) select multiple.
 
-**Step 3 — Config**: budget (USD), target return % (per backtest period), stop-loss (max drawdown %).
+**Step 3 — Strategy**: pick from curated catalog (`strategies/*.json`, filtered by selected venues) or describe in natural language. Agent will write the strategy code.
 
-**Step 4 — Launch**: review summary and confirm. Creates the desk + first Experiment.
+**Step 4 — Config**: budget (USD), target return % (per backtest period), stop-loss (max drawdown %).
+
+**Step 5 — Launch**: review summary and confirm. Creates the desk + first Experiment.
 
 ## 3. First Experiment
 
-On launch, the first Experiment is auto-created. The system proposes a baseline backtest plan (data range, pairs, params). User reviews and approves, then:
+On launch, the first Experiment is auto-created. Analytics agent proposes a baseline backtest plan (data range, pairs, params) via proposal UI. User approves via button, then:
 1. Analytics agent fetches market data + runs initial backtest (baseline)
 2. Baseline run appears in the experiment
 
@@ -42,12 +44,9 @@ Agent proposes splitting when direction changes significantly. User approves or 
 
 ## 6. Go Live
 
-User approves a validated strategy for live trading:
+User approves a strategy for live trading. Risk Manager validation is optional — a warning is shown if not validated, but user can proceed.
 1. User clicks "Go Live" button next to a completed backtest run
 2. Agent starts engine in live mode with the same strategy and config
 3. Live run appears in the experiment with real-time status updates
 4. User can stop the live run at any time
 
-## 7. Review
-
-Col 2 shows all Experiments. Click one to see its Runs, comments, and analysis in Col 3.

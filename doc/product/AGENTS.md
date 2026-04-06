@@ -2,9 +2,9 @@
 
 ## Analytics
 
-Fetches data, writes/modifies strategy code, runs backtests, manages live trading, posts results as comments.
+Resolves engine from desk venues + strategy description, fetches data, writes/modifies strategy code, runs backtests, manages live trading, posts results as comments.
 
-If results look anomalous (e.g. unrealistic returns, suspicious drawdown), proposes Risk Manager validation to the user.
+If results look anomalous, proposes Risk Manager validation to the user. Anomaly detection is left to the agent's judgment — no fixed thresholds.
 
 ## Risk Manager
 
@@ -18,8 +18,11 @@ Only runs when:
 
 All agent actions that go beyond the current task follow the same pattern: **agent suggests -> user approves -> action**.
 
+All proposals are presented as button UI (Approve / Decline). No comment-based approval.
+
 Examples:
 - New Experiment: "This seems like a different direction. Start a new Experiment?"
+- Complete Experiment: "This experiment has converged. Mark as completed?"
 - Risk validation: "Results look unusual. Run Risk Manager validation?"
 - Data re-download: "Data might be stale. Re-download?"
 - Go live: "Backtest looks solid. Go live?"
@@ -43,12 +46,13 @@ Agent uses structured markers in comment output to propose actions:
 | Marker | Action |
 |--------|--------|
 | `[PROPOSE_VALIDATION]` | Suggest Risk Manager validation |
-| `[PROPOSE_NEW_EXPERIMENT] {title}` | Suggest creating a new experiment |
-| `[PROPOSE_GO_LIVE] {run_id}` | Suggest going live with a backtest run |
+| `[PROPOSE_NEW_EXPERIMENT] <title>` | Suggest creating a new experiment |
+| `[PROPOSE_COMPLETE_EXPERIMENT]` | Suggest marking current experiment as completed |
+| `[PROPOSE_GO_LIVE] <run_id>` | Suggest going live with a backtest run |
 
-Server detects markers → shows proposal to user → user replies to approve/decline.
+Format: marker tag at start of line, space, then value (everything after the space). No braces.
 
-Approval keywords: `approve`, `yes`, `ok`, `go`. Anything else = decline.
+Server detects markers → shows proposal UI to user → user approves/declines via button.
 
 ## Execution Flow
 

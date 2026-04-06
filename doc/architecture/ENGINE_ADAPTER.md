@@ -1,6 +1,6 @@
 # Engine Adapter
 
-Pluggable interface for backtesting and live trading engines: Freqtrade, Hummingbot, Nautilus Trader.
+Pluggable interface for backtesting and live trading engines: Freqtrade, Hummingbot, Nautilus Trader, Generic.
 
 ## Interface
 
@@ -52,7 +52,7 @@ interface TradeEntry {
 interface LiveConfig {
   strategyPath: string;
   workspacePath: string;
-  mode: "dry-run" | "live";
+  mode: "live";
   exchangeConfig: Record<string, unknown>;  // API keys, etc.
 }
 
@@ -80,7 +80,29 @@ interface EngineAdapter {
 }
 ```
 
-Each engine (Freqtrade, Hummingbot, Nautilus Trader) implements this interface. Workspace structure is engine-dependent:
+Each engine implements this interface. Workspace structure is engine-dependent:
 - Freqtrade: `strategy.py` + `config.json`
 - Hummingbot: `strategy.py` or `.pyx` + `conf_*.yml`
 - Nautilus: `strategy.py` + `config.py`
+- Generic: agent-written scripts (any language). Fallback when no engine matches.
+
+## Engine Resolution
+
+Engine is resolved by the agent (not the user). The agent's system prompt includes the venue-engine mapping from `strategies/venues.json`. Based on the desk's `venues` and strategy description, the agent selects the engine when creating the desk.
+
+Resolution order:
+1. **Catalog strategy**: engine is specified in the strategy JSON.
+2. **Custom strategy, known venues**: intersect engines from selected venues in `venues.json`. If one engine covers all venues, use it. If ambiguous, agent decides.
+3. **Custom strategy, custom venue**: defaults to `generic`.
+4. **Fallback**: `generic` when no existing engine fits (e.g. Polymarket prediction markets).
+
+## Generic Engine
+
+For strategies that don't fit existing engines. The agent writes both the strategy and the backtest/live scripts. Scripts must output `NormalizedResult` JSON to stdout.
+
+```
+ensureInstalled()   → checks node/python/bun available
+downloadData()      → runs agent-written data download script
+runBacktest()       → runs agent-written backtest script, parses stdout JSON
+startLive()         → spawns agent-written bot process
+```

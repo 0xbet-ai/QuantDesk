@@ -12,7 +12,8 @@ One strategy workspace.
 | target_return | NUMERIC | Target return % per backtest period |
 | stop_loss | NUMERIC | Max acceptable drawdown % |
 | strategy_id | TEXT? | Catalog strategy ID (nullable for custom) |
-| engine | TEXT | Default: `freqtrade` |
+| venues | JSONB | Selected venues, e.g. `["binance"]` or `["binance", "uniswap"]` |
+| engine | TEXT | Resolved by agent: `freqtrade`, `hummingbot`, `nautilus`, `generic` |
 | config | JSONB | Default params — pairs, timeframe, etc. |
 | description | TEXT? | Strategy description |
 | status | TEXT | `active` / `archived` |
@@ -121,6 +122,17 @@ Schema for long-term context compaction. See `doc/architecture/MEMORY.md` for ho
 | content | TEXT | Compressed summary |
 | created_at | TIMESTAMPTZ | |
 | updated_at | TIMESTAMPTZ | |
+
+## Venue Catalog
+
+Curated venue tags in `strategies/venues.json`. Each entry has: id, name, type (`cex`, `dex`, `prediction`), engines (which engines support this venue).
+
+Used for:
+- Wizard Step 2: multi-select chips for venue selection
+- Strategy catalog filtering: show only strategies whose engine supports selected venues
+- Engine resolution: narrows engine candidates for the agent
+
+Custom venues added via "+ Add" default to `generic` engine.
 
 ## Strategy Catalog
 

@@ -51,8 +51,9 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 **Tasks:**
 - [ ] React + Vite + Tailwind + Radix UI
 - [ ] 3-column layout + Props panel (col1: desk list, col2: desk panel, col3: experiment detail + props)
-- [ ] Desk creation wizard (4 steps: Desk → Strategy → Config → Launch)
-- [ ] Strategy catalog browser with engine/category/difficulty filters
+- [ ] Desk creation wizard (5 steps: Desk → Venue → Strategy → Config → Launch)
+- [ ] Venue multi-select chips from `strategies/venues.json` with "+ Add" custom venue
+- [ ] Strategy catalog browser filtered by selected venues, with category/difficulty filters
 - [ ] ExperimentList + Live list in col2
 - [ ] RunTable (sticky top in col3) with baseline delta display
 - [ ] CommentThread (scrollable bottom in col3) with role tags
@@ -60,7 +61,7 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 
 **Tests:**
 ```
-- Wizard creates desk + first experiment in single flow
+- Wizard creates desk with venues + first experiment in single flow
 - RunTable correctly shows "—" for baseline delta, computed delta for other rows
 - CommentThread renders [user], [analytics], [risk_manager] tags from author field
 - Default: most recent experiment auto-selected when desk is clicked
@@ -197,20 +198,22 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 ### 5.3 Agent Triggers
 
 **Tasks:**
-- [ ] Proposal marker detection: `[PROPOSE_VALIDATION]`, `[PROPOSE_NEW_EXPERIMENT]`, `[PROPOSE_GO_LIVE]`
-- [ ] Approval parsing from user comments
-- [ ] Risk Manager / new experiment / go-live execution on approval
+- [ ] Proposal marker detection: `[PROPOSE_VALIDATION]`, `[PROPOSE_NEW_EXPERIMENT]`, `[PROPOSE_COMPLETE_EXPERIMENT]`, `[PROPOSE_GO_LIVE]`
+- [ ] Button UI for approval (Approve / Decline)
+- [ ] Risk Manager / new experiment / complete experiment / go-live execution on approval
 
 **Tests:**
 ```
-- Agent output with [PROPOSE_VALIDATION] → proposal comment shown to user
-- User replies "approve" → Risk Manager spawned
-- User replies anything else → no action
-- Agent output with [PROPOSE_NEW_EXPERIMENT] My Title → proposal shown
+- Agent output with [PROPOSE_VALIDATION] → proposal UI shown to user
+- User clicks approve → Risk Manager spawned
+- User clicks decline → no action
+- Agent output with [PROPOSE_NEW_EXPERIMENT] My Title → proposal UI shown
 - User approves → experiment created with title "My Title", number auto-incremented
-- Agent output with [PROPOSE_GO_LIVE] {runId} → proposal shown
+- Agent output with [PROPOSE_COMPLETE_EXPERIMENT] → proposal UI shown
+- User approves → experiment status set to "completed", memory compaction triggered
+- Agent output with [PROPOSE_GO_LIVE] <runId> → proposal UI shown
 - User approves → POST /api/runs/:id/go-live triggered
-- User posts "validate" manually → Risk Manager spawned without proposal
+- Go-live without Risk Manager validation → warning shown, user can still proceed
 ```
 
 **Done when:** `pnpm test --filter=server -- triggers` passes.

@@ -1,40 +1,38 @@
 # UI Layout
 
-3-column layout:
+3-column layout + props panel:
 
 ```
-+- col1 -+--- col2 (desk panel) ---+---------- col3 (main) ---------------+- props -+
-|         |                         |                                      |         |
-| + New   | DESK A                  | EXPERIMENT #1 — ADX Baseline         | Props   |
-|         | BTC Trend Following     |                                      | Status  |
-| DESKS   | Budget $10K             | RUNS                                 |  done   |
-| Desk A< | Target 15% / Stop -5%   | # St  Return  vs   DD               | Runs: 3 |
-| Desk B  |                         | 1 ok  +12.3%  --   -3.1%            | Engine  |
-| Desk C  | EXPERIMENTS             | 2 ok  +15.1%  +2.8 -2.8% <selected | ft      |
-|         | #1 ADX Baseline  <      | 3 ..  running...                     |         |
-|         | #2 Timeframe Study      |                                      |---------|
-|         |                         | COMMENTS                             | Run #2  |
-|         | LIVE                    | [user] 5m BTC/USDT backtest          | +15.1%  |
-|         | * BTC/USDT live  #1-2   | [analytics] EXECUTED COMMAND >       | -2.8% DD|
-|         |                         | [analytics] Run #1 done.             | 65% WR  |
-| SETTINGS|                         |   Return +12.3%, DD -3.1%            | 47 trds |
-| Activity|                         | [user] Add RSI filter p=21           |         |
-| Settings|                         | [analytics] Run #2 done.             |[Go Live]|
-|         |                         |   Return +15.1% (+2.8%)              | Mode:   |
-|         |                         | +----------------------------------+ | dry-run |
-|         |                         | | > Type a comment...        [Send]| |         |
-|         |                         | +----------------------------------+ |         |
-+---------+-------------------------+--------------------------------------+---------+
++- col1 -+--- col2 (desk) ---+------ col3 (comments) ------+---- props ----+
+|         |                   |                              |               |
+| + New   | DESK A            | EXPERIMENT #1 — ADX Baseline | Experiment    |
+|         | BTC Trend Follow  |                              | Status: done  |
+| DESKS   | Budget $10K       | [user] 5m BTC/USDT backtest  | Runs: 3       |
+| Desk A< | Target 15%        | [analytics] EXECUTED CMD >   |               |
+| Desk B  | Stop -5%          | [analytics] Run #1 done.     |               |
+| Desk C  |                   |   Return +12.3%, DD -3.1%    |---------------|
+|         | EXPERIMENTS       | [user] Add RSI filter p=21   | RUNS          |
+|         | #1 ADX Base <     | [analytics] Run #2 done.     | #  Ret   DD   |
+|         | #2 TF Study       |   Return +15.1% (+2.8%)      | 1  +12.3 -3.1 |
+|         |                   | [risk_manager] Validated.     | 2  +15.1 -2.8 |
+|         | LIVE              |                              | 3  running..  |
+|         | * BTC live #1-2   |                              |               |
+|         |                   |                              | Run #2 detail |
+| SETTINGS|                   |                              | vs base +2.8% |
+| Activity|                   |                              | WR 65%        |
+| Settings|                   |                              | 47 trades     |
+|         |                   | +----------------------------+|               |
+|         |                   | | > Type a comment... [Send] ||  [Go Live]    |
+|         |                   | +----------------------------+|               |
++---------+-------------------+------------------------------+---------------+
 ```
 
 - **Col 1**: desk list + new desk button + settings nav
 - **Col 2**: selected desk config + experiment list + live list
   - LIVE section shows active/stopped live runs
-- **Col 3**: experiment view with two zones:
-  - **Top (sticky)**: experiment header + run summary table. Click a run to select it.
-  - **Bottom (scrollable)**: comment thread + input
-- **Props panel** (right side of col3): context-sensitive properties
-  - No run selected: experiment properties (status, run count, engine)
-  - Run selected: run metrics (return, drawdown, win rate, trades) + [Go Live] button + mode selector
+- **Col 3**: comment thread only + input at bottom. Scrollable.
+- **Props panel** (right): context-sensitive, two sections:
+  - **Top**: experiment info (status, run count) + run summary table. Click a run to select it.
+  - **Bottom**: selected run detail (metrics, delta vs baseline) + [Go Live] button. Shows warning if not validated by Risk Manager. Empty if no run selected.
 - Code/data not shown directly; agent includes analysis in comments
 - Default: most recent experiment selected when no selection

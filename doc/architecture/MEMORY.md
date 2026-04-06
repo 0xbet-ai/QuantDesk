@@ -26,7 +26,7 @@ When agent is invoked, the prompt is assembled:
 ## Implementation
 
 Follow hipocampus's implementation for:
-- **Threshold-based compaction**: below threshold = copy verbatim, above = LLM summarize
+- **Threshold-based compaction**: agent decides when context is getting long and triggers compaction. Below threshold = copy verbatim, above = LLM summarize
 - **Fixed/tentative lifecycle**: tentative nodes regenerated when new data arrives, fixed nodes (period ended + grace) never touched
 - **Token budgeting**: desk summary capped at ~3K tokens, experiment summaries at ~500 tokens each
 - **Secret scanning**: redact API keys/tokens via regex before summarization
