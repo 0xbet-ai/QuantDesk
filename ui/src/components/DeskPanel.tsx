@@ -1,8 +1,8 @@
 import { Activity, Code, Database, FlaskConical, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import venues from "../../../strategies/venues.json";
-import type { Desk, Experiment, Run } from "../lib/api.js";
-import { listRuns } from "../lib/api.js";
+import type { Desk, Experiment, Run, Strategy } from "../lib/api.js";
+import { listRuns, listStrategies } from "../lib/api.js";
 import { SidebarNavItem } from "./SidebarNavItem.js";
 import { SidebarSection } from "./SidebarSection.js";
 import { StatusDot } from "./StatusDot.js";
@@ -42,6 +42,19 @@ export function DeskPanel({
 	onPageChange,
 }: Props) {
 	const [bestReturns, setBestReturns] = useState<Record<string, number | null>>({});
+	const [strategy, setStrategy] = useState<Strategy | null>(null);
+
+	useEffect(() => {
+		if (!desk.strategyId) {
+			setStrategy(null);
+			return;
+		}
+		listStrategies()
+			.then((all) => {
+				setStrategy(all.find((s) => s.id === desk.strategyId) ?? null);
+			})
+			.catch(() => {});
+	}, [desk.strategyId]);
 
 	useEffect(() => {
 		for (const exp of experiments) {

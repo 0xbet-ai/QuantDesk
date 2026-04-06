@@ -55,6 +55,8 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 	const [stopLoss, setStopLoss] = useState(desk.stopLoss);
 	const [saving, setSaving] = useState(false);
 	const [archiving, setArchiving] = useState(false);
+	const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+	const [archiveConfirmText, setArchiveConfirmText] = useState("");
 
 	useEffect(() => {
 		setName(desk.name);
@@ -166,14 +168,14 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 							</div>
 							<Lock className="size-3 text-muted-foreground" />
 						</div>
-						<div className="rounded-lg border border-border p-4 space-y-4">
+						<div className="rounded-lg border border-border p-4 space-y-6">
 							{(() => {
 								const strategy = desk.strategyId
 									? allStrategies.find((s) => s.id === desk.strategyId)
 									: null;
 								if (strategy) {
 									return (
-										<div className="space-y-2">
+										<div className="space-y-3">
 											<div className="flex items-center gap-2">
 												<Badge variant="secondary">{formatCategory(strategy.category)}</Badge>
 												<Badge variant="outline">{strategy.difficulty}</Badge>
@@ -268,11 +270,45 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 						</div>
 						<div className="rounded-lg border border-destructive/30 p-4 space-y-3">
 							<p className="text-[13px] text-muted-foreground">
-								Archive this desk to hide it from the sidebar. This persists in the database.
+								Archive this desk to hide it from the sidebar. This cannot be undone.
 							</p>
-							<Button variant="destructive" size="sm" onClick={handleArchive} disabled={archiving}>
-								{archiving ? "Archiving..." : "Archive desk"}
-							</Button>
+							{!showArchiveConfirm ? (
+								<Button variant="destructive" size="sm" onClick={() => setShowArchiveConfirm(true)}>
+									Archive desk
+								</Button>
+							) : (
+								<div className="space-y-3">
+									<p className="text-[13px] text-foreground">
+										Type <span className="font-semibold">{desk.name}</span> to confirm.
+									</p>
+									<Input
+										value={archiveConfirmText}
+										onChange={(e) => setArchiveConfirmText(e.target.value)}
+										placeholder={desk.name}
+										autoFocus
+									/>
+									<div className="flex gap-2">
+										<Button
+											variant="destructive"
+											size="sm"
+											onClick={handleArchive}
+											disabled={archiving || archiveConfirmText !== desk.name}
+										>
+											{archiving ? "Archiving..." : "Confirm archive"}
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() => {
+												setShowArchiveConfirm(false);
+												setArchiveConfirmText("");
+											}}
+										>
+											Cancel
+										</Button>
+									</div>
+								</div>
+							)}
 						</div>
 					</div>
 				</div>

@@ -705,8 +705,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 					)}
 
 					{step === "launch" && (
-						<div className="space-y-8">
-							<div className="flex items-center gap-3 mb-1">
+						<div className="space-y-6">
+							<div className="flex items-center gap-3">
 								<Rocket className="size-5 text-foreground/60" />
 								<div>
 									<h3 className="text-sm font-semibold">Review and launch</h3>
@@ -714,43 +714,108 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 								</div>
 							</div>
 
-							<div className="max-w-sm space-y-3">
-								<div className="flex justify-between text-[13px]">
-									<span className="text-foreground/50">Desk</span>
-									<span className="font-medium">{name}</span>
+							<div className="max-w-md rounded-lg border border-border overflow-hidden">
+								{/* Desk name header */}
+								<div className="px-5 py-4 bg-muted/50 border-b border-border">
+									<div className="text-[13px] font-semibold">{name}</div>
+									{description && (
+										<div className="text-xs text-muted-foreground mt-0.5">{description}</div>
+									)}
 								</div>
-								<div className="flex justify-between text-[13px]">
-									<span className="text-foreground/50">Venues</span>
-									<div className="flex gap-1 flex-wrap justify-end">
-										{selectedVenues.map((v) => (
-											<Badge key={v} variant="secondary" className="text-[10px]">
-												{venueName(v)}
-											</Badge>
-										))}
-										{selectedVenues.length === 0 && (
-											<span className="text-foreground/40">none</span>
-										)}
+
+								{/* Strategy detail */}
+								<div className="px-5 py-4 space-y-3 border-b border-border">
+									{selectedStrategy ? (
+										<>
+											<div className="flex items-center gap-2">
+												<Badge variant="secondary">
+													{categoryMeta[selectedStrategy.category]?.label ??
+														selectedStrategy.category}
+												</Badge>
+												<Badge variant="outline">{selectedStrategy.difficulty}</Badge>
+											</div>
+											<div className="text-[13px] font-medium">{selectedStrategy.name}</div>
+											<div className="text-xs text-muted-foreground">
+												{selectedStrategy.description}
+											</div>
+											{selectedStrategy.indicators.length > 0 && (
+												<div className="flex flex-wrap gap-1">
+													{selectedStrategy.indicators.map((ind) => (
+														<Badge key={ind} variant="outline" className="text-[10px]">
+															{ind}
+														</Badge>
+													))}
+												</div>
+											)}
+											<div className="flex items-center gap-3 text-xs text-muted-foreground">
+												<span>Timeframe: {selectedStrategy.timeframes.join(", ")}</span>
+												{selectedStrategy.source && (
+													<a
+														href={selectedStrategy.source}
+														target="_blank"
+														rel="noreferrer"
+														className="hover:text-foreground underline underline-offset-2"
+													>
+														Source ↗
+													</a>
+												)}
+											</div>
+										</>
+									) : selectedStrategyId === "custom" ? (
+										<>
+											<div className="text-[13px] font-medium">Custom Strategy</div>
+											{customStrategyPrompt && (
+												<div className="text-xs text-muted-foreground">{customStrategyPrompt}</div>
+											)}
+										</>
+									) : (
+										<div className="text-xs text-muted-foreground">No strategy selected</div>
+									)}
+								</div>
+
+								{/* Venues */}
+								<div className="px-5 py-3 border-b border-border">
+									<div className="flex items-center justify-between">
+										<span className="text-xs text-muted-foreground">Venues</span>
+										<div className="flex gap-1 flex-wrap justify-end">
+											{selectedVenues.map((v) => (
+												<Badge key={v} variant="secondary" className="text-[10px]">
+													{venueName(v)}
+												</Badge>
+											))}
+											{selectedVenues.length === 0 && (
+												<span className="text-xs text-muted-foreground">none</span>
+											)}
+										</div>
 									</div>
 								</div>
-								<div className="flex justify-between text-[13px]">
-									<span className="text-foreground/50">Strategy</span>
-									<span className="font-medium">
-										{selectedStrategyId === "custom" ? "Custom" : (selectedStrategy?.name ?? "---")}
-									</span>
-								</div>
-								<div className="flex justify-between text-[13px]">
-									<span className="text-foreground/50">Budget</span>
-									<span className="font-medium">${Number(budget).toLocaleString("en-US")}</span>
-								</div>
-								<div className="flex justify-between text-[13px]">
-									<span className="text-foreground/50">Target</span>
-									<span className="font-medium text-green-600 dark:text-green-400">
-										+{targetReturn}%
-									</span>
-								</div>
-								<div className="flex justify-between text-[13px]">
-									<span className="text-foreground/50">Stop loss</span>
-									<span className="font-medium text-destructive">-{stopLoss}%</span>
+
+								{/* Metrics */}
+								<div className="px-5 py-4 bg-muted/30 grid grid-cols-3 gap-4">
+									<div>
+										<div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+											Budget
+										</div>
+										<div className="text-sm font-semibold mt-0.5">
+											${Number(budget).toLocaleString("en-US")}
+										</div>
+									</div>
+									<div>
+										<div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+											Target
+										</div>
+										<div className="text-sm font-semibold text-green-600 dark:text-green-400 mt-0.5">
+											+{targetReturn}%
+										</div>
+									</div>
+									<div>
+										<div className="text-[10px] text-muted-foreground uppercase tracking-wider">
+											Stop Loss
+										</div>
+										<div className="text-sm font-semibold text-destructive mt-0.5">
+											-{stopLoss}%
+										</div>
+									</div>
 								</div>
 							</div>
 

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { HttpError } from "../middleware/error.js";
 import { listActivity } from "../services/activity.js";
-import { createDesk, getDesk, listDesks, updateDesk } from "../services/desks.js";
+import { archiveDesk, createDesk, getDesk, listDesks, updateDesk } from "../services/desks.js";
 import { createExperiment, listExperiments } from "../services/experiments.js";
 
 const router = Router();
@@ -57,6 +57,16 @@ router.post("/:id/experiments", async (req, res, next) => {
 	try {
 		const result = await createExperiment({ deskId: req.params.id, ...req.body });
 		res.status(201).json(result);
+	} catch (err) {
+		next(err);
+	}
+});
+
+router.post("/:id/archive", async (req, res, next) => {
+	try {
+		const desk = await archiveDesk(req.params.id);
+		if (!desk) throw new HttpError(404, "Desk not found");
+		res.json(desk);
 	} catch (err) {
 		next(err);
 	}

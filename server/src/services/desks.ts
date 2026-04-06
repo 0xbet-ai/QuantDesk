@@ -54,7 +54,7 @@ export async function createDesk(input: CreateDeskInput) {
 }
 
 export async function listDesks() {
-	return db.select().from(desks).orderBy(desks.createdAt);
+	return db.select().from(desks).where(eq(desks.status, "active")).orderBy(desks.createdAt);
 }
 
 export async function getDesk(id: string) {
@@ -81,5 +81,14 @@ export async function updateDesk(id: string, input: UpdateDeskInput) {
 	if (input.venues !== undefined) updates.venues = input.venues;
 
 	const [desk] = await db.update(desks).set(updates).where(eq(desks.id, id)).returning();
+	return desk ?? null;
+}
+
+export async function archiveDesk(id: string) {
+	const [desk] = await db
+		.update(desks)
+		.set({ status: "archived", updatedAt: new Date() })
+		.where(eq(desks.id, id))
+		.returning();
 	return desk ?? null;
 }
