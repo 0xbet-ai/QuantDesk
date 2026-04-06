@@ -19,6 +19,21 @@ app.use("/api/experiments", experimentsRouter);
 app.use("/api/runs", runsRouter);
 app.use("/api/strategies", strategiesRouter);
 
+// Agent adapter test — checks if CLI is available
+app.get("/api/agent/test", async (req, res) => {
+	const adapter = (req.query.adapter as string) ?? "claude";
+	const { exec } = await import("node:child_process");
+	const { promisify } = await import("node:util");
+	const execAsync = promisify(exec);
+	const cmd = adapter === "codex" ? "codex --version" : "claude --version";
+	try {
+		const { stdout } = await execAsync(cmd, { timeout: 5000 });
+		res.json({ ok: true, version: stdout.trim() });
+	} catch {
+		res.status(503).json({ ok: false, error: `${adapter} CLI not found` });
+	}
+});
+
 app.use(errorHandler);
 
 app.listen(port, () => {

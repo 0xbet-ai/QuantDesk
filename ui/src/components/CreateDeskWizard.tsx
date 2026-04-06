@@ -328,7 +328,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 		>
 			{/* Header */}
 			<div className="shrink-0">
-				<div className="max-w-3xl mx-auto w-full px-8">
+				<div className="max-w-xl mx-auto w-full px-8">
 					<div className="pt-6 pb-4">
 						<Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close wizard">
 							<X className="size-4" />
@@ -364,8 +364,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 			</div>
 
 			{/* Content */}
-			<div className="flex-1 overflow-y-auto">
-				<div className="max-w-3xl mx-auto w-full px-8 py-8">
+			<div className="flex-1 overflow-y-auto flex flex-col">
+				<div className="max-w-xl mx-auto w-full px-8 py-12 my-auto">
 					{step === "desk" && (
 						<div className="space-y-8">
 							<div className="flex items-center gap-3 mb-1">
@@ -964,7 +964,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 
 			{/* Footer */}
 			<div className="shrink-0 border-t border-border">
-				<div className="max-w-3xl mx-auto w-full flex justify-end px-8 py-4">
+				<div className="max-w-xl mx-auto w-full flex justify-end px-8 py-4">
 					{step === "launch" ? (
 						<Button onClick={handleSubmit} disabled={submitting || !canLaunch} className="gap-1.5">
 							<Rocket className="size-4" />
