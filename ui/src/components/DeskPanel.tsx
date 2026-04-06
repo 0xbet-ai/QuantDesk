@@ -11,7 +11,7 @@ import { Badge } from "./ui/badge.js";
 import { ScrollArea } from "./ui/scroll-area.js";
 import { Separator } from "./ui/separator.js";
 
-export type DeskPage = "experiments" | "datasets" | "code" | "activity" | "settings";
+export type DeskPage = "experiments" | "runs" | "datasets" | "code" | "activity" | "settings";
 
 interface Props {
 	desk: Desk;

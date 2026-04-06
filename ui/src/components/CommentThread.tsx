@@ -1,29 +1,21 @@
-import {
-	Bot,
-	CheckCircle2,
-	ChevronRight,
-	Code2,
-	Loader2,
-	Send,
-	Shield,
-	Square,
-	User,
-	XCircle,
-} from "lucide-react";
+import { Bot, CheckCircle2, ChevronRight, Code2, Send, Shield, User, XCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import type { Comment, Experiment } from "../lib/api.js";
-import { listComments, postComment } from "../lib/api.js";
+import { getAgentLogs, listComments, postComment } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
+import { LiveRunWidget } from "./LiveRunWidget.js";
+import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
 import { Button } from "./ui/button.js";
 import { Input } from "./ui/input.js";
 import { Separator } from "./ui/separator.js";
 
 interface Props {
 	experiment: Experiment;
+	onOpenRun?: () => void;
 }
 
 const authorConfig: Record<string, { icon: typeof User; color: string; label: string }> = {
@@ -32,21 +24,6 @@ const authorConfig: Record<string, { icon: typeof User; color: string; label: st
 	risk_manager: { icon: Shield, color: "text-orange-400", label: "Risk Manager" },
 	system: { icon: Bot, color: "text-muted-foreground", label: "System" },
 };
-
-function ElapsedTimer() {
-	const [elapsed, setElapsed] = useState(0);
-	useEffect(() => {
-		const interval = setInterval(() => setElapsed((e) => e + 1), 1000);
-		return () => clearInterval(interval);
-	}, []);
-	const mins = Math.floor(elapsed / 60);
-	const secs = elapsed % 60;
-	return (
-		<span className="text-xs text-muted-foreground tabular-nums ml-auto">
-			{mins > 0 ? `${mins}m ${secs}s` : `${secs}s`}
-		</span>
-	);
-}
 
 function CollapsibleCode({ lang, children }: { lang: string; children: ReactNode }) {
 	const [open, setOpen] = useState(false);
@@ -112,41 +89,27 @@ const AUTHOR_PREFIX_RE = /^\[(user|analyst|system|risk_manager)\]\s*/gm;
 function parseProposals(content: string): { cleanContent: string; proposals: Proposal[] } {
 	const proposals: Proposal[] = [];
 	let cleanContent = content.replace(PROPOSAL_RE, (_, type: Proposal["type"], value: string) => {
-		proposals.push({ type, value: value.trim() });
+		// Strip nested [PROPOSE_*] markers from value
+		const cleanValue = value
+			.trim()
+			.replace(/\[PROPOSE_\w+\]/g, "")
+			.replace(/—\s*$/, "")
+			.trim();
+		proposals.push({ type, value: cleanValue });
 		return "";
 	});
+	// Catch any remaining standalone markers not on their own line
+	cleanContent = cleanContent.replace(
+		/\[PROPOSE_(VALIDATION|NEW_EXPERIMENT|COMPLETE_EXPERIMENT|GO_LIVE)\]/g,
+		(_, type: Proposal["type"]) => {
+			if (!proposals.some((p) => p.type === type)) {
+				proposals.push({ type, value: "" });
+			}
+			return "";
+		},
+	);
 	cleanContent = cleanContent.replace(AUTHOR_PREFIX_RE, "");
 	return { cleanContent: cleanContent.trim(), proposals };
-}
-
-function ToolEntry({ entry }: { entry: { content: string; label?: string; expandable?: string } }) {
-	const [open, setOpen] = useState(false);
-	return (
-		<div>
-			<button
-				type="button"
-				onClick={() => entry.expandable && setOpen((o) => !o)}
-				className={cn(
-					"flex items-center gap-1 text-[12px] text-muted-foreground",
-					entry.expandable && "cursor-pointer hover:text-foreground",
-				)}
-			>
-				<ChevronRight
-					className={cn(
-						"size-3 transition-transform",
-						open && "rotate-90",
-						!entry.expandable && "invisible",
-					)}
-				/>
-				{entry.content}
-			</button>
-			{open && entry.expandable && (
-				<pre className="mt-1 ml-4 overflow-x-auto rounded bg-zinc-950 p-2 text-[11px] text-zinc-300 max-h-40">
-					{entry.expandable}
-				</pre>
-			)}
-		</div>
-	);
 }
 
 function ProposalCard({
@@ -213,20 +176,13 @@ function ProposalCard({
 	);
 }
 
-export function CommentThread({ experiment }: Props) {
+export function CommentThread({ experiment, onOpenRun }: Props) {
 	const [comments, setComments] = useState<Comment[]>([]);
 	const [input, setInput] = useState("");
 	const [sending, setSending] = useState(false);
 	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
-	const [streamEntries, setStreamEntries] = useState<
-		Array<{
-			type: "tool" | "text" | "tool_result";
-			content: string;
-			label?: string;
-			detail?: string;
-			expandable?: string;
-		}>
-	>([]);
+	const [streamEntries, setStreamEntries] = useState<TranscriptEntry[]>([]);
+	const [runStartedAt, setRunStartedAt] = useState<Date | null>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	const refresh = useCallback(() => {
@@ -239,6 +195,24 @@ export function CommentThread({ experiment }: Props) {
 				const last = data[data.length - 1];
 				if (last && (data.length === 1 || last.author === "user")) {
 					setThinkingRole("analyst");
+					// Restore persisted agent logs
+					getAgentLogs(experiment.id)
+						.then((logs) => {
+							if (logs.length > 0) {
+								setStreamEntries(
+									logs.map((l) => ({
+										type: l.type,
+										content: l.content,
+										tool: l.tool,
+										label: l.label,
+										detail: l.detail,
+										expandable: l.expandable,
+									})),
+								);
+								setRunStartedAt((prev) => prev ?? new Date(logs[0]!.ts));
+							}
+						})
+						.catch(() => {});
 				}
 				setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 			})
@@ -254,7 +228,11 @@ export function CommentThread({ experiment }: Props) {
 		if (event.type === "agent.thinking") {
 			const role = (event.payload as { agentRole?: string }).agentRole ?? "analyst";
 			setThinkingRole(role);
-			setStreamEntries([]);
+			setStreamEntries([
+				{ type: "system", content: "run started" },
+				{ type: "system", content: "adapter invocation" },
+			]);
+			setRunStartedAt(new Date());
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
 		if (event.type === "agent.streaming") {
@@ -262,6 +240,7 @@ export function CommentThread({ experiment }: Props) {
 				chunk?: {
 					type: string;
 					content: string;
+					tool?: string;
 					label?: string;
 					detail?: string;
 					expandable?: string;
@@ -274,32 +253,26 @@ export function CommentThread({ experiment }: Props) {
 					setStreamEntries((prev) => [
 						...prev,
 						{
-							type: "tool",
+							type: "tool" as const,
 							content: chunk.content,
+							tool: chunk.tool,
 							label: chunk.label,
 							detail: chunk.detail,
 							expandable: chunk.expandable,
 						},
 					]);
 				} else if (chunk.type === "tool_result") {
-					// Attach result to last tool entry
-					setStreamEntries((prev) => {
-						const updated = [...prev];
-						for (let i = updated.length - 1; i >= 0; i--) {
-							if (updated[i]!.type === "tool" && !updated[i]!.expandable) {
-								updated[i] = { ...updated[i]!, expandable: chunk.content };
-								break;
-							}
-						}
-						return updated;
-					});
+					setStreamEntries((prev) => [
+						...prev,
+						{ type: "tool_result" as const, content: chunk.content },
+					]);
 				} else {
 					setStreamEntries((prev) => {
 						const last = prev[prev.length - 1];
 						if (last?.type === "text") {
-							return [...prev.slice(0, -1), { type: "text", content: chunk.content }];
+							return [...prev.slice(0, -1), { type: "text" as const, content: chunk.content }];
 						}
-						return [...prev, { type: "text", content: chunk.content }];
+						return [...prev, { type: "text" as const, content: chunk.content }];
 					});
 				}
 			}
@@ -308,6 +281,7 @@ export function CommentThread({ experiment }: Props) {
 		if (event.type === "agent.done" || event.type === "comment.new") {
 			setThinkingRole(null);
 			setStreamEntries([]);
+			setRunStartedAt(null);
 			refresh();
 		}
 	});
@@ -321,6 +295,7 @@ export function CommentThread({ experiment }: Props) {
 			refresh();
 			setThinkingRole("analyst");
 			setStreamEntries([]);
+			setRunStartedAt(new Date());
 		} finally {
 			setSending(false);
 		}
@@ -388,49 +363,23 @@ export function CommentThread({ experiment }: Props) {
 					</div>
 				)}
 				{thinkingRole && (
-					<div className="rounded-md border border-border p-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
-						<div className="flex items-center gap-2 mb-1.5">
-							<div className="size-6 rounded-full flex items-center justify-center shrink-0 bg-muted">
-								{thinkingRole === "risk_manager" ? (
-									<Shield className="size-3 text-orange-400" />
-								) : (
-									<Bot className="size-3 text-green-400" />
-								)}
-							</div>
-							<span
-								className={cn(
-									"text-xs font-medium",
-									thinkingRole === "risk_manager" ? "text-orange-400" : "text-green-400",
-								)}
-							>
-								{thinkingRole === "risk_manager" ? "Risk Manager" : "Analyst"}
-							</span>
-							<Loader2 className="size-3 animate-spin text-muted-foreground ml-1" />
-							<ElapsedTimer />
-						</div>
-						{streamEntries.length > 0 ? (
-							<div className="mt-2 space-y-2">
-								{streamEntries.map((entry) =>
-									entry.type === "tool" ? (
-										<ToolEntry key={entry.content} entry={entry} />
-									) : entry.type === "tool_result" ? null : (
-										<div
-											key={`text-${entry.content.slice(0, 20)}`}
-											className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-headings:my-2 prose-strong:text-foreground"
-										>
-											<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-												{entry.content}
-											</Markdown>
-										</div>
-									),
-								)}
-								<span className="inline-block w-1.5 h-4 bg-green-400 animate-pulse align-text-bottom" />
-							</div>
-						) : (
-							<div className="flex items-center gap-1.5 mt-1">
-								<span className="text-xs text-muted-foreground">Thinking…</span>
-							</div>
-						)}
+					<div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+						<LiveRunWidget
+							experimentNumber={experiment.number}
+							agentRole={thinkingRole}
+							entries={streamEntries}
+							streaming={!!thinkingRole}
+							startedAt={runStartedAt ?? undefined}
+							onStop={async () => {
+								await fetch(`/api/experiments/${experiment.id}/agent/stop`, {
+									method: "POST",
+								});
+								setThinkingRole(null);
+								setStreamEntries([]);
+								setRunStartedAt(null);
+							}}
+							onOpenRun={onOpenRun}
+						/>
 					</div>
 				)}
 				<div ref={bottomRef} />
@@ -447,25 +396,13 @@ export function CommentThread({ experiment }: Props) {
 						placeholder={thinkingRole ? "Agent is working..." : "Type a comment..."}
 						disabled={!!thinkingRole}
 					/>
-					{thinkingRole ? (
-						<Button
-							size="sm"
-							variant="outline"
-							onClick={async () => {
-								await fetch(`/api/experiments/${experiment.id}/agent/stop`, {
-									method: "POST",
-								});
-								setThinkingRole(null);
-								setStreamEntries([]);
-							}}
-						>
-							<Square className="size-3.5 fill-current" />
-						</Button>
-					) : (
-						<Button size="sm" onClick={handleSend} disabled={sending || !input.trim()}>
-							<Send className="size-4" />
-						</Button>
-					)}
+					<Button
+						size="sm"
+						onClick={handleSend}
+						disabled={sending || !input.trim() || !!thinkingRole}
+					>
+						<Send className="size-4" />
+					</Button>
 				</div>
 			</div>
 		</div>

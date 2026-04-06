@@ -7,6 +7,7 @@ import { DeskPanel } from "./components/DeskPanel.js";
 import { DeskSettings } from "./components/DeskSettings.js";
 import { Layout } from "./components/Layout.js";
 import { PropsPanel } from "./components/PropsPanel.js";
+import { RunDetailView } from "./components/RunDetailView.js";
 import type { Desk, Experiment } from "./lib/api.js";
 import { listDesks, listExperiments } from "./lib/api.js";
 
@@ -105,8 +106,14 @@ export function App() {
 						/>
 					) : selectedDesk && deskPage === "activity" ? (
 						<ActivityView desk={selectedDesk} />
+					) : selectedExperiment && deskPage === "runs" ? (
+						<RunDetailView
+							experiment={selectedExperiment}
+							selectedRunId={null}
+							onBack={() => setDeskPage("experiments")}
+						/>
 					) : selectedExperiment && deskPage === "experiments" ? (
-						<CommentThread experiment={selectedExperiment} />
+						<CommentThread experiment={selectedExperiment} onOpenRun={() => setDeskPage("runs")} />
 					) : selectedDesk && deskPage !== "experiments" ? (
 						<div className="flex-1 flex items-center justify-center text-[13px] text-muted-foreground">
 							{deskPage.charAt(0).toUpperCase() + deskPage.slice(1)} — coming soon

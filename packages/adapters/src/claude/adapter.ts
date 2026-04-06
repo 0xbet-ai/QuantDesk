@@ -58,7 +58,7 @@ export class ClaudeAdapter implements AgentAdapter {
 				return null;
 			}
 
-			const assistantEvent = event as ClaudeEvent;
+			const assistantEvent = event as unknown as ClaudeEvent;
 			if (assistantEvent.type === "assistant" && "message" in assistantEvent) {
 				const toolLabels: Record<string, string> = {
 					Write: "Writing",

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { HttpError } from "../middleware/error.js";
 import { publishExperimentEvent } from "../realtime/live-events.js";
+import { readAgentLog } from "../services/agent-log.js";
 import { stopAgent, triggerAgent } from "../services/agent-trigger.js";
 import { createComment, listComments } from "../services/comments.js";
 import { getExperiment } from "../services/experiments.js";
@@ -58,6 +59,15 @@ router.get("/:id/comments", async (req, res, next) => {
 	try {
 		const result = await listComments(req.params.id);
 		res.json(result);
+	} catch (err) {
+		next(err);
+	}
+});
+
+router.get("/:id/agent/logs", async (req, res, next) => {
+	try {
+		const entries = readAgentLog(req.params.id);
+		res.json(entries);
 	} catch (err) {
 		next(err);
 	}

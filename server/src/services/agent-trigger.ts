@@ -12,6 +12,7 @@ import {
 } from "@quantdesk/db/schema";
 import { eq } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
+import { appendAgentLog, clearAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
 import { createComment } from "./comments.js";
 import { autoIncrementRunNumber } from "./logic.js";
@@ -135,7 +136,12 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 		.from(memorySummaries)
 		.where(eq(memorySummaries.deskId, desk.id));
 
-	// 4. Notify UI that agent is thinking
+	// 4. Clear previous log and notify UI that agent is thinking
+	clearAgentLog(experimentId);
+	const ts = () => new Date().toISOString();
+	appendAgentLog(experimentId, { ts: ts(), type: "system", content: "run started" });
+	appendAgentLog(experimentId, { ts: ts(), type: "system", content: "adapter invocation" });
+
 	publishExperimentEvent({
 		experimentId,
 		type: "agent.thinking",
@@ -152,6 +158,17 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 			onLine: (line) => {
 				const chunk = adapter.parseStreamLine(line);
 				if (chunk) {
+					// Persist to log file
+					appendAgentLog(experimentId, {
+						ts: ts(),
+						type: chunk.type as "tool" | "text" | "tool_result",
+						content: chunk.content,
+						tool: chunk.tool,
+						label: chunk.label,
+						detail: chunk.detail,
+						expandable: chunk.expandable,
+					});
+
 					publishExperimentEvent({
 						experimentId,
 						type: "agent.streaming",

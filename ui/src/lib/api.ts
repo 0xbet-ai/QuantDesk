@@ -123,5 +123,18 @@ export const listStrategies = (engine?: string) =>
 
 export const listActivity = (deskId: string) => api<ActivityItem[]>(`/desks/${deskId}/activity`);
 
+export interface AgentLogEntry {
+	ts: string;
+	type: "tool" | "text" | "tool_result" | "system" | "event";
+	content: string;
+	tool?: string;
+	label?: string;
+	detail?: string;
+	expandable?: string;
+}
+
+export const getAgentLogs = (experimentId: string) =>
+	api<AgentLogEntry[]>(`/experiments/${experimentId}/agent/logs`);
+
 export const goLive = (runId: string) => api<Run>(`/runs/${runId}/go-live`, { method: "POST" });
 export const stopRun = (runId: string) => api<Run>(`/runs/${runId}/stop`, { method: "POST" });
