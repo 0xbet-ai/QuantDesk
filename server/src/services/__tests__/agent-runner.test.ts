@@ -41,7 +41,7 @@ describe("AgentRunner", () => {
 			comments: [{ author: "user", content: "Run a 5m BTC/USDT backtest" }],
 			memorySummaries: [],
 			sessionId: undefined,
-			agentRole: "analytics",
+			agentRole: "analyst",
 		});
 
 		expect(mockSpawn).toHaveBeenCalled();
@@ -70,7 +70,7 @@ describe("AgentRunner", () => {
 			comments: [{ author: "user", content: "Try RSI filter" }],
 			memorySummaries: [],
 			sessionId: "session-prev",
-			agentRole: "analytics",
+			agentRole: "analyst",
 		});
 
 		expect(mockAdapter.buildSpawnArgs).toHaveBeenCalledWith(expect.any(String), "session-prev");
@@ -100,7 +100,7 @@ describe("AgentRunner", () => {
 			comments: [{ author: "user", content: "test" }],
 			memorySummaries: [],
 			sessionId: undefined,
-			agentRole: "analytics",
+			agentRole: "analyst",
 		});
 
 		expect(result.error).toBe("CLI crashed");

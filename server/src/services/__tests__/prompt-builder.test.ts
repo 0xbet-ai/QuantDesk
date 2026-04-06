@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-	buildAnalyticsPrompt,
+	buildAnalystPrompt,
 	buildRiskManagerPrompt,
 	estimateTokens,
 	trimCommentsToTokenBudget,
@@ -37,38 +37,38 @@ const runs = [
 
 const comments = [
 	{ author: "user", content: "Try adding RSI filter with period 21" },
-	{ author: "analytics", content: "Run #2 done. Return +15.1%, DD -2.8%" },
+	{ author: "analyst", content: "Run #2 done. Return +15.1%, DD -2.8%" },
 	{ author: "user", content: "Looks good, now try period 14" },
 ];
 
-describe("buildAnalyticsPrompt", () => {
+describe("buildAnalystPrompt", () => {
 	it("includes desk budget/target/stop-loss values", () => {
-		const prompt = buildAnalyticsPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
+		const prompt = buildAnalystPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
 		expect(prompt).toContain("10,000");
 		expect(prompt).toContain("15%");
 		expect(prompt).toContain("5%");
 	});
 
 	it('includes "You are working on Experiment #N — {title}"', () => {
-		const prompt = buildAnalyticsPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
+		const prompt = buildAnalystPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
 		expect(prompt).toContain("Experiment #2");
 		expect(prompt).toContain("RSI Filter Study");
 	});
 
 	it("includes last 3 run results as structured data", () => {
-		const prompt = buildAnalyticsPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
+		const prompt = buildAnalystPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
 		expect(prompt).toContain("12.3");
 		expect(prompt).toContain("15.1");
 		expect(prompt).toContain("baseline");
 	});
 
 	it("instructs agent to use desk's configured engine", () => {
-		const prompt = buildAnalyticsPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
+		const prompt = buildAnalystPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
 		expect(prompt).toContain("freqtrade");
 	});
 
 	it("includes comments", () => {
-		const prompt = buildAnalyticsPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
+		const prompt = buildAnalystPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
 		expect(prompt).toContain("RSI filter with period 21");
 		expect(prompt).toContain("now try period 14");
 	});
@@ -77,7 +77,7 @@ describe("buildAnalyticsPrompt", () => {
 		const summaries = [
 			{ level: "desk", content: "Overall desk summary: trend strategy with RSI." },
 		];
-		const prompt = buildAnalyticsPrompt({
+		const prompt = buildAnalystPrompt({
 			desk,
 			experiment,
 			runs,

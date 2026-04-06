@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { HttpError } from "../middleware/error.js";
 import { publishExperimentEvent } from "../realtime/live-events.js";
+import { triggerAgent } from "../services/agent-trigger.js";
 import { createComment, listComments } from "../services/comments.js";
 import { getExperiment } from "../services/experiments.js";
 import { listRuns } from "../services/runs.js";
@@ -41,6 +42,13 @@ router.post("/:id/comments", async (req, res, next) => {
 		});
 
 		res.status(201).json(comment);
+
+		// Trigger agent asynchronously (don't block HTTP response)
+		if (comment.author === "user" || comment.author === "system") {
+			triggerAgent(req.params.id).catch((err) => {
+				console.error("Agent trigger failed:", err);
+			});
+		}
 	} catch (err) {
 		next(err);
 	}

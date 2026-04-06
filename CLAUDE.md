@@ -3,7 +3,7 @@
 ## Purpose
 
 QuantDesk is an AI-agent workspace for quantitative trading.
-Users research, backtest, and validate strategies through async interaction with AI agents (Analytics, Risk Manager).
+Users research, backtest, and validate strategies through async interaction with AI agents (Analyst, Risk Manager).
 
 - **Strategy Desk**: Workspace with budget (USD), target return, and stop-loss constraints. Pick from a curated catalog or generate a custom strategy from natural language.
 - **Experiments & Runs**: Organize work into experiments (research threads) within a desk. Each experiment tracks multiple backtest runs with normalized results for comparison.
@@ -19,7 +19,7 @@ Product:
 1. `doc/product/USER_FLOW.md` — onboarding, desks, experiments, runs
 3. `doc/product/UI_LAYOUT.md` — 3-column layout
 4. `doc/product/DOMAIN_MODEL.md` — DB schema (Desk, Experiment, Run, Dataset, Comment, ...)
-5. `doc/product/AGENTS.md` — Analytics, Risk Manager, interaction pattern
+5. `doc/product/AGENTS.md` — Analyst, Risk Manager, interaction pattern
 
 Plan:
 - `doc/PLAN.md` — TDD implementation phases with done-when criteria

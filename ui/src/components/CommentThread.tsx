@@ -1,5 +1,6 @@
-import { Bot, Send, Shield, User } from "lucide-react";
+import { Bot, Loader2, Send, Shield, User } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import Markdown from "react-markdown";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import type { Comment, Experiment } from "../lib/api.js";
 import { listComments, postComment } from "../lib/api.js";
@@ -14,7 +15,7 @@ interface Props {
 
 const authorConfig: Record<string, { icon: typeof User; color: string; label: string }> = {
 	user: { icon: User, color: "text-blue-400", label: "You" },
-	analytics: { icon: Bot, color: "text-green-400", label: "Analytics" },
+	analyst: { icon: Bot, color: "text-green-400", label: "Analyst" },
 	risk_manager: { icon: Shield, color: "text-orange-400", label: "Risk Manager" },
 	system: { icon: Bot, color: "text-muted-foreground", label: "System" },
 };
@@ -23,6 +24,7 @@ export function CommentThread({ experiment }: Props) {
 	const [comments, setComments] = useState<Comment[]>([]);
 	const [input, setInput] = useState("");
 	const [sending, setSending] = useState(false);
+	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	const refresh = useCallback(() => {
@@ -40,7 +42,13 @@ export function CommentThread({ experiment }: Props) {
 
 	// Auto-refresh on WebSocket events
 	useLiveUpdates(experiment.id, (event) => {
-		if (event.type === "comment.new") {
+		if (event.type === "agent.thinking") {
+			const role = (event.payload as { agentRole?: string }).agentRole ?? "analyst";
+			setThinkingRole(role);
+			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
+		}
+		if (event.type === "agent.done" || event.type === "comment.new") {
+			setThinkingRole(null);
 			refresh();
 		}
 	});
@@ -52,6 +60,7 @@ export function CommentThread({ experiment }: Props) {
 			await postComment(experiment.id, input.trim());
 			setInput("");
 			refresh();
+			setThinkingRole("analyst");
 		} finally {
 			setSending(false);
 		}
@@ -90,15 +99,38 @@ export function CommentThread({ experiment }: Props) {
 									})}
 								</span>
 							</div>
-							<p className="text-[13px] text-foreground whitespace-pre-wrap leading-relaxed">
-								{c.content}
-							</p>
+							<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-headings:my-2 prose-strong:text-foreground">
+								<Markdown>{c.content}</Markdown>
+							</div>
 						</div>
 					);
 				})}
 				{comments.length === 0 && (
 					<div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
 						No comments yet
+					</div>
+				)}
+				{thinkingRole && (
+					<div className="rounded-md border border-border p-3 animate-in fade-in slide-in-from-bottom-2 duration-300">
+						<div className="flex items-center gap-2">
+							<div className="size-6 rounded-full flex items-center justify-center shrink-0 bg-muted">
+								{thinkingRole === "risk_manager" ? (
+									<Shield className="size-3 text-orange-400" />
+								) : (
+									<Bot className="size-3 text-green-400" />
+								)}
+							</div>
+							<span
+								className={cn(
+									"text-xs font-medium",
+									thinkingRole === "risk_manager" ? "text-orange-400" : "text-green-400",
+								)}
+							>
+								{thinkingRole === "risk_manager" ? "Risk Manager" : "Analyst"}
+							</span>
+							<Loader2 className="size-3 animate-spin text-muted-foreground ml-1" />
+							<span className="text-xs text-muted-foreground">Thinking…</span>
+						</div>
 					</div>
 				)}
 				<div ref={bottomRef} />

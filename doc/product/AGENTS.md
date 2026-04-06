@@ -1,6 +1,6 @@
 # Agent Roles
 
-## Analytics
+## Analyst
 
 Resolves engine from desk venues + strategy description, fetches data, writes/modifies strategy code, runs backtests, manages live trading, posts results as comments.
 
@@ -12,7 +12,7 @@ Validates results against desk config, flags overfitting/bias, posts validation 
 
 Only runs when:
 - User explicitly requests validation
-- Analytics detects anomalies and proposes validation -> user approves
+- Analyst detects anomalies and proposes validation -> user approves
 
 ## Interaction Pattern
 

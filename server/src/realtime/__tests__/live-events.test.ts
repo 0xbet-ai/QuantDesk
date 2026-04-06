@@ -28,12 +28,12 @@ describe("live events", () => {
 		const event = publishExperimentEvent({
 			experimentId: "exp-c",
 			type: "comment.new",
-			payload: { id: "comment-1", author: "analytics", content: "Run done" },
+			payload: { id: "comment-1", author: "analyst", content: "Run done" },
 		});
 
 		expect(event.type).toBe("comment.new");
 		expect(event.experimentId).toBe("exp-c");
-		expect(event.payload.author).toBe("analytics");
+		expect(event.payload.author).toBe("analyst");
 		expect(event.id).toBeGreaterThan(0);
 		expect(event.createdAt).toBeDefined();
 	});

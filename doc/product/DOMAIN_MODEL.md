@@ -90,7 +90,7 @@ Comments on an Experiment. User posts a comment, agents reply async (not real-ti
 |-------|------|-------------|
 | id | UUID | Primary key |
 | experiment_id | UUID | FK -> experiments |
-| author | TEXT | `user` / `analytics` / `risk_manager` |
+| author | TEXT | `user` / `analyst` / `risk_manager` |
 | content | TEXT | Markdown |
 | run_id | UUID? | FK -> runs (if tied to a specific run) |
 | metadata | JSONB | Token usage, model, cost, etc. |
@@ -104,7 +104,7 @@ Persists AI CLI session for `--resume`. Scoped to desk (shared across experiment
 |-------|------|-------------|
 | id | UUID | Primary key |
 | desk_id | UUID | FK -> desks |
-| agent_role | TEXT | `analytics` / `risk_manager` |
+| agent_role | TEXT | `analyst` / `risk_manager` |
 | adapter_type | TEXT | `process` / `http` |
 | adapter_config | JSONB | See below |
 | session_id | TEXT | AI CLI session ID (Claude session or Codex thread) |

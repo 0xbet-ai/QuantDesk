@@ -63,7 +63,7 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 ```
 - Wizard creates desk with venues + first experiment + system comment (triggers agent) in single flow
 - RunTable correctly shows "—" for baseline delta, computed delta for other rows
-- CommentThread renders [user], [analytics], [risk_manager] tags from author field
+- CommentThread renders [user], [analyst], [risk_manager] tags from author field
 - Default: most recent experiment auto-selected when desk is clicked
 - Props panel shows [Go Live] button only for completed backtest runs
 - Clicking [Go Live] → POST /api/runs/:id/go-live
@@ -182,7 +182,7 @@ All engines:
 
 **Tasks:**
 - [ ] `server/src/services/prompt-builder.ts`
-- [ ] Analytics + Risk Manager prompt templates
+- [ ] Analyst + Risk Manager prompt templates
 - [ ] Context assembly: desk config + experiment + runs + comments + memory
 - [ ] Token budget enforcement
 
@@ -193,7 +193,7 @@ All engines:
 - Prompt includes last 3 run results as structured data
 - With 100 comments, prompt only includes last N that fit within token budget
 - When memory_summaries exist (desk level), they appear before raw comments
-- Analytics prompt instructs agent to use desk's configured engine
+- Analyst prompt instructs agent to use desk's configured engine
 - Risk Manager prompt includes run result + desk constraints
 ```
 

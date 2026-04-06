@@ -1,5 +1,5 @@
 import type { AgentAdapter } from "@quantdesk/adapters";
-import { buildAnalyticsPrompt, buildRiskManagerPrompt } from "./prompt-builder.js";
+import { buildAnalystPrompt, buildRiskManagerPrompt } from "./prompt-builder.js";
 
 interface DeskContext {
 	name: string;
@@ -22,7 +22,7 @@ interface RunInput {
 	comments: Array<{ author: string; content: string }>;
 	memorySummaries: Array<{ level: string; content: string }>;
 	sessionId: string | undefined;
-	agentRole: "analytics" | "risk_manager";
+	agentRole: "analyst" | "risk_manager";
 	runResult?: { returnPct: number; drawdownPct: number; winRate: number; totalTrades: number };
 }
 
@@ -45,7 +45,7 @@ export class AgentRunner {
 		const prompt =
 			input.agentRole === "risk_manager" && input.runResult
 				? buildRiskManagerPrompt({ desk: input.desk, runResult: input.runResult })
-				: buildAnalyticsPrompt({
+				: buildAnalystPrompt({
 						desk: input.desk,
 						experiment: input.experiment,
 						runs: input.runs,

@@ -64,7 +64,7 @@ export async function createDesk(input: CreateDeskInput) {
 	// Create agent session for this desk
 	await db.insert(agentSessions).values({
 		deskId: desk!.id,
-		agentRole: "analytics",
+		agentRole: "analyst",
 		adapterType: input.adapterType ?? "claude",
 		adapterConfig: input.adapterConfig ?? {},
 	});

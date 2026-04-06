@@ -26,8 +26,8 @@ Step-by-step wizard on first visit (or "+" button):
 
 ## 3. First Experiment
 
-On launch, the first Experiment is auto-created. The system posts an automatic first comment (desk config + strategy description) to trigger the agent. Analytics agent proposes a baseline backtest plan (data range, pairs, params) via proposal UI. User approves via button, then:
-1. Analytics agent fetches market data + runs initial backtest (baseline)
+On launch, the first Experiment is auto-created. The system posts an automatic first comment (desk config + strategy description) to trigger the agent. Analyst agent proposes a baseline backtest plan (data range, pairs, params) via proposal UI. User approves via button, then:
+1. Analyst agent fetches market data + runs initial backtest (baseline)
 2. Baseline run appears in the experiment
 
 ## 4. Iterate

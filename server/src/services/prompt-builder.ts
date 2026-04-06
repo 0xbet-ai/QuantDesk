@@ -29,7 +29,7 @@ interface MemorySummary {
 	content: string;
 }
 
-interface AnalyticsPromptInput {
+interface AnalystPromptInput {
 	desk: DeskContext;
 	experiment: ExperimentContext;
 	runs: RunContext[];
@@ -64,13 +64,13 @@ export function trimCommentsToTokenBudget(
 	return result;
 }
 
-export function buildAnalyticsPrompt(input: AnalyticsPromptInput): string {
+export function buildAnalystPrompt(input: AnalystPromptInput): string {
 	const { desk, experiment, runs, comments, memorySummaries } = input;
 
 	const sections: string[] = [];
 
 	// System instructions
-	sections.push(`You are an Analytics agent for QuantDesk.
+	sections.push(`You are an Analyst agent for QuantDesk.
 You research, write strategy code, run backtests, and analyze results.
 You use the ${desk.engine} engine for backtesting and live trading.
 

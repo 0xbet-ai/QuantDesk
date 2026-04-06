@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { HttpError } from "../middleware/error.js";
 import { listActivity } from "../services/activity.js";
+import { triggerAgent } from "../services/agent-trigger.js";
 import { archiveDesk, createDesk, getDesk, listDesks, updateDesk } from "../services/desks.js";
 import { createExperiment, listExperiments } from "../services/experiments.js";
 
@@ -10,6 +11,11 @@ router.post("/", async (req, res, next) => {
 	try {
 		const result = await createDesk(req.body);
 		res.status(201).json(result);
+
+		// Trigger agent for baseline experiment (async, don't block response)
+		triggerAgent(result.experiment.id).catch((err) => {
+			console.error("Agent trigger on desk creation failed:", err);
+		});
 	} catch (err) {
 		next(err);
 	}
