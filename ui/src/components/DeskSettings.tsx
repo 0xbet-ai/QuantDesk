@@ -167,35 +167,53 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 							<Lock className="size-3 text-muted-foreground" />
 						</div>
 						<div className="rounded-lg border border-border p-4 space-y-4">
-							<Field label="Strategy">
-								{(() => {
-									const strategy = desk.strategyId
-										? allStrategies.find((s) => s.id === desk.strategyId)
-										: null;
-									if (strategy) {
-										return (
-											<div>
-												<div className="text-[13px] font-medium">
-													{formatCategory(strategy.category)}
-												</div>
-												<div className="text-xs text-muted-foreground mt-0.5">
-													{strategy.description}
-												</div>
-											</div>
-										);
-									}
+							{(() => {
+								const strategy = desk.strategyId
+									? allStrategies.find((s) => s.id === desk.strategyId)
+									: null;
+								if (strategy) {
 									return (
-										<div>
-											<div className="text-[13px] font-medium">Custom Strategy</div>
-											{desk.description && (
-												<div className="text-xs text-muted-foreground mt-0.5">
-													{desk.description}
+										<div className="space-y-2">
+											<div className="flex items-center gap-2">
+												<Badge variant="secondary">{formatCategory(strategy.category)}</Badge>
+												<Badge variant="outline">{strategy.difficulty}</Badge>
+											</div>
+											<div className="text-[13px] font-medium">{strategy.name}</div>
+											<div className="text-xs text-muted-foreground">{strategy.description}</div>
+											{strategy.indicators.length > 0 && (
+												<div className="flex flex-wrap gap-1">
+													{strategy.indicators.map((ind) => (
+														<Badge key={ind} variant="outline" className="text-[10px]">
+															{ind}
+														</Badge>
+													))}
 												</div>
 											)}
+											<div className="flex items-center gap-3 text-xs text-muted-foreground">
+												<span>Timeframe: {strategy.timeframes.join(", ")}</span>
+												{strategy.source && (
+													<a
+														href={strategy.source}
+														target="_blank"
+														rel="noreferrer"
+														className="hover:text-foreground underline underline-offset-2"
+													>
+														Source ↗
+													</a>
+												)}
+											</div>
 										</div>
 									);
-								})()}
-							</Field>
+								}
+								return (
+									<div className="space-y-1">
+										<div className="text-[13px] font-medium">Custom Strategy</div>
+										{desk.description && (
+											<div className="text-xs text-muted-foreground">{desk.description}</div>
+										)}
+									</div>
+								);
+							})()}
 							<Field label="Venues">
 								{desk.venues.length > 0 ? (
 									<div className="flex flex-wrap gap-1.5">
