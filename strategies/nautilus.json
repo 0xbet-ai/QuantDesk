@@ -5,6 +5,7 @@
     "category": "trend_following",
     "difficulty": "easy",
     "description": "NautilusTrader built-in EMA crossover. Live trading ready",
+    "summary": "Buys when the fast average crosses above the slow average, sells on the opposite. Simple and production-ready.",
     "indicators": [
       "EMA"
     ],
@@ -27,6 +28,7 @@
     "category": "trend_following",
     "difficulty": "medium",
     "description": "EMA cross signal + TWAP execution to minimize slippage",
+    "summary": "Follows the trend then spreads order execution over time to get better fill prices. Reduces slippage on entries.",
     "indicators": [
       "EMA"
     ],
@@ -48,6 +50,7 @@
     "category": "trend_following",
     "difficulty": "medium",
     "description": "EMA cross + automatic TP/SL bracket orders",
+    "summary": "Follows trends with built-in take-profit and stop-loss on every trade. Protects against big losses automatically.",
     "indicators": [
       "EMA",
       "ATR"
@@ -71,6 +74,7 @@
     "category": "trend_following",
     "difficulty": "medium",
     "description": "EMA cross + trailing stop to protect profits",
+    "summary": "Enters on trend signals and uses a trailing stop that locks in profits as the price moves in your favor.",
     "indicators": [
       "EMA",
       "ATR"
@@ -94,6 +98,7 @@
     "category": "market_making",
     "difficulty": "advanced",
     "description": "NautilusTrader built-in MM with precise orderbook simulation",
+    "summary": "Places buy and sell orders around the current price with precise order book tracking. High-fidelity market making.",
     "indicators": [
       "orderbook",
       "mid_price"
@@ -113,6 +118,7 @@
     "category": "momentum",
     "difficulty": "advanced",
     "description": "Detect bid/ask volume imbalance to predict short-term direction",
+    "summary": "Watches for lopsided buying or selling pressure in the order book and trades in the direction of the imbalance.",
     "indicators": [
       "orderbook_bid_vol",
       "orderbook_ask_vol"
@@ -132,6 +138,7 @@
     "category": "market_making",
     "difficulty": "advanced",
     "description": "MM with spread auto-adjusted by volatility",
+    "summary": "Widens spread when the market gets choppy and tightens it when calm. Adapts to changing market conditions.",
     "indicators": [
       "ATR",
       "mid_price"
@@ -153,6 +160,7 @@
     "category": "mean_reversion",
     "difficulty": "medium",
     "description": "Long when price touches lower BB with RSI < 0.30, short at upper BB with RSI > 0.70, exit at middle band",
+    "summary": "Buys when price dips to extreme lows and shorts at extreme highs, exiting at the midpoint. Profits from range-bound markets.",
     "indicators": [
       "BB",
       "RSI"
@@ -175,6 +183,7 @@
     "category": "trend_following",
     "difficulty": "easy",
     "description": "Long-only EMA crossover for cash accounts. Buy on fast > slow, close on fast < slow",
+    "summary": "Buy-only trend follower for spot/cash accounts. Buys on uptrend signals and sells to close, never shorts.",
     "indicators": [
       "EMA"
     ],
@@ -196,6 +205,7 @@
     "category": "trend_following",
     "difficulty": "advanced",
     "description": "EMA cross with MARKET_IF_TOUCHED entry at bar high/low + ATR trailing stop exit",
+    "summary": "Waits for trend confirmation then enters only if price hits a trigger level. Uses a trailing exit for protection.",
     "indicators": [
       "EMA",
       "ATR"
@@ -217,6 +227,7 @@
     "category": "trend_following",
     "difficulty": "medium",
     "description": "EMA crossover for hedge-mode accounts allowing simultaneous long and short positions",
+    "summary": "Holds both long and short positions at the same time on hedge-mode accounts. Captures moves in both directions.",
     "indicators": [
       "EMA"
     ],
@@ -238,6 +249,7 @@
     "category": "market_making",
     "difficulty": "advanced",
     "description": "Grid MM with inventory-based skewing (Avellaneda-Stoikov inspired). Symmetric limit order grids around mid-price",
+    "summary": "Places a ladder of buy and sell orders at fixed intervals around the price. Adjusts bias based on current holdings.",
     "indicators": [
       "mid_price"
     ],
@@ -257,6 +269,7 @@
     "category": "market_making",
     "difficulty": "easy",
     "description": "Places one bid/ask at configurable tick offset from top-of-book. Replaces on fill",
+    "summary": "Places one buy and one sell order near the best price. Replaces each order as it fills. Minimal market making.",
     "indicators": [],
     "default_params": {
       "tick_offset": 1

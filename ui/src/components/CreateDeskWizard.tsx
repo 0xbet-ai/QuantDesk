@@ -278,6 +278,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 				engine: selectedStrategy?.engine ?? "generic",
 				strategyId: selectedStrategyId === "custom" ? undefined : (selectedStrategyId ?? undefined),
 				description: description || customStrategyPrompt || undefined,
+				adapterType,
+				adapterConfig: adapterModel !== "default" ? { model: adapterModel } : {},
 			});
 			onCreated(result.desk.id);
 		} catch (err: unknown) {
@@ -295,6 +297,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 		selectedStrategyId,
 		description,
 		customStrategyPrompt,
+		adapterType,
+		adapterModel,
 		onCreated,
 	]);
 

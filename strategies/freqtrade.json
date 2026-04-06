@@ -5,6 +5,7 @@
     "category": "trend_following",
     "difficulty": "easy",
     "description": "ADX + FastD + Fisher RSI combo for trend entry",
+    "summary": "Catches trending moves by combining 3 indicators. Buys when a strong trend starts and sells when momentum fades.",
     "indicators": [
       "ADX",
       "FastD",
@@ -25,6 +26,7 @@
     "category": "mean_reversion",
     "difficulty": "easy",
     "description": "RSI + Bollinger Band + MACD combo for mean reversion entry",
+    "summary": "Buys when price drops too far below its average and sells when it bounces back. Works best in ranging markets.",
     "indicators": [
       "RSI",
       "BB",
@@ -45,6 +47,7 @@
     "category": "mean_reversion",
     "difficulty": "easy",
     "description": "Bollinger Band + EMA100 + MFI combo",
+    "summary": "Buys oversold dips when price and money flow are both low, then sells on recovery. Best in sideways markets.",
     "indicators": [
       "BB",
       "EMA",
@@ -65,6 +68,7 @@
     "category": "trend_following",
     "difficulty": "easy",
     "description": "MACD + MFI + Parabolic SAR trend following",
+    "summary": "Rides strong trends by confirming direction with multiple signals. Exits automatically when the trend reverses.",
     "indicators": [
       "MACD",
       "MFI",
@@ -83,6 +87,7 @@
     "category": "momentum",
     "difficulty": "easy",
     "description": "SMA/EMA crossover with momentum and CCI filter",
+    "summary": "Buys when short-term and long-term averages cross upward with strong momentum. Sells when momentum weakens.",
     "indicators": [
       "SMA",
       "EMA",
@@ -102,6 +107,7 @@
     "category": "ml_based",
     "difficulty": "advanced",
     "description": "FreqAI reinforcement learning adaptive strategy with self-training models",
+    "summary": "Uses AI that learns and adapts its own trading rules from market data. Continuously improves over time.",
     "indicators": [
       "FreqAI_model"
     ],
@@ -122,6 +128,7 @@
     "category": "mean_reversion",
     "difficulty": "medium",
     "description": "RSI + MFI + multi-level Bollinger Bands (4 std levels) with EMA filter",
+    "summary": "Buys at multiple price drop levels for better average entry. Sells on recovery, filtered by the overall trend.",
     "indicators": [
       "RSI",
       "MFI",
@@ -143,6 +150,7 @@
     "category": "trend_following",
     "difficulty": "medium",
     "description": "ATR-based Supertrend with hyperoptable multiplier/period (3 buy + 3 sell)",
+    "summary": "Follows the trend using volatility-based channels. Buys on breakouts and sells when the trend flips.",
     "indicators": [
       "Supertrend",
       "ATR"
@@ -160,6 +168,7 @@
     "category": "pattern",
     "difficulty": "medium",
     "description": "All ta-lib candlestick patterns for buy/sell signals",
+    "summary": "Reads candlestick chart shapes to predict price moves. Trades based on dozens of classic chart patterns.",
     "indicators": [
       "candlestick_patterns"
     ],
@@ -176,6 +185,7 @@
     "category": "multi_indicator",
     "difficulty": "advanced",
     "description": "Uses all ta-lib indicators via add_all_ta_features. Ichimoku, Keltner, MFI, KST",
+    "summary": "Combines every available technical signal into one strategy. Highly complex, best for optimization experiments.",
     "indicators": [
       "all_ta_features"
     ],
@@ -192,6 +202,7 @@
     "category": "trend_following",
     "difficulty": "easy",
     "description": "Classic HLHB system — EMA5/EMA10 cross with RSI and ADX filter",
+    "summary": "Classic trend system that buys when fast and slow averages cross, filtered by trend strength. Simple and reliable.",
     "indicators": [
       "EMA",
       "RSI",
@@ -210,6 +221,7 @@
     "category": "momentum",
     "difficulty": "easy",
     "description": "ADX + directional indicators (+DI/-DI) with SAR and momentum",
+    "summary": "Enters trades when price builds strong directional momentum. Exits when the move loses steam.",
     "indicators": [
       "ADX",
       "DI",
@@ -229,6 +241,7 @@
     "category": "mean_reversion",
     "difficulty": "easy",
     "description": "RSI + Bollinger Bands mean reversion",
+    "summary": "Buys when price drops below its normal range and sells when it snaps back. Simple two-signal approach.",
     "indicators": [
       "RSI",
       "BB"
@@ -248,6 +261,7 @@
     "category": "mean_reversion",
     "difficulty": "medium",
     "description": "Combined BinH + Cluc strategy with custom BB, EMA50, and volume filter",
+    "summary": "Merges two proven dip-buying strategies with volume confirmation. Catches price rebounds with extra safety checks.",
     "indicators": [
       "BB",
       "EMA",
@@ -266,6 +280,7 @@
     "category": "scalping",
     "difficulty": "easy",
     "description": "Quick scalping with BB, EMA, StochFast, ADX",
+    "summary": "Catches small, fast price moves by combining 4 indicators. Trades frequently on short timeframes.",
     "indicators": [
       "BB",
       "EMA",
@@ -285,6 +300,7 @@
     "category": "pattern",
     "difficulty": "medium",
     "description": "Tom DeMark TD Sequential pattern-based strategy",
+    "summary": "Counts consecutive price bars to predict when a trend is exhausted and about to reverse.",
     "indicators": [
       "TD_Sequential"
     ],
@@ -301,6 +317,7 @@
     "category": "ml_based",
     "difficulty": "advanced",
     "description": "ML feature engineering with RSI, MFI, ADX, SMA, EMA, BB, ROC, relative volume",
+    "summary": "Trains a machine learning model on many market features to predict price direction. Good starting point for AI trading.",
     "indicators": [
       "FreqAI_model",
       "RSI",
@@ -320,6 +337,7 @@
     "category": "ml_based",
     "difficulty": "advanced",
     "description": "TEMA + MACD + RSI combined with FreqAI ML classifier",
+    "summary": "Blends traditional trading signals with AI predictions for higher-confidence entries. Best of both worlds.",
     "indicators": [
       "FreqAI_model",
       "TEMA",
@@ -339,6 +357,7 @@
     "category": "trend_following",
     "difficulty": "medium",
     "description": "Supertrend for futures with shorting support (can_short=True)",
+    "summary": "Follows trends in futures markets, profiting from both up and down moves. Shorts when the trend turns bearish.",
     "indicators": [
       "Supertrend"
     ],
@@ -355,6 +374,7 @@
     "category": "volatility",
     "difficulty": "medium",
     "description": "ATR resampled 3h with absolute close change for volatility breakout",
+    "summary": "Waits for quiet periods then trades the breakout when volatility spikes. Profits from sudden price explosions.",
     "indicators": [
       "ATR"
     ],
@@ -371,6 +391,7 @@
     "category": "trend_following",
     "difficulty": "medium",
     "description": "Optimized Trend Tracker with VAR and ADX for futures",
+    "summary": "Tracks the optimal trend line in futures markets, entering when price breaks above and exiting on pullbacks.",
     "indicators": [
       "OTT",
       "VAR",
