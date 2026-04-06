@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { HttpError } from "../middleware/error.js";
+import { publishExperimentEvent } from "../realtime/live-events.js";
 import { createComment, listComments } from "../services/comments.js";
 import { getExperiment } from "../services/experiments.js";
 import { listRuns } from "../services/runs.js";
@@ -31,6 +32,14 @@ router.post("/:id/comments", async (req, res, next) => {
 			experimentId: req.params.id,
 			...req.body,
 		});
+
+		// Broadcast to WebSocket clients
+		publishExperimentEvent({
+			experimentId: req.params.id,
+			type: "comment.new",
+			payload: comment as unknown as Record<string, unknown>,
+		});
+
 		res.status(201).json(comment);
 	} catch (err) {
 		next(err);

@@ -451,7 +451,9 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 														</button>
 													</TooltipTrigger>
 													{v.url && (
-														<TooltipContent>{v.url.replace("https://", "")}</TooltipContent>
+														<TooltipContent side="bottom">
+															{v.url.replace("https://", "")}
+														</TooltipContent>
 													)}
 												</Tooltip>
 											))}

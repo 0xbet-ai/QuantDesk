@@ -1,5 +1,7 @@
+import { createServer } from "node:http";
 import express from "express";
 import { errorHandler } from "./middleware/error.js";
+import { setupWebSocket } from "./realtime/websocket.js";
 import desksRouter from "./routes/desks.js";
 import experimentsRouter from "./routes/experiments.js";
 import runsRouter from "./routes/runs.js";
@@ -36,7 +38,10 @@ app.get("/api/agent/test", async (req, res) => {
 
 app.use(errorHandler);
 
-app.listen(port, () => {
+const server = createServer(app);
+setupWebSocket(server);
+
+server.listen(port, () => {
 	console.log(`QuantDesk server listening on port ${port}`);
 });
 

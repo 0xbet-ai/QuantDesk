@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import { App } from "./App.js";
 import { TooltipProvider } from "./components/ui/tooltip.js";
+import { LiveUpdatesProvider } from "./context/LiveUpdatesContext.js";
 import { ThemeProvider } from "./context/ThemeContext.js";
 
 // Set initial theme from localStorage
@@ -18,9 +19,11 @@ if (root) {
 	createRoot(root).render(
 		<StrictMode>
 			<ThemeProvider>
-				<TooltipProvider>
-					<App />
-				</TooltipProvider>
+				<LiveUpdatesProvider>
+					<TooltipProvider>
+						<App />
+					</TooltipProvider>
+				</LiveUpdatesProvider>
 			</ThemeProvider>
 		</StrictMode>,
 	);

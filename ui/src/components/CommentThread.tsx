@@ -1,5 +1,6 @@
 import { Bot, Send, Shield, User } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import type { Comment, Experiment } from "../lib/api.js";
 import { listComments, postComment } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
@@ -36,6 +37,13 @@ export function CommentThread({ experiment }: Props) {
 	useEffect(() => {
 		refresh();
 	}, [refresh]);
+
+	// Auto-refresh on WebSocket events
+	useLiveUpdates(experiment.id, (event) => {
+		if (event.type === "comment.new") {
+			refresh();
+		}
+	});
 
 	const handleSend = async () => {
 		if (!input.trim() || sending) return;
