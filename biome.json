@@ -14,6 +14,9 @@
 			"style": {
 				"useImportType": "error",
 				"noNonNullAssertion": "off"
+			},
+			"a11y": {
+				"noLabelWithoutControl": "off"
 			}
 		}
 	},

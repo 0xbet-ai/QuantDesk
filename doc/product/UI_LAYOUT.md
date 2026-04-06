@@ -6,28 +6,29 @@
 +- col1 -+--- col2 (desk) ---+------ col3 (comments) ------+---- props ----+
 |         |                   |                              |               |
 | + New   | DESK A            | EXPERIMENT #1 — ADX Baseline | Experiment    |
-|         | BTC Trend Follow  |                              | Status: done  |
+|         | BTC Trend Follow  |                              | Status: ●done |
 | DESKS   | Budget $10K       | [user] 5m BTC/USDT backtest  | Runs: 3       |
-| Desk A< | Target 15%        | [analytics] EXECUTED CMD >   |               |
+| Desk A< | Target +15%       | [analytics] EXECUTED CMD >   |               |
 | Desk B  | Stop -5%          | [analytics] Run #1 done.     |               |
-| Desk C  |                   |   Return +12.3%, DD -3.1%    |---------------|
+| Desk C  | binance           |   Return +12.3%, DD -3.1%    |---------------|
+|         |                   |                              |               |
 |         | EXPERIMENTS       | [user] Add RSI filter p=21   | RUNS          |
-|         | #1 ADX Base <     | [analytics] Run #2 done.     | #  Ret   DD   |
-|         | #2 TF Study       |   Return +15.1% (+2.8%)      | 1  +12.3 -3.1 |
+|         | #1 ADX Base ●act  | [analytics] Run #2 done.     | #  Ret   DD   |
+|         | #2 TF Study ●done |   Return +15.1% (+2.8%)      | 1  +12.3 -3.1 |
 |         |                   | [risk_manager] Validated.     | 2  +15.1 -2.8 |
-|         | LIVE              |                              | 3  running..  |
+|         | LIVE              |                              | 3  ●live      |
 |         | * BTC live #1-2   |                              |               |
 |         |                   |                              | Run #2 detail |
-| SETTINGS|                   |                              | vs base +2.8% |
-| Activity|                   |                              | WR 65%        |
-| Settings|                   |                              | 47 trades     |
+|---------|                   |                              | vs base +2.8% |
+| < ⚙ ☀  |                   |                              | WR 65%        |
+|         |                   |                              | 47 trades     |
 |         |                   | +----------------------------+|               |
 |         |                   | | > Type a comment... [Send] ||  [Go Live]    |
 |         |                   | +----------------------------+|               |
 +---------+-------------------+------------------------------+---------------+
 ```
 
-- **Col 1**: desk list + new desk button + settings nav
+- **Col 1**: desk list + new desk button. Footer: collapse, settings gear, theme toggle
 - **Col 2**: selected desk config + experiment list + live list
   - LIVE section shows active/stopped live runs
 - **Col 3**: comment thread only + input at bottom. Scrollable.

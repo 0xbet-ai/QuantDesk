@@ -1,0 +1,57 @@
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+
+type Theme = "light" | "dark";
+
+interface ThemeContextValue {
+	theme: Theme;
+	setTheme: (theme: Theme) => void;
+	toggleTheme: () => void;
+}
+
+const THEME_STORAGE_KEY = "quantdesk.theme";
+const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
+
+function resolveThemeFromDocument(): Theme {
+	if (typeof document === "undefined") return "dark";
+	return document.documentElement.classList.contains("dark") ? "dark" : "light";
+}
+
+function applyTheme(theme: Theme) {
+	if (typeof document === "undefined") return;
+	const isDark = theme === "dark";
+	const root = document.documentElement;
+	root.classList.toggle("dark", isDark);
+	root.style.colorScheme = isDark ? "dark" : "light";
+}
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+	const [theme, setThemeState] = useState<Theme>(() => resolveThemeFromDocument());
+
+	const setTheme = useCallback((nextTheme: Theme) => {
+		setThemeState(nextTheme);
+	}, []);
+
+	const toggleTheme = useCallback(() => {
+		setThemeState((current) => (current === "dark" ? "light" : "dark"));
+	}, []);
+
+	useEffect(() => {
+		applyTheme(theme);
+		try {
+			localStorage.setItem(THEME_STORAGE_KEY, theme);
+		} catch {
+			/* ignore */
+		}
+	}, [theme]);
+
+	const value = useMemo(() => ({ theme, setTheme, toggleTheme }), [theme, setTheme, toggleTheme]);
+
+	return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+}
+
+export function useTheme() {
+	const context = useContext(ThemeContext);
+	if (!context) throw new Error("useTheme must be used within ThemeProvider");
+	return context;
+}

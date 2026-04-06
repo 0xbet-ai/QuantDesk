@@ -1,16 +1,21 @@
+import { Bot, Send, Shield, User } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Comment, Experiment } from "../lib/api.js";
 import { listComments, postComment } from "../lib/api.js";
+import { cn } from "../lib/utils.js";
+import { Button } from "./ui/button.js";
+import { Input } from "./ui/input.js";
+import { Separator } from "./ui/separator.js";
 
 interface Props {
 	experiment: Experiment;
 }
 
-const authorColors: Record<string, string> = {
-	user: "text-blue-400",
-	analytics: "text-green-400",
-	risk_manager: "text-orange-400",
-	system: "text-gray-500",
+const authorConfig: Record<string, { icon: typeof User; color: string; label: string }> = {
+	user: { icon: User, color: "text-blue-400", label: "You" },
+	analytics: { icon: Bot, color: "text-green-400", label: "Analytics" },
+	risk_manager: { icon: Shield, color: "text-orange-400", label: "Risk Manager" },
+	system: { icon: Bot, color: "text-muted-foreground", label: "System" },
 };
 
 export function CommentThread({ experiment }: Props) {
@@ -46,40 +51,64 @@ export function CommentThread({ experiment }: Props) {
 
 	return (
 		<div className="flex flex-col h-full">
-			<div className="px-4 py-2 border-b border-gray-800 text-sm font-medium">
-				Experiment #{experiment.number} — {experiment.title}
+			{/* Header */}
+			<div className="px-4 h-12 flex items-center gap-2 shrink-0">
+				<span className="text-sm font-semibold">Experiment #{experiment.number}</span>
+				<span className="text-sm text-muted-foreground">— {experiment.title}</span>
 			</div>
+			<Separator />
 
-			<div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-				{comments.map((c) => (
-					<div key={c.id} className="text-sm">
-						<span className={`font-medium ${authorColors[c.author] ?? "text-gray-300"}`}>
-							[{c.author}]
-						</span>{" "}
-						<span className="text-gray-200 whitespace-pre-wrap">{c.content}</span>
+			{/* Messages */}
+			<div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+				{comments.map((c) => {
+					const config = authorConfig[c.author] ?? authorConfig.system!;
+					const Icon = config.icon;
+					return (
+						<div key={c.id} className="rounded-md border border-border p-3">
+							<div className="flex items-center gap-2 mb-1.5">
+								<div
+									className={cn(
+										"size-6 rounded-full flex items-center justify-center shrink-0",
+										c.author === "user" ? "bg-blue-500/15" : "bg-muted",
+									)}
+								>
+									<Icon className={cn("size-3", config.color)} />
+								</div>
+								<span className={cn("text-xs font-medium", config.color)}>{config.label}</span>
+								<span className="text-xs text-muted-foreground ml-auto">
+									{new Date(c.createdAt).toLocaleTimeString([], {
+										hour: "2-digit",
+										minute: "2-digit",
+									})}
+								</span>
+							</div>
+							<p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+								{c.content}
+							</p>
+						</div>
+					);
+				})}
+				{comments.length === 0 && (
+					<div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+						No comments yet
 					</div>
-				))}
+				)}
 				<div ref={bottomRef} />
 			</div>
 
-			<div className="px-4 py-3 border-t border-gray-800">
+			{/* Input */}
+			<Separator />
+			<div className="px-4 py-3">
 				<div className="flex gap-2">
-					<input
-						type="text"
+					<Input
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && handleSend()}
 						placeholder="Type a comment..."
-						className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500"
 					/>
-					<button
-						type="button"
-						onClick={handleSend}
-						disabled={sending || !input.trim()}
-						className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded text-sm font-medium"
-					>
-						Send
-					</button>
+					<Button size="sm" onClick={handleSend} disabled={sending || !input.trim()}>
+						<Send className="size-4" />
+					</Button>
 				</div>
 			</div>
 		</div>

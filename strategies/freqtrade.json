@@ -1,7 +1,7 @@
 [
   {
     "id": "ft_strategy001",
-    "name": "Strategy001 (ADX+FastD)",
+    "name": "ADX + FastD",
     "category": "trend_following",
     "difficulty": "easy",
     "description": "ADX + FastD + Fisher RSI combo for trend entry",
@@ -21,7 +21,7 @@
   },
   {
     "id": "ft_strategy002",
-    "name": "Strategy002 (RSI+BB+MACD)",
+    "name": "RSI + BB + MACD",
     "category": "mean_reversion",
     "difficulty": "easy",
     "description": "RSI + Bollinger Band + MACD combo for mean reversion entry",
@@ -41,7 +41,7 @@
   },
   {
     "id": "ft_strategy003",
-    "name": "Strategy003 (BB+EMA+MFI)",
+    "name": "BB + EMA + MFI",
     "category": "mean_reversion",
     "difficulty": "easy",
     "description": "Bollinger Band + EMA100 + MFI combo",
@@ -61,7 +61,7 @@
   },
   {
     "id": "ft_strategy004",
-    "name": "Strategy004 (MACD+MFI+SAR)",
+    "name": "MACD + MFI + SAR",
     "category": "trend_following",
     "difficulty": "easy",
     "description": "MACD + MFI + Parabolic SAR trend following",
@@ -79,7 +79,7 @@
   },
   {
     "id": "ft_strategy005",
-    "name": "Strategy005 (SMA+EMA+momentum)",
+    "name": "SMA + EMA + Momentum",
     "category": "momentum",
     "difficulty": "easy",
     "description": "SMA/EMA crossover with momentum and CCI filter",
@@ -118,7 +118,7 @@
   },
   {
     "id": "ft_bandtastic",
-    "name": "Bandtastic (RSI+MFI+BB)",
+    "name": "Bandtastic",
     "category": "mean_reversion",
     "difficulty": "medium",
     "description": "RSI + MFI + multi-level Bollinger Bands (4 std levels) with EMA filter",
@@ -172,7 +172,7 @@
   },
   {
     "id": "ft_godstra",
-    "name": "GodStra (All Indicators)",
+    "name": "GodStra",
     "category": "multi_indicator",
     "difficulty": "advanced",
     "description": "Uses all ta-lib indicators via add_all_ta_features. Ichimoku, Keltner, MFI, KST",
@@ -188,7 +188,7 @@
   },
   {
     "id": "ft_hlhb",
-    "name": "HLHB (EMA+RSI+ADX)",
+    "name": "HLHB",
     "category": "trend_following",
     "difficulty": "easy",
     "description": "Classic HLHB system — EMA5/EMA10 cross with RSI and ADX filter",
@@ -367,7 +367,7 @@
   },
   {
     "id": "ft_ott",
-    "name": "OTT Strategy (Futures)",
+    "name": "OTT Futures",
     "category": "trend_following",
     "difficulty": "medium",
     "description": "Optimized Trend Tracker with VAR and ADX for futures",

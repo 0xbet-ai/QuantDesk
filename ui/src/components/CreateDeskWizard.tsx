@@ -1,7 +1,45 @@
-import { useEffect, useState } from "react";
+import {
+	Activity,
+	Anchor,
+	ArrowLeftRight,
+	ArrowRight,
+	BarChart3,
+	Bot,
+	Brain,
+	CandlestickChart,
+	Crosshair,
+	FlaskConical,
+	GitBranch,
+	Grid3x3,
+	Layers,
+	LineChart,
+	Maximize2,
+	Repeat,
+	Rocket,
+	Scale,
+	Scan,
+	Search,
+	Settings2,
+	Shield,
+	Sparkles,
+	Store,
+	Target,
+	Timer,
+	TrendingUp,
+	Waves,
+	X,
+	Zap,
+} from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import venues from "../../../strategies/venues.json";
-import { createDesk, listStrategies } from "../lib/api.js";
 import type { Strategy } from "../lib/api.js";
+import { createDesk, listStrategies } from "../lib/api.js";
+import { cn } from "../lib/utils.js";
+import { DeskIcon } from "./icons/DeskIcon.js";
+import { Badge } from "./ui/badge.js";
+import { Button } from "./ui/button.js";
+import { Input } from "./ui/input.js";
+import { Textarea } from "./ui/textarea.js";
 
 interface Props {
 	onClose: () => void;
@@ -9,30 +47,174 @@ interface Props {
 }
 
 type Step = "desk" | "venue" | "strategy" | "config" | "launch";
-const steps: Step[] = ["desk", "venue", "strategy", "config", "launch"];
+
+const categoryMeta: Record<string, { label: string; icon: typeof TrendingUp }> = {
+	trend_following: { label: "Trend Following", icon: TrendingUp },
+	mean_reversion: { label: "Mean Reversion", icon: ArrowLeftRight },
+	momentum: { label: "Momentum", icon: Zap },
+	ml_based: { label: "Machine Learning", icon: Brain },
+	multi_indicator: { label: "Multi Indicator", icon: Layers },
+	scalping: { label: "Scalping", icon: Timer },
+	pattern: { label: "Pattern", icon: Scan },
+	volatility: { label: "Volatility", icon: Activity },
+	market_making: { label: "Market Making", icon: Scale },
+	arbitrage: { label: "Arbitrage", icon: GitBranch },
+	execution: { label: "Execution", icon: Target },
+};
+
+/** Per-strategy icon — gives each card a distinct visual.
+ *  Falls back to the category icon when no override exists. */
+const strategyIcons: Record<string, typeof TrendingUp> = {
+	// freqtrade
+	ft_strategy001: BarChart3,
+	ft_strategy002: Waves,
+	ft_strategy003: ArrowLeftRight,
+	ft_strategy004: TrendingUp,
+	ft_strategy005: Zap,
+	ft_freqai_rl: Bot,
+	ft_bandtastic: Waves,
+	ft_supertrend: TrendingUp,
+	ft_pattern_recognition: CandlestickChart,
+	ft_godstra: Layers,
+	ft_hlhb: LineChart,
+	ft_adx_momentum: Zap,
+	ft_bband_rsi: ArrowLeftRight,
+	ft_combined_binh_cluc: GitBranch,
+	ft_scalp: Timer,
+	ft_td_sequential: CandlestickChart,
+	ft_freqai_example: Brain,
+	ft_freqai_hybrid: Brain,
+	ft_f_supertrend: Maximize2,
+	ft_volatility_system: Activity,
+	ft_ott: LineChart,
+	// nautilus
+	nt_ema_cross: LineChart,
+	nt_ema_cross_twap: Timer,
+	nt_ema_bracket: Shield,
+	nt_ema_trailing: Target,
+	nt_market_maker: Scale,
+	nt_orderbook_imbalance: BarChart3,
+	nt_volatility_mm: Activity,
+	nt_bb_mean_reversion: Waves,
+	nt_ema_cross_long_only: TrendingUp,
+	nt_ema_cross_stop_entry: Crosshair,
+	nt_ema_cross_hedge_mode: Repeat,
+	nt_grid_market_maker: Grid3x3,
+	nt_simpler_quoter: Anchor,
+	// hummingbot
+	hb_pmm: Scale,
+	hb_avellaneda: LineChart,
+	hb_xemm: Repeat,
+	hb_perpetual_mm: CandlestickChart,
+	hb_amm_arb: GitBranch,
+	hb_spot_perp_arb: ArrowLeftRight,
+	hb_hedge: Shield,
+	hb_liquidity_mining: Waves,
+	hb_cross_exchange_mining: Grid3x3,
+	hb_v2_funding_rate_arb: BarChart3,
+	hb_simple_pmm: Anchor,
+	hb_simple_vwap: Timer,
+	hb_simple_xemm: Crosshair,
+};
+
+const stepTabs: { key: Step; label: string; icon: React.ComponentType<{ className?: string }> }[] =
+	[
+		{ key: "desk", label: "Desk", icon: DeskIcon },
+		{ key: "venue", label: "Venue", icon: Store },
+		{ key: "strategy", label: "Strategy", icon: FlaskConical },
+		{ key: "config", label: "Config", icon: Settings2 },
+		{ key: "launch", label: "Launch", icon: Rocket },
+	];
+
+const supportedEngines = new Set(venues.flatMap((v) => v.engines).filter((e) => e !== "generic"));
+
+const allVenues = venues.filter((v) => v.engines.some((e) => supportedEngines.has(e)));
+
+const venuesByType = {
+	cex: allVenues.filter((v) => v.type === "cex"),
+	dex: allVenues.filter((v) => v.type === "dex"),
+	prediction: allVenues.filter((v) => v.type === "prediction"),
+};
+
+const venueTypeLabels: Record<string, string> = {
+	cex: "Centralized Exchanges",
+	dex: "Decentralized Exchanges",
+	prediction: "Prediction Markets",
+};
+
+function venueName(id: string): string {
+	return venues.find((v) => v.id === id)?.name ?? id;
+}
 
 export function CreateDeskWizard({ onClose, onCreated }: Props) {
-	const [step, setStep] = useState<Step>("desk");
+	const [stepIndex, setStepIndex] = useState(0);
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
+	const [customStrategyPrompt, setCustomStrategyPrompt] = useState("");
 	const [selectedVenues, setSelectedVenues] = useState<string[]>([]);
 	const [customVenue, setCustomVenue] = useState("");
 	const [strategies, setStrategies] = useState<Strategy[]>([]);
-	const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
+	const [loadingStrategies, setLoadingStrategies] = useState(false);
+	const [strategiesError, setStrategiesError] = useState<string | null>(null);
+	const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null); // null = nothing selected, "custom" = custom strategy
+	const [strategySearch, setStrategySearch] = useState("");
 	const [budget, setBudget] = useState("10000");
 	const [targetReturn, setTargetReturn] = useState("15");
 	const [stopLoss, setStopLoss] = useState("5");
 	const [submitting, setSubmitting] = useState(false);
+	const [submitError, setSubmitError] = useState<string | null>(null);
 
-	const stepIndex = steps.indexOf(step);
+	const dialogRef = useRef<HTMLDialogElement>(null);
+	const previousFocus = useRef<HTMLElement | null>(null);
 
+	const step = stepTabs[stepIndex]!.key;
+
+	// Focus trap & Escape handler
 	useEffect(() => {
-		if (step === "strategy") {
+		previousFocus.current = document.activeElement as HTMLElement;
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === "Escape") {
+				onClose();
+				return;
+			}
+			if (e.key === "Tab" && dialogRef.current) {
+				const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+					'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+				);
+				if (focusable.length === 0) return;
+				const first = focusable[0]!;
+				const last = focusable[focusable.length - 1]!;
+				if (e.shiftKey && document.activeElement === first) {
+					e.preventDefault();
+					last.focus();
+				} else if (!e.shiftKey && document.activeElement === last) {
+					e.preventDefault();
+					first.focus();
+				}
+			}
+		};
+
+		document.addEventListener("keydown", handleKeyDown);
+		return () => {
+			document.removeEventListener("keydown", handleKeyDown);
+			previousFocus.current?.focus();
+		};
+	}, [onClose]);
+
+	// Load strategies
+	useEffect(() => {
+		if (step === "strategy" && strategies.length === 0 && !loadingStrategies) {
+			setLoadingStrategies(true);
+			setStrategiesError(null);
 			listStrategies()
 				.then(setStrategies)
-				.catch(() => {});
+				.catch((err: unknown) => {
+					setStrategiesError(err instanceof Error ? err.message : "Failed to load strategies");
+				})
+				.finally(() => setLoadingStrategies(false));
 		}
-	}, [step]);
+	}, [step, strategies.length, loadingStrategies]);
 
 	const toggleVenue = (id: string) => {
 		setSelectedVenues((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
@@ -46,18 +228,35 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 		setCustomVenue("");
 	};
 
-	const filteredStrategies = strategies.filter((s) => {
-		if (selectedVenues.length === 0) return true;
-		const venueEngines = selectedVenues.flatMap(
-			(v) => venues.find((ve) => ve.id === v)?.engines ?? ["generic"],
-		);
-		return venueEngines.includes(s.engine);
-	});
+	// Filter strategies by engines available on selected venues
+	const allowedEngines = new Set(
+		selectedVenues.flatMap((vid) => venues.find((v) => v.id === vid)?.engines ?? []),
+	);
+	const engineFiltered =
+		allowedEngines.size > 0 ? strategies.filter((s) => allowedEngines.has(s.engine)) : strategies;
+	const searchLower = strategySearch.toLowerCase();
+	const filteredStrategies = searchLower
+		? engineFiltered.filter(
+				(s) =>
+					s.name.toLowerCase().includes(searchLower) ||
+					s.description.toLowerCase().includes(searchLower) ||
+					s.category.toLowerCase().includes(searchLower) ||
+					s.indicators.some((ind) => ind.toLowerCase().includes(searchLower)),
+			)
+		: engineFiltered;
+
+	// Clear strategy selection if it becomes invalid after venue change
+	useEffect(() => {
+		if (selectedStrategyId && !filteredStrategies.find((s) => s.id === selectedStrategyId)) {
+			setSelectedStrategyId(null);
+		}
+	}, [selectedStrategyId, filteredStrategies]);
 
 	const selectedStrategy = strategies.find((s) => s.id === selectedStrategyId);
 
-	const handleSubmit = async () => {
+	const handleSubmit = useCallback(async () => {
 		setSubmitting(true);
+		setSubmitError(null);
 		try {
 			const result = await createDesk({
 				name,
@@ -66,214 +265,514 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 				stopLoss,
 				venues: selectedVenues,
 				engine: selectedStrategy?.engine ?? "generic",
-				strategyId: selectedStrategyId ?? undefined,
-				description: description || undefined,
+				strategyId: selectedStrategyId === "custom" ? undefined : (selectedStrategyId ?? undefined),
+				description: description || customStrategyPrompt || undefined,
 			});
 			onCreated(result.desk.id);
-		} catch (err) {
-			console.error(err);
+		} catch (err: unknown) {
+			setSubmitError(err instanceof Error ? err.message : "Failed to create desk");
 		} finally {
 			setSubmitting(false);
 		}
+	}, [
+		name,
+		budget,
+		targetReturn,
+		stopLoss,
+		selectedVenues,
+		selectedStrategy,
+		selectedStrategyId,
+		description,
+		customStrategyPrompt,
+		onCreated,
+	]);
+
+	// Per-step validation
+	const isStepValid = (s: Step): boolean => {
+		switch (s) {
+			case "desk":
+				return name.trim().length > 0;
+			case "venue":
+				return selectedVenues.length > 0;
+			case "config":
+				return Number(budget) > 0 && Number(targetReturn) > 0 && Number(stopLoss) > 0;
+			case "strategy":
+				if (selectedStrategyId === null) return false;
+				if (selectedStrategyId === "custom") return customStrategyPrompt.trim().length > 0;
+				return true;
+			case "launch":
+				return true;
+		}
 	};
 
-	return (
-		<div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-			<div className="bg-gray-900 border border-gray-700 rounded-lg w-[520px] max-h-[80vh] flex flex-col">
-				<div className="flex items-center justify-between px-5 py-3 border-b border-gray-800">
-					<h2 className="text-sm font-semibold">
-						New Desk — Step {stepIndex + 1}/{steps.length}
-					</h2>
-					<button type="button" onClick={onClose} className="text-gray-500 hover:text-white">
-						x
-					</button>
-				</div>
+	const canProceed = isStepValid(step);
+	const canLaunch = name.trim().length > 0 && selectedVenues.length > 0 && Number(budget) > 0;
 
-				<div className="flex-1 overflow-y-auto px-5 py-4">
+	return (
+		<dialog
+			ref={dialogRef}
+			open
+			aria-modal="true"
+			aria-label="Create new desk"
+			className="fixed inset-0 z-50 bg-background flex flex-col w-full h-full max-w-none max-h-none m-0 p-0 border-none"
+		>
+			{/* Header */}
+			<div className="shrink-0">
+				<div className="max-w-3xl mx-auto w-full px-8">
+					<div className="pt-6 pb-4">
+						<Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close wizard">
+							<X className="size-4" />
+						</Button>
+					</div>
+					<div className="flex gap-1 border-b border-border">
+						{stepTabs.map((tab, i) => {
+							const Icon = tab.icon;
+							return (
+								<button
+									key={tab.key}
+									type="button"
+									role="tab"
+									aria-selected={i === stepIndex}
+									aria-disabled={i > stepIndex}
+									onClick={() => i <= stepIndex && setStepIndex(i)}
+									className={cn(
+										"flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium border-b-2 transition-colors -mb-px whitespace-nowrap focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px] rounded-t-sm",
+										i === stepIndex
+											? "border-foreground text-foreground"
+											: i < stepIndex
+												? "border-transparent text-muted-foreground hover:text-foreground cursor-pointer"
+												: "border-transparent text-muted-foreground/40 cursor-default",
+									)}
+								>
+									<Icon className="size-3.5" />
+									{tab.label}
+								</button>
+							);
+						})}
+					</div>
+				</div>
+			</div>
+
+			{/* Content */}
+			<div className="flex-1 overflow-y-auto">
+				<div className="max-w-3xl mx-auto w-full px-8 py-8">
 					{step === "desk" && (
-						<div className="space-y-3">
-							<label className="block text-xs text-gray-400">
-								Desk Name
-								<input
-									type="text"
-									value={name}
-									onChange={(e) => setName(e.target.value)}
-									className="mt-1 w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm"
-								/>
-							</label>
-							<label className="block text-xs text-gray-400">
-								Description
-								<textarea
-									value={description}
-									onChange={(e) => setDescription(e.target.value)}
-									rows={3}
-									className="mt-1 w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm"
-								/>
-							</label>
+						<div className="space-y-8">
+							<div className="flex items-center gap-3 mb-1">
+								<DeskIcon className="size-5 text-foreground/60" />
+								<div>
+									<h3 className="text-base font-semibold">Name your desk</h3>
+									<p className="text-xs text-foreground/50">
+										This is the workspace for your trading strategy.
+									</p>
+								</div>
+							</div>
+							<div className="space-y-4 max-w-sm">
+								<div>
+									<label htmlFor="desk-name" className="text-xs text-foreground/60 mb-1.5 block">
+										Desk name
+									</label>
+									<Input
+										id="desk-name"
+										value={name}
+										onChange={(e) => setName(e.target.value)}
+										placeholder="BTC Trend Follow"
+										autoFocus
+									/>
+								</div>
+								<div>
+									<label htmlFor="desk-desc" className="text-xs text-foreground/60 mb-1.5 block">
+										Mission / goal (optional)
+									</label>
+									<Textarea
+										id="desk-desc"
+										value={description}
+										onChange={(e) => setDescription(e.target.value)}
+										rows={4}
+										placeholder="What is this strategy trying to achieve?"
+									/>
+								</div>
+							</div>
 						</div>
 					)}
 
 					{step === "venue" && (
-						<div>
-							<div className="text-xs text-gray-400 mb-2">Where do you trade?</div>
-							<div className="flex flex-wrap gap-2">
-								{venues.map((v) => (
-									<button
-										key={v.id}
-										type="button"
-										onClick={() => toggleVenue(v.id)}
-										className={`px-3 py-1.5 rounded-full text-xs border ${
-											selectedVenues.includes(v.id)
-												? "bg-blue-600 border-blue-500 text-white"
-												: "bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-500"
-										}`}
-									>
-										{v.name}
-									</button>
-								))}
+						<div className="space-y-8">
+							<div className="flex items-center gap-3 mb-1">
+								<Store className="size-5 text-foreground/60" />
+								<div>
+									<h3 className="text-base font-semibold">Select venues</h3>
+									<p className="text-xs text-foreground/50">
+										Where do you trade? Select one or more.
+									</p>
+								</div>
 							</div>
-							<div className="flex gap-2 mt-3">
-								<input
-									type="text"
-									value={customVenue}
-									onChange={(e) => setCustomVenue(e.target.value)}
-									onKeyDown={(e) => e.key === "Enter" && addCustomVenue()}
-									placeholder="+ Add custom venue"
-									className="flex-1 px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-xs"
-								/>
-								<button
-									type="button"
-									onClick={addCustomVenue}
-									className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-xs"
-								>
-									Add
-								</button>
+
+							{(["cex", "dex", "prediction"] as const).map((type) =>
+								venuesByType[type].length > 0 ? (
+									<div key={type}>
+										<div className="text-[10px] font-medium uppercase tracking-widest font-mono text-foreground/50 mb-2">
+											{venueTypeLabels[type]}
+										</div>
+										<div className="flex flex-wrap gap-2">
+											{venuesByType[type].map((v) => (
+												<button
+													key={v.id}
+													type="button"
+													aria-pressed={selectedVenues.includes(v.id)}
+													onClick={() => toggleVenue(v.id)}
+													className={cn(
+														"px-3 py-1.5 rounded-md text-xs border transition-colors focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+														selectedVenues.includes(v.id)
+															? "bg-primary text-primary-foreground border-primary"
+															: "bg-card border-border dark:border-foreground/20 text-foreground hover:bg-accent",
+													)}
+												>
+													{v.name}
+												</button>
+											))}
+										</div>
+									</div>
+								) : null,
+							)}
+
+							<div className="max-w-xs">
+								<div className="text-[10px] font-medium uppercase tracking-widest font-mono text-foreground/50 mb-2">
+									Custom
+								</div>
+								<div className="flex gap-2">
+									<Input
+										id="custom-venue"
+										aria-label="Custom venue name"
+										value={customVenue}
+										onChange={(e) => setCustomVenue(e.target.value)}
+										onKeyDown={(e) => e.key === "Enter" && addCustomVenue()}
+										placeholder="Add custom venue..."
+										className="flex-1"
+									/>
+									<Button variant="outline" size="sm" onClick={addCustomVenue}>
+										Add
+									</Button>
+								</div>
 							</div>
+
+							{selectedVenues.length > 0 && (
+								<div className="flex flex-wrap gap-1">
+									{selectedVenues.map((v) => (
+										<Badge key={v} variant="secondary" className="gap-1">
+											{venueName(v)}
+											<button
+												type="button"
+												onClick={() => toggleVenue(v)}
+												aria-label={`Remove ${venueName(v)}`}
+												className="hover:text-destructive"
+											>
+												<X className="size-3" />
+											</button>
+										</Badge>
+									))}
+								</div>
+							)}
 						</div>
 					)}
 
-					{step === "strategy" && (
-						<div>
-							<div className="text-xs text-gray-400 mb-2">Pick a strategy or describe your own</div>
-							<div className="space-y-1 max-h-60 overflow-y-auto">
-								<button
-									type="button"
-									onClick={() => setSelectedStrategyId(null)}
-									className={`w-full text-left px-3 py-2 rounded text-sm ${
-										selectedStrategyId === null
-											? "bg-blue-600/20 border border-blue-500"
-											: "hover:bg-gray-800"
-									}`}
-								>
-									Custom strategy (agent writes from scratch)
-								</button>
-								{filteredStrategies.map((s) => (
+					{step === "strategy" &&
+						(() => {
+							if (loadingStrategies) {
+								return (
+									<div className="py-12 text-center text-sm text-muted-foreground">
+										Loading strategies...
+									</div>
+								);
+							}
+							if (strategiesError) {
+								return (
+									<div className="py-12 text-center space-y-3">
+										<p className="text-sm text-destructive">{strategiesError}</p>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={() => {
+												setStrategiesError(null);
+												setLoadingStrategies(false);
+											}}
+										>
+											Retry
+										</Button>
+									</div>
+								);
+							}
+							const categories = [...new Set(filteredStrategies.map((s) => s.category))];
+							return (
+								<div className="space-y-8">
+									<div className="flex items-center gap-3 mb-1">
+										<FlaskConical className="size-5 text-foreground/60" />
+										<div>
+											<h3 className="text-base font-semibold">Choose a strategy</h3>
+											<p className="text-xs text-foreground/50">
+												Pick from catalog or let the agent write one from scratch.
+											</p>
+										</div>
+									</div>
+
+									{/* Custom strategy card */}
 									<button
-										key={s.id}
 										type="button"
-										onClick={() => setSelectedStrategyId(s.id)}
-										className={`w-full text-left px-3 py-2 rounded text-sm ${
-											selectedStrategyId === s.id
-												? "bg-blue-600/20 border border-blue-500"
-												: "hover:bg-gray-800"
-										}`}
+										aria-pressed={selectedStrategyId === "custom"}
+										onClick={() => setSelectedStrategyId("custom")}
+										className={cn(
+											"w-full text-left p-5 rounded-lg border-2 border-dashed transition-colors focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+											selectedStrategyId === "custom"
+												? "border-foreground bg-accent"
+												: "border-muted-foreground/30 hover:border-muted-foreground/60 hover:bg-accent/50",
+										)}
 									>
-										<div>{s.name}</div>
-										<div className="text-xs text-gray-500">
-											{s.category} / {s.difficulty} / {s.engine}
+										<div className="flex items-center gap-4">
+											<div className="flex size-10 items-center justify-center rounded-lg bg-muted">
+												<Sparkles className="size-5 text-foreground/70" />
+											</div>
+											<div>
+												<div className="text-sm font-medium text-foreground">Custom Strategy</div>
+												<div className="text-xs text-foreground/60 mt-0.5">
+													Agent writes the strategy from your description
+												</div>
+											</div>
 										</div>
 									</button>
-								))}
-							</div>
-						</div>
-					)}
+
+									{selectedStrategyId === "custom" && (
+										<div className="max-w-md">
+											<label
+												htmlFor="strategy-prompt"
+												className="text-xs text-foreground/60 mb-1.5 block"
+											>
+												Describe your strategy
+											</label>
+											<Textarea
+												id="strategy-prompt"
+												value={customStrategyPrompt}
+												onChange={(e) => setCustomStrategyPrompt(e.target.value)}
+												rows={3}
+												placeholder="e.g. A momentum strategy that buys when RSI crosses above 30 and sells when it crosses below 70..."
+												required
+											/>
+										</div>
+									)}
+
+									{/* Search */}
+									<div className="relative max-w-sm">
+										<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+										<Input
+											value={strategySearch}
+											onChange={(e) => setStrategySearch(e.target.value)}
+											placeholder="Search strategies or indicators..."
+											className="pl-9"
+										/>
+									</div>
+
+									{filteredStrategies.length === 0 && strategySearch && (
+										<p className="text-sm text-muted-foreground py-6 text-center">
+											No strategies match &ldquo;{strategySearch}&rdquo;
+										</p>
+									)}
+
+									{/* Strategies grouped by category */}
+									{categories.map((cat) => {
+										const meta = categoryMeta[cat] ?? { label: cat, icon: FlaskConical };
+										const CatIcon = meta.icon;
+										const catStrategies = filteredStrategies.filter((s) => s.category === cat);
+										return (
+											<div key={cat}>
+												<div className="flex items-center gap-1.5 mb-2">
+													<CatIcon className="size-3.5 text-muted-foreground" />
+													<span className="text-[10px] font-medium uppercase tracking-widest font-mono text-foreground/50">
+														{meta.label}
+													</span>
+												</div>
+												<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+													{catStrategies.map((s) => {
+														const SIcon = strategyIcons[s.id] ?? CatIcon;
+														const diffColor =
+															s.difficulty === "easy"
+																? "text-green-600 dark:text-green-400"
+																: s.difficulty === "advanced"
+																	? "text-orange-600 dark:text-orange-400"
+																	: "text-blue-600 dark:text-blue-400";
+														return (
+															<button
+																key={s.id}
+																type="button"
+																aria-pressed={selectedStrategyId === s.id}
+																onClick={() => setSelectedStrategyId(s.id)}
+																className={cn(
+																	"text-left p-4 rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+																	selectedStrategyId === s.id
+																		? "border-foreground bg-accent"
+																		: "border-border dark:border-foreground/15 hover:bg-accent/50",
+																)}
+															>
+																<div className="flex items-start gap-3">
+																	<div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted mt-0.5">
+																		<SIcon className="size-4 text-foreground/70" />
+																	</div>
+																	<div className="min-w-0">
+																		<div className="text-sm font-medium text-foreground leading-tight">
+																			{s.name}
+																		</div>
+																		<div className="text-xs text-foreground/60 mt-1 line-clamp-2">
+																			{s.description}
+																		</div>
+																		<div className={cn("text-[11px] mt-2 font-medium", diffColor)}>
+																			{s.difficulty}
+																		</div>
+																	</div>
+																</div>
+															</button>
+														);
+													})}
+												</div>
+											</div>
+										);
+									})}
+								</div>
+							);
+						})()}
 
 					{step === "config" && (
-						<div className="space-y-3">
-							<label className="block text-xs text-gray-400">
-								Budget (USD)
-								<input
-									type="number"
-									value={budget}
-									onChange={(e) => setBudget(e.target.value)}
-									className="mt-1 w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm"
-								/>
-							</label>
-							<label className="block text-xs text-gray-400">
-								Target Return %
-								<input
-									type="number"
-									value={targetReturn}
-									onChange={(e) => setTargetReturn(e.target.value)}
-									className="mt-1 w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm"
-								/>
-							</label>
-							<label className="block text-xs text-gray-400">
-								Stop Loss %
-								<input
-									type="number"
-									value={stopLoss}
-									onChange={(e) => setStopLoss(e.target.value)}
-									className="mt-1 w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm"
-								/>
-							</label>
+						<div className="space-y-8">
+							<div className="flex items-center gap-3 mb-1">
+								<Settings2 className="size-5 text-foreground/60" />
+								<div>
+									<h3 className="text-base font-semibold">Configure constraints</h3>
+									<p className="text-xs text-foreground/50">
+										Set budget and risk parameters for this desk.
+									</p>
+								</div>
+							</div>
+
+							<div className="space-y-4 max-w-xs">
+								<div>
+									<label htmlFor="cfg-budget" className="text-xs text-foreground/60 mb-1.5 block">
+										Budget (USD)
+									</label>
+									<Input
+										id="cfg-budget"
+										type="number"
+										min="1"
+										value={budget}
+										onChange={(e) => setBudget(e.target.value)}
+									/>
+								</div>
+								<div>
+									<label htmlFor="cfg-target" className="text-xs text-foreground/60 mb-1.5 block">
+										Target return %
+									</label>
+									<Input
+										id="cfg-target"
+										type="number"
+										min="0.1"
+										step="0.1"
+										value={targetReturn}
+										onChange={(e) => setTargetReturn(e.target.value)}
+									/>
+								</div>
+								<div>
+									<label htmlFor="cfg-stoploss" className="text-xs text-foreground/60 mb-1.5 block">
+										Stop loss % (max drawdown)
+									</label>
+									<Input
+										id="cfg-stoploss"
+										type="number"
+										min="0.1"
+										step="0.1"
+										value={stopLoss}
+										onChange={(e) => setStopLoss(e.target.value)}
+									/>
+								</div>
+							</div>
 						</div>
 					)}
 
 					{step === "launch" && (
-						<div className="text-sm space-y-2">
-							<div>
-								<span className="text-gray-500">Desk:</span> {name}
+						<div className="space-y-8">
+							<div className="flex items-center gap-3 mb-1">
+								<Rocket className="size-5 text-foreground/60" />
+								<div>
+									<h3 className="text-base font-semibold">Review and launch</h3>
+									<p className="text-xs text-foreground/50">Confirm your desk configuration.</p>
+								</div>
 							</div>
-							<div>
-								<span className="text-gray-500">Venues:</span> {selectedVenues.join(", ") || "none"}
+
+							<div className="max-w-sm space-y-3">
+								<div className="flex justify-between text-[13px]">
+									<span className="text-foreground/50">Desk</span>
+									<span className="font-medium">{name}</span>
+								</div>
+								<div className="flex justify-between text-[13px]">
+									<span className="text-foreground/50">Venues</span>
+									<div className="flex gap-1 flex-wrap justify-end">
+										{selectedVenues.map((v) => (
+											<Badge key={v} variant="secondary" className="text-[10px]">
+												{venueName(v)}
+											</Badge>
+										))}
+										{selectedVenues.length === 0 && (
+											<span className="text-foreground/40">none</span>
+										)}
+									</div>
+								</div>
+								<div className="flex justify-between text-[13px]">
+									<span className="text-foreground/50">Strategy</span>
+									<span className="font-medium">
+										{selectedStrategyId === "custom" ? "Custom" : (selectedStrategy?.name ?? "---")}
+									</span>
+								</div>
+								<div className="flex justify-between text-[13px]">
+									<span className="text-foreground/50">Budget</span>
+									<span className="font-medium">${Number(budget).toLocaleString("en-US")}</span>
+								</div>
+								<div className="flex justify-between text-[13px]">
+									<span className="text-foreground/50">Target</span>
+									<span className="font-medium text-green-600 dark:text-green-400">
+										+{targetReturn}%
+									</span>
+								</div>
+								<div className="flex justify-between text-[13px]">
+									<span className="text-foreground/50">Stop loss</span>
+									<span className="font-medium text-destructive">-{stopLoss}%</span>
+								</div>
 							</div>
-							<div>
-								<span className="text-gray-500">Strategy:</span>{" "}
-								{selectedStrategy?.name ?? "Custom"}
-							</div>
-							<div>
-								<span className="text-gray-500">Budget:</span> ${budget}
-							</div>
-							<div>
-								<span className="text-gray-500">Target:</span> {targetReturn}%
-							</div>
-							<div>
-								<span className="text-gray-500">Stop Loss:</span> -{stopLoss}%
-							</div>
+
+							{submitError && (
+								<div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+									{submitError}
+								</div>
+							)}
 						</div>
 					)}
 				</div>
+			</div>
 
-				<div className="flex justify-between px-5 py-3 border-t border-gray-800">
-					<button
-						type="button"
-						onClick={() => (stepIndex > 0 ? setStep(steps[stepIndex - 1]!) : onClose())}
-						className="px-4 py-2 text-sm text-gray-400 hover:text-white"
-					>
-						{stepIndex > 0 ? "Back" : "Cancel"}
-					</button>
+			{/* Footer */}
+			<div className="shrink-0 border-t border-border">
+				<div className="max-w-3xl mx-auto w-full flex justify-end px-8 py-4">
 					{step === "launch" ? (
-						<button
-							type="button"
-							onClick={handleSubmit}
-							disabled={submitting || !name.trim()}
-							className="px-4 py-2 bg-green-600 hover:bg-green-500 disabled:opacity-50 rounded text-sm font-medium"
-						>
+						<Button onClick={handleSubmit} disabled={submitting || !canLaunch} className="gap-1.5">
+							<Rocket className="size-4" />
 							{submitting ? "Creating..." : "Launch"}
-						</button>
+						</Button>
 					) : (
-						<button
-							type="button"
-							onClick={() => setStep(steps[stepIndex + 1]!)}
-							disabled={step === "desk" && !name.trim()}
-							className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded text-sm font-medium"
+						<Button
+							onClick={() => setStepIndex(stepIndex + 1)}
+							disabled={!canProceed}
+							className="gap-1.5"
 						>
+							<ArrowRight className="size-4" />
 							Next
-						</button>
+						</Button>
 					)}
 				</div>
 			</div>
-		</div>
+		</dialog>
 	);
 }
