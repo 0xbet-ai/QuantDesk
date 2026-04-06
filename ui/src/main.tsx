@@ -1,9 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-
-function App() {
-	return <div>QuantDesk</div>;
-}
+import "./index.css";
+import { App } from "./App.js";
 
 const root = document.getElementById("root");
 if (root) {

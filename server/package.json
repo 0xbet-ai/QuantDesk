@@ -13,6 +13,7 @@
     "@quantdesk/shared": "workspace:*",
     "@quantdesk/adapters": "workspace:*",
     "@quantdesk/engines": "workspace:*",
+    "drizzle-orm": "^0.39.3",
     "express": "^5.1.0",
     "ws": "^8.18.1",
     "zod": "^3.24.2"
