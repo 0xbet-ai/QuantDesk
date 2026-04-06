@@ -32,33 +32,6 @@ const authorConfig: Record<string, { icon: typeof User; color: string; label: st
 	system: { icon: Bot, color: "text-muted-foreground", label: "System" },
 };
 
-function useTypewriter(text: string, charsPerTick = 3) {
-	const [displayed, setDisplayed] = useState("");
-	const targetRef = useRef(text);
-	targetRef.current = text;
-
-	useEffect(() => {
-		if (!text) {
-			setDisplayed("");
-			return;
-		}
-		// If new text is longer, animate from current position
-		const interval = setInterval(() => {
-			setDisplayed((prev) => {
-				const target = targetRef.current;
-				if (prev.length >= target.length) {
-					clearInterval(interval);
-					return target;
-				}
-				return target.slice(0, prev.length + charsPerTick);
-			});
-		}, 16);
-		return () => clearInterval(interval);
-	}, [text, charsPerTick]);
-
-	return { displayed, isTyping: displayed.length < text.length };
-}
-
 function ElapsedTimer() {
 	const [elapsed, setElapsed] = useState(0);
 	useEffect(() => {
@@ -145,6 +118,36 @@ function parseProposals(content: string): { cleanContent: string; proposals: Pro
 	return { cleanContent: cleanContent.trim(), proposals };
 }
 
+function ToolEntry({ entry }: { entry: { content: string; label?: string; expandable?: string } }) {
+	const [open, setOpen] = useState(false);
+	return (
+		<div>
+			<button
+				type="button"
+				onClick={() => entry.expandable && setOpen((o) => !o)}
+				className={cn(
+					"flex items-center gap-1 text-[12px] text-muted-foreground",
+					entry.expandable && "cursor-pointer hover:text-foreground",
+				)}
+			>
+				<ChevronRight
+					className={cn(
+						"size-3 transition-transform",
+						open && "rotate-90",
+						!entry.expandable && "invisible",
+					)}
+				/>
+				{entry.content}
+			</button>
+			{open && entry.expandable && (
+				<pre className="mt-1 ml-4 overflow-x-auto rounded bg-zinc-950 p-2 text-[11px] text-zinc-300 max-h-40">
+					{entry.expandable}
+				</pre>
+			)}
+		</div>
+	);
+}
+
 function ProposalCard({
 	proposal,
 	experimentId,
@@ -167,17 +170,17 @@ function ProposalCard({
 	};
 
 	return (
-		<div className="mt-2 flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2">
-			<span className="text-xs text-foreground flex-1">
+		<div className="mt-2 rounded-md border border-border bg-muted/50 px-3 py-2">
+			<span className="text-xs text-foreground">
 				{proposalLabels[proposal.type]}
 				{proposal.value && <span className="text-muted-foreground ml-1">— {proposal.value}</span>}
 			</span>
 			{status === "pending" ? (
-				<>
+				<div className="flex gap-2 mt-2">
 					<Button
 						size="sm"
 						variant="outline"
-						className="h-6 px-2 text-xs gap-1"
+						className="h-7 px-3 text-xs gap-1"
 						onClick={handleApprove}
 					>
 						<CheckCircle2 className="size-3" />
@@ -186,22 +189,24 @@ function ProposalCard({
 					<Button
 						size="sm"
 						variant="ghost"
-						className="h-6 px-2 text-xs gap-1 text-muted-foreground"
+						className="h-7 px-3 text-xs gap-1 text-muted-foreground"
 						onClick={handleDecline}
 					>
 						<XCircle className="size-3" />
 						Decline
 					</Button>
-				</>
+				</div>
 			) : (
-				<span
-					className={cn(
-						"text-xs font-medium",
-						status === "approved" ? "text-green-500" : "text-muted-foreground",
-					)}
-				>
-					{status === "approved" ? "Approved" : "Declined"}
-				</span>
+				<div className="mt-1">
+					<span
+						className={cn(
+							"text-xs font-medium",
+							status === "approved" ? "text-green-500" : "text-muted-foreground",
+						)}
+					>
+						{status === "approved" ? "Approved" : "Declined"}
+					</span>
+				</div>
 			)}
 		</div>
 	);
@@ -212,9 +217,15 @@ export function CommentThread({ experiment }: Props) {
 	const [input, setInput] = useState("");
 	const [sending, setSending] = useState(false);
 	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
-	const [streamingText, setStreamingText] = useState("");
-	const [toolLog, setToolLog] = useState<string[]>([]);
-	const { displayed: typedText, isTyping } = useTypewriter(streamingText, 4);
+	const [streamEntries, setStreamEntries] = useState<
+		Array<{
+			type: "tool" | "text" | "tool_result";
+			content: string;
+			label?: string;
+			detail?: string;
+			expandable?: string;
+		}>
+	>([]);
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	const refresh = useCallback(() => {
@@ -242,23 +253,60 @@ export function CommentThread({ experiment }: Props) {
 		if (event.type === "agent.thinking") {
 			const role = (event.payload as { agentRole?: string }).agentRole ?? "analyst";
 			setThinkingRole(role);
-			setStreamingText("");
-			setToolLog([]);
+			setStreamEntries([]);
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
 		if (event.type === "agent.streaming") {
-			const text = (event.payload as { text?: string }).text ?? "";
-			if (text.startsWith("🔧")) {
-				setToolLog((prev) => [...prev, text]);
-			} else {
-				setStreamingText(text);
+			const payload = event.payload as {
+				chunk?: {
+					type: string;
+					content: string;
+					label?: string;
+					detail?: string;
+					expandable?: string;
+				};
+				text?: string;
+			};
+			const chunk = payload.chunk;
+			if (chunk) {
+				if (chunk.type === "tool") {
+					setStreamEntries((prev) => [
+						...prev,
+						{
+							type: "tool",
+							content: chunk.content,
+							label: chunk.label,
+							detail: chunk.detail,
+							expandable: chunk.expandable,
+						},
+					]);
+				} else if (chunk.type === "tool_result") {
+					// Attach result to last tool entry
+					setStreamEntries((prev) => {
+						const updated = [...prev];
+						for (let i = updated.length - 1; i >= 0; i--) {
+							if (updated[i]!.type === "tool" && !updated[i]!.expandable) {
+								updated[i] = { ...updated[i]!, expandable: chunk.content };
+								break;
+							}
+						}
+						return updated;
+					});
+				} else {
+					setStreamEntries((prev) => {
+						const last = prev[prev.length - 1];
+						if (last?.type === "text") {
+							return [...prev.slice(0, -1), { type: "text", content: chunk.content }];
+						}
+						return [...prev, { type: "text", content: chunk.content }];
+					});
+				}
 			}
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
 		if (event.type === "agent.done" || event.type === "comment.new") {
 			setThinkingRole(null);
-			setStreamingText("");
-			setToolLog([]);
+			setStreamEntries([]);
 			refresh();
 		}
 	});
@@ -271,7 +319,7 @@ export function CommentThread({ experiment }: Props) {
 			setInput("");
 			refresh();
 			setThinkingRole("analyst");
-			setStreamingText("");
+			setStreamEntries([]);
 		} finally {
 			setSending(false);
 		}
@@ -326,7 +374,7 @@ export function CommentThread({ experiment }: Props) {
 									onAction={() => {
 										refresh();
 										setThinkingRole("analyst");
-										setStreamingText("");
+										setStreamEntries([]);
 									}}
 								/>
 							))}
@@ -359,29 +407,27 @@ export function CommentThread({ experiment }: Props) {
 							<Loader2 className="size-3 animate-spin text-muted-foreground ml-1" />
 							<ElapsedTimer />
 						</div>
-						{toolLog.length > 0 && (
-							<div className="mt-1 space-y-0.5">
-								{toolLog.map((entry) => (
-									<div key={entry} className="text-xs text-muted-foreground font-mono">
-										{entry}
-									</div>
-								))}
-							</div>
-						)}
-						{typedText ? (
-							<div className="mt-2 text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2 prose-strong:text-foreground">
-								<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-									{typedText}
-								</Markdown>
-								{isTyping && (
-									<span className="inline-block w-1.5 h-4 bg-green-400 animate-pulse ml-0.5 align-text-bottom" />
+						{streamEntries.length > 0 ? (
+							<div className="mt-2 space-y-2">
+								{streamEntries.map((entry) =>
+									entry.type === "tool" ? (
+										<ToolEntry key={entry.content} entry={entry} />
+									) : entry.type === "tool_result" ? null : (
+										<div
+											key={`text-${entry.content.slice(0, 20)}`}
+											className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-headings:my-2 prose-strong:text-foreground"
+										>
+											<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+												{entry.content}
+											</Markdown>
+										</div>
+									),
 								)}
+								<span className="inline-block w-1.5 h-4 bg-green-400 animate-pulse align-text-bottom" />
 							</div>
 						) : (
 							<div className="flex items-center gap-1.5 mt-1">
-								<span className="text-xs text-muted-foreground">
-									{toolLog.length > 0 ? "" : "Thinking…"}
-								</span>
+								<span className="text-xs text-muted-foreground">Thinking…</span>
 							</div>
 						)}
 					</div>

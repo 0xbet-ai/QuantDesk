@@ -1,4 +1,4 @@
-import type { AgentAdapter, SpawnResult } from "../types.js";
+import type { AgentAdapter, SpawnResult, StreamChunk } from "../types.js";
 
 interface ClaudeSystemEvent {
 	type: "system";
@@ -43,11 +43,23 @@ export class ClaudeAdapter implements AgentAdapter {
 		return args;
 	}
 
-	parseStreamLine(line: string): string | null {
+	parseStreamLine(line: string): StreamChunk | null {
 		if (!line.trim()) return null;
 		try {
-			const event: ClaudeEvent = JSON.parse(line);
-			if (event.type === "assistant" && "message" in event) {
+			const event = JSON.parse(line) as Record<string, unknown>;
+
+			// Tool result from "user" event
+			if (event.type === "user" && event.tool_use_result) {
+				const result = event.tool_use_result as Record<string, unknown>;
+				const content = (result.stdout as string) ?? (result.content as string) ?? "";
+				if (content) {
+					return { type: "tool_result", content: content.slice(0, 500) };
+				}
+				return null;
+			}
+
+			const assistantEvent = event as ClaudeEvent;
+			if (assistantEvent.type === "assistant" && "message" in assistantEvent) {
 				const toolLabels: Record<string, string> = {
 					Write: "Writing",
 					Edit: "Editing",
@@ -58,21 +70,51 @@ export class ClaudeAdapter implements AgentAdapter {
 				};
 
 				// Check for tool_use blocks in assistant message
-				const toolBlock = event.message.content.find((b) => b.type === "tool_use") as
+				const toolBlock = assistantEvent.message.content.find((b) => b.type === "tool_use") as
 					| { type: string; name?: string; input?: Record<string, unknown> }
 					| undefined;
 				if (toolBlock?.name) {
 					const label = toolLabels[toolBlock.name] ?? toolBlock.name;
-					const input = toolBlock.input as { file_path?: string; command?: string } | undefined;
-					const detail = input?.file_path ?? input?.command?.slice(0, 60);
-					return detail ? `🔧 ${label}: \`${detail}\`` : `🔧 ${label}...`;
+					const input = toolBlock.input as
+						| {
+								file_path?: string;
+								command?: string;
+								content?: string;
+								old_string?: string;
+								new_string?: string;
+						  }
+						| undefined;
+					let detail = input?.file_path ?? input?.command?.slice(0, 80);
+					if (detail && input?.file_path) {
+						const parts = detail.split("/");
+						detail = parts.slice(-2).join("/");
+					}
+					// Build expandable content for detail view
+					let expandable: string | undefined;
+					if (toolBlock.name === "Bash" && input?.command) {
+						expandable = input.command;
+					} else if (toolBlock.name === "Write" && input?.content) {
+						expandable = input.content.slice(0, 500);
+					} else if (toolBlock.name === "Edit" && input?.new_string) {
+						expandable = input.new_string.slice(0, 300);
+					}
+					return {
+						type: "tool",
+						content: detail ? `${label}: ${detail}` : `${label}...`,
+						tool: toolBlock.name,
+						label,
+						detail,
+						expandable,
+					};
 				}
 
 				// Check for text blocks
-				const texts = event.message.content
+				const texts = assistantEvent.message.content
 					.filter((b) => b.type === "text" && b.text)
 					.map((b) => b.text!);
-				return texts.length > 0 ? texts.join("") : null;
+				if (texts.length > 0) {
+					return { type: "text", content: texts.join("") };
+				}
 			}
 		} catch {
 			/* ignore */

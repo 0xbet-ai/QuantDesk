@@ -123,12 +123,12 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 		spawnCli(args, stdin, {
 			cwd: desk.workspacePath ?? undefined,
 			onLine: (line) => {
-				const text = adapter.parseStreamLine(line);
-				if (text) {
+				const chunk = adapter.parseStreamLine(line);
+				if (chunk) {
 					publishExperimentEvent({
 						experimentId,
 						type: "agent.streaming",
-						payload: { agentRole: session.agentRole, text },
+						payload: { agentRole: session.agentRole, chunk },
 					});
 				}
 			},

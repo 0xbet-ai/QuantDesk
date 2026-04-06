@@ -1,4 +1,4 @@
-import type { AgentAdapter, SpawnResult } from "../types.js";
+import type { AgentAdapter, SpawnResult, StreamChunk } from "../types.js";
 
 interface CodexThreadStarted {
 	type: "thread.started";
@@ -27,12 +27,12 @@ export class CodexAdapter implements AgentAdapter {
 		return ["codex", "exec", "--json", prompt];
 	}
 
-	parseStreamLine(line: string): string | null {
+	parseStreamLine(line: string): StreamChunk | null {
 		if (!line.trim()) return null;
 		try {
 			const event: CodexEvent = JSON.parse(line);
 			if (event.type === "item.completed" && "item" in event) {
-				return event.item.text;
+				return { type: "text", content: event.item.text };
 			}
 		} catch {
 			/* ignore */
