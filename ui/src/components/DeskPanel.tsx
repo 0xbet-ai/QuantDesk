@@ -29,26 +29,28 @@ export function DeskPanel({ desk, experiments, selectedExperimentId, onSelectExp
 					<div className="flex size-7 items-center justify-center rounded-md bg-muted shrink-0">
 						<DeskIcon className="size-3.5 text-foreground/70" />
 					</div>
-					<h2 className="text-sm font-semibold truncate">{desk.name}</h2>
+					<h2 className="text-[13px] font-semibold truncate">{desk.name}</h2>
 				</div>
 
 				{desk.description && (
-					<p className="text-[11px] text-foreground/50 leading-relaxed">{desk.description}</p>
+					<p className="text-xs text-muted-foreground leading-relaxed">{desk.description}</p>
 				)}
 
 				{/* Stats */}
-				<div className="space-y-2 text-[11px]">
-					<div className="flex justify-between">
-						<span className="text-foreground/40">Budget</span>
-						<span className="text-foreground/70">${formatUSD(desk.budget)}</span>
+				<div className="space-y-1">
+					<div className="flex items-center justify-between py-1">
+						<span className="text-xs text-muted-foreground">Budget</span>
+						<span className="text-xs font-medium">${formatUSD(desk.budget)}</span>
 					</div>
-					<div className="flex justify-between">
-						<span className="text-foreground/40">Target</span>
-						<span className="text-green-600 dark:text-green-400">+{desk.targetReturn}%</span>
+					<div className="flex items-center justify-between py-1">
+						<span className="text-xs text-muted-foreground">Target</span>
+						<span className="text-xs font-medium text-green-600 dark:text-green-400">
+							+{desk.targetReturn}%
+						</span>
 					</div>
-					<div className="flex justify-between">
-						<span className="text-foreground/40">Stop loss</span>
-						<span className="text-destructive">-{desk.stopLoss}%</span>
+					<div className="flex items-center justify-between py-1">
+						<span className="text-xs text-muted-foreground">Stop loss</span>
+						<span className="text-xs font-medium text-destructive">-{desk.stopLoss}%</span>
 					</div>
 				</div>
 
@@ -76,13 +78,13 @@ export function DeskPanel({ desk, experiments, selectedExperimentId, onSelectExp
 								key={exp.id}
 								type="button"
 								onClick={() => onSelectExperiment(exp.id)}
-								className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2.5 ${
+								className={`w-full text-left px-3 py-2 text-[13px] font-medium transition-colors flex items-center gap-2.5 ${
 									exp.id === selectedExperimentId
 										? "bg-accent text-accent-foreground"
 										: "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
 								}`}
 							>
-								<FlaskConical className="h-3.5 w-3.5 shrink-0 text-foreground/40" />
+								<FlaskConical className="h-4 w-4 shrink-0 text-muted-foreground" />
 								<span className="flex-1 truncate">
 									#{exp.number} {exp.title}
 								</span>
@@ -93,13 +95,13 @@ export function DeskPanel({ desk, experiments, selectedExperimentId, onSelectExp
 							</button>
 						))}
 						{experiments.length === 0 && (
-							<div className="px-3 py-2 text-sm text-muted-foreground">No experiments yet</div>
+							<div className="px-3 py-2 text-[13px] text-muted-foreground">No experiments yet</div>
 						)}
 					</SidebarSection>
 
 					{/* Live */}
 					<SidebarSection label="Live">
-						<div className="px-3 py-2 text-sm text-muted-foreground">No live runs</div>
+						<div className="px-3 py-2 text-[13px] text-muted-foreground">No live runs</div>
 					</SidebarSection>
 				</div>
 			</ScrollArea>

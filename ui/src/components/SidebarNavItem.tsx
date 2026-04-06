@@ -15,7 +15,7 @@ export function SidebarNavItem({ label, icon: Icon, active, badge, onClick }: Pr
 			type="button"
 			onClick={onClick}
 			className={cn(
-				"flex items-center gap-2.5 px-3 py-2 text-sm font-medium transition-colors w-full text-left rounded-md",
+				"flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium transition-colors w-full text-left",
 				active
 					? "bg-accent text-foreground"
 					: "text-foreground/80 hover:bg-accent/50 hover:text-foreground",
