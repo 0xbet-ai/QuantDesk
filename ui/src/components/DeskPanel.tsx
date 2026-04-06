@@ -77,7 +77,7 @@ export function DeskPanel({
 					<div className="flex size-7 items-center justify-center rounded-md bg-muted shrink-0">
 						<DeskIcon className="size-3.5 text-foreground/70" />
 					</div>
-					<h2 className="text-[13px] font-semibold truncate">{desk.name}</h2>
+					<h2 className="text-xs font-semibold truncate">{desk.name}</h2>
 				</div>
 
 				{desk.description && (
@@ -137,7 +137,7 @@ export function DeskPanel({
 									key={exp.id}
 									type="button"
 									onClick={() => onSelectExperiment(exp.id)}
-									className={`w-full text-left px-3 py-2 text-[13px] font-medium transition-colors flex items-center gap-2.5 ${
+									className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2.5 ${
 										exp.id === selectedExperimentId
 											? "bg-accent text-accent-foreground"
 											: "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
@@ -164,13 +164,13 @@ export function DeskPanel({
 							);
 						})}
 						{experiments.length === 0 && (
-							<div className="px-3 py-2 text-[13px] text-muted-foreground">No experiments yet</div>
+							<div className="px-3 py-2 text-xs text-muted-foreground">No experiments yet</div>
 						)}
 					</SidebarSection>
 
 					{/* Live */}
 					<SidebarSection label="Live">
-						<div className="px-3 py-2 text-[13px] text-muted-foreground">No live runs</div>
+						<div className="px-3 py-2 text-xs text-muted-foreground">No live runs</div>
 					</SidebarSection>
 				</div>
 			</ScrollArea>

@@ -11,8 +11,10 @@ import type { Desk, Experiment } from "./lib/api.js";
 import { listDesks, listExperiments } from "./lib/api.js";
 
 export function App() {
+	const STORAGE_KEY = "quantdesk.lastDeskId";
 	const [desks, setDesks] = useState<Desk[]>([]);
 	const [selectedDeskId, setSelectedDeskId] = useState<string | null>(null);
+	const restoredRef = useRef(false);
 	const [experiments, setExperiments] = useState<Experiment[]>([]);
 	const [selectedExperimentId, setSelectedExperimentId] = useState<string | null>(null);
 	const [showWizard, setShowWizard] = useState(false);
@@ -29,6 +31,23 @@ export function App() {
 			/* server not running */
 		}
 	}, []);
+
+	// Persist selected desk to localStorage
+	useEffect(() => {
+		if (selectedDeskId) {
+			localStorage.setItem(STORAGE_KEY, selectedDeskId);
+		}
+	}, [selectedDeskId]);
+
+	// Restore last desk after desks are fetched
+	useEffect(() => {
+		if (restoredRef.current || desks.length === 0) return;
+		restoredRef.current = true;
+		const savedId = localStorage.getItem(STORAGE_KEY);
+		if (savedId && desks.some((d) => d.id === savedId)) {
+			setSelectedDeskId(savedId);
+		}
+	}, [desks]);
 
 	useEffect(() => {
 		refreshDesks();

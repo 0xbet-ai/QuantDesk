@@ -1,6 +1,7 @@
 import { Bot, Loader2, Send, Shield, User } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import type { Comment, Experiment } from "../lib/api.js";
 import { listComments, postComment } from "../lib/api.js";
@@ -124,7 +125,7 @@ export function CommentThread({ experiment }: Props) {
 								</span>
 							</div>
 							<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-headings:my-2 prose-strong:text-foreground">
-								<Markdown>{c.content}</Markdown>
+								<Markdown remarkPlugins={[remarkGfm]}>{c.content}</Markdown>
 							</div>
 						</div>
 					);
@@ -157,7 +158,7 @@ export function CommentThread({ experiment }: Props) {
 						</div>
 						{streamingText ? (
 							<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-headings:my-2 prose-strong:text-foreground">
-								<Markdown>{streamingText}</Markdown>
+								<Markdown remarkPlugins={[remarkGfm]}>{streamingText}</Markdown>
 								<span className="inline-block w-1.5 h-4 bg-green-400 animate-pulse ml-0.5 align-text-bottom" />
 							</div>
 						) : (
