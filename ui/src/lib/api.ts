@@ -123,15 +123,7 @@ export const listStrategies = (engine?: string) =>
 
 export const listActivity = (deskId: string) => api<ActivityItem[]>(`/desks/${deskId}/activity`);
 
-export interface AgentLogEntry {
-	ts: string;
-	type: "tool" | "text" | "tool_result" | "system" | "event";
-	content: string;
-	tool?: string;
-	label?: string;
-	detail?: string;
-	expandable?: string;
-}
+export type AgentLogEntry = { ts: string } & Record<string, unknown>;
 
 export const getAgentLogs = (experimentId: string) =>
 	api<AgentLogEntry[]>(`/experiments/${experimentId}/agent/logs`);

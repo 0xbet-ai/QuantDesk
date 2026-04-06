@@ -199,16 +199,7 @@ export function CommentThread({ experiment, onOpenRun }: Props) {
 					getAgentLogs(experiment.id)
 						.then((logs) => {
 							if (logs.length > 0) {
-								setStreamEntries(
-									logs.map((l) => ({
-										type: l.type,
-										content: l.content,
-										tool: l.tool,
-										label: l.label,
-										detail: l.detail,
-										expandable: l.expandable,
-									})),
-								);
+								setStreamEntries(logs as unknown as TranscriptEntry[]);
 								setRunStartedAt((prev) => prev ?? new Date(logs[0]!.ts));
 							}
 						})
@@ -236,45 +227,19 @@ export function CommentThread({ experiment, onOpenRun }: Props) {
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
 		if (event.type === "agent.streaming") {
-			const payload = event.payload as {
-				chunk?: {
-					type: string;
-					content: string;
-					tool?: string;
-					label?: string;
-					detail?: string;
-					expandable?: string;
-				};
-				text?: string;
-			};
+			const payload = event.payload as { chunk?: TranscriptEntry };
 			const chunk = payload.chunk;
 			if (chunk) {
-				if (chunk.type === "tool") {
-					setStreamEntries((prev) => [
-						...prev,
-						{
-							type: "tool" as const,
-							content: chunk.content,
-							tool: chunk.tool,
-							label: chunk.label,
-							detail: chunk.detail,
-							expandable: chunk.expandable,
-						},
-					]);
-				} else if (chunk.type === "tool_result") {
-					setStreamEntries((prev) => [
-						...prev,
-						{ type: "tool_result" as const, content: chunk.content },
-					]);
-				} else {
-					setStreamEntries((prev) => {
+				setStreamEntries((prev) => {
+					// For text entries, replace the last text (Claude sends full text, not deltas)
+					if (chunk.type === "text") {
 						const last = prev[prev.length - 1];
 						if (last?.type === "text") {
-							return [...prev.slice(0, -1), { type: "text" as const, content: chunk.content }];
+							return [...prev.slice(0, -1), chunk];
 						}
-						return [...prev, { type: "text" as const, content: chunk.content }];
-					});
-				}
+					}
+					return [...prev, chunk];
+				});
 			}
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}

@@ -8,18 +8,32 @@ export interface SpawnResult {
 	};
 }
 
-export interface StreamChunk {
-	type: "text" | "tool" | "tool_result";
-	content: string;
-	/** Tool name (e.g. "Write", "Bash") */
-	tool?: string;
-	/** Short label (e.g. "Writing", "Running") */
-	label?: string;
-	/** File path or command */
-	detail?: string;
-	/** Full tool input for expandable view */
-	expandable?: string;
-}
+export type StreamChunk =
+	| { type: "text"; content: string }
+	| { type: "thinking"; content: string }
+	| {
+			type: "tool_call";
+			name: string;
+			toolUseId?: string;
+			input: unknown;
+	  }
+	| {
+			type: "tool_result";
+			toolUseId: string;
+			content: string;
+			isError: boolean;
+	  }
+	| { type: "init"; model: string; sessionId: string }
+	| {
+			type: "result";
+			content: string;
+			inputTokens: number;
+			outputTokens: number;
+			costUsd: number;
+			isError: boolean;
+	  }
+	| { type: "system"; content: string }
+	| { type: "stdout"; content: string };
 
 export interface AgentAdapter {
 	readonly name: string;

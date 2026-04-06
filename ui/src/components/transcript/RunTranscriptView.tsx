@@ -12,51 +12,115 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "../../lib/utils.js";
 
-// ── Types ────────────────────────────────────────────────────────────
+// ── Types (matching Paperclip's TranscriptEntry) ─────────────────────
 
-export interface TranscriptEntry {
-	type: "tool" | "text" | "tool_result" | "system" | "event";
-	content: string;
-	tool?: string;
-	label?: string;
-	detail?: string;
-	expandable?: string;
-	tone?: "info" | "warn" | "error" | "neutral";
-}
+export type TranscriptEntry =
+	| { type: "text"; content: string }
+	| { type: "thinking"; content: string }
+	| { type: "tool_call"; name: string; toolUseId?: string; input: unknown }
+	| { type: "tool_result"; toolUseId: string; content: string; isError: boolean }
+	| { type: "init"; model: string; sessionId: string }
+	| {
+			type: "result";
+			content: string;
+			inputTokens: number;
+			outputTokens: number;
+			costUsd: number;
+			isError: boolean;
+	  }
+	| { type: "system"; content: string }
+	| { type: "stdout"; content: string };
+
+// ── Internal block types ─────────────────────────────────────────────
 
 interface ToolItem {
-	content: string;
-	tool?: string;
-	label?: string;
-	detail?: string;
-	expandable?: string;
+	name: string;
+	toolUseId?: string;
+	input: unknown;
+	result?: string;
+	isError?: boolean;
 	status: "running" | "completed" | "error";
 }
 
 type TranscriptBlock =
 	| { type: "text"; content: string; streaming: boolean }
-	| ({ type: "tool" } & ToolItem)
+	| { type: "thinking"; content: string }
+	| { type: "tool"; item: ToolItem }
 	| { type: "command_group"; items: ToolItem[] }
 	| { type: "tool_group"; items: ToolItem[] }
 	| { type: "system"; content: string }
-	| { type: "event"; label: string; content: string; tone: "info" | "warn" | "error" | "neutral" };
+	| { type: "stdout"; content: string }
+	| { type: "init"; model: string; sessionId: string }
+	| {
+			type: "result";
+			content: string;
+			inputTokens: number;
+			outputTokens: number;
+			costUsd: number;
+			isError: boolean;
+	  };
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function isCommandTool(item: ToolItem): boolean {
-	if (item.tool === "Bash") return true;
-	if (item.label === "Running") return true;
-	return false;
+function isCommandTool(name: string): boolean {
+	const n = name.toLowerCase();
+	return n === "bash" || n === "shell" || n === "command_execution";
 }
 
 function truncate(value: string, max: number): string {
 	return value.length > max ? `${value.slice(0, Math.max(0, max - 1))}…` : value;
 }
 
+function formatTokens(n: number): string {
+	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+	return String(n);
+}
+
+function summarizeToolInput(name: string, input: unknown, maxLen: number): string {
+	if (typeof input === "string") return truncate(input, maxLen);
+	if (typeof input !== "object" || input === null) return `${name} input`;
+	const rec = input as Record<string, unknown>;
+
+	// Bash command
+	if (typeof rec.command === "string") {
+		return truncate(rec.command, maxLen);
+	}
+	// File path
+	if (typeof rec.file_path === "string") {
+		const parts = rec.file_path.split("/");
+		return truncate(parts.slice(-2).join("/"), maxLen);
+	}
+	// Pattern/query
+	if (typeof rec.pattern === "string") return truncate(rec.pattern, maxLen);
+	if (typeof rec.query === "string") return truncate(rec.query, maxLen);
+
+	const keys = Object.keys(rec);
+	if (keys.length === 0) return `${name} (empty)`;
+	return truncate(`${keys.length} fields: ${keys.slice(0, 3).join(", ")}`, maxLen);
+}
+
+function formatToolPayload(value: unknown): string {
+	if (typeof value === "string") {
+		try {
+			return JSON.stringify(JSON.parse(value), null, 2);
+		} catch {
+			return value;
+		}
+	}
+	if (value === null || value === undefined) return "";
+	try {
+		return JSON.stringify(value, null, 2);
+	} catch {
+		return String(value);
+	}
+}
+
 // ── Normalization ────────────────────────────────────────────────────
 
 function normalizeTranscript(entries: TranscriptEntry[], streaming: boolean): TranscriptBlock[] {
 	const blocks: TranscriptBlock[] = [];
+	const pendingTools = new Map<string, ToolItem>();
 
 	for (const entry of entries) {
 		if (entry.type === "text") {
@@ -70,28 +134,55 @@ function normalizeTranscript(entries: TranscriptEntry[], streaming: boolean): Tr
 			continue;
 		}
 
-		if (entry.type === "tool") {
-			blocks.push({
-				type: "tool",
-				content: entry.content,
-				tool: entry.tool,
-				label: entry.label,
-				detail: entry.detail,
-				expandable: entry.expandable,
+		if (entry.type === "thinking") {
+			const last = blocks[blocks.length - 1];
+			if (last?.type === "thinking") {
+				last.content = entry.content;
+			} else {
+				blocks.push({ type: "thinking", content: entry.content });
+			}
+			continue;
+		}
+
+		if (entry.type === "tool_call") {
+			const item: ToolItem = {
+				name: entry.name,
+				toolUseId: entry.toolUseId,
+				input: entry.input,
 				status: "running",
-			});
+			};
+			blocks.push({ type: "tool", item });
+			if (entry.toolUseId) {
+				pendingTools.set(entry.toolUseId, item);
+			}
 			continue;
 		}
 
 		if (entry.type === "tool_result") {
-			for (let i = blocks.length - 1; i >= 0; i--) {
-				const block = blocks[i]!;
-				if (block.type === "tool" && block.status === "running") {
-					block.expandable = entry.content;
-					block.status = "completed";
-					break;
-				}
+			const matched = pendingTools.get(entry.toolUseId);
+			if (matched) {
+				matched.result = entry.content;
+				matched.isError = entry.isError;
+				matched.status = entry.isError ? "error" : "completed";
+				pendingTools.delete(entry.toolUseId);
 			}
+			continue;
+		}
+
+		if (entry.type === "init") {
+			blocks.push({ type: "init", model: entry.model, sessionId: entry.sessionId });
+			continue;
+		}
+
+		if (entry.type === "result") {
+			blocks.push({
+				type: "result",
+				content: entry.content,
+				inputTokens: entry.inputTokens,
+				outputTokens: entry.outputTokens,
+				costUsd: entry.costUsd,
+				isError: entry.isError,
+			});
 			continue;
 		}
 
@@ -100,20 +191,19 @@ function normalizeTranscript(entries: TranscriptEntry[], streaming: boolean): Tr
 			continue;
 		}
 
-		if (entry.type === "event") {
-			blocks.push({
-				type: "event",
-				label: entry.label ?? "event",
-				content: entry.content,
-				tone: entry.tone ?? "info",
-			});
+		if (entry.type === "stdout") {
+			const last = blocks[blocks.length - 1];
+			if (last?.type === "stdout") {
+				last.content += `\n${entry.content}`;
+			} else {
+				blocks.push({ type: "stdout", content: entry.content });
+			}
 		}
 	}
 
 	return groupToolBlocks(groupCommandBlocks(blocks));
 }
 
-/** Group consecutive command (Bash) tool blocks into command_group */
 function groupCommandBlocks(blocks: TranscriptBlock[]): TranscriptBlock[] {
 	const grouped: TranscriptBlock[] = [];
 	let pending: ToolItem[] = [];
@@ -121,7 +211,7 @@ function groupCommandBlocks(blocks: TranscriptBlock[]): TranscriptBlock[] {
 	const flush = () => {
 		if (pending.length === 0) return;
 		if (pending.length === 1) {
-			grouped.push({ type: "tool", ...pending[0]! });
+			grouped.push({ type: "tool", item: pending[0]! });
 		} else {
 			grouped.push({ type: "command_group", items: pending });
 		}
@@ -129,15 +219,8 @@ function groupCommandBlocks(blocks: TranscriptBlock[]): TranscriptBlock[] {
 	};
 
 	for (const block of blocks) {
-		if (block.type === "tool" && isCommandTool(block)) {
-			pending.push({
-				content: block.content,
-				tool: block.tool,
-				label: block.label,
-				detail: block.detail,
-				expandable: block.expandable,
-				status: block.status,
-			});
+		if (block.type === "tool" && isCommandTool(block.item.name)) {
+			pending.push(block.item);
 		} else {
 			flush();
 			grouped.push(block);
@@ -147,7 +230,6 @@ function groupCommandBlocks(blocks: TranscriptBlock[]): TranscriptBlock[] {
 	return grouped;
 }
 
-/** Group consecutive non-command tool blocks into tool_group */
 function groupToolBlocks(blocks: TranscriptBlock[]): TranscriptBlock[] {
 	const grouped: TranscriptBlock[] = [];
 	let pending: ToolItem[] = [];
@@ -155,7 +237,7 @@ function groupToolBlocks(blocks: TranscriptBlock[]): TranscriptBlock[] {
 	const flush = () => {
 		if (pending.length === 0) return;
 		if (pending.length === 1) {
-			grouped.push({ type: "tool", ...pending[0]! });
+			grouped.push({ type: "tool", item: pending[0]! });
 		} else {
 			grouped.push({ type: "tool_group", items: pending });
 		}
@@ -163,15 +245,8 @@ function groupToolBlocks(blocks: TranscriptBlock[]): TranscriptBlock[] {
 	};
 
 	for (const block of blocks) {
-		if (block.type === "tool" && !isCommandTool(block)) {
-			pending.push({
-				content: block.content,
-				tool: block.tool,
-				label: block.label,
-				detail: block.detail,
-				expandable: block.expandable,
-				status: block.status,
-			});
+		if (block.type === "tool" && !isCommandTool(block.item.name)) {
+			pending.push(block.item);
 		} else {
 			flush();
 			grouped.push(block);
@@ -228,13 +303,10 @@ const markdownComponents = {
 
 // ── Block renderers ──────────────────────────────────────────────────
 
-function TranscriptTextBlock({
+function TextBlock({
 	block,
 	compact,
-}: {
-	block: Extract<TranscriptBlock, { type: "text" }>;
-	compact: boolean;
-}) {
+}: { block: Extract<TranscriptBlock, { type: "text" }>; compact: boolean }) {
 	return (
 		<div>
 			<div
@@ -260,15 +332,29 @@ function TranscriptTextBlock({
 	);
 }
 
-function TranscriptToolCard({
-	item,
+function ThinkingBlock({
+	block,
 	compact,
-}: {
-	item: ToolItem;
-	compact: boolean;
-}) {
+}: { block: Extract<TranscriptBlock, { type: "thinking" }>; compact: boolean }) {
+	return (
+		<div
+			className={cn(
+				"italic text-foreground/70 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+				compact ? "text-[11px] leading-5" : "text-sm leading-6",
+			)}
+		>
+			<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+				{block.content}
+			</Markdown>
+		</div>
+	);
+}
+
+function ToolCard({ item, compact }: { item: ToolItem; compact: boolean }) {
 	const [open, setOpen] = useState(item.status === "error");
-	const isCommand = isCommandTool(item);
+	const command = isCommandTool(item.name);
+	const displayName = command ? "Executing command" : item.name;
+	const summary = summarizeToolInput(item.name, item.input, compact ? 72 : 120);
 
 	const statusLabel =
 		item.status === "running" ? "Running" : item.status === "error" ? "Errored" : "Completed";
@@ -287,7 +373,7 @@ function TranscriptToolCard({
 				: "text-cyan-600 dark:text-cyan-300",
 	);
 
-	const Icon = isCommand
+	const Icon = command
 		? TerminalSquare
 		: item.status === "error"
 			? CircleAlert
@@ -306,7 +392,7 @@ function TranscriptToolCard({
 				<div className="min-w-0 flex-1">
 					<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
 						<span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-							{isCommand ? "Executing command" : (item.label ?? "tool")}
+							{displayName}
 						</span>
 						<span
 							className={cn("text-[10px] font-semibold uppercase tracking-[0.14em]", statusTone)}
@@ -320,39 +406,52 @@ function TranscriptToolCard({
 							compact ? "text-xs" : "text-sm",
 						)}
 					>
-						{item.detail ?? item.content}
+						{summary}
 					</div>
 				</div>
-				{(item.expandable || item.status === "running") && (
-					<button
-						type="button"
-						className="mt-0.5 inline-flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-						onClick={() => setOpen((v) => !v)}
-						aria-label={open ? "Collapse" : "Expand"}
-					>
-						{open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-					</button>
-				)}
+				<button
+					type="button"
+					className="mt-0.5 inline-flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+					onClick={() => setOpen((v) => !v)}
+				>
+					{open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+				</button>
 			</div>
-			{open && item.expandable && (
-				<div className="mt-3">
-					<pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-zinc-200 bg-zinc-950 rounded-md p-3 max-h-40">
-						{item.expandable}
-					</pre>
+			{open && (
+				<div className="mt-3 space-y-3">
+					<div className={cn("grid gap-3", compact ? "grid-cols-1" : "lg:grid-cols-2")}>
+						<div>
+							<div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+								Input
+							</div>
+							<pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-zinc-200 bg-zinc-950 rounded-md p-2 max-h-40">
+								{formatToolPayload(item.input) || "<empty>"}
+							</pre>
+						</div>
+						<div>
+							<div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+								Result
+							</div>
+							<pre
+								className={cn(
+									"overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] rounded-md p-2 max-h-40",
+									item.isError ? "text-red-300 bg-red-950/50" : "text-zinc-200 bg-zinc-950",
+								)}
+							>
+								{item.result ? formatToolPayload(item.result) : "Waiting for result..."}
+							</pre>
+						</div>
+					</div>
 				</div>
 			)}
 		</div>
 	);
 }
 
-/** Paperclip-style command group: stacked TerminalSquare icons + "EXECUTED N COMMANDS" */
-function TranscriptCommandGroup({
+function CommandGroup({
 	block,
 	compact,
-}: {
-	block: Extract<TranscriptBlock, { type: "command_group" }>;
-	compact: boolean;
-}) {
+}: { block: Extract<TranscriptBlock, { type: "command_group" }>; compact: boolean }) {
 	const [open, setOpen] = useState(false);
 	const isRunning = block.items.some((item) => item.status === "running");
 	const hasError = block.items.some((item) => item.status === "error");
@@ -362,7 +461,9 @@ function TranscriptCommandGroup({
 		: block.items.length === 1
 			? "Executed command"
 			: `Executed ${block.items.length} commands`;
-	const subtitle = runningItem ? (runningItem.detail ?? runningItem.content) : null;
+	const subtitle = runningItem
+		? summarizeToolInput(runningItem.name, runningItem.input, compact ? 72 : 120)
+		: null;
 
 	return (
 		<div
@@ -370,7 +471,7 @@ function TranscriptCommandGroup({
 				open && hasError && "rounded-xl border border-red-500/20 bg-red-500/[0.04] p-3",
 			)}
 		>
-			{/* biome-ignore lint/a11y/useSemanticElements: nested interactive button inside */}
+			{/* biome-ignore lint/a11y/useSemanticElements: nested button */}
 			<div
 				role="button"
 				tabIndex={0}
@@ -386,7 +487,7 @@ function TranscriptCommandGroup({
 				<div className={cn("flex shrink-0 items-center", subtitle && "mt-0.5")}>
 					{block.items.slice(0, Math.min(block.items.length, 3)).map((item, index) => (
 						<span
-							key={`cmd-${item.content.slice(0, 15)}-${index}`}
+							key={`cmd-${item.toolUseId ?? index}`}
 							className={cn(
 								"inline-flex h-6 w-6 items-center justify-center rounded-full border shadow-sm",
 								index > 0 && "-ml-1.5",
@@ -410,24 +511,13 @@ function TranscriptCommandGroup({
 								compact ? "text-xs" : "text-sm",
 							)}
 						>
-							{truncate(subtitle, compact ? 72 : 120)}
+							{subtitle}
 						</div>
 					)}
 				</div>
-				<button
-					type="button"
-					className={cn(
-						"inline-flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-foreground",
-						subtitle && "mt-0.5",
-					)}
-					onClick={(e) => {
-						e.stopPropagation();
-						setOpen((v) => !v);
-					}}
-					aria-label={open ? "Collapse" : "Expand"}
-				>
+				<span className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground">
 					{open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-				</button>
+				</span>
 			</div>
 			{open && (
 				<div
@@ -437,7 +527,7 @@ function TranscriptCommandGroup({
 					)}
 				>
 					{block.items.map((item, index) => (
-						<div key={`ci-${item.content.slice(0, 15)}-${index}`} className="space-y-2">
+						<div key={item.toolUseId ?? `ci-${index}`} className="space-y-2">
 							<div className="flex items-center gap-2">
 								<span
 									className={cn(
@@ -452,19 +542,17 @@ function TranscriptCommandGroup({
 									<TerminalSquare className="h-3 w-3" />
 								</span>
 								<span className={cn("font-mono break-all", compact ? "text-[11px]" : "text-xs")}>
-									{truncate(item.detail ?? item.content, compact ? 72 : 120)}
+									{summarizeToolInput(item.name, item.input, compact ? 72 : 120)}
 								</span>
 							</div>
-							{item.expandable && (
+							{item.result && (
 								<pre
 									className={cn(
-										"ml-7 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px]",
-										item.status === "error"
-											? "text-red-700 dark:text-red-300"
-											: "text-zinc-200 bg-zinc-950 rounded-md p-2 max-h-40",
+										"ml-7 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] rounded-md p-2 max-h-40",
+										item.isError ? "text-red-300 bg-red-950/50" : "text-zinc-200 bg-zinc-950",
 									)}
 								>
-									{item.expandable}
+									{item.result}
 								</pre>
 							)}
 						</div>
@@ -475,37 +563,28 @@ function TranscriptCommandGroup({
 	);
 }
 
-/** Paperclip-style tool group: stacked Wrench icons + "USED N TOOLS" */
-function TranscriptToolGroup({
+function ToolGroup({
 	block,
 	compact,
-}: {
-	block: Extract<TranscriptBlock, { type: "tool_group" }>;
-	compact: boolean;
-}) {
+}: { block: Extract<TranscriptBlock, { type: "tool_group" }>; compact: boolean }) {
 	const [open, setOpen] = useState(false);
 	const isRunning = block.items.some((item) => item.status === "running");
 	const hasError = block.items.some((item) => item.status === "error");
-	const uniqueLabels = [...new Set(block.items.map((item) => item.label).filter(Boolean))];
-	const toolLabel = uniqueLabels.length === 1 ? uniqueLabels[0]! : `${uniqueLabels.length} tools`;
-	const runningItem = [...block.items].reverse().find((item) => item.status === "running");
+	const uniqueNames = [...new Set(block.items.map((item) => item.name))];
+	const toolLabel = uniqueNames.length === 1 ? uniqueNames[0]! : `${uniqueNames.length} tools`;
 	const title = isRunning
 		? `Using ${toolLabel}`
 		: block.items.length === 1
 			? `Used ${toolLabel}`
 			: `Used ${toolLabel} (${block.items.length} calls)`;
-	const subtitle = runningItem ? (runningItem.detail ?? runningItem.content) : null;
 
 	return (
 		<div className="rounded-xl border border-border/40 bg-muted/[0.25]">
-			{/* biome-ignore lint/a11y/useSemanticElements: nested interactive button inside */}
+			{/* biome-ignore lint/a11y/useSemanticElements: nested button */}
 			<div
 				role="button"
 				tabIndex={0}
-				className={cn(
-					"flex cursor-pointer gap-2 px-3 py-2.5",
-					subtitle ? "items-start" : "items-center",
-				)}
+				className="flex cursor-pointer gap-2 px-3 py-2.5 items-center"
 				onClick={() => setOpen((v) => !v)}
 				onKeyDown={(e) => {
 					if (e.key === "Enter" || e.key === " ") {
@@ -514,27 +593,23 @@ function TranscriptToolGroup({
 					}
 				}}
 			>
-				<div className={cn("flex shrink-0 items-center", subtitle && "mt-0.5")}>
-					{block.items.slice(0, Math.min(block.items.length, 3)).map((item, index) => {
-						const isItemRunning = item.status === "running";
-						const isItemError = item.status === "error";
-						return (
-							<span
-								key={`tg-${item.content.slice(0, 15)}-${index}`}
-								className={cn(
-									"inline-flex h-6 w-6 items-center justify-center rounded-full border shadow-sm",
-									index > 0 && "-ml-1.5",
-									isItemRunning
-										? "border-cyan-500/25 bg-cyan-500/[0.08] text-cyan-600 dark:text-cyan-300 animate-pulse"
-										: isItemError
-											? "border-red-500/25 bg-red-500/[0.08] text-red-600 dark:text-red-300"
-											: "border-border/70 bg-background text-foreground/55",
-								)}
-							>
-								<Wrench className="h-3.5 w-3.5" />
-							</span>
-						);
-					})}
+				<div className="flex shrink-0 items-center">
+					{block.items.slice(0, Math.min(block.items.length, 3)).map((item, index) => (
+						<span
+							key={item.toolUseId ?? `tg-${index}`}
+							className={cn(
+								"inline-flex h-6 w-6 items-center justify-center rounded-full border shadow-sm",
+								index > 0 && "-ml-1.5",
+								item.status === "running"
+									? "border-cyan-500/25 bg-cyan-500/[0.08] text-cyan-600 dark:text-cyan-300 animate-pulse"
+									: item.status === "error"
+										? "border-red-500/25 bg-red-500/[0.08] text-red-600 dark:text-red-300"
+										: "border-border/70 bg-background text-foreground/55",
+							)}
+						>
+							<Wrench className="h-3.5 w-3.5" />
+						</span>
+					))}
 				</div>
 				<div className="min-w-0 flex-1">
 					<div
@@ -545,31 +620,10 @@ function TranscriptToolGroup({
 					>
 						{title}
 					</div>
-					{subtitle && (
-						<div
-							className={cn(
-								"mt-1 break-words font-mono text-foreground/85",
-								compact ? "text-xs" : "text-sm",
-							)}
-						>
-							{truncate(subtitle, compact ? 72 : 120)}
-						</div>
-					)}
 				</div>
-				<button
-					type="button"
-					className={cn(
-						"inline-flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-foreground",
-						subtitle && "mt-0.5",
-					)}
-					onClick={(e) => {
-						e.stopPropagation();
-						setOpen((v) => !v);
-					}}
-					aria-label={open ? "Collapse" : "Expand"}
-				>
+				<span className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground">
 					{open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-				</button>
+				</span>
 			</div>
 			{open && (
 				<div
@@ -579,7 +633,7 @@ function TranscriptToolGroup({
 					)}
 				>
 					{block.items.map((item, index) => (
-						<div key={`tgi-${item.content.slice(0, 15)}-${index}`} className="space-y-1.5">
+						<div key={item.toolUseId ?? `tgi-${index}`} className="space-y-1.5">
 							<div className="flex items-center gap-2">
 								<span
 									className={cn(
@@ -594,7 +648,7 @@ function TranscriptToolGroup({
 									<Wrench className="h-3 w-3" />
 								</span>
 								<span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-									{item.label ?? "tool"}
+									{item.name}
 								</span>
 								<span
 									className={cn(
@@ -615,15 +669,15 @@ function TranscriptToolGroup({
 							</div>
 							<div
 								className={cn(
-									"pl-7 break-words text-foreground/80",
+									"pl-7 break-words font-mono text-foreground/80",
 									compact ? "text-xs" : "text-sm",
 								)}
 							>
-								{item.detail ?? item.content}
+								{summarizeToolInput(item.name, item.input, compact ? 72 : 120)}
 							</div>
-							{item.expandable && (
+							{item.result && (
 								<pre className="ml-7 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-zinc-200 bg-zinc-950 rounded-md p-2 max-h-40">
-									{item.expandable}
+									{item.result}
 								</pre>
 							)}
 						</div>
@@ -634,7 +688,7 @@ function TranscriptToolGroup({
 	);
 }
 
-function TranscriptSystemRow({
+function SystemRow({
 	block,
 	compact,
 }: { block: Extract<TranscriptBlock, { type: "system" }>; compact: boolean }) {
@@ -654,31 +708,102 @@ function TranscriptSystemRow({
 	);
 }
 
-function TranscriptEventRow({
+function StdoutRow({
 	block,
 	compact,
-}: { block: Extract<TranscriptBlock, { type: "event" }>; compact: boolean }) {
-	const toneClasses =
-		block.tone === "error"
-			? "text-red-700 dark:text-red-300"
-			: block.tone === "warn"
-				? "text-amber-700 dark:text-amber-300"
-				: block.tone === "info"
-					? "text-sky-700 dark:text-sky-300"
-					: "text-foreground/75";
-
+}: { block: Extract<TranscriptBlock, { type: "stdout" }>; compact: boolean }) {
+	const [open, setOpen] = useState(false);
 	return (
-		<div className={cn("flex items-start gap-2", toneClasses)}>
-			{block.tone === "error" ? (
-				<CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-			) : (
-				<span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-current/50" />
+		<div>
+			<div className="flex items-center gap-2">
+				<span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+					stdout
+				</span>
+				<button
+					type="button"
+					className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+					onClick={() => setOpen((v) => !v)}
+				>
+					{open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+				</button>
+			</div>
+			{open && (
+				<pre
+					className={cn(
+						"mt-2 overflow-x-auto whitespace-pre-wrap break-words font-mono text-foreground/80",
+						compact ? "text-[11px]" : "text-xs",
+					)}
+				>
+					{block.content}
+				</pre>
 			)}
+		</div>
+	);
+}
+
+function InitRow({
+	block,
+	compact,
+}: { block: Extract<TranscriptBlock, { type: "init" }>; compact: boolean }) {
+	return (
+		<div className="flex items-start gap-2 text-sky-700 dark:text-sky-300">
+			<span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-current/50" />
 			<div className={cn("whitespace-pre-wrap break-words", compact ? "text-[11px]" : "text-xs")}>
 				<span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/70">
-					{block.label}
+					init
 				</span>
-				{block.content && <span className="ml-2">{block.content}</span>}
+				<span className="ml-2">
+					model {block.model}
+					{block.sessionId && ` · session ${block.sessionId}`}
+				</span>
+			</div>
+		</div>
+	);
+}
+
+function ResultRow({
+	block,
+	compact,
+}: { block: Extract<TranscriptBlock, { type: "result" }>; compact: boolean }) {
+	const toneClasses = block.isError
+		? "rounded-xl border border-red-500/20 bg-red-500/[0.06] p-3 text-red-700 dark:text-red-300"
+		: "text-sky-700 dark:text-sky-300";
+
+	return (
+		<div className={toneClasses}>
+			<div className="flex items-start gap-2">
+				{block.isError ? (
+					<CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+				) : (
+					<span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-current/50" />
+				)}
+				<div className="min-w-0 flex-1">
+					{block.isError ? (
+						<div
+							className={cn("whitespace-pre-wrap break-words", compact ? "text-[11px]" : "text-xs")}
+						>
+							<span className="text-[10px] font-semibold uppercase tracking-[0.1em]">error</span>
+							{block.content && <span className="ml-2">{block.content}</span>}
+						</div>
+					) : (
+						<>
+							<div
+								className={cn(
+									"[&>*:first-child]:mt-0 [&>*:last-child]:mb-0 text-sky-700 dark:text-sky-300",
+									compact ? "text-[11px] leading-5" : "text-xs leading-5",
+								)}
+							>
+								<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+									{block.content || "Completed"}
+								</Markdown>
+							</div>
+							<pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground/75">
+								{formatTokens(block.inputTokens)} / {formatTokens(block.outputTokens)} / $
+								{block.costUsd.toFixed(6)}
+							</pre>
+						</>
+					)}
+				</div>
 			</div>
 		</div>
 	);
@@ -731,14 +856,15 @@ export function RunTranscriptView({
 							"animate-in fade-in slide-in-from-bottom-1 duration-300",
 					)}
 				>
-					{block.type === "text" && <TranscriptTextBlock block={block} compact={compact} />}
-					{block.type === "tool" && <TranscriptToolCard item={block} compact={compact} />}
-					{block.type === "command_group" && (
-						<TranscriptCommandGroup block={block} compact={compact} />
-					)}
-					{block.type === "tool_group" && <TranscriptToolGroup block={block} compact={compact} />}
-					{block.type === "system" && <TranscriptSystemRow block={block} compact={compact} />}
-					{block.type === "event" && <TranscriptEventRow block={block} compact={compact} />}
+					{block.type === "text" && <TextBlock block={block} compact={compact} />}
+					{block.type === "thinking" && <ThinkingBlock block={block} compact={compact} />}
+					{block.type === "tool" && <ToolCard item={block.item} compact={compact} />}
+					{block.type === "command_group" && <CommandGroup block={block} compact={compact} />}
+					{block.type === "tool_group" && <ToolGroup block={block} compact={compact} />}
+					{block.type === "system" && <SystemRow block={block} compact={compact} />}
+					{block.type === "stdout" && <StdoutRow block={block} compact={compact} />}
+					{block.type === "init" && <InitRow block={block} compact={compact} />}
+					{block.type === "result" && <ResultRow block={block} compact={compact} />}
 				</div>
 			))}
 		</div>

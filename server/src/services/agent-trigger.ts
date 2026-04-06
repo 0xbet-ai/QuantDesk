@@ -161,12 +161,7 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 					// Persist to log file
 					appendAgentLog(experimentId, {
 						ts: ts(),
-						type: chunk.type as "tool" | "text" | "tool_result",
-						content: chunk.content,
-						tool: chunk.tool,
-						label: chunk.label,
-						detail: chunk.detail,
-						expandable: chunk.expandable,
+						...chunk,
 					});
 
 					publishExperimentEvent({

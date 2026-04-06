@@ -1,17 +1,20 @@
 import type { AgentAdapter, SpawnResult, StreamChunk } from "../types.js";
 
-interface ClaudeSystemEvent {
-	type: "system";
-	session_id: string;
+function asRecord(value: unknown): Record<string, unknown> | null {
+	if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+	return value as Record<string, unknown>;
 }
 
-interface ClaudeAssistantEvent {
-	type: "assistant";
-	message: {
-		content: Array<{ type: string; text?: string }>;
-		usage: { input_tokens: number; output_tokens: number };
-	};
-	session_id: string;
+function asNumber(value: unknown): number {
+	return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function safeJsonParse(text: string): unknown {
+	try {
+		return JSON.parse(text);
+	} catch {
+		return null;
+	}
 }
 
 interface ClaudeResultEvent {
@@ -21,8 +24,6 @@ interface ClaudeResultEvent {
 	usage: { input_tokens: number; output_tokens: number };
 	total_cost_usd?: number;
 }
-
-type ClaudeEvent = ClaudeSystemEvent | ClaudeAssistantEvent | ClaudeResultEvent;
 
 export class ClaudeAdapter implements AgentAdapter {
 	readonly name = "claude";
@@ -45,80 +46,115 @@ export class ClaudeAdapter implements AgentAdapter {
 
 	parseStreamLine(line: string): StreamChunk | null {
 		if (!line.trim()) return null;
-		try {
-			const event = JSON.parse(line) as Record<string, unknown>;
 
-			// Tool result from "user" event
-			if (event.type === "user" && event.tool_use_result) {
-				const result = event.tool_use_result as Record<string, unknown>;
-				const content = (result.stdout as string) ?? (result.content as string) ?? "";
-				if (content) {
-					return { type: "tool_result", content: content.slice(0, 500) };
-				}
-				return null;
+		const parsed = asRecord(safeJsonParse(line));
+		if (!parsed) return { type: "stdout", content: line };
+
+		const eventType = typeof parsed.type === "string" ? parsed.type : "";
+
+		// ── system init ──
+		if (eventType === "system" && parsed.subtype === "init") {
+			return {
+				type: "init",
+				model: typeof parsed.model === "string" ? parsed.model : "unknown",
+				sessionId: typeof parsed.session_id === "string" ? parsed.session_id : "",
+			};
+		}
+
+		// ── system events (hooks, etc.) ──
+		if (eventType === "system") {
+			const subtype = typeof parsed.subtype === "string" ? parsed.subtype : "";
+			if (subtype) {
+				return { type: "system", content: subtype.replace(/_/g, " ") };
 			}
+			return null;
+		}
 
-			const assistantEvent = event as unknown as ClaudeEvent;
-			if (assistantEvent.type === "assistant" && "message" in assistantEvent) {
-				const toolLabels: Record<string, string> = {
-					Write: "Writing",
-					Edit: "Editing",
-					Read: "Reading",
-					Bash: "Running",
-					Glob: "Searching",
-					Grep: "Searching",
-				};
+		// ── assistant message ──
+		if (eventType === "assistant") {
+			const message = asRecord(parsed.message) ?? {};
+			const content = Array.isArray(message.content) ? message.content : [];
 
-				// Check for tool_use blocks in assistant message
-				const toolBlock = assistantEvent.message.content.find((b) => b.type === "tool_use") as
-					| { type: string; name?: string; input?: Record<string, unknown> }
-					| undefined;
-				if (toolBlock?.name) {
-					const label = toolLabels[toolBlock.name] ?? toolBlock.name;
-					const input = toolBlock.input as
-						| {
-								file_path?: string;
-								command?: string;
-								content?: string;
-								old_string?: string;
-								new_string?: string;
-						  }
-						| undefined;
-					let detail = input?.file_path ?? input?.command?.slice(0, 80);
-					if (detail && input?.file_path) {
-						const parts = detail.split("/");
-						detail = parts.slice(-2).join("/");
-					}
-					// Build expandable content for detail view
-					let expandable: string | undefined;
-					if (toolBlock.name === "Bash" && input?.command) {
-						expandable = input.command;
-					} else if (toolBlock.name === "Write" && input?.content) {
-						expandable = input.content.slice(0, 500);
-					} else if (toolBlock.name === "Edit" && input?.new_string) {
-						expandable = input.new_string.slice(0, 300);
-					}
+			for (const blockRaw of content) {
+				const block = asRecord(blockRaw);
+				if (!block) continue;
+				const blockType = typeof block.type === "string" ? block.type : "";
+
+				if (blockType === "text") {
+					const text = typeof block.text === "string" ? block.text : "";
+					if (text) return { type: "text", content: text };
+				}
+
+				if (blockType === "thinking") {
+					const text = typeof block.thinking === "string" ? block.thinking : "";
+					if (text) return { type: "thinking", content: text };
+				}
+
+				if (blockType === "tool_use") {
 					return {
-						type: "tool",
-						content: detail ? `${label}: ${detail}` : `${label}...`,
-						tool: toolBlock.name,
-						label,
-						detail,
-						expandable,
+						type: "tool_call",
+						name: typeof block.name === "string" ? block.name : "unknown",
+						toolUseId:
+							typeof block.id === "string"
+								? block.id
+								: typeof block.tool_use_id === "string"
+									? (block.tool_use_id as string)
+									: undefined,
+						input: block.input ?? {},
 					};
 				}
+			}
+			return null;
+		}
 
-				// Check for text blocks
-				const texts = assistantEvent.message.content
-					.filter((b) => b.type === "text" && b.text)
-					.map((b) => b.text!);
-				if (texts.length > 0) {
-					return { type: "text", content: texts.join("") };
+		// ── user message (tool results) ──
+		if (eventType === "user") {
+			const message = asRecord(parsed.message) ?? {};
+			const content = Array.isArray(message.content) ? message.content : [];
+
+			for (const blockRaw of content) {
+				const block = asRecord(blockRaw);
+				if (!block) continue;
+				const blockType = typeof block.type === "string" ? block.type : "";
+
+				if (blockType === "tool_result") {
+					const toolUseId = typeof block.tool_use_id === "string" ? block.tool_use_id : "";
+					const isError = block.is_error === true;
+					let text = "";
+					if (typeof block.content === "string") {
+						text = block.content;
+					} else if (Array.isArray(block.content)) {
+						const parts: string[] = [];
+						for (const part of block.content) {
+							const p = asRecord(part);
+							if (p && typeof p.text === "string") parts.push(p.text as string);
+						}
+						text = parts.join("\n");
+					}
+					return {
+						type: "tool_result",
+						toolUseId,
+						content: text.slice(0, 500),
+						isError,
+					};
 				}
 			}
-		} catch {
-			/* ignore */
+			return null;
 		}
+
+		// ── result ──
+		if (eventType === "result") {
+			const usage = asRecord(parsed.usage) ?? {};
+			return {
+				type: "result",
+				content: typeof parsed.result === "string" ? parsed.result : "",
+				inputTokens: asNumber(usage.input_tokens),
+				outputTokens: asNumber(usage.output_tokens),
+				costUsd: asNumber(parsed.total_cost_usd),
+				isError: parsed.is_error === true,
+			};
+		}
+
 		return null;
 	}
 
@@ -131,18 +167,15 @@ export class ClaudeAdapter implements AgentAdapter {
 
 		for (const line of lines) {
 			if (!line.trim()) continue;
-			let event: ClaudeEvent;
-			try {
-				event = JSON.parse(line);
-			} catch {
-				continue;
+			const parsed = asRecord(safeJsonParse(line));
+			if (!parsed) continue;
+
+			if (parsed.type === "system" && typeof parsed.session_id === "string") {
+				sessionId = parsed.session_id;
 			}
 
-			if (event.type === "system" && "session_id" in event) {
-				sessionId = event.session_id;
-			}
-
-			if (event.type === "result") {
+			if (parsed.type === "result") {
+				const event = parsed as unknown as ClaudeResultEvent;
 				resultText = event.result;
 				sessionId = event.session_id;
 				inputTokens = event.usage.input_tokens;

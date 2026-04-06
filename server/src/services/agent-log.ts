@@ -4,18 +4,10 @@ import { join } from "node:path";
 /**
  * Persist agent streaming chunks as JSONL files.
  * One file per experiment: agent-logs/{experimentId}.jsonl
- * Each line: {"ts":...,"type":...,"content":...,"tool":...,"label":...,"detail":...,"expandable":...}
+ * Each line is a timestamped StreamChunk from the adapter.
  */
 
-export interface AgentLogEntry {
-	ts: string;
-	type: "tool" | "text" | "tool_result" | "system" | "event";
-	content: string;
-	tool?: string;
-	label?: string;
-	detail?: string;
-	expandable?: string;
-}
+export type AgentLogEntry = { ts: string } & Record<string, unknown>;
 
 const LOGS_DIR = join(process.cwd(), "agent-logs");
 
@@ -59,12 +51,4 @@ export function readAgentLog(experimentId: string): AgentLogEntry[] {
 		}
 	}
 	return entries;
-}
-
-/** Check if a log file exists and has entries */
-export function hasAgentLog(experimentId: string): boolean {
-	const path = logPath(experimentId);
-	if (!existsSync(path)) return false;
-	const content = readFileSync(path, "utf-8");
-	return content.trim().length > 0;
 }
