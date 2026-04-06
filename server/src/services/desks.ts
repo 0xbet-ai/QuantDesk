@@ -47,7 +47,7 @@ export async function createDesk(input: CreateDeskInput) {
 	await db.insert(comments).values({
 		experimentId: experiment!.id,
 		author: "system",
-		content: `Desk created: ${desk!.name}. Strategy: ${input.description ?? input.strategyId ?? "custom"}. Venues: ${input.venues.join(", ")}. Budget: $${input.budget}, target: ${input.targetReturn}%, stop-loss: ${input.stopLoss}%.`,
+		content: `Desk created: ${desk!.name}. Strategy: ${input.description ?? input.strategyId ?? "custom"}. Venues: ${input.venues.join(", ")}. Budget: $${Number(input.budget).toLocaleString("en-US")}, target: ${input.targetReturn}%, stop-loss: ${input.stopLoss}%.`,
 	});
 
 	return { desk: desk!, experiment: experiment! };
