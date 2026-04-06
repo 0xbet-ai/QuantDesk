@@ -156,7 +156,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 	const [strategies, setStrategies] = useState<Strategy[]>([]);
 	const [loadingStrategies, setLoadingStrategies] = useState(false);
 	const [strategiesError, setStrategiesError] = useState<string | null>(null);
-	const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null); // null = nothing selected, "custom" = custom strategy
+	const [selectedStrategyId, setSelectedStrategyId] = useState<string>("custom"); // "custom" = agent writes from scratch
 	const [strategySearch, setStrategySearch] = useState("");
 	const [budget, setBudget] = useState("10000");
 	const [targetReturn, setTargetReturn] = useState("15");
@@ -247,8 +247,11 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 
 	// Clear strategy selection if it becomes invalid after venue change
 	useEffect(() => {
-		if (selectedStrategyId && !filteredStrategies.find((s) => s.id === selectedStrategyId)) {
-			setSelectedStrategyId(null);
+		if (
+			selectedStrategyId !== "custom" &&
+			!filteredStrategies.find((s) => s.id === selectedStrategyId)
+		) {
+			setSelectedStrategyId("custom");
 		}
 	}, [selectedStrategyId, filteredStrategies]);
 
@@ -297,9 +300,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 			case "config":
 				return Number(budget) > 0 && Number(targetReturn) > 0 && Number(stopLoss) > 0;
 			case "strategy":
-				if (selectedStrategyId === null) return false;
 				if (selectedStrategyId === "custom") return customStrategyPrompt.trim().length > 0;
-				return true;
+				return selectedStrategyId.length > 0;
 			case "launch":
 				return true;
 		}
