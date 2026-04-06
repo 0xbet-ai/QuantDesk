@@ -139,7 +139,7 @@ export function Layout({
 					)}
 					{panelOpen && (
 						<div className="w-80 min-w-[320px] shrink-0 border-l border-border flex flex-col">
-							<div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
+							<div className="flex items-center justify-between px-4 h-12 border-b border-border shrink-0">
 								<span className="text-sm font-medium">Properties</span>
 								<Button variant="ghost" size="icon-xs" onClick={() => setPanelOpen(false)}>
 									<PanelRight className="size-4" />
