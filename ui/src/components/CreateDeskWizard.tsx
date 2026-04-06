@@ -336,7 +336,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 					</Button>
 				</div>
 				{/* Tabs — centered */}
-				<div className="max-w-md mx-auto w-full px-8">
+				<div className="max-w-2xl mx-auto w-full px-8">
 					<div className="flex justify-center gap-1 border-b border-border">
 						{stepTabs.map((tab, i) => {
 							const Icon = tab.icon;
@@ -368,7 +368,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 
 			{/* Content */}
 			<div className="flex-1 overflow-y-auto">
-				<div className="max-w-md mx-auto w-full px-8 py-8">
+				<div className="max-w-2xl mx-auto w-full px-8 py-8">
 					{step === "desk" && (
 						<div className="space-y-8">
 							<div className="flex items-center gap-3 mb-1">
