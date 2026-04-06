@@ -71,6 +71,7 @@ pnpm dev
 3. **Commits** — `<type>: <description>`. Types: `feat`, `fix`, `refactor`, `docs`, `chore`.
 4. **Secrets** — never commit. Use env vars. `.env` is gitignored.
 5. **Scope** — backtesting and live trading.
+6. **Engine is internal** — never expose engine name (freqtrade, hummingbot, etc.) to the user in UI. Engine is resolved by the agent behind the scenes.
 
 ## Conventions
 
