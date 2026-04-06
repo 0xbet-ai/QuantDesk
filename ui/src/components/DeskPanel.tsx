@@ -79,13 +79,11 @@ export function DeskPanel({
 					</div>
 					<div className="flex items-center justify-between py-1">
 						<span className="text-xs text-muted-foreground">Target</span>
-						<span className="text-xs font-medium text-green-600 dark:text-green-400">
-							+{desk.targetReturn}%
-						</span>
+						<span className="text-xs font-medium">+{desk.targetReturn}%</span>
 					</div>
 					<div className="flex items-center justify-between py-1">
 						<span className="text-xs text-muted-foreground">Stop loss</span>
-						<span className="text-xs font-medium text-destructive">-{desk.stopLoss}%</span>
+						<span className="text-xs font-medium">-{desk.stopLoss}%</span>
 					</div>
 				</div>
 

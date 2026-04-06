@@ -1,7 +1,21 @@
-import { ChevronRight, Download, Settings, Upload } from "lucide-react";
+import { ChevronRight, Download, Lock, Settings, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
+import strategyCatalog from "../../../strategies/freqtrade.json";
+import hummingbotCatalog from "../../../strategies/hummingbot.json";
+import nautilusCatalog from "../../../strategies/nautilus.json";
+import venues from "../../../strategies/venues.json";
 import type { Desk } from "../lib/api.js";
 import { archiveDesk, updateDesk } from "../lib/api.js";
+
+const allStrategies = [...strategyCatalog, ...hummingbotCatalog, ...nautilusCatalog];
+
+function formatCategory(cat: string): string {
+	return cat
+		.split("_")
+		.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+		.join(" ");
+}
+import { Badge } from "./ui/badge.js";
 
 import { Button } from "./ui/button.js";
 import { Input } from "./ui/input.js";
@@ -123,7 +137,14 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 					{/* Constraints */}
 					<Section label="Constraints">
 						<Field label="Budget (USD)">
-							<Input type="number" value={budget} onChange={(e) => setBudget(e.target.value)} />
+							<Input
+								inputMode="numeric"
+								value={Number(budget).toLocaleString("en-US")}
+								onChange={(e) => {
+									const raw = e.target.value.replace(/,/g, "");
+									if (/^\d*$/.test(raw)) setBudget(raw);
+								}}
+							/>
 						</Field>
 						<Field label="Target return %">
 							<Input
@@ -136,6 +157,66 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 							<Input type="number" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} />
 						</Field>
 					</Section>
+
+					{/* Strategy & Venues (immutable) */}
+					<div>
+						<div className="flex items-center gap-1.5 mb-3">
+							<div className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground">
+								Strategy & Venues
+							</div>
+							<Lock className="size-3 text-muted-foreground" />
+						</div>
+						<div className="rounded-lg border border-border p-4 space-y-4">
+							<Field label="Strategy">
+								{(() => {
+									const strategy = desk.strategyId
+										? allStrategies.find((s) => s.id === desk.strategyId)
+										: null;
+									if (strategy) {
+										return (
+											<div>
+												<div className="text-[13px] font-medium">
+													{formatCategory(strategy.category)}
+												</div>
+												<div className="text-xs text-muted-foreground mt-0.5">
+													{strategy.description}
+												</div>
+											</div>
+										);
+									}
+									return (
+										<div>
+											<div className="text-[13px] font-medium">Custom Strategy</div>
+											{desk.description && (
+												<div className="text-xs text-muted-foreground mt-0.5">
+													{desk.description}
+												</div>
+											)}
+										</div>
+									);
+								})()}
+							</Field>
+							<Field label="Venues">
+								{desk.venues.length > 0 ? (
+									<div className="flex flex-wrap gap-1.5">
+										{(desk.venues as string[]).map((v) => {
+											const venue = venues.find((ven) => ven.id === v);
+											return (
+												<Badge key={v} variant="secondary">
+													{venue?.name ?? v}
+												</Badge>
+											);
+										})}
+									</div>
+								) : (
+									<div className="text-[13px] text-muted-foreground">No venues selected</div>
+								)}
+							</Field>
+							<p className="text-xs text-muted-foreground">
+								Set at creation. Create a new desk to change venues or strategy.
+							</p>
+						</div>
+					</div>
 
 					{/* Save */}
 					{hasChanges && (
