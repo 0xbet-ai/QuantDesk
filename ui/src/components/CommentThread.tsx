@@ -240,10 +240,13 @@ export function CommentThread({ experiment, onOpenRun }: Props) {
 			}
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
-		if (event.type === "agent.done" || event.type === "comment.new") {
+		if (event.type === "agent.done") {
 			setThinkingRole(null);
-			setStreamEntries([]);
 			setRunStartedAt(null);
+			refresh();
+			// Keep streamEntries — they'll show as completed transcript
+		}
+		if (event.type === "comment.new") {
 			refresh();
 		}
 	});
@@ -324,11 +327,11 @@ export function CommentThread({ experiment, onOpenRun }: Props) {
 						No comments yet
 					</div>
 				)}
-				{thinkingRole && (
+				{(thinkingRole || streamEntries.length > 0) && (
 					<div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
 						<LiveRunWidget
 							experimentNumber={experiment.number}
-							agentRole={thinkingRole}
+							agentRole={thinkingRole ?? "analyst"}
 							entries={streamEntries}
 							streaming={!!thinkingRole}
 							startedAt={runStartedAt ?? undefined}

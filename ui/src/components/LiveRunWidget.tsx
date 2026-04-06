@@ -55,10 +55,12 @@ export function LiveRunWidget({
 			{/* Header */}
 			<div className="border-b border-border/60 bg-cyan-500/[0.04] px-4 py-3">
 				<div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-300">
-					Live Run
+					{streaming ? "Live Run" : "Run Completed"}
 				</div>
 				<div className="mt-1 text-xs text-muted-foreground">
-					Agent is working on Experiment #{experimentNumber}
+					{streaming
+						? `Agent is working on Experiment #${experimentNumber}`
+						: `Agent finished on Experiment #${experimentNumber}`}
 				</div>
 			</div>
 
@@ -76,8 +78,8 @@ export function LiveRunWidget({
 
 						{/* Status row */}
 						<div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-							<StatusBadge status="running" />
-							{startedAt && <ElapsedTimer startedAt={startedAt} />}
+							<StatusBadge status={streaming ? "running" : "completed"} />
+							{streaming && startedAt && <ElapsedTimer startedAt={startedAt} />}
 							{streaming && (
 								<span className="flex items-center gap-1 text-xs text-cyan-400">
 									<span className="relative flex h-2 w-2">
@@ -92,14 +94,16 @@ export function LiveRunWidget({
 
 					{/* Controls */}
 					<div className="flex items-center gap-2">
-						<button
-							type="button"
-							onClick={onStop}
-							className="inline-flex items-center gap-1 rounded-full border border-red-500/20 bg-red-500/[0.06] px-2.5 py-1 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-500/[0.12] dark:text-red-300"
-						>
-							<Square className="h-2.5 w-2.5" fill="currentColor" />
-							Stop
-						</button>
+						{streaming && (
+							<button
+								type="button"
+								onClick={onStop}
+								className="inline-flex items-center gap-1 rounded-full border border-red-500/20 bg-red-500/[0.06] px-2.5 py-1 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-500/[0.12] dark:text-red-300"
+							>
+								<Square className="h-2.5 w-2.5" fill="currentColor" />
+								Stop
+							</button>
+						)}
 						{onOpenRun && (
 							<button
 								type="button"

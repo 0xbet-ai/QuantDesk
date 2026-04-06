@@ -90,8 +90,7 @@ Write a Python backtest script and execute it. The script should:
 1. Implement the strategy logic using pandas and ta (technical analysis library)
 2. Simulate trades on historical OHLCV data (use ccxt or sample data)
 3. Calculate performance metrics
-4. Always use tqdm for progress bars so the user can see execution progress in real-time
-5. Print a JSON result to stdout as the LAST line of output, with this exact schema:
+4. Print a JSON result to stdout as the LAST line of output, with this exact schema:
    {"returnPct": <number>, "drawdownPct": <number>, "winRate": <number>, "totalTrades": <number>}
 
 After you run the backtest and get the JSON result, include it in your response wrapped in:
