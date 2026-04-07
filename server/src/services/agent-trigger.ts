@@ -312,6 +312,33 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 			const isBaseline = existingRuns.length === 0;
 			const runId = crypto.randomUUID();
 
+			// Ensure the engine image is available. If ensureImage hasn't been
+			// triggered (or hasn't finished) since desk creation, this pulls now.
+			// Post a heads-up comment so the user understands the delay on the
+			// first run of a given engine.
+			const imageReadyPromise = engineAdapter.ensureImage();
+			let notifiedPreparing = false;
+			const notifyTimer = setTimeout(() => {
+				notifiedPreparing = true;
+				void createComment({
+					experimentId,
+					author: "system",
+					content: "Preparing engine image (first-time download). This can take a few minutes...",
+				});
+			}, 2000);
+			try {
+				await imageReadyPromise;
+			} finally {
+				clearTimeout(notifyTimer);
+			}
+			if (notifiedPreparing) {
+				await createComment({
+					experimentId,
+					author: "system",
+					content: "Engine image ready. Running backtest...",
+				});
+			}
+
 			const backtestResult = await engineAdapter.runBacktest({
 				strategyPath: "strategy.py",
 				workspacePath: desk.workspacePath!,

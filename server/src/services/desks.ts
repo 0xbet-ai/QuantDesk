@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { db } from "@quantdesk/db";
 import { agentSessions, comments, desks, experiments, strategyCatalog } from "@quantdesk/db/schema";
-import { resolveEngine, type VenueEngines } from "@quantdesk/engines";
+import { getAdapter as getEngineAdapter, resolveEngine, type VenueEngines } from "@quantdesk/engines";
 import type { StrategyMode } from "@quantdesk/shared";
 import { eq } from "drizzle-orm";
 import venuesCatalog from "../../../strategies/venues.json" with { type: "json" };
@@ -72,6 +72,20 @@ export async function createDesk(input: CreateDeskInput) {
 	// Initialize workspace for this desk
 	const workspacePath = await initWorkspace(desk!.id, engine, WORKSPACES_ROOT);
 	await db.update(desks).set({ workspacePath }).where(eq(desks.id, desk!.id));
+
+	// Kick off engine image pull in the background so the first backtest isn't
+	// blocked on a multi-minute `docker pull`. The adapter's ensureImage is a
+	// no-op for the generic engine and idempotent for freqtrade/nautilus.
+	if (engine !== "generic") {
+		void getEngineAdapter(engine)
+			.ensureImage()
+			.catch((err) => {
+				console.error(
+					`[desks] background ensureImage(${engine}) failed for desk ${desk!.id}:`,
+					err instanceof Error ? err.message : err,
+				);
+			});
+	}
 
 	const existingCount = 0;
 	const number = autoIncrementExperimentNumber(existingCount);

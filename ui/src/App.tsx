@@ -51,6 +51,14 @@ function DeskRoute({
 		if (deskId) localStorage.setItem("quantdesk.lastDeskId", deskId);
 	}, [deskId]);
 
+	// Redirect home if desk no longer exists (e.g. deleted/archived)
+	useEffect(() => {
+		if (deskId && desks.length > 0 && !desks.some((d) => d.id === deskId)) {
+			localStorage.removeItem("quantdesk.lastDeskId");
+			navigate("/", { replace: true });
+		}
+	}, [deskId, desks, navigate]);
+
 	// Auto-select latest experiment if none in URL but experiments exist
 	useEffect(() => {
 		if (deskId && !expId && deskPage === "experiments" && experiments.length > 0) {
