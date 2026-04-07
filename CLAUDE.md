@@ -37,13 +37,16 @@ Architecture:
 
 ## Dev Setup
 
-Prerequisites: Node.js 20+, pnpm 9.15+, Docker, Claude CLI (`claude`) or Codex CLI (`codex`).
+Prerequisites: Node.js 20+, pnpm 9.15+, Docker (for engine executors only), Claude CLI (`claude`) or Codex CLI (`codex`).
 
 ```bash
 pnpm install
-docker compose up -d postgres
 pnpm dev
 ```
+
+PostgreSQL runs in-process via `embedded-postgres` (data under `~/.quantdesk/pgdata`) — no Docker required for the database. Docker is reserved for engine executor containers (Freqtrade, Nautilus) spawned at runtime.
+
+To point at an external Postgres instead, set `DATABASE_URL` before running any script (`dev`, `db:migrate`, `db:seed`, `db:reset`).
 
 | Command | Description |
 |---------|-------------|

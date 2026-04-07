@@ -1,6 +1,8 @@
 import { createInterface } from "node:readline";
 import { sql } from "drizzle-orm";
-import { db } from "./client.js";
+import { db, initDb } from "./client.js";
+
+await initDb();
 
 async function confirm(message: string): Promise<boolean> {
 	const rl = createInterface({ input: process.stdin, output: process.stdout });

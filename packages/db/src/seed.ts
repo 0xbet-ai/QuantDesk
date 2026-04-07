@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { db } from "./client.js";
+import { db, initDb } from "./client.js";
 import { strategyCatalog } from "./schema.js";
+
+await initDb();
 
 interface StrategyEntry {
 	id: string;

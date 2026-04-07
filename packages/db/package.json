@@ -9,13 +9,14 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "migrate": "drizzle-kit migrate",
+    "migrate": "tsx src/migrate.ts",
     "generate": "drizzle-kit generate",
     "seed": "tsx src/seed.ts",
     "reset": "tsx src/reset.ts"
   },
   "dependencies": {
     "drizzle-orm": "^0.39.3",
+    "embedded-postgres": "18.3.0-beta.16",
     "postgres": "^3.4.5"
   },
   "devDependencies": {

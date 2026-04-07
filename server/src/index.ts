@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { initDb } from "@quantdesk/db";
 import express from "express";
 import { errorHandler } from "./middleware/error.js";
 import { setupWebSocket } from "./realtime/websocket.js";
@@ -7,6 +8,9 @@ import experimentsRouter from "./routes/experiments.js";
 import runsRouter from "./routes/runs.js";
 import strategiesRouter from "./routes/strategies.js";
 import { cleanupStaleAgentRuns } from "./services/startup-cleanup.js";
+
+// Initialise database (starts embedded Postgres on first run if DATABASE_URL is unset)
+await initDb();
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);

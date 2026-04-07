@@ -1,14 +1,15 @@
-services:
-  postgres:
-    image: postgres:17
-    environment:
-      POSTGRES_USER: quantdesk
-      POSTGRES_PASSWORD: quantdesk
-      POSTGRES_DB: quantdesk
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
+# QuantDesk uses Docker only as an engine executor runtime.
+#
+# PostgreSQL is NOT run here — it is started in-process via
+# `embedded-postgres` (see packages/db/src/embedded.ts). See CLAUDE.md rule 11.
+#
+# Engine containers (Freqtrade, Nautilus) are spawned by the server at runtime
+# with pinned image tags and `quantdesk.*` labels for reconcile on restart.
+# They are not defined here because they are per-run: ephemeral for backtests,
+# long-lived but dynamically created for paper trading.
+#
+# This file is intentionally empty. It exists so `docker compose` commands
+# don't error in this directory, and as a place to add future long-running
+# infrastructure services if the product ever needs them.
 
-volumes:
-  pgdata:
+services: {}
