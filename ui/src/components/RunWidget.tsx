@@ -5,7 +5,7 @@ import { StatusBadge } from "./StatusBadge.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
 import { RunTranscriptView } from "./transcript/RunTranscriptView.js";
 
-interface LiveRunWidgetProps {
+interface RunWidgetProps {
 	experimentNumber: number;
 	agentRole: string;
 	entries: TranscriptEntry[];
@@ -13,6 +13,7 @@ interface LiveRunWidgetProps {
 	startedAt?: Date;
 	onStop: () => void;
 	onOpenRun?: () => void;
+	mode?: "backtest" | "paper";
 }
 
 function ElapsedTimer({ startedAt }: { startedAt: Date }) {
@@ -36,7 +37,7 @@ function ElapsedTimer({ startedAt }: { startedAt: Date }) {
 	);
 }
 
-export function LiveRunWidget({
+export function RunWidget({
 	experimentNumber,
 	agentRole,
 	entries,
@@ -44,7 +45,9 @@ export function LiveRunWidget({
 	startedAt,
 	onStop,
 	onOpenRun,
-}: LiveRunWidgetProps) {
+	mode = "backtest",
+}: RunWidgetProps) {
+	const modeLabel = mode === "paper" ? "Paper Trading Run" : "Backtest Run";
 	const isAnalyst = agentRole !== "risk_manager";
 	const roleLabel = isAnalyst ? "Analyst" : "Risk Manager";
 	const RoleIcon = isAnalyst ? Bot : Shield;
@@ -63,7 +66,7 @@ export function LiveRunWidget({
 			{/* Header */}
 			<div className="border-b border-border/60 bg-cyan-500/[0.04] px-4 py-3">
 				<div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-700 dark:text-cyan-300">
-					{streaming ? "Live Run" : "Run Completed"}
+					{streaming ? modeLabel : `${modeLabel} Completed`}
 				</div>
 				<div className="mt-1 text-xs text-muted-foreground">
 					{streaming
@@ -131,7 +134,7 @@ export function LiveRunWidget({
 				</div>
 
 				{/* Transcript */}
-				<div className="max-h-[320px] overflow-y-auto pr-1">
+				<div className="max-h-[320px] overflow-y-auto pr-4">
 					<RunTranscriptView
 						entries={entries}
 						density="compact"

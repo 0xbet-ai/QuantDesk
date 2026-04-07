@@ -25,7 +25,7 @@ import {
 } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { DatasetPreviewModal } from "./DatasetView.js";
-import { LiveRunWidget } from "./LiveRunWidget.js";
+import { RunWidget } from "./RunWidget.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
 import { RunTranscriptView } from "./transcript/RunTranscriptView.js";
 import { Button } from "./ui/button.js";
@@ -107,7 +107,8 @@ const PROPOSAL_RE =
 // Strip [user]/[analyst]/[system]/[risk_manager] prefixes that the agent may echo
 const AUTHOR_PREFIX_RE = /^\[(user|analyst|system|risk_manager)\]\s*/gm;
 
-/** Convert [BACKTEST_RESULT] and [DATASET] markers to fenced JSON code blocks */
+/** Convert [BACKTEST_RESULT] and [DATASET] markers to fenced JSON code blocks,
+ *  and strip internal markers like [EXPERIMENT_TITLE]. */
 function formatAgentMarkers(text: string): string {
 	return text
 		.replace(
@@ -117,7 +118,9 @@ function formatAgentMarkers(text: string): string {
 		.replace(
 			/\[DATASET\]\s*([\s\S]*?)\s*\[\/DATASET\]/g,
 			(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
-		);
+		)
+		.replace(/^\[EXPERIMENT_TITLE\].*$/gm, "")
+		.replace(/\n{3,}/g, "\n\n");
 }
 
 function parseProposals(content: string): { cleanContent: string; proposals: Proposal[] } {
@@ -490,7 +493,7 @@ export function CommentThread({
 								: "opacity-100 translate-y-0 animate-in fade-in slide-in-from-bottom-2 duration-300",
 						)}
 					>
-						<LiveRunWidget
+						<RunWidget
 							experimentNumber={experiment.number}
 							agentRole={thinkingRole ?? "analyst"}
 							entries={streamEntries}

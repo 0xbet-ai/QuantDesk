@@ -98,7 +98,12 @@ Write a Python backtest script and execute it. The script should:
 1. Implement the strategy logic using pandas and ta (technical analysis library)
 2. Always use real market data. Choose the data type the strategy requires (OHLCV, tick, orderbook, funding rate, OI, etc.) and fetch it via ccxt or other appropriate libraries. Never use synthetic or random data.
 3. Calculate performance metrics
-4. For long-running backtests, split execution into phases (e.g., data download, optimization, final backtest) and run each phase as a separate command so the user can see intermediate progress
+4. For long-running commands (data downloads, backtests, optimizations), run them in the background and poll for progress so the user can see what is happening:
+   - Use the Bash tool with run_in_background: true. This returns a shell ID immediately instead of blocking.
+   - Add clear progress prints in your Python script using flush=True so stdout shows up immediately. Example: print(f"[{i}/{n}] downloading 2025-{i:02d}", flush=True)
+   - Poll the running shell with BashOutput(bash_id=...) every few seconds until the script finishes. Each poll appends new stdout to the same card in the UI.
+   - When the shell exits, the final BashOutput call returns the complete result. Continue with the next step (parsing, etc.).
+   - Avoid single foreground commands that take more than ~30 seconds — the user sees only "Waiting for result..." until they finish.
 5. Print a JSON result to stdout as the LAST line of output
 
 The result must be a JSON object with a "metrics" array. Choose the metrics that are most relevant to the strategy you ran — different strategies have different important metrics (e.g. arbitrage cares about Sharpe and slippage, market making cares about inventory turnover and spread capture, trend following cares about return and max drawdown).

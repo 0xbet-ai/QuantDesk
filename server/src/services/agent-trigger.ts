@@ -100,11 +100,13 @@ function spawnCli(
 		child.stdin.write(stdin);
 		child.stdin.end();
 
-		// Timeout after 10 minutes (agent may write code + run backtests)
+		// Timeout after 30 minutes — agents may run long backtests, optimizations,
+		// and poll background shells. Even on timeout, the sessionId is already
+		// saved (see streaming onLine handler), so the next message resumes context.
 		setTimeout(() => {
 			child.kill();
-			reject(new Error("Agent CLI timed out after 600s"));
-		}, 600_000);
+			reject(new Error("Agent CLI timed out after 1800s"));
+		}, 1_800_000);
 	});
 }
 
@@ -162,6 +164,17 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 						ts: ts(),
 						...chunk,
 					});
+
+					// Save sessionId immediately on init event so timeout/crash
+					// can be recovered with --resume on the next message.
+					if (chunk.type === "init" && chunk.sessionId) {
+						db.update(agentSessions)
+							.set({ sessionId: chunk.sessionId, updatedAt: new Date() })
+							.where(eq(agentSessions.id, session.id))
+							.catch((err) => {
+								console.error("Failed to persist sessionId mid-stream:", err);
+							});
+					}
 
 					publishExperimentEvent({
 						experimentId,
@@ -395,7 +408,7 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 		const message = isStopped
 			? "Agent was stopped by user."
 			: isTimeout
-				? "Agent timed out after 10 minutes."
+				? "Agent timed out after 30 minutes. Send another message to resume from where it left off."
 				: "Something went wrong. Please try again.";
 		await createComment({
 			experimentId,

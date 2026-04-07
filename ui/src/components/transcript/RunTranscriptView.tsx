@@ -170,6 +170,11 @@ function SyntaxBlock({
 function normalizeTranscript(entries: TranscriptEntry[], streaming: boolean): TranscriptBlock[] {
 	const blocks: TranscriptBlock[] = [];
 	const pendingTools = new Map<string, ToolItem>();
+	// Track the most recent background Bash so subsequent BashOutput polls
+	// can be absorbed into the same card instead of cluttering the transcript.
+	let lastBackgroundBash: ToolItem | null = null;
+	// tool_use_ids whose results should be appended to lastBackgroundBash.result
+	const absorbedToolIds = new Set<string>();
 
 	for (const entry of entries) {
 		if (entry.type === "text") {
@@ -194,6 +199,16 @@ function normalizeTranscript(entries: TranscriptEntry[], streaming: boolean): Tr
 		}
 
 		if (entry.type === "tool_call") {
+			// Absorb BashOutput polls into the parent background Bash card
+			if (entry.name === "BashOutput" && lastBackgroundBash) {
+				if (entry.toolUseId) {
+					absorbedToolIds.add(entry.toolUseId);
+				}
+				// Mark parent as still streaming
+				lastBackgroundBash.status = "running";
+				continue;
+			}
+
 			const item: ToolItem = {
 				name: entry.name,
 				toolUseId: entry.toolUseId,
@@ -204,16 +219,54 @@ function normalizeTranscript(entries: TranscriptEntry[], streaming: boolean): Tr
 			if (entry.toolUseId) {
 				pendingTools.set(entry.toolUseId, item);
 			}
+
+			// Track background Bash for future BashOutput absorption
+			const inputObj = entry.input as Record<string, unknown> | null;
+			if (
+				entry.name === "Bash" &&
+				inputObj &&
+				typeof inputObj === "object" &&
+				inputObj.run_in_background === true
+			) {
+				lastBackgroundBash = item;
+				item.result = "";
+			}
 			continue;
 		}
 
 		if (entry.type === "tool_result") {
+			// Append absorbed BashOutput result to the parent Bash card
+			if (absorbedToolIds.has(entry.toolUseId) && lastBackgroundBash) {
+				const newChunk = entry.content?.trim() ?? "";
+				if (newChunk) {
+					lastBackgroundBash.result =
+						(lastBackgroundBash.result ? `${lastBackgroundBash.result}\n` : "") + newChunk;
+				}
+				if (entry.isError) {
+					lastBackgroundBash.isError = true;
+					lastBackgroundBash.status = "error";
+				} else {
+					// If the chunk indicates the shell exited, mark completed
+					if (/exited|completed|finished|done/i.test(newChunk)) {
+						lastBackgroundBash.status = "completed";
+					}
+				}
+				absorbedToolIds.delete(entry.toolUseId);
+				continue;
+			}
+
 			const matched = pendingTools.get(entry.toolUseId);
 			if (matched) {
 				matched.result = entry.content;
 				matched.isError = entry.isError;
 				matched.status = entry.isError ? "error" : "completed";
 				pendingTools.delete(entry.toolUseId);
+
+				// If this is the foreground result of a background Bash (rare),
+				// keep it as the parent for subsequent polls until clearly done.
+				if (matched === lastBackgroundBash && entry.isError) {
+					lastBackgroundBash = null;
+				}
 			}
 			continue;
 		}
@@ -349,7 +402,8 @@ const markdownComponents = {
 
 // ── Block renderers ──────────────────────────────────────────────────
 
-/** Convert [BACKTEST_RESULT] and [DATASET] markers to fenced JSON code blocks */
+/** Convert [BACKTEST_RESULT] and [DATASET] markers to fenced JSON code blocks,
+ *  and strip internal markers like [EXPERIMENT_TITLE] and [PROPOSE_*]. */
 function formatAgentMarkers(text: string): string {
 	return text
 		.replace(
@@ -359,7 +413,11 @@ function formatAgentMarkers(text: string): string {
 		.replace(
 			/\[DATASET\]\s*([\s\S]*?)\s*\[\/DATASET\]/g,
 			(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
-		);
+		)
+		.replace(/^\[EXPERIMENT_TITLE\].*$/gm, "")
+		.replace(/^\[PROPOSE_(VALIDATION|NEW_EXPERIMENT|COMPLETE_EXPERIMENT|GO_PAPER)\].*$/gm, "")
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
 }
 
 function TextBlock({
