@@ -665,7 +665,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 										value={customVenue}
 										onChange={(e) => setCustomVenue(e.target.value)}
 										onKeyDown={(e) => e.key === "Enter" && addCustomVenue()}
-										placeholder="e.g. Uniswap — Base"
+										placeholder="e.g. Uniswap (Base)"
 										className="flex-1"
 									/>
 									<Button variant="outline" size="sm" onClick={addCustomVenue}>
