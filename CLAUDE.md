@@ -17,9 +17,8 @@ Users research, backtest, and validate strategies through async interaction with
 
 Product:
 1. `doc/product/USER_FLOW.md` — onboarding, desks, experiments, runs
-3. `doc/product/UI_LAYOUT.md` — 3-column layout
-4. `doc/product/DOMAIN_MODEL.md` — DB schema (Desk, Experiment, Run, Dataset, Comment, ...)
-5. `doc/product/AGENTS.md` — Analyst, Risk Manager, interaction pattern
+2. `doc/product/DOMAIN_MODEL.md` — DB schema (Desk, Experiment, Run, Dataset, Comment, ...)
+3. `doc/product/AGENTS.md` — Analyst, Risk Manager, interaction pattern
 
 Plan:
 - `doc/PLAN.md` — TDD implementation phases with done-when criteria
