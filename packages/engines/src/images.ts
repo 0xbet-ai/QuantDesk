@@ -14,9 +14,13 @@ import type { EngineName } from "@quantdesk/shared";
  * The `generic` engine has no managed image because it runs agent-written
  * scripts directly on the host (generic is the opt-out from isolation).
  */
+// Freqtrade ships proper version-pinned Docker tags (`2026.3`, `2026.2`, ...).
+// Nautilus's ghcr.io image only publishes `latest` / `nightly`, so we pin it
+// to the immutable sha256 digest of the release we validated against.
 export const ENGINE_IMAGES: Record<Exclude<EngineName, "generic">, string> = {
-	freqtrade: "freqtradeorg/freqtrade:stable_2025.7",
-	nautilus: "ghcr.io/nautechsystems/nautilus_trader:1.221.0",
+	freqtrade: "freqtradeorg/freqtrade:2026.3",
+	nautilus:
+		"ghcr.io/nautechsystems/nautilus_trader@sha256:52ef66dba3183f3815873add2c967ba99485ce1b9503c415e40ecd18564a5fa1",
 } as const;
 
 export function getEngineImage(engine: EngineName): string {

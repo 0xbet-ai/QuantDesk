@@ -12,6 +12,7 @@ import {
 	runs,
 } from "@quantdesk/db/schema";
 import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
+import { stripAgentMarkers } from "@quantdesk/shared";
 import type { NormalizedResult } from "@quantdesk/shared";
 import { eq } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
@@ -19,6 +20,7 @@ import { appendAgentLog, clearAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
 import { createComment } from "./comments.js";
 import { autoIncrementRunNumber } from "./logic.js";
+import { extractDataFetchProposal } from "./triggers.js";
 import { commitCode, hasChanges } from "./workspace.js";
 
 /**
@@ -300,45 +302,41 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 	//
 	// Only classic and realtime modes use this path. Generic mode keeps the
 	// existing [BACKTEST_RESULT] flow (agent runs scripts on the host).
-	const runBacktestRequest = result.resultText ? extractRunBacktestRequest(result.resultText) : null;
+	const runBacktestRequest = result.resultText
+		? extractRunBacktestRequest(result.resultText)
+		: null;
 	if (runBacktestRequest && desk.strategyMode !== "generic") {
+		// Hard gate: a backtest cannot run without an approved dataset
+		// (CLAUDE.md rule #13). If the agent tries to jump straight to
+		// [RUN_BACKTEST], refuse and push it back to the proposal flow.
+		const existingDatasets = await db
+			.select()
+			.from(datasets)
+			.where(eq(datasets.deskId, desk.id));
+		if (existingDatasets.length === 0) {
+			await createComment({
+				experimentId,
+				author: "system",
+				content:
+					"Cannot run backtest: no dataset has been registered for this desk. " +
+					"Per rule #13, you must emit [PROPOSE_DATA_FETCH] first and wait for the " +
+					"user to approve. Do not write strategy code or emit [RUN_BACKTEST] until " +
+					"a 'Downloaded ...' system comment has appeared.",
+			});
+			publishExperimentEvent({ experimentId, type: "comment.new", payload: {} });
+			// Do NOT re-trigger here — the user input or next explicit action
+			// should drive the next turn, to avoid an infinite retry loop.
+			return;
+		}
 		try {
 			const engineAdapter = getEngineAdapter(desk.engine);
-			const existingRuns = await db
-				.select()
-				.from(runs)
-				.where(eq(runs.experimentId, experimentId));
+			const existingRuns = await db.select().from(runs).where(eq(runs.experimentId, experimentId));
 			const runNumber = autoIncrementRunNumber(existingRuns.length);
 			const isBaseline = existingRuns.length === 0;
 			const runId = crypto.randomUUID();
 
-			// Ensure the engine image is available. If ensureImage hasn't been
-			// triggered (or hasn't finished) since desk creation, this pulls now.
-			// Post a heads-up comment so the user understands the delay on the
-			// first run of a given engine.
-			const imageReadyPromise = engineAdapter.ensureImage();
-			let notifiedPreparing = false;
-			const notifyTimer = setTimeout(() => {
-				notifiedPreparing = true;
-				void createComment({
-					experimentId,
-					author: "system",
-					content: "Preparing engine image (first-time download). This can take a few minutes...",
-				});
-			}, 2000);
-			try {
-				await imageReadyPromise;
-			} finally {
-				clearTimeout(notifyTimer);
-			}
-			if (notifiedPreparing) {
-				await createComment({
-					experimentId,
-					author: "system",
-					content: "Engine image ready. Running backtest...",
-				});
-			}
-
+			// Engine images are expected to be pre-pulled via `npx quantdesk onboard`.
+			// If the image is missing here, runBacktest will surface a clear error.
 			const backtestResult = await engineAdapter.runBacktest({
 				strategyPath: "strategy.py",
 				workspacePath: desk.workspacePath!,
@@ -396,6 +394,11 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 				experimentId,
 				author: "system",
 				content: `Backtest request failed: ${message}`,
+			});
+			// Re-trigger so the agent sees the failure message and can fix its
+			// config / pair naming / strategy and retry.
+			void triggerAgent(experimentId).catch((err) => {
+				console.error("Follow-up agent trigger failed:", err);
 			});
 		}
 	}
@@ -545,18 +548,19 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 
 	// 9. Post agent response as comment (strip all markers)
 	if (result.resultText) {
-		const cleanText = result.resultText
-			.replace(/\[BACKTEST_RESULT\][\s\S]*?\[\/BACKTEST_RESULT\]/g, "")
-			.replace(/\[RUN_BACKTEST\][\s\S]*?\[\/RUN_BACKTEST\]/g, "")
-			.replace(/^\[RUN_PAPER\].*$/gm, "")
-			.replace(/\[DATASET\][\s\S]*?\[\/DATASET\]/g, "")
-			.replace(/^\[EXPERIMENT_TITLE\].*$/gm, "")
-			.trim();
+		// Extract data-fetch proposal (if any) — attach to comment metadata so
+		// the UI can render an Approve/Reject button.
+		const dataFetchProposal = extractDataFetchProposal(result.resultText);
+
+		const cleanText = stripAgentMarkers(result.resultText);
 		if (cleanText) {
 			await createComment({
 				experimentId,
 				author: session.agentRole,
 				content: cleanText,
+				metadata: dataFetchProposal
+					? { pendingProposal: { type: "data_fetch", data: dataFetchProposal } }
+					: undefined,
 			});
 		}
 	} else if (result.error) {

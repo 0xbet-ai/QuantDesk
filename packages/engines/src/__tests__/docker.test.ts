@@ -157,7 +157,7 @@ describe("quantdeskLabels", () => {
 describe("engine images", () => {
 	it("freqtrade and nautilus pinned", () => {
 		expect(ENGINE_IMAGES.freqtrade).toMatch(/freqtradeorg\/freqtrade:/);
-		expect(ENGINE_IMAGES.nautilus).toMatch(/nautilus_trader:/);
+		expect(ENGINE_IMAGES.nautilus).toMatch(/nautilus_trader[@:]/);
 	});
 
 	it("no :latest tags", () => {

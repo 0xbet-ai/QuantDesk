@@ -25,3 +25,43 @@ export function detectProposals(text: string): Proposal[] {
 
 	return proposals;
 }
+
+/**
+ * A data-fetch proposal: the agent asks the user to approve downloading
+ * a specific historical dataset before any strategy code is written.
+ * This is the mandatory first step for any brand-new desk (CLAUDE.md rule #13).
+ */
+export interface DataFetchProposal {
+	exchange: string;
+	pairs: string[];
+	timeframe: string;
+	days: number;
+	tradingMode?: "spot" | "futures" | "margin";
+	rationale?: string;
+}
+
+export function extractDataFetchProposal(text: string): DataFetchProposal | null {
+	const match = text.match(/\[PROPOSE_DATA_FETCH\]\s*([\s\S]*?)\s*\[\/PROPOSE_DATA_FETCH\]/);
+	if (!match?.[1]) return null;
+	try {
+		const parsed = JSON.parse(match[1]) as Partial<DataFetchProposal>;
+		if (
+			typeof parsed.exchange !== "string" ||
+			!Array.isArray(parsed.pairs) ||
+			typeof parsed.timeframe !== "string" ||
+			typeof parsed.days !== "number"
+		) {
+			return null;
+		}
+		return {
+			exchange: parsed.exchange,
+			pairs: parsed.pairs,
+			timeframe: parsed.timeframe,
+			days: parsed.days,
+			tradingMode: parsed.tradingMode,
+			rationale: parsed.rationale,
+		};
+	} catch {
+		return null;
+	}
+}

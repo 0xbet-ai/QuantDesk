@@ -7,12 +7,15 @@
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "onboard": "tsx src/index.ts onboard"
   },
   "dependencies": {
-    "@quantdesk/db": "workspace:*"
+    "@quantdesk/db": "workspace:*",
+    "@quantdesk/engines": "workspace:*"
   },
   "devDependencies": {
+    "tsx": "^4.19.3",
     "typescript": "^5.7.3"
   }
 }

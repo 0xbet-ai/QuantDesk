@@ -50,7 +50,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip.js";
 
 interface Props {
 	onClose: () => void;
-	onCreated: (deskId: string) => void;
+	onCreated: (deskId: string, experimentId: string) => void;
 }
 
 type Step = "desk" | "market" | "venue" | "mode" | "strategy" | "agent" | "config" | "launch";
@@ -370,7 +370,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 				adapterType,
 				adapterConfig: adapterModel !== "default" ? { model: adapterModel } : {},
 			});
-			onCreated(result.desk.id);
+			onCreated(result.desk.id, result.experiment.id);
 		} catch (err: unknown) {
 			setSubmitError(err instanceof Error ? err.message : "Failed to create desk");
 		} finally {
