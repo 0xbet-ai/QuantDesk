@@ -14,11 +14,21 @@ import type {
 
 const execAsync = promisify(exec);
 
+/**
+ * Generic engine: fallback for venues with no managed engine (e.g. Kalshi).
+ *
+ * Unlike Freqtrade and Nautilus, generic runs agent-authored scripts
+ * directly on the host — no Docker container. This is the explicit
+ * opt-out from isolation (CLAUDE.md rule 11). Users pick it by selecting
+ * a venue whose only supported engine is `generic`.
+ *
+ * Generic supports BACKTEST ONLY. Paper trading throws.
+ */
 export class GenericAdapter implements EngineAdapter {
 	readonly name = "generic";
 
-	async ensureInstalled(): Promise<void> {
-		// Generic adapter only needs node/python/bun — assumed available
+	async ensureImage(): Promise<void> {
+		// No image — host-native execution.
 	}
 
 	async downloadData(config: DataConfig): Promise<DataRef> {
@@ -41,29 +51,16 @@ export class GenericAdapter implements EngineAdapter {
 		return { raw: stdout, normalized };
 	}
 
-	async startPaper(config: PaperConfig): Promise<PaperHandle> {
-		const { stdout } = await execAsync(`node ${config.strategyPath} --paper &`, {
-			cwd: config.workspacePath,
-		});
-		return { processId: stdout.trim(), runId: crypto.randomUUID() };
+	async startPaper(_config: PaperConfig): Promise<PaperHandle> {
+		throw new Error("generic engine does not support paper trading");
 	}
 
-	async stopPaper(handle: PaperHandle): Promise<void> {
-		try {
-			await execAsync(`kill ${handle.processId}`);
-		} catch {
-			// Process might already be dead
-		}
+	async stopPaper(_handle: PaperHandle): Promise<void> {
+		throw new Error("generic engine does not support paper trading");
 	}
 
 	async getPaperStatus(_handle: PaperHandle): Promise<PaperStatus> {
-		return {
-			running: false,
-			unrealizedPnl: 0,
-			realizedPnl: 0,
-			openPositions: 0,
-			uptime: 0,
-		};
+		throw new Error("generic engine does not support paper trading");
 	}
 
 	parseResult(raw: string): NormalizedResult {
