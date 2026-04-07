@@ -2,7 +2,12 @@ import { Router } from "express";
 import { HttpError } from "../middleware/error.js";
 import { listActivity } from "../services/activity.js";
 import { triggerAgent } from "../services/agent-trigger.js";
-import { createDataset, deleteDataset, listDatasets } from "../services/datasets.js";
+import {
+	createDataset,
+	deleteDataset,
+	listDatasets,
+	previewDataset,
+} from "../services/datasets.js";
 import { archiveDesk, createDesk, getDesk, listDesks, updateDesk } from "../services/desks.js";
 import { createExperiment, listExperiments } from "../services/experiments.js";
 import { getCode, getDiff, getLog, listFiles } from "../services/workspace.js";
@@ -102,6 +107,17 @@ router.post("/:id/datasets", async (req, res, next) => {
 	try {
 		const result = await createDataset({ deskId: req.params.id, ...req.body });
 		res.status(201).json(result);
+	} catch (err) {
+		next(err);
+	}
+});
+
+router.get("/:id/datasets/:datasetId/preview", async (req, res, next) => {
+	try {
+		const limit = Number.parseInt((req.query.limit as string) ?? "50", 10);
+		const preview = await previewDataset(req.params.datasetId, limit);
+		if (!preview) throw new HttpError(404, "Dataset file not found");
+		res.json(preview);
 	} catch (err) {
 		next(err);
 	}

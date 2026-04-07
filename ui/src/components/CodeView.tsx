@@ -1,6 +1,7 @@
 import { ChevronRight, FileCode2, GitCommit, History } from "lucide-react";
 import { Highlight, themes } from "prism-react-renderer";
 import { useCallback, useEffect, useState } from "react";
+import { useTheme } from "../context/ThemeContext.js";
 import type { CommitInfo, Desk } from "../lib/api.js";
 import { getCodeFile, getCodeFiles, getCodeLog } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
@@ -41,6 +42,7 @@ function langFromPath(path: string): string {
 }
 
 export function CodeView({ desk }: Props) {
+	const { theme } = useTheme();
 	const [commits, setCommits] = useState<CommitInfo[]>([]);
 	const [files, setFiles] = useState<string[]>([]);
 	const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
@@ -199,7 +201,7 @@ export function CodeView({ desk }: Props) {
 						<ScrollArea className="flex-1">
 							{fileContent != null ? (
 								<Highlight
-									theme={themes.nightOwl}
+									theme={theme === "dark" ? themes.nightOwl : themes.github}
 									code={fileContent}
 									language={langFromPath(selectedFile ?? "")}
 								>
