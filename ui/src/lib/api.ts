@@ -141,6 +141,25 @@ export const postComment = (experimentId: string, content: string) =>
 		body: JSON.stringify({ author: "user", content }),
 	});
 
+export interface DataFetchProposal {
+	exchange: string;
+	pairs: string[];
+	timeframe: string;
+	days: number;
+	tradingMode?: "spot" | "futures" | "margin";
+	rationale?: string;
+}
+
+export const postDataFetchDecision = (
+	experimentId: string,
+	action: "approve" | "reject",
+	proposal: DataFetchProposal,
+) =>
+	api<{ ok: true }>(`/experiments/${experimentId}/data-fetch`, {
+		method: "POST",
+		body: JSON.stringify({ action, proposal }),
+	});
+
 export const listStrategies = (engine?: string) =>
 	api<Strategy[]>(`/strategies${engine ? `?engine=${engine}` : ""}`);
 

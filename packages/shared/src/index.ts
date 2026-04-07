@@ -1,4 +1,10 @@
 export {
+	AGENT_MARKERS,
+	formatAgentMarkersForDisplay,
+	stripAgentMarkers,
+} from "./agent-markers.js";
+
+export {
 	adapterConfigSchema,
 	engineNameSchema,
 	normalizedResultSchema,

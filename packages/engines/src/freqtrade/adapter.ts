@@ -113,6 +113,27 @@ export class FreqtradeAdapter implements EngineAdapter {
 		const strategyName = (config.extraParams?.strategy as string) ?? "QuantDeskStrategy";
 		const exportFilename = `backtest_${config.runId}.json`;
 
+		// Patch config.json: inject `pairlists` if missing (required by
+		// freqtrade 2026.x). Data download is NOT the adapter's job — the
+		// agent owns data acquisition via the [PROPOSE_DATA_FETCH] flow
+		// (CLAUDE.md rule #13), and the server's data-fetch handler runs
+		// download-data separately before [RUN_BACKTEST] is emitted.
+		const cfgPath = join(workspaceAbs, configFile);
+		if (existsSync(cfgPath)) {
+			try {
+				const cfg = JSON.parse(readFileSync(cfgPath, "utf-8"));
+				if (!cfg.pairlists) {
+					cfg.pairlists = [{ method: "StaticPairList" }];
+					writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+				}
+			} catch (err) {
+				if (err instanceof SyntaxError) {
+					throw new Error(`Invalid ${configFile}: ${err.message}`);
+				}
+				throw err;
+			}
+		}
+
 		const result = await runContainer({
 			image: ENGINE_IMAGES.freqtrade,
 			rm: true,
@@ -136,19 +157,21 @@ export class FreqtradeAdapter implements EngineAdapter {
 
 		if (result.exitCode !== 0) {
 			throw new DockerError(
-				`freqtrade backtesting failed: ${result.stderr.trim() || result.stdout.trim()}`,
+				`freqtrade backtesting exited ${result.exitCode}: ${result.stderr.trim() || result.stdout.trim()}`,
 				result.exitCode,
 				result.stderr,
 			);
 		}
 
-		// Read the exported JSON — freqtrade writes `backtest_results/<name>.json`
-		// plus a `.meta.json` companion. Prefer the main result file.
+		// Source of truth: the exported result file. freqtrade can exit 0 on
+		// config validation errors or empty data — in that case no file is
+		// written, and we surface the last log lines so the caller can see why.
 		const resultsDir = join(workspaceAbs, "backtest_results");
 		const resultFile = findLatestResultFile(resultsDir, exportFilename);
 		if (!resultFile) {
+			const tail = lastLines(result.stderr || result.stdout, 10);
 			throw new Error(
-				`freqtrade backtesting completed but no result file found under ${resultsDir}`,
+				`freqtrade backtesting produced no result file under ${resultsDir}. Last log lines:\n${tail}`,
 			);
 		}
 		const raw = readFileSync(resultFile, "utf-8");
@@ -362,6 +385,12 @@ function isStrategyScopedResult(data: unknown): data is FreqtradeBacktestRaw {
 		"strategy" in data &&
 		typeof (data as FreqtradeBacktestRaw).strategy === "object"
 	);
+}
+
+function lastLines(text: string, n: number): string {
+	if (!text) return "(no output)";
+	const lines = text.trimEnd().split("\n");
+	return lines.slice(-n).join("\n");
 }
 
 function findLatestResultFile(dir: string, preferredName: string): string | null {

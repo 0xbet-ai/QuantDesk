@@ -1,3 +1,4 @@
+import { formatAgentMarkersForDisplay } from "@quantdesk/shared";
 import {
 	Check,
 	ChevronDown,
@@ -407,23 +408,7 @@ const markdownComponents = {
 
 // ── Block renderers ──────────────────────────────────────────────────
 
-/** Convert [BACKTEST_RESULT] and [DATASET] markers to fenced JSON code blocks,
- *  and strip internal markers like [EXPERIMENT_TITLE] and [PROPOSE_*]. */
-function formatAgentMarkers(text: string): string {
-	return text
-		.replace(
-			/\[BACKTEST_RESULT\]\s*([\s\S]*?)\s*\[\/BACKTEST_RESULT\]/g,
-			(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
-		)
-		.replace(
-			/\[DATASET\]\s*([\s\S]*?)\s*\[\/DATASET\]/g,
-			(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
-		)
-		.replace(/^\[EXPERIMENT_TITLE\].*$/gm, "")
-		.replace(/^\[PROPOSE_(VALIDATION|NEW_EXPERIMENT|COMPLETE_EXPERIMENT|GO_PAPER)\].*$/gm, "")
-		.replace(/\n{3,}/g, "\n\n")
-		.trim();
-}
+const formatAgentMarkers = formatAgentMarkersForDisplay;
 
 function StreamingIndicator() {
 	const [seconds, setSeconds] = useState(0);

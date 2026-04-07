@@ -26,7 +26,13 @@ importers:
       '@quantdesk/db':
         specifier: workspace:*
         version: link:../packages/db
+      '@quantdesk/engines':
+        specifier: workspace:*
+        version: link:../packages/engines
     devDependencies:
+      tsx:
+        specifier: ^4.19.3
+        version: 4.21.0
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
@@ -140,6 +146,9 @@ importers:
 
   ui:
     dependencies:
+      '@quantdesk/shared':
+        specifier: workspace:*
+        version: link:../packages/shared
       '@radix-ui/react-collapsible':
         specifier: ^1.1.12
         version: 1.1.12(@types/react-dom@19.2.3)(@types/react@19.2.14)(react-dom@19.2.4)(react@19.2.4)

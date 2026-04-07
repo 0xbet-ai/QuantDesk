@@ -53,7 +53,7 @@ function DeskRoute({
 
 	// Redirect home if desk no longer exists (e.g. deleted/archived)
 	useEffect(() => {
-		if (deskId && desks.length > 0 && !desks.some((d) => d.id === deskId)) {
+		if (deskId && !desks.some((d) => d.id === deskId)) {
 			localStorage.removeItem("quantdesk.lastDeskId");
 			navigate("/", { replace: true });
 		}
@@ -256,9 +256,11 @@ export function App() {
 			{showWizard && (
 				<CreateDeskWizard
 					onClose={() => setShowWizard(false)}
-					onCreated={(newDeskId) => {
+					onCreated={(newDeskId, newExperimentId) => {
 						setShowWizard(false);
-						refreshDesks().then(() => navigate(`/desks/${newDeskId}`));
+						refreshDesks().then(() =>
+							navigate(`/desks/${newDeskId}/experiments/${newExperimentId}`),
+						);
 					}}
 				/>
 			)}

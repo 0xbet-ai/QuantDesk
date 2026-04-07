@@ -15,13 +15,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
-import type { Comment, Dataset, Experiment } from "../lib/api.js";
+import type { Comment, Dataset, DataFetchProposal, Experiment } from "../lib/api.js";
 import {
 	completeAndCreateNewExperiment,
 	getAgentLogs,
 	listComments,
 	listDatasets,
 	postComment,
+	postDataFetchDecision,
 } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { DatasetPreviewModal } from "./DatasetView.js";
@@ -232,6 +233,91 @@ function ProposalCard({
 			)}
 		</div>
 	);
+}
+
+function DataFetchProposalCard({
+	proposal,
+	experimentId,
+	onAction,
+}: {
+	proposal: DataFetchProposal;
+	experimentId: string;
+	onAction: () => void;
+}) {
+	const [status, setStatus] = useState<"pending" | "approved" | "rejected">("pending");
+
+	const decide = async (action: "approve" | "reject") => {
+		setStatus(action === "approve" ? "approved" : "rejected");
+		try {
+			await postDataFetchDecision(experimentId, action, proposal);
+			onAction();
+		} catch (err) {
+			console.error("data-fetch decision failed:", err);
+			setStatus("pending");
+		}
+	};
+
+	return (
+		<div className="mt-2 rounded-md border border-border bg-muted/50 px-3 py-2">
+			<div className="text-xs font-medium text-foreground">
+				Fetch historical data for backtest?
+			</div>
+			<div className="mt-1 text-[11px] text-muted-foreground space-y-0.5">
+				<div>
+					<span className="font-medium text-foreground">{proposal.pairs.join(", ")}</span> ·{" "}
+					{proposal.timeframe} · last {proposal.days} days · {proposal.exchange}
+					{proposal.tradingMode ? ` (${proposal.tradingMode})` : ""}
+				</div>
+				{proposal.rationale && <div className="italic">{proposal.rationale}</div>}
+			</div>
+			{status === "pending" ? (
+				<div className="flex gap-2 mt-2">
+					<Button
+						size="sm"
+						variant="outline"
+						className="h-7 px-3 text-xs gap-1"
+						onClick={() => decide("approve")}
+					>
+						<CheckCircle2 className="size-3" />
+						Approve & download
+					</Button>
+					<Button
+						size="sm"
+						variant="ghost"
+						className="h-7 px-3 text-xs gap-1 text-muted-foreground"
+						onClick={() => decide("reject")}
+					>
+						<XCircle className="size-3" />
+						Reject
+					</Button>
+				</div>
+			) : (
+				<div className="mt-1 text-xs font-medium">
+					<span className={status === "approved" ? "text-green-500" : "text-muted-foreground"}>
+						{status === "approved" ? "Approved — downloading..." : "Rejected"}
+					</span>
+				</div>
+			)}
+		</div>
+	);
+}
+
+function extractDataFetchProposal(metadata: Record<string, unknown> | null): DataFetchProposal | null {
+	if (!metadata) return null;
+	const pending = (metadata as { pendingProposal?: { type?: string; data?: unknown } })
+		.pendingProposal;
+	if (!pending || pending.type !== "data_fetch") return null;
+	const data = pending.data as Partial<DataFetchProposal> | undefined;
+	if (
+		!data ||
+		typeof data.exchange !== "string" ||
+		!Array.isArray(data.pairs) ||
+		typeof data.timeframe !== "string" ||
+		typeof data.days !== "number"
+	) {
+		return null;
+	}
+	return data as DataFetchProposal;
 }
 
 function DatasetChips({ deskId, after }: { deskId: string; after: string }) {
@@ -483,6 +569,19 @@ export function CommentThread({
 									onNewExperiment={onNewExperiment}
 								/>
 							))}
+							{(() => {
+								const dfp = extractDataFetchProposal(c.metadata);
+								return dfp ? (
+									<DataFetchProposalCard
+										proposal={dfp}
+										experimentId={experiment.id}
+										onAction={() => {
+											refresh();
+											setThinkingRole("analyst");
+										}}
+									/>
+								) : null;
+							})()}
 							{(c.author === "analyst" || c.author === "risk_manager") && (
 								<>
 									<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
