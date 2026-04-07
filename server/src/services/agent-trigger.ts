@@ -290,10 +290,17 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 			});
 		}
 	} else if (result.error) {
+		const isStopped = result.error.includes("code 143") || result.error.includes("SIGTERM");
+		const isTimeout = result.error.includes("timed out");
+		const message = isStopped
+			? "Agent was stopped by user."
+			: isTimeout
+				? "Agent timed out after 10 minutes."
+				: "Something went wrong. Please try again.";
 		await createComment({
 			experimentId,
 			author: "system",
-			content: `Agent error: ${result.error}`,
+			content: message,
 		});
 	}
 
