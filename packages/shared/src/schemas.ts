@@ -51,6 +51,16 @@ export type AdapterConfig = z.infer<typeof adapterConfigSchema>;
 export const strategyModeSchema = z.enum(["classic", "realtime"]);
 export type StrategyMode = z.infer<typeof strategyModeSchema>;
 
+export const runStatusSchema = z.enum([
+	"pending",
+	"running",
+	"completed",
+	"stopped",
+	"failed",
+	"interrupted",
+]);
+export type RunStatus = z.infer<typeof runStatusSchema>;
+
 export const engineNameSchema = z.enum(["freqtrade", "nautilus", "generic"]);
 export type EngineName = z.infer<typeof engineNameSchema>;
 

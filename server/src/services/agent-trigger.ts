@@ -11,6 +11,8 @@ import {
 	memorySummaries,
 	runs,
 } from "@quantdesk/db/schema";
+import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
+import type { NormalizedResult } from "@quantdesk/shared";
 import { eq } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog, clearAgentLog } from "./agent-log.js";
@@ -18,6 +20,57 @@ import { AgentRunner } from "./agent-runner.js";
 import { createComment } from "./comments.js";
 import { autoIncrementRunNumber } from "./logic.js";
 import { commitCode, hasChanges } from "./workspace.js";
+
+/**
+ * Parse the `[RUN_BACKTEST]...[/RUN_BACKTEST]` marker emitted by the agent.
+ * Returns the parsed payload or null if no marker is present.
+ */
+function extractRunBacktestRequest(
+	text: string,
+): { strategyName?: string; configFile?: string } | null {
+	const match = text.match(/\[RUN_BACKTEST\]\s*([\s\S]*?)\s*\[\/RUN_BACKTEST\]/);
+	if (!match?.[1]) return null;
+	const body = match[1].trim();
+	if (!body) return {};
+	try {
+		return JSON.parse(body);
+	} catch {
+		return {};
+	}
+}
+
+function normalizedResultToMetrics(normalized: NormalizedResult) {
+	return {
+		metrics: [
+			{
+				key: "return",
+				label: "Return",
+				value: normalized.returnPct,
+				format: "percent",
+				tone: normalized.returnPct >= 0 ? "positive" : "negative",
+			},
+			{
+				key: "drawdown",
+				label: "Max Drawdown",
+				value: normalized.drawdownPct,
+				format: "percent",
+				tone: "negative",
+			},
+			{
+				key: "win_rate",
+				label: "Win Rate",
+				value: normalized.winRate * 100,
+				format: "percent",
+			},
+			{
+				key: "trades",
+				label: "Trades",
+				value: normalized.totalTrades,
+				format: "integer",
+			},
+		],
+	};
+}
 
 // Track running agent processes per experiment
 const activeAgents = new Map<string, ChildProcess>();
@@ -188,6 +241,7 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 			budget: desk.budget!,
 			targetReturn: desk.targetReturn!,
 			stopLoss: desk.stopLoss!,
+			strategyMode: (desk.strategyMode as "classic" | "realtime") ?? "classic",
 			engine: desk.engine,
 			venues: desk.venues as string[],
 			description: desk.description,
@@ -237,6 +291,85 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 			}
 		} catch {
 			/* workspace commit failed, non-fatal */
+		}
+	}
+
+	// 7b. Handle [RUN_BACKTEST] marker — server runs the engine adapter and
+	// creates the Run record, then posts a system comment that will retrigger
+	// the agent for analysis.
+	//
+	// Only classic and realtime modes use this path. Generic mode keeps the
+	// existing [BACKTEST_RESULT] flow (agent runs scripts on the host).
+	const runBacktestRequest = result.resultText ? extractRunBacktestRequest(result.resultText) : null;
+	if (runBacktestRequest && desk.strategyMode !== "generic") {
+		try {
+			const engineAdapter = getEngineAdapter(desk.engine);
+			const existingRuns = await db
+				.select()
+				.from(runs)
+				.where(eq(runs.experimentId, experimentId));
+			const runNumber = autoIncrementRunNumber(existingRuns.length);
+			const isBaseline = existingRuns.length === 0;
+			const runId = crypto.randomUUID();
+
+			const backtestResult = await engineAdapter.runBacktest({
+				strategyPath: "strategy.py",
+				workspacePath: desk.workspacePath!,
+				runId,
+				dataRef: { datasetId: "", path: `${desk.workspacePath}/data` },
+				extraParams: {
+					strategy: runBacktestRequest.strategyName ?? "QuantDeskStrategy",
+					configFile: runBacktestRequest.configFile ?? "config.json",
+				},
+			});
+
+			const resultPayload = normalizedResultToMetrics(backtestResult.normalized);
+
+			const [run] = await db
+				.insert(runs)
+				.values({
+					id: runId,
+					experimentId,
+					runNumber,
+					isBaseline,
+					mode: "backtest",
+					status: "completed",
+					result: resultPayload,
+					commitHash: latestCommitHash,
+					completedAt: new Date(),
+				})
+				.returning();
+
+			publishExperimentEvent({
+				experimentId,
+				type: "run.status",
+				payload: { runId: run!.id, status: "completed", result: run!.result },
+			});
+
+			// Post a system comment with the result and re-trigger the agent
+			// so it can analyse. We embed the result as [BACKTEST_RESULT] so any
+			// downstream tools that scan for that marker still see the data.
+			await createComment({
+				experimentId,
+				author: "system",
+				content:
+					`Backtest Run #${run!.runNumber} completed.\n\n` +
+					"[BACKTEST_RESULT]\n" +
+					`${JSON.stringify(resultPayload, null, 2)}\n` +
+					"[/BACKTEST_RESULT]",
+				runId: run!.id,
+			});
+			// Re-trigger in the background; the new comment acts as the input.
+			void triggerAgent(experimentId).catch((err) => {
+				console.error("Follow-up agent trigger failed:", err);
+			});
+		} catch (err) {
+			const message = err instanceof Error ? err.message : "Unknown error";
+			await createComment({
+				experimentId,
+				author: "system",
+				content: `Backtest request failed: ${message}`,
+			});
 		}
 	}
 
@@ -387,6 +520,8 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 	if (result.resultText) {
 		const cleanText = result.resultText
 			.replace(/\[BACKTEST_RESULT\][\s\S]*?\[\/BACKTEST_RESULT\]/g, "")
+			.replace(/\[RUN_BACKTEST\][\s\S]*?\[\/RUN_BACKTEST\]/g, "")
+			.replace(/^\[RUN_PAPER\].*$/gm, "")
 			.replace(/\[DATASET\][\s\S]*?\[\/DATASET\]/g, "")
 			.replace(/^\[EXPERIMENT_TITLE\].*$/gm, "")
 			.trim();

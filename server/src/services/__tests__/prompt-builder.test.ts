@@ -11,10 +11,13 @@ const desk = {
 	budget: "10000",
 	targetReturn: "15",
 	stopLoss: "5",
+	strategyMode: "classic" as const,
 	engine: "freqtrade",
 	venues: ["binance"],
 	description: "BTC/USDT 5m trend following",
 };
+
+const realtimeDesk = { ...desk, strategyMode: "realtime" as const, engine: "nautilus" };
 
 const experiment = {
 	number: 2,
@@ -88,9 +91,30 @@ describe("buildAnalystPrompt", () => {
 		expect(prompt).toContain("baseline");
 	});
 
-	it("instructs agent to use desk's configured engine", () => {
+	it("classic mode prompt instructs Freqtrade IStrategy + RUN_BACKTEST marker", () => {
 		const prompt = buildAnalystPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
-		expect(prompt).toContain("freqtrade");
+		expect(prompt).toContain("Classic");
+		expect(prompt).toContain("IStrategy");
+		expect(prompt).toContain("populate_indicators");
+		expect(prompt).toContain("populate_entry_trend");
+		expect(prompt).toContain("[RUN_BACKTEST]");
+		// Should not leak the realtime-specific API into a classic prompt
+		expect(prompt).not.toContain("on_quote_tick");
+	});
+
+	it("realtime mode prompt instructs Nautilus Strategy event handlers", () => {
+		const prompt = buildAnalystPrompt({
+			desk: realtimeDesk,
+			experiment,
+			runs,
+			comments,
+			memorySummaries: [],
+		});
+		expect(prompt).toContain("Real-time");
+		expect(prompt).toContain("on_quote_tick");
+		expect(prompt).toContain("order_factory");
+		expect(prompt).toContain("[RUN_BACKTEST]");
+		expect(prompt).not.toContain("populate_indicators");
 	});
 
 	it("includes comments", () => {
