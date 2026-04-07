@@ -16,6 +16,7 @@ export interface BacktestConfig {
 	strategyPath: string;
 	dataRef: DataRef;
 	workspacePath: string;
+	runId: string;
 	extraParams?: Record<string, unknown>;
 }
 
@@ -45,13 +46,23 @@ export interface BacktestResult {
 export interface PaperConfig {
 	strategyPath: string;
 	workspacePath: string;
-	mode: "paper";
-	exchangeConfig: Record<string, unknown>;
+	runId: string;
+	/** Dry-run wallet size in USD, derived from desk.budget. */
+	wallet: number;
+	/** Pairs to trade, e.g. ["BTC/USDT"]. */
+	pairs: string[];
+	/** Exchange id, e.g. "binance". */
+	exchange: string;
+	/** Candle timeframe (classic engines). */
+	timeframe?: string;
 }
 
 export interface PaperHandle {
-	processId: string;
+	/** Docker container name, e.g. `quantdesk-paper-<runId>`. */
+	containerName: string;
 	runId: string;
+	/** Engine-specific extras (e.g. REST API port for Freqtrade). */
+	meta?: Record<string, unknown>;
 }
 
 export interface PaperStatus {
@@ -64,7 +75,7 @@ export interface PaperStatus {
 
 export interface EngineAdapter {
 	readonly name: string;
-	ensureInstalled(): Promise<void>;
+	ensureImage(): Promise<void>;
 	downloadData(config: DataConfig): Promise<DataRef>;
 	runBacktest(config: BacktestConfig): Promise<BacktestResult>;
 	startPaper(config: PaperConfig): Promise<PaperHandle>;
