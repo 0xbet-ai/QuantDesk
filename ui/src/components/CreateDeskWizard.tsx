@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import venues from "../../../strategies/venues.json";
-import type { Strategy } from "../lib/api.js";
+import type { Strategy, StrategyMode } from "../lib/api.js";
 import { createDesk, listStrategies } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { StrategyAnimation } from "./StrategyAnimation.js";
@@ -53,7 +53,7 @@ interface Props {
 	onCreated: (deskId: string) => void;
 }
 
-type Step = "desk" | "market" | "venue" | "strategy" | "agent" | "config" | "launch";
+type Step = "desk" | "market" | "venue" | "mode" | "strategy" | "agent" | "config" | "launch";
 type AssetClass = "crypto" | "stocks" | "fx" | "commodities" | "prediction";
 
 const categoryMeta: Record<string, { label: string; icon: typeof TrendingUp }> = {
@@ -109,20 +109,6 @@ const strategyIcons: Record<string, typeof TrendingUp> = {
 	nt_ema_cross_hedge_mode: Repeat,
 	nt_grid_market_maker: Grid3x3,
 	nt_simpler_quoter: Anchor,
-	// hummingbot
-	hb_pmm: Scale,
-	hb_avellaneda: LineChart,
-	hb_xemm: Repeat,
-	hb_perpetual_mm: CandlestickChart,
-	hb_amm_arb: GitBranch,
-	hb_spot_perp_arb: ArrowLeftRight,
-	hb_hedge: Shield,
-	hb_liquidity_mining: Waves,
-	hb_cross_exchange_mining: Grid3x3,
-	hb_v2_funding_rate_arb: BarChart3,
-	hb_simple_pmm: Anchor,
-	hb_simple_vwap: Timer,
-	hb_simple_xemm: Crosshair,
 };
 
 const stepTabs: { key: Step; label: string; icon: React.ComponentType<{ className?: string }> }[] =
@@ -130,11 +116,38 @@ const stepTabs: { key: Step; label: string; icon: React.ComponentType<{ classNam
 		{ key: "desk", label: "Desk", icon: DeskIcon },
 		{ key: "market", label: "Market", icon: Layers },
 		{ key: "venue", label: "Venue", icon: Store },
+		{ key: "mode", label: "Mode", icon: Zap },
 		{ key: "strategy", label: "Strategy", icon: FlaskConical },
 		{ key: "agent", label: "Agent", icon: Bot },
 		{ key: "config", label: "Config", icon: Settings2 },
 		{ key: "launch", label: "Launch", icon: Rocket },
 	];
+
+// Intersect strategy modes supported across the selected venues.
+// Returns [] if the selection is incompatible or only `generic` is available.
+function computeAvailableModes(selectedVenueIds: string[]): StrategyMode[] {
+	if (selectedVenueIds.length === 0) return [];
+	const sets = selectedVenueIds.map((id) => {
+		const v = venues.find((x) => x.id === id);
+		if (!v) return new Set<StrategyMode>(["classic", "realtime"]); // custom venue: permissive
+		const modes = new Set<StrategyMode>();
+		if (v.engines.includes("freqtrade")) modes.add("classic");
+		if (v.engines.includes("nautilus")) modes.add("realtime");
+		return modes;
+	});
+	const [first, ...rest] = sets;
+	if (!first) return [];
+	const out: StrategyMode[] = [];
+	for (const m of first) {
+		if (rest.every((s) => s.has(m))) out.push(m);
+	}
+	return out;
+}
+
+const MODE_TO_ENGINE: Record<StrategyMode, string> = {
+	classic: "freqtrade",
+	realtime: "nautilus",
+};
 
 const ASSET_CLASS_META: {
 	id: AssetClass;
@@ -155,12 +168,12 @@ const ASSET_CLASS_META: {
 		label: "Stocks",
 		description: "US equities, options via Interactive Brokers",
 		icon: TrendingUp,
-		enabled: true,
+		enabled: false,
 	},
 	{
 		id: "prediction",
 		label: "Prediction Markets",
-		description: "Polymarket, Kalshi, Betfair — yes/no outcomes",
+		description: "Polymarket — yes/no outcomes",
 		icon: Trophy,
 		enabled: true,
 	},
@@ -221,6 +234,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 	const [customStrategyPrompt, setCustomStrategyPrompt] = useState("");
 	const [selectedAssetClass, setSelectedAssetClass] = useState<AssetClass>("crypto");
 	const [selectedVenues, setSelectedVenues] = useState<string[]>([]);
+	const [selectedMode, setSelectedMode] = useState<StrategyMode | null>(null);
 	const [customVenue, setCustomVenue] = useState("");
 	const [strategies, setStrategies] = useState<Strategy[]>([]);
 	const [loadingStrategies, setLoadingStrategies] = useState(false);
@@ -301,10 +315,17 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 		setCustomVenue("");
 	};
 
-	// Filter strategies by engines available on selected venues
-	const allowedEngines = new Set(
-		selectedVenues.flatMap((vid) => venues.find((v) => v.id === vid)?.engines ?? []),
-	);
+	// Filter strategies by engine resolved from the selected mode
+	// (falls back to any engine available on the selected venues when mode is not yet picked).
+	const allowedEngines = new Set<string>();
+	if (selectedMode) {
+		allowedEngines.add(MODE_TO_ENGINE[selectedMode]);
+	} else {
+		for (const vid of selectedVenues) {
+			const v = venues.find((x) => x.id === vid);
+			for (const e of v?.engines ?? []) allowedEngines.add(e);
+		}
+	}
 	const engineFiltered =
 		allowedEngines.size > 0 ? strategies.filter((s) => allowedEngines.has(s.engine)) : strategies;
 	const searchLower = strategySearch.toLowerCase();
@@ -334,13 +355,16 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 		setSubmitting(true);
 		setSubmitError(null);
 		try {
+			if (!selectedMode) {
+				throw new Error("Strategy mode not selected");
+			}
 			const result = await createDesk({
 				name,
 				budget,
 				targetReturn,
 				stopLoss,
 				venues: selectedVenues,
-				engine: selectedStrategy?.engine ?? "generic",
+				strategyMode: selectedMode,
 				strategyId: selectedStrategyId === "custom" ? undefined : (selectedStrategyId ?? undefined),
 				description: description || customStrategyPrompt || undefined,
 				adapterType,
@@ -358,7 +382,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 		targetReturn,
 		stopLoss,
 		selectedVenues,
-		selectedStrategy,
+		selectedMode,
 		selectedStrategyId,
 		description,
 		customStrategyPrompt,
@@ -366,6 +390,21 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 		adapterModel,
 		onCreated,
 	]);
+
+	const availableModes = computeAvailableModes(selectedVenues);
+
+	// Auto-pick the only available mode and clear an invalid selection when venues change.
+	useEffect(() => {
+		if (availableModes.length === 1 && selectedMode !== availableModes[0]) {
+			setSelectedMode(availableModes[0]!);
+		} else if (
+			selectedMode &&
+			availableModes.length > 0 &&
+			!availableModes.includes(selectedMode)
+		) {
+			setSelectedMode(null);
+		}
+	}, [availableModes, selectedMode]);
 
 	// Per-step validation
 	const isStepValid = (s: Step): boolean => {
@@ -376,6 +415,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 				return selectedAssetClass !== undefined;
 			case "venue":
 				return selectedVenues.length > 0;
+			case "mode":
+				return selectedMode !== null && availableModes.includes(selectedMode);
 			case "config":
 				return Number(budget) > 0 && Number(targetReturn) > 0 && Number(stopLoss) > 0;
 			case "strategy":
@@ -624,7 +665,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 										value={customVenue}
 										onChange={(e) => setCustomVenue(e.target.value)}
 										onKeyDown={(e) => e.key === "Enter" && addCustomVenue()}
-										placeholder="Add custom venue..."
+										placeholder="e.g. Uniswap — Base"
 										className="flex-1"
 									/>
 									<Button variant="outline" size="sm" onClick={addCustomVenue}>
@@ -649,6 +690,70 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 										</Badge>
 									))}
 								</div>
+							)}
+						</div>
+					)}
+
+					{step === "mode" && (
+						<div className="space-y-4">
+							<div>
+								<h3 className="text-sm font-medium">How should the strategy behave?</h3>
+								<p className="text-xs text-muted-foreground">
+									Classic runs on candles (TA, indicators, minute-to-hour). Real-time reacts to
+									every tick and order book update. Cards disabled for the selected venues are
+									not available.
+								</p>
+							</div>
+							<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+								{(["classic", "realtime"] as const).map((mode) => {
+									const enabled = availableModes.includes(mode);
+									const active = selectedMode === mode;
+									const title = mode === "classic" ? "Classic" : "Real-time";
+									const tag =
+										mode === "classic" ? "Recommended" : "Advanced";
+									const desc =
+										mode === "classic"
+											? "Candle-based polling strategies. TA indicators, trend following, mean reversion, momentum. Minute to hour timeframes."
+											: "Event-driven strategies reacting to ticks and order book deltas. Market making, arbitrage, HFT. Sub-second timeframes.";
+									const Icon = mode === "classic" ? BarChart3 : Zap;
+									return (
+										<button
+											key={mode}
+											type="button"
+											disabled={!enabled}
+											onClick={() => enabled && setSelectedMode(mode)}
+											className={cn(
+												"flex flex-col items-start gap-2 rounded-lg border p-4 text-left transition",
+												enabled
+													? "hover:border-primary hover:bg-accent cursor-pointer"
+													: "cursor-not-allowed opacity-40",
+												active && "border-primary bg-accent",
+											)}
+										>
+											<div className="flex w-full items-center justify-between">
+												<div className="flex items-center gap-2">
+													<Icon className="h-4 w-4" />
+													<span className="font-medium">{title}</span>
+												</div>
+												<Badge variant="outline" className="text-[10px]">
+													{tag}
+												</Badge>
+											</div>
+											<p className="text-xs text-muted-foreground">{desc}</p>
+											{!enabled && (
+												<p className="text-[11px] text-muted-foreground italic">
+													Not available for the selected venues.
+												</p>
+											)}
+										</button>
+									);
+								})}
+							</div>
+							{availableModes.length === 0 && selectedVenues.length > 0 && (
+								<p className="text-xs text-destructive">
+									The selected venues have no managed strategy mode. Paper trading will not be
+									available — pick different venues to enable Classic or Real-time.
+								</p>
 							)}
 						</div>
 					)}
