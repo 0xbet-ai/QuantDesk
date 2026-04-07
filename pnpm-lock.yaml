@@ -176,6 +176,9 @@ importers:
       lucide-react:
         specifier: ^1.7.0
         version: 1.7.0(react@19.2.4)
+      prism-react-renderer:
+        specifier: ^2.4.1
+        version: 2.4.1(react@19.2.4)
       react:
         specifier: ^19.1.0
         version: 19.2.4
@@ -2227,6 +2230,10 @@ packages:
       undici-types: 7.18.2
     dev: true
 
+  /@types/prismjs@1.26.6:
+    resolution: {integrity: sha512-vqlvI7qlMvcCBbVe0AKAb4f97//Hy0EBTaiW8AalRnG/xAN5zOiWWyrNqNXeq8+KAuvRewjCVY1+IPxk4RdNYw==}
+    dev: false
+
   /@types/qs@6.15.0:
     resolution: {integrity: sha512-JawvT8iBVWpzTrz3EGw9BTQFg3BQNmwERdKE22vlTxawwtbyUSlMppvZYKLZzB5zgACXdXxbD3m1bXaMqP/9ow==}
     dev: true
@@ -3840,6 +3847,16 @@ packages:
   /postgres@3.4.9:
     resolution: {integrity: sha512-GD3qdB0x1z9xgFI6cdRD6xu2Sp2WCOEoe3mtnyB5Ee0XrrL5Pe+e4CCnJrRMnL1zYtRDZmQQVbvOttLnKDLnaw==}
     engines: {node: '>=12'}
+    dev: false
+
+  /prism-react-renderer@2.4.1(react@19.2.4):
+    resolution: {integrity: sha512-ey8Ls/+Di31eqzUxC46h8MksNuGx/n0AAC8uKpwFau4RPDYLuE3EXTp8N8G2vX2N7UC/+IXeNUnlWBGGcAG+Ig==}
+    peerDependencies:
+      react: '>=16.0.0'
+    dependencies:
+      '@types/prismjs': 1.26.6
+      clsx: 2.1.1
+      react: 19.2.4
     dev: false
 
   /property-information@7.1.0:

@@ -7,6 +7,7 @@ import {
 	TerminalSquare,
 	Wrench,
 } from "lucide-react";
+import { Highlight, themes } from "prism-react-renderer";
 import { useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -114,6 +115,54 @@ function formatToolPayload(value: unknown): string {
 	} catch {
 		return String(value);
 	}
+}
+
+/** Detect language from content for syntax highlighting */
+function detectLanguage(content: string, context?: string): string {
+	if (
+		context === "json" ||
+		content.trimStart().startsWith("{") ||
+		content.trimStart().startsWith("[")
+	)
+		return "json";
+	if (context === "python" || /\b(import |def |class |print\(|from .+ import)/.test(content))
+		return "python";
+	if (context === "bash" || /^\$\s|^(cd|ls|pip|npm|python|curl|echo|cat|grep)\b/.test(content))
+		return "bash";
+	if (/\b(const |let |function |import |export |=>)/.test(content)) return "typescript";
+	return "bash";
+}
+
+/** Syntax-highlighted code block */
+function SyntaxBlock({
+	code,
+	language,
+	className: extraClass,
+}: { code: string; language?: string; className?: string }) {
+	const lang = language ?? detectLanguage(code);
+	return (
+		<Highlight theme={themes.oneDark} code={code.trim()} language={lang}>
+			{({ style, tokens, getLineProps, getTokenProps }) => (
+				<pre
+					className={cn(
+						"overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] rounded-md p-3 max-h-60",
+						extraClass,
+					)}
+					style={{ ...style, margin: 0, background: "rgb(24 24 27)" }}
+				>
+					{tokens.map((line, i) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: prism tokens have no stable key
+						<div key={`line-${i}`} {...getLineProps({ line })}>
+							{line.map((token, j) => (
+								// biome-ignore lint/suspicious/noArrayIndexKey: prism tokens have no stable key
+								<span key={`token-${j}`} {...getTokenProps({ token })} />
+							))}
+						</div>
+					))}
+				</pre>
+			)}
+		</Highlight>
+	);
 }
 
 // ── Normalization ────────────────────────────────────────────────────
@@ -260,6 +309,7 @@ function groupToolBlocks(blocks: TranscriptBlock[]): TranscriptBlock[] {
 
 function CollapsibleCode({ lang, children }: { lang: string; children: React.ReactNode }) {
 	const [open, setOpen] = useState(false);
+	const code = typeof children === "string" ? children : String(children ?? "");
 	return (
 		<div className="my-2 rounded-md border border-border overflow-hidden">
 			<button
@@ -271,11 +321,7 @@ function CollapsibleCode({ lang, children }: { lang: string; children: React.Rea
 				<Code2 className="size-3" />
 				<span>{lang || "code"}</span>
 			</button>
-			{open && (
-				<pre className="overflow-x-auto p-3 text-xs bg-zinc-950 text-zinc-200">
-					<code>{children}</code>
-				</pre>
-			)}
+			{open && <SyntaxBlock code={code} language={lang} />}
 		</div>
 	);
 }
@@ -424,22 +470,24 @@ function ToolCard({ item, compact }: { item: ToolItem; compact: boolean }) {
 							<div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
 								Input
 							</div>
-							<pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-zinc-200 bg-zinc-950 rounded-md p-2 max-h-40">
-								{formatToolPayload(item.input) || "<empty>"}
-							</pre>
+							<SyntaxBlock
+								code={formatToolPayload(item.input) || "<empty>"}
+								language={detectLanguage(formatToolPayload(item.input), "json")}
+							/>
 						</div>
 						<div>
 							<div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
 								Result
 							</div>
-							<pre
-								className={cn(
-									"overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] rounded-md p-2 max-h-40",
-									item.isError ? "text-red-300 bg-red-950/50" : "text-zinc-200 bg-zinc-950",
-								)}
-							>
-								{item.result ? formatToolPayload(item.result) : "Waiting for result..."}
-							</pre>
+							{item.isError ? (
+								<pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] rounded-md p-3 max-h-60 text-red-300 bg-red-950/50">
+									{item.result ? formatToolPayload(item.result) : "Waiting for result..."}
+								</pre>
+							) : (
+								<SyntaxBlock
+									code={item.result ? formatToolPayload(item.result) : "Waiting for result..."}
+								/>
+							)}
 						</div>
 					</div>
 				</div>
@@ -546,14 +594,9 @@ function CommandGroup({
 								</span>
 							</div>
 							{item.result && (
-								<pre
-									className={cn(
-										"ml-7 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] rounded-md p-2 max-h-40",
-										item.isError ? "text-red-300 bg-red-950/50" : "text-zinc-200 bg-zinc-950",
-									)}
-								>
-									{item.result}
-								</pre>
+								<div className="ml-7">
+									<SyntaxBlock code={item.result} />
+								</div>
 							)}
 						</div>
 					))}
@@ -676,9 +719,9 @@ function ToolGroup({
 								{summarizeToolInput(item.name, item.input, compact ? 72 : 120)}
 							</div>
 							{item.result && (
-								<pre className="ml-7 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-zinc-200 bg-zinc-950 rounded-md p-2 max-h-40">
-									{item.result}
-								</pre>
+								<div className="ml-7">
+									<SyntaxBlock code={item.result} />
+								</div>
 							)}
 						</div>
 					))}
