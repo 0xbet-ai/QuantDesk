@@ -100,7 +100,7 @@ Write a Python backtest script and execute it. The script should:
 3. Calculate performance metrics
 4. For long-running commands (data downloads, backtests, optimizations), run them in the background and poll for progress so the user can see what is happening:
    - Use the Bash tool with run_in_background: true. This returns a shell ID immediately instead of blocking.
-   - Add clear progress prints in your Python script using flush=True so stdout shows up immediately. Example: print(f"[{i}/{n}] downloading 2025-{i:02d}", flush=True)
+   - Make sure your script flushes stdout line-by-line so progress shows up in real time. In Python use print(..., flush=True) or run with python -u. In other languages, ensure line-buffered output (e.g. wrap with stdbuf -oL).
    - Poll the running shell with BashOutput(bash_id=...) every few seconds until the script finishes. Each poll appends new stdout to the same card in the UI.
    - When the shell exits, the final BashOutput call returns the complete result. Continue with the next step (parsing, etc.).
    - Avoid single foreground commands that take more than ~30 seconds — the user sees only "Waiting for result..." until they finish.

@@ -336,16 +336,29 @@ export function CommentThread({
 				// - last comment is from user (waiting for agent reply)
 				const last = data[data.length - 1];
 				if (last && (data.length === 1 || last.author === "user")) {
-					setThinkingRole("analyst");
-					// Restore persisted agent logs
+					// Check persisted logs first — if the agent already produced a `result`
+					// entry, the run is finished even though no comment was posted
+					// (e.g. interrupted by server restart). In that case don't mark
+					// the agent as thinking.
 					getAgentLogs(experiment.id)
 						.then((logs) => {
-							if (logs.length > 0) {
-								setStreamEntries(logs as unknown as TranscriptEntry[]);
-								setRunStartedAt((prev) => prev ?? new Date(logs[0]!.ts));
+							const hasResult = logs.some((l) => (l as { type?: string }).type === "result");
+							if (hasResult) {
+								// Run already finished — don't show streaming widget
+								setThinkingRole(null);
+								setStreamEntries([]);
+								setRunStartedAt(null);
+							} else {
+								setThinkingRole("analyst");
+								if (logs.length > 0) {
+									setStreamEntries(logs as unknown as TranscriptEntry[]);
+									setRunStartedAt((prev) => prev ?? new Date(logs[0]!.ts));
+								}
 							}
 						})
-						.catch(() => {});
+						.catch(() => {
+							setThinkingRole("analyst");
+						});
 				}
 				setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "auto" }), 50);
 			})
