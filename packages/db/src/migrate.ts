@@ -12,6 +12,10 @@ async function main() {
 }
 
 main().catch((err) => {
-	console.error("Migration failed:", err);
+	console.error("Migration failed:");
+	console.error(err);
+	try {
+		console.error(JSON.stringify(err, Object.getOwnPropertyNames(err)));
+	} catch {}
 	process.exit(1);
 });

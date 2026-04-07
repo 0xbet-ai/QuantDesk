@@ -1,11 +1,10 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { db } from "@quantdesk/db";
-import { datasets, desks } from "@quantdesk/db/schema";
-import { eq } from "drizzle-orm";
+import { datasets, deskDatasets } from "@quantdesk/db/schema";
+import { desc, eq } from "drizzle-orm";
 
 interface CreateDatasetInput {
-	deskId: string;
 	exchange: string;
 	pairs: string[];
 	timeframe: string;
@@ -14,23 +13,24 @@ interface CreateDatasetInput {
 }
 
 export async function createDataset(input: CreateDatasetInput) {
-	const [dataset] = await db
-		.insert(datasets)
-		.values({
-			deskId: input.deskId,
-			exchange: input.exchange,
-			pairs: input.pairs,
-			timeframe: input.timeframe,
-			dateRange: input.dateRange,
-			path: input.path,
-		})
-		.returning();
-
+	const [dataset] = await db.insert(datasets).values(input).returning();
 	return dataset!;
 }
 
+/** List every dataset in the global catalog, newest first. */
+export async function listAllDatasets() {
+	return db.select().from(datasets).orderBy(desc(datasets.createdAt));
+}
+
+/** List only the datasets linked to a given desk via `desk_datasets`. */
 export async function listDatasets(deskId: string) {
-	return db.select().from(datasets).where(eq(datasets.deskId, deskId)).orderBy(datasets.createdAt);
+	const rows = await db
+		.select({ dataset: datasets })
+		.from(deskDatasets)
+		.innerJoin(datasets, eq(deskDatasets.datasetId, datasets.id))
+		.where(eq(deskDatasets.deskId, deskId))
+		.orderBy(desc(deskDatasets.createdAt));
+	return rows.map((r) => r.dataset);
 }
 
 export async function getDataset(id: string) {
@@ -39,6 +39,8 @@ export async function getDataset(id: string) {
 }
 
 export async function deleteDataset(id: string) {
+	// Remove join rows first to satisfy the FK.
+	await db.delete(deskDatasets).where(eq(deskDatasets.datasetId, id));
 	const [deleted] = await db.delete(datasets).where(eq(datasets.id, id)).returning();
 	return deleted ?? null;
 }
@@ -54,13 +56,9 @@ export async function previewDataset(id: string, limit = 50): Promise<PreviewRes
 	const dataset = await getDataset(id);
 	if (!dataset) return null;
 
-	const [desk] = await db.select().from(desks).where(eq(desks.id, dataset.deskId));
-	if (!desk?.workspacePath) return null;
-
-	// Resolve path: if relative, anchor to the desk's workspace
-	const absPath = isAbsolute(dataset.path)
-		? dataset.path
-		: resolve(join(desk.workspacePath, dataset.path));
+	// Dataset.path is an absolute cache path. For legacy rows that stored a
+	// workspace-relative path we fall back to trying it as-is.
+	const absPath = isAbsolute(dataset.path) ? dataset.path : resolve(dataset.path);
 	if (!existsSync(absPath)) return null;
 
 	const stats = statSync(absPath);

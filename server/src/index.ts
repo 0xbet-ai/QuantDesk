@@ -3,6 +3,7 @@ import { initDb } from "@quantdesk/db";
 import express from "express";
 import { errorHandler } from "./middleware/error.js";
 import { setupWebSocket } from "./realtime/websocket.js";
+import datasetsRouter from "./routes/datasets.js";
 import desksRouter from "./routes/desks.js";
 import experimentsRouter from "./routes/experiments.js";
 import runsRouter from "./routes/runs.js";
@@ -25,6 +26,7 @@ app.use("/api/desks", desksRouter);
 app.use("/api/experiments", experimentsRouter);
 app.use("/api/runs", runsRouter);
 app.use("/api/strategies", strategiesRouter);
+app.use("/api/datasets", datasetsRouter);
 
 // Agent adapter test — checks if CLI is available
 app.get("/api/agent/test", async (req, res) => {

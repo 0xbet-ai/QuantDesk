@@ -172,7 +172,6 @@ export const getAgentLogs = (experimentId: string) =>
 
 export interface Dataset {
 	id: string;
-	deskId: string;
 	exchange: string;
 	pairs: string[];
 	timeframe: string;
@@ -189,6 +188,9 @@ export interface DatasetPreview {
 }
 
 export const listDatasets = (deskId: string) => api<Dataset[]>(`/desks/${deskId}/datasets`);
+export const listAllDatasets = () => api<Dataset[]>("/datasets");
+export const deleteDatasetGlobal = (id: string) =>
+	api<Dataset>(`/datasets/${id}`, { method: "DELETE" });
 export const deleteDataset = (deskId: string, datasetId: string) =>
 	api<Dataset>(`/desks/${deskId}/datasets/${datasetId}`, { method: "DELETE" });
 export const previewDataset = (deskId: string, datasetId: string, limit = 50) =>

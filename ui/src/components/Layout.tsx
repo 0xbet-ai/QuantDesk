@@ -1,5 +1,15 @@
-import { ChevronLeft, ChevronRight, Moon, PanelRight, Plus, Settings, Sun } from "lucide-react";
+import {
+	ChevronLeft,
+	ChevronRight,
+	Database,
+	Moon,
+	PanelRight,
+	Plus,
+	Settings,
+	Sun,
+} from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext.js";
 import type { Desk, Experiment } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
@@ -32,6 +42,7 @@ export function Layout({
 	const [sidebarOpen, setSidebarOpen] = useState(true);
 	const [panelOpen, setPanelOpen] = useState(true);
 	const { theme, toggleTheme } = useTheme();
+	const navigate = useNavigate();
 	const nextTheme = theme === "dark" ? "light" : "dark";
 
 	return (
@@ -56,6 +67,17 @@ export function Layout({
 						>
 							<Plus className="h-4 w-4 shrink-0" />
 							<span className="truncate">New Desk</span>
+						</button>
+					</div>
+
+					<div className="flex flex-col gap-0.5">
+						<button
+							type="button"
+							onClick={() => navigate("/datasets")}
+							className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground/70 hover:bg-accent/50 hover:text-foreground transition-colors w-full text-left"
+						>
+							<Database className="h-4 w-4 shrink-0" />
+							<span className="truncate">Datasets</span>
 						</button>
 					</div>
 

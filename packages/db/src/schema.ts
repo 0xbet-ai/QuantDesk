@@ -68,16 +68,31 @@ export const runLogs = pgTable("run_logs", {
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Datasets are global: one row per (exchange, pairs, timeframe, dateRange).
+ * Storage lives in a shared cache at `~/.quantdesk/datacache/<exchange>/...`
+ * and each desk's workspace symlinks into that cache, so the same OHLCV
+ * files are never duplicated across desks. See `desk_datasets` for the
+ * many-to-many link between desks and the datasets they have approved.
+ */
 export const datasets = pgTable("datasets", {
 	id: uuid("id").primaryKey().defaultRandom(),
-	deskId: uuid("desk_id")
-		.notNull()
-		.references(() => desks.id),
 	exchange: text("exchange").notNull(),
 	pairs: jsonb("pairs").notNull().$type<string[]>(),
 	timeframe: text("timeframe").notNull(),
 	dateRange: jsonb("date_range").notNull().$type<{ start: string; end: string }>(),
 	path: text("path").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const deskDatasets = pgTable("desk_datasets", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	deskId: uuid("desk_id")
+		.notNull()
+		.references(() => desks.id),
+	datasetId: uuid("dataset_id")
+		.notNull()
+		.references(() => datasets.id),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
