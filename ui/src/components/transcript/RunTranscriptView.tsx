@@ -8,7 +8,7 @@ import {
 	Wrench,
 } from "lucide-react";
 import { Highlight, themes } from "prism-react-renderer";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "../../lib/utils.js";
@@ -272,6 +272,11 @@ function normalizeTranscript(entries: TranscriptEntry[], streaming: boolean): Tr
 		}
 
 		if (entry.type === "init") {
+			// Skip duplicate init entries with the same sessionId (resume re-emits init)
+			const alreadyHasInit = blocks.some(
+				(b) => b.type === "init" && b.sessionId === entry.sessionId,
+			);
+			if (alreadyHasInit) continue;
 			blocks.push({ type: "init", model: entry.model, sessionId: entry.sessionId });
 			continue;
 		}
@@ -420,6 +425,42 @@ function formatAgentMarkers(text: string): string {
 		.trim();
 }
 
+function StreamingIndicator() {
+	const [seconds, setSeconds] = useState(0);
+	const [dotCount, setDotCount] = useState(1);
+
+	useEffect(() => {
+		const startedAt = Date.now();
+		const tick = setInterval(() => {
+			setSeconds(Math.floor((Date.now() - startedAt) / 1000));
+		}, 1000);
+		const dotTick = setInterval(() => {
+			setDotCount((c) => (c % 3) + 1);
+		}, 500);
+		return () => {
+			clearInterval(tick);
+			clearInterval(dotTick);
+		};
+	}, []);
+
+	const label = seconds < 5 ? "Streaming" : seconds < 30 ? "Thinking" : "Working";
+	const timeStr = seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+
+	return (
+		<div className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-medium italic text-muted-foreground">
+			<span className="relative flex h-1.5 w-1.5">
+				<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-70" />
+				<span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
+			</span>
+			<span className="tabular-nums">
+				{label}
+				{".".repeat(dotCount)}
+			</span>
+			<span className="text-muted-foreground/60 font-mono not-italic tabular-nums">{timeStr}</span>
+		</div>
+	);
+}
+
 function TextBlock({
 	block,
 	compact,
@@ -437,15 +478,7 @@ function TextBlock({
 					{content}
 				</Markdown>
 			</div>
-			{block.streaming && (
-				<div className="mt-2 inline-flex items-center gap-1 text-[10px] font-medium italic text-muted-foreground">
-					<span className="relative flex h-1.5 w-1.5">
-						<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-70" />
-						<span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
-					</span>
-					Streaming
-				</div>
-			)}
+			{block.streaming && <StreamingIndicator />}
 		</div>
 	);
 }
