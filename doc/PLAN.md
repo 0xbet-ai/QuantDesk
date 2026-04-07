@@ -333,6 +333,23 @@ All engines:
 
 ---
 
+## Phase 10: Docker Sandbox for Agent Execution
+
+Currently the agent runs code directly on the host machine (`--dangerously-skip-permissions`), requiring Python, pip, and libraries to be pre-installed. This phase isolates agent execution inside a Docker container.
+
+**Tasks:**
+- [ ] Base Docker image with Python 3.12, Node 20, common libraries (pandas, numpy, ta, ccxt, tqdm)
+- [ ] `quantdesk/sandbox` Dockerfile in `docker/sandbox/`
+- [ ] Agent execution spawns inside container with workspace mounted as volume
+- [ ] Network isolation: container can fetch market data (outbound HTTP) but no host access
+- [ ] Timeout + resource limits (CPU, memory) per container
+- [ ] Auto-pull/build sandbox image on first run if not present
+- [ ] Fallback: if Docker is not available, warn and run on host (current behavior)
+
+**Done when:** Agent writes + executes Python backtest inside container, results flow back to UI. Host machine only needs Docker installed.
+
+---
+
 ## Dependency Graph
 
 ```
@@ -362,4 +379,7 @@ Phase 6  Phase 7  (parallel)
       |
       v
   Phase 9 (E2E)
+      |
+      v
+  Phase 10 (Docker sandbox)
 ```
