@@ -6,9 +6,11 @@
 npx quantdesk onboard --yes
 ```
 
-Sets up PostgreSQL (Docker if available, embedded PGlite as fallback), configures AI CLI adapter, opens web UI at `http://localhost:3000`.
+Starts an in-process PostgreSQL via `embedded-postgres` (data under `~/.quantdesk/pgdata`) — no Docker required for the database. Configures the AI CLI adapter and opens the web UI at `http://localhost:3000`.
 
-For development, use `docker compose up -d postgres && pnpm dev` instead.
+To point at an external PostgreSQL instead, set `DATABASE_URL` before running any script.
+
+For development, use `pnpm dev`.
 
 ## 2. Create a Strategy Desk (Wizard)
 
