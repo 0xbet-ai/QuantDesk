@@ -26,7 +26,7 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 ### 2.1 Server + Routes
 
 **Tasks:**
-- [ ] Express server with routes per `doc/architecture/API.md`
+- [ ] Express server with routes (see `server/src/routes/`)
 - [ ] All endpoints: desks, experiments, runs, run_logs, comments, datasets, strategies, go-paper, stop, status
 - [ ] Error handling middleware
 
@@ -107,7 +107,7 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 
 ### 3.2 Engine Adapters (Docker-based)
 
-Two managed engines (Freqtrade + Nautilus) plus Generic fallback. Hummingbot is **out of scope**. All engine processes run inside Docker containers using **pinned official images**. The server itself stays on the host. See `doc/architecture/ENGINE_ADAPTER.md` and `CLAUDE.md` rules 6–12.
+Two managed engines (Freqtrade + Nautilus) plus Generic fallback. Hummingbot is **out of scope**. All engine processes run inside Docker containers using **pinned official images**. The server itself stays on the host. See `doc/engine/README.md` and `CLAUDE.md` rules 6–12.
 
 **Tasks:**
 - [ ] `packages/engines/src/images.ts` — pinned image tag constants (e.g. `freqtradeorg/freqtrade:2025.3`, `nautilustrader/nautilus_trader:1.220.0`)
@@ -266,6 +266,27 @@ Adapter integration tests (skippable in CI, requires Docker daemon):
 ```
 
 **Done when:** `pnpm test --filter=server -- triggers` passes.
+
+### 5.4 Data Quality Validation Gate
+
+After the server downloads data in response to an approved `[PROPOSE_DATA_FETCH]`, run a validation pass on the OHLCV (or tick) files **before** inserting the `datasets` row, linking the desk via `desk_datasets`, and re-triggering the agent. The goal is to catch obviously bad data (gaps, NaNs, wrong date range, empty files) before strategy code is even written against it.
+
+**Tasks:**
+- [ ] Validation function in `server/src/services/data-fetch.ts` (or a new `data-validation.ts`) that takes the downloaded files and returns `{ ok: true } | { ok: false, errors: string[] }`.
+- [ ] Checks: candle gap detection (missing intervals beyond a threshold), NaN/null values in OHLCV columns, requested vs actual date range coverage, non-empty file, monotonic timestamps.
+- [ ] Wire into the data-fetch flow so a validation failure (a) does NOT insert a `datasets` row, (b) does NOT link the desk, (c) posts a system comment with the failure summary, (d) re-triggers the agent so it can emit a revised `[PROPOSE_DATA_FETCH]`.
+- [ ] On success, behaviour is unchanged: insert dataset, link desk, post "Downloaded ..." system comment, re-trigger agent.
+
+**Tests:**
+```
+- Downloaded file with > N% missing candles in the requested range → validation fails, no datasets row inserted, system comment contains "gap" reason, agent re-triggered.
+- Downloaded file with NaNs in OHLCV columns → validation fails with "NaN" reason.
+- Downloaded file whose actual date range falls short of requested range → validation fails with "coverage" reason.
+- Downloaded file passing all checks → datasets row inserted, desk_datasets row inserted, "Downloaded ..." comment posted, agent re-triggered.
+- Validation runs only on agent-proposed downloads, not on agent-self-emitted [DATASET] markers (those keep the existing trust path).
+```
+
+**Done when:** `pnpm test --filter=server -- data-validation` passes and a manual end-to-end run with a deliberately broken pair (e.g. unknown symbol) surfaces a validation failure to the UI instead of silently registering empty data.
 
 ---
 

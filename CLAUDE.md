@@ -10,29 +10,21 @@ Users research, backtest, and validate strategies through async interaction with
 - **Dataset Management**: Reusable market data scoped per desk — exchange, pairs, timeframe, and date range. Shared across runs.
 - **Code Versioning**: Per-desk git workspace. Agent commits strategy code on every change; each run links to its exact commit hash.
 - **Paper Trading**: User approves a validated strategy to start paper trading. Engine runs the strategy in paper mode.
-- **Engine Adapters**: Pluggable engines for backtesting and paper trading. See `doc/architecture/ENGINE_ADAPTER.md`.
+- **Engine Adapters**: Pluggable engines for backtesting and paper trading. See `doc/engine/README.md`.
 - **Agent Layer**: AI CLI subprocess with session persistence and hipocampus-inspired memory compaction.
 
 ## Read This First
 
-Product:
-1. `doc/product/USER_FLOW.md` — onboarding, desks, experiments, runs
-2. `doc/product/DOMAIN_MODEL.md` — DB schema (Desk, Experiment, Run, Dataset, Comment, ...)
-3. `doc/product/AGENTS.md` — Analyst, Risk Manager, interaction pattern
-
-Plan:
+- `doc/OVERVIEW.md` — tech stack, repo map
+- `doc/agent/TURN.md` — how a single agent turn is executed (CLI subprocess, prompt, session)
+- `doc/agent/LIFECYCLE.md` — turn-to-turn lifecycle, marker branching, fragile spots
+- `doc/agent/MARKERS.md` — protocol glossary for the bracketed markers the agent emits
+- `doc/agent/ROLES.md` — Analyst, Risk Manager, interaction pattern
+- `doc/agent/MEMORY.md` — hipocampus-inspired long-term context
+- `doc/engine/README.md` — pluggable engine adapter interface (incl. per-engine workspace layout)
+- `doc/desk/STORAGE.md` — where a desk's state lives on disk and in the database
 - `doc/PLAN.md` — TDD implementation phases with done-when criteria
-
-References:
 - `doc/REFERENCES.md` — Paperclip, Hipocampus, Freqtrade, etc.
-
-Architecture:
-1. `doc/architecture/OVERVIEW.md` — tech stack, repo map
-2. `doc/architecture/AGENT_EXECUTION.md` — AI CLI subprocess, session management
-3. `doc/architecture/WORKSPACE.md` — per-desk git repos, code/data versioning
-4. `doc/architecture/ENGINE_ADAPTER.md` — pluggable engine adapter interface
-5. `doc/architecture/API.md` — HTTP routes, WebSocket events
-6. `doc/architecture/MEMORY.md` — hipocampus-inspired long-term context
 
 ## Dev Setup
 

@@ -1,39 +1,6 @@
-# Agent Execution
+# Agent Turn Lifecycle
 
-No heartbeat or scheduler. Simple request-response triggered by comments.
-
-## Flow
-
-1. Comment posted on experiment (user or system-generated on desk creation)
-2. Server reads `adapter_type` + `adapter_config` from Agent Session
-   ```bash
-   # process + cli: claude
-   claude --print - --output-format stream-json --verbose --resume {sessionId}
-   # process + cli: codex
-   codex exec --json resume {threadId} -
-   # http → POST to adapter_config.url with API key
-   ```
-3. Prompt piped via stdin. The prompt context includes:
-   - Desk config (budget, target_return, stop_loss, venues)
-   - **`desk.strategy_mode`** (`classic` | `realtime`) and the resolved **`desk.engine`** (`freqtrade` | `nautilus` | `generic`), both immutable
-   - Mode-specific instructions: which engine API the agent must use (Freqtrade `IStrategy` for classic, Nautilus `Strategy` event handlers for realtime, agent-authored script for generic)
-   - **Paper trading is forbidden for generic desks** — the prompt instructs the agent to not propose `[PROPOSE_GO_PAPER]` in that case
-   - Experiment context, run history, the triggering comment
-4. Agent executes: writes code in workspace, runs engine backtest/paper (inside a Docker container), collects results
-5. Output parsed from JSONL stream:
-   - Claude: `system`, `assistant`, `result` events → session ID, usage, summary
-   - Codex: `thread.started`, `item.completed`, `turn.completed` events → thread ID, usage, summary
-6. Agent posts result as comment + creates Run record (backtest or paper)
-7. Session ID persisted for resume on next comment
-
-## Session Management
-
-- Sessions are scoped to **desk** level (not experiment)
-- Agent retains context across experiments within the same desk
-- Prompt includes "currently working on Experiment #N" to focus the agent
-- Unknown/expired session → automatic retry with fresh session
-
-## Trigger Branching (single turn)
+How a single agent turn is dispatched, what branches the server takes after parsing the agent's output, and how turns chain together across a desk's lifecycle. For the underlying CLI execution mechanics see `./TURN.md`. For the marker glossary see `./MARKERS.md`.
 
 `triggerAgent(experimentId)` in `server/src/services/agent-trigger.ts:168` is the single entry point for every agent turn. After the CLI subprocess returns, the server inspects `result.resultText` for marker blocks and dispatches the following branches. Branches are **not** mutually exclusive — they are checked in order within the same turn (the rule #13 refusal is the only early `return`).
 
@@ -51,9 +18,18 @@ flowchart TD
         direction TB
         P1["#91;PROPOSE_DATA_FETCH#93;<br/>attach pendingProposal<br/>to agent comment"]
         P2(["wait for user Approve"])
-        P3["server: download-data container<br/>insert datasets row"]
-        P4["post 'Downloaded...'<br/>system comment"]
-        P1 --> P2 --> P3 --> P4
+        PL{"cache lookup<br/>(exchange, pairs, timeframe)"}
+        PFH["full hit:<br/>no download"]
+        PPH["partial hit:<br/>download missing range"]
+        PMS["miss:<br/>full download"]
+        PV["validate downloaded data"]
+        P3a["insert or extend datasets row<br/>+ desk_datasets link"]
+        P4["post 'Downloaded...' /<br/>'Already cached...' system comment"]
+        P1 --> P2 --> PL
+        PL -- full hit --> PFH --> P3a
+        PL -- partial --> PPH --> PV
+        PL -- miss --> PMS --> PV
+        PV --> P3a --> P4
     end
 
     %% ── STAGE 2: backtest lifecycle ──
@@ -102,7 +78,7 @@ flowchart TD
 - **Stage 3 (analysis)** is the terminal stage of any turn. After a backtest result comment is posted, the recursive `triggerAgent` lands here: the agent reads the result and replies with plain text. `[EXPERIMENT_TITLE]` and `[DATASET]` are side-channel metadata markers that can ride along on any turn.
 - **Recursion** (`P4 → Trigger`, `B4 → Trigger`) is what stitches the stages together across turns. Each retrigger is a fresh `triggerAgent` invocation with the new system comment as input.
 
-### Intended first-desk happy path
+## Intended first-desk happy path
 
 For a brand-new desk with no strategy code and no registered dataset, rule #13 requires the agent to propose a data fetch first and wait for user approval before writing any code or running a backtest.
 
@@ -123,10 +99,17 @@ sequenceDiagram
     S-->>U: comment with Approve / Reject buttons
 
     U->>S: Approve
-    S->>E: download-data container
-    E-->>S: candles on disk
-    S->>S: insert datasets row
-    S->>S: post "Downloaded..." system comment
+    S->>S: cache lookup (exchange, pairs, timeframe)
+    alt full hit (cached range covers request)
+        S->>S: link desk_datasets
+        S->>S: post "Already cached..." system comment
+    else partial hit or miss
+        S->>E: download-data container (missing range)
+        E-->>S: candles on disk
+        S->>S: validate downloaded data
+        S->>S: insert or extend datasets row + desk_datasets link
+        S->>S: post "Downloaded..." system comment
+    end
     S->>A: triggerAgent (turn 2)
     A-->>S: writes strategy.py + [RUN_BACKTEST]
 
@@ -139,9 +122,3 @@ sequenceDiagram
     S-->>U: render results + analysis
 ```
 
-### Known fragile spots
-
-- **Recursive re-trigger on both success and failure.** `[RUN_BACKTEST]` re-triggers the agent on success (`agent-trigger.ts:388`) and on failure (`agent-trigger.ts:400`). If the agent keeps emitting `[RUN_BACKTEST]` after a failure, the loop has no explicit budget — only the rule #13 refusal branch returns early.
-- **Multiple markers in one reply.** A single agent response containing both `[PROPOSE_DATA_FETCH]` and `[RUN_BACKTEST]` will execute the backtest *and* attach the proposal to the comment, because branches are not mutually exclusive. This is currently prevented only by the prompt, not by a server-side guard.
-- **Dataset existence is desk-scoped, not experiment-scoped.** The rule #13 gate (`agent-trigger.ts:312-315`) checks any dataset on the desk. A new experiment inside an existing desk will skip the propose/approve dance entirely if a sibling experiment already registered a dataset.
-- **Experiment #1 title is pinned.** The `[EXPERIMENT_TITLE]` marker is ignored when `experiment.number === 1` (`agent-trigger.ts:529`), so the first experiment is permanently labelled `Baseline`.

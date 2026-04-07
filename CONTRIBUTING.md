@@ -4,10 +4,9 @@ Thanks for your interest in contributing! QuantDesk is an open-source AI-agent w
 
 ## Quick Links
 
-- **Add a new exchange/venue** → [doc/contributing/ADD_VENUE.md](doc/contributing/ADD_VENUE.md) — typically a one-line JSON change, great first contribution.
-- **Add a new engine** → [doc/contributing/ADD_ENGINE.md](doc/contributing/ADD_ENGINE.md) — implement the engine adapter interface.
-- **Architecture overview** → [doc/architecture/OVERVIEW.md](doc/architecture/OVERVIEW.md)
-- **Engine adapter spec** → [doc/architecture/ENGINE_ADAPTER.md](doc/architecture/ENGINE_ADAPTER.md)
+- **Add a new engine** → [doc/engine/ADD.md](doc/engine/ADD.md) — implement the engine adapter interface.
+- **Architecture overview** → [doc/OVERVIEW.md](doc/OVERVIEW.md)
+- **Engine adapter spec** → [doc/engine/README.md](doc/engine/README.md)
 
 ## Development Setup
 
@@ -17,8 +16,6 @@ Prerequisites: **Node.js 20+**, **pnpm 9.15+**, **Docker**, and either the **Cla
 git clone https://github.com/<your-fork>/QuantDesk.git
 cd QuantDesk
 pnpm install
-docker compose up -d postgres
-pnpm db:migrate
 pnpm dev
 ```
 
@@ -68,12 +65,12 @@ Examples:
 ## What to Contribute
 
 Good first contributions:
-- **Add a venue** to `strategies/venues.json` — see [ADD_VENUE.md](doc/contributing/ADD_VENUE.md).
+- **Add a venue** to `strategies/venues.json` — usually a one-line JSON change.
 - **Fix typos** in docs or UI strings.
 - **Add a strategy entry** to one of the `strategies/<engine>.json` catalogs.
 
 Larger contributions (please open an issue first to discuss):
-- **New engine adapter** — see [ADD_ENGINE.md](doc/contributing/ADD_ENGINE.md).
+- **New engine adapter** — see [doc/engine/ADD.md](doc/engine/ADD.md).
 - **New agent role** (beyond Analyst / Risk Manager).
 - **New page or major UI feature.**
 

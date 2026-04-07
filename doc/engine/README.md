@@ -135,25 +135,7 @@ Wizard flow:
 3. User picks a strategy mode from the available set. If only one is available, it is pre-selected. If none are available, user is told to reselect venues.
 4. Engine is derived and written to `desks.engine`, immutable thereafter.
 
-### Examples
-
-| Venue | Venue.engines | Available modes |
-|---|---|---|
-| Binance | `[freqtrade, nautilus]` | classic, realtime |
-| Bybit | `[freqtrade, nautilus]` | classic, realtime |
-| Kraken | `[freqtrade, nautilus]` | classic, realtime |
-| OKX | `[freqtrade, nautilus]` | classic, realtime |
-| Gate.io | `[freqtrade]` | classic only |
-| KuCoin | `[freqtrade]` | classic only |
-| Bitvavo | `[freqtrade]` | classic only |
-| Hyperliquid | `[freqtrade, nautilus]` | classic, realtime |
-| dYdX | `[nautilus]` | realtime only |
-| BitMEX | `[nautilus]` | realtime only |
-| Deribit | `[nautilus]` | realtime only |
-| Interactive Brokers | `[nautilus]` | realtime only |
-| Polymarket | `[nautilus]` | realtime only |
-| Betfair | `[nautilus]` | realtime only |
-| Kalshi | `[generic]` | backtest only, no paper |
+See `strategies/venues.json` for the full list of venues and which engines each one supports.
 
 ## Docker Conventions
 
@@ -208,9 +190,45 @@ The `getPaperStatus()` interface hides per-engine differences:
 
 ## Workspace Structure (per engine)
 
-- **Freqtrade**: `strategy.py` (IStrategy subclass) + `config.json` (`dry_run: true`, `dry_run_wallet: <budget>`)
-- **Nautilus**: `strategy.py` (Strategy subclass) + `runner.py` (builds `TradingNode` with `SandboxExecutionClient`) + config
-- **Generic**: agent-written scripts (any language). Backtest only.
+Each desk gets a git-initialized directory at `workspaces/desk-{id}/` for strategy code and data. The engine is fixed at desk creation, so the layout is engine-specific — never multi-engine within one desk.
+
+### Freqtrade (`strategy_mode: classic`)
+
+```
+workspaces/desk-{id}/
+  .git/
+  strategy.py          # IStrategy subclass written by the agent
+  config.json          # freqtrade config with `dry_run: true`, `dry_run_wallet`, REST API enabled
+  data/                # downloaded OHLCV data (symlinks into the shared cache)
+    binance_BTC-USDT_5m_2025-01-01_2026-01-01.json
+  runs/<runId>/        # per-run logs and artifacts (mounted into container)
+```
+
+### Nautilus (`strategy_mode: realtime`)
+
+```
+workspaces/desk-{id}/
+  .git/
+  strategy.py          # Nautilus Strategy subclass with event handlers
+  runner.py            # builds TradingNode with SandboxExecutionClient, emits MessageBus events as stdout JSONL
+  config.py            # TradingNodeConfig (data clients, exec clients)
+  data/                # downloaded tick / bar data
+  runs/<runId>/
+```
+
+### Generic (fallback, backtest only)
+
+```
+workspaces/desk-{id}/
+  .git/
+  README.md            # describes the agent-written scripts
+  backtest.{py,ts,js}  # agent-authored backtest script, emits NormalizedResult JSON to stdout
+  download.{py,ts,js}  # agent-authored data download script
+  data/
+  runs/<runId>/
+```
+
+Generic desks **cannot run paper trading** — there is no paper entrypoint in the workspace and the UI disables the action.
 
 ## Generic Engine
 
