@@ -153,7 +153,7 @@ function RunDetail({
 				</div>
 
 				{/* Metrics */}
-				{hasResult && run.result!.metrics.length > 0 && (
+				{hasResult && Array.isArray(run.result?.metrics) && run.result!.metrics.length > 0 && (
 					<div className="border-t border-border p-4">
 						<div className="grid grid-cols-2 sm:grid-cols-4 gap-4 tabular-nums">
 							{run.result!.metrics.map((m) => {

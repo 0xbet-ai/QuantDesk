@@ -164,7 +164,7 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 							Run #{selectedRun.runNumber}
 						</div>
 
-						{selectedRun.result?.metrics.map((m) => {
+						{selectedRun.result?.metrics?.map((m) => {
 							const toneClass =
 								m.tone === "positive" && m.value > 0
 									? "text-green-500"
