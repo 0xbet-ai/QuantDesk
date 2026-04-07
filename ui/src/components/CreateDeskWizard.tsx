@@ -5,8 +5,10 @@ import {
 	ArrowLeftRight,
 	ArrowRight,
 	BarChart3,
+	Bitcoin,
 	Bot,
 	Brain,
+	Briefcase,
 	CandlestickChart,
 	Code2,
 	Crosshair,
@@ -28,6 +30,7 @@ import {
 	Target,
 	Timer,
 	TrendingUp,
+	Trophy,
 	Waves,
 	X,
 	Zap,
@@ -50,7 +53,8 @@ interface Props {
 	onCreated: (deskId: string) => void;
 }
 
-type Step = "desk" | "venue" | "strategy" | "agent" | "config" | "launch";
+type Step = "desk" | "market" | "venue" | "strategy" | "agent" | "config" | "launch";
+type AssetClass = "crypto" | "stocks" | "fx" | "commodities" | "prediction";
 
 const categoryMeta: Record<string, { label: string; icon: typeof TrendingUp }> = {
 	trend_following: { label: "Trend Following", icon: TrendingUp },
@@ -124,6 +128,7 @@ const strategyIcons: Record<string, typeof TrendingUp> = {
 const stepTabs: { key: Step; label: string; icon: React.ComponentType<{ className?: string }> }[] =
 	[
 		{ key: "desk", label: "Desk", icon: DeskIcon },
+		{ key: "market", label: "Market", icon: Layers },
 		{ key: "venue", label: "Venue", icon: Store },
 		{ key: "strategy", label: "Strategy", icon: FlaskConical },
 		{ key: "agent", label: "Agent", icon: Bot },
@@ -131,21 +136,79 @@ const stepTabs: { key: Step; label: string; icon: React.ComponentType<{ classNam
 		{ key: "launch", label: "Launch", icon: Rocket },
 	];
 
+const ASSET_CLASS_META: {
+	id: AssetClass;
+	label: string;
+	description: string;
+	icon: typeof Bitcoin;
+	enabled: boolean;
+}[] = [
+	{
+		id: "crypto",
+		label: "Crypto",
+		description: "Bitcoin, altcoins, perps, on-chain DEXes",
+		icon: Bitcoin,
+		enabled: true,
+	},
+	{
+		id: "stocks",
+		label: "Stocks",
+		description: "US equities, options via Interactive Brokers",
+		icon: TrendingUp,
+		enabled: true,
+	},
+	{
+		id: "prediction",
+		label: "Prediction Markets",
+		description: "Polymarket, Kalshi, Betfair — yes/no outcomes",
+		icon: Trophy,
+		enabled: true,
+	},
+	{
+		id: "fx",
+		label: "FX",
+		description: "Currency pairs (coming soon)",
+		icon: ArrowLeftRight,
+		enabled: false,
+	},
+	{
+		id: "commodities",
+		label: "Commodities",
+		description: "Gold, oil, agricultural (coming soon)",
+		icon: Briefcase,
+		enabled: false,
+	},
+];
+
 const supportedEngines = new Set(venues.flatMap((v) => v.engines).filter((e) => e !== "generic"));
 
 const allVenues = venues.filter((v) => v.engines.some((e) => supportedEngines.has(e)));
 
-const venuesByType = {
-	cex: allVenues.filter((v) => v.type === "cex"),
-	dex: allVenues.filter((v) => v.type === "dex"),
-	prediction: allVenues.filter((v) => v.type === "prediction"),
+// Venue type ordering used inside the Venue step (after a market is picked).
+const TYPE_ORDER = ["cex", "dex", "broker"] as const;
+
+const assetClassLabels: Record<string, string> = {
+	crypto: "Crypto",
+	stocks: "Stocks",
+	fx: "FX",
+	commodities: "Commodities",
+	prediction: "Prediction Markets",
 };
 
 const venueTypeLabels: Record<string, string> = {
-	cex: "Centralized Exchanges",
-	dex: "Decentralized Exchanges",
-	prediction: "Prediction Markets",
+	cex: "Centralized",
+	dex: "Decentralized",
+	broker: "Brokers",
 };
+
+const venuesByAssetClass: Record<string, Record<string, typeof allVenues>> = {};
+for (const v of allVenues) {
+	const ac = v.assetClass ?? "crypto";
+	const t = v.type;
+	if (!venuesByAssetClass[ac]) venuesByAssetClass[ac] = {};
+	if (!venuesByAssetClass[ac][t]) venuesByAssetClass[ac][t] = [];
+	venuesByAssetClass[ac][t].push(v);
+}
 
 function venueName(id: string): string {
 	return venues.find((v) => v.id === id)?.name ?? id;
@@ -156,6 +219,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [customStrategyPrompt, setCustomStrategyPrompt] = useState("");
+	const [selectedAssetClass, setSelectedAssetClass] = useState<AssetClass>("crypto");
 	const [selectedVenues, setSelectedVenues] = useState<string[]>([]);
 	const [customVenue, setCustomVenue] = useState("");
 	const [strategies, setStrategies] = useState<Strategy[]>([]);
@@ -308,6 +372,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 		switch (s) {
 			case "desk":
 				return name.trim().length > 0;
+			case "market":
+				return selectedAssetClass !== undefined;
 			case "venue":
 				return selectedVenues.length > 0;
 			case "config":
@@ -415,53 +481,137 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 						</div>
 					)}
 
+					{step === "market" && (
+						<div className="space-y-6">
+							<div className="flex items-center gap-3 mb-2">
+								<Layers className="size-5 text-foreground/60" />
+								<div>
+									<h3 className="text-sm font-semibold">Pick a market</h3>
+									<p className="text-xs text-foreground/50">
+										What asset class do you want to trade? You can change venues later, but not the
+										market.
+									</p>
+								</div>
+							</div>
+
+							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+								{ASSET_CLASS_META.map((m) => {
+									const Icon = m.icon;
+									const selected = selectedAssetClass === m.id;
+									return (
+										<button
+											key={m.id}
+											type="button"
+											disabled={!m.enabled}
+											aria-pressed={selected}
+											onClick={() => {
+												if (!m.enabled) return;
+												if (m.id !== selectedAssetClass) {
+													setSelectedAssetClass(m.id);
+													setSelectedVenues([]);
+												}
+											}}
+											className={cn(
+												"flex flex-col items-start gap-3 p-4 rounded-lg border text-left transition-all",
+												"focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+												selected
+													? "border-primary bg-primary/5 ring-1 ring-primary"
+													: "border-border bg-card hover:bg-accent hover:border-foreground/30",
+												!m.enabled &&
+													"opacity-40 cursor-not-allowed hover:bg-card hover:border-border",
+											)}
+										>
+											<div
+												className={cn(
+													"flex size-10 items-center justify-center rounded-md",
+													selected
+														? "bg-primary text-primary-foreground"
+														: "bg-muted text-foreground/70",
+												)}
+											>
+												<Icon className="size-5" />
+											</div>
+											<div className="space-y-0.5">
+												<div className="text-sm font-semibold text-foreground flex items-center gap-2">
+													{m.label}
+													{!m.enabled && (
+														<span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
+															Soon
+														</span>
+													)}
+												</div>
+												<div className="text-xs text-foreground/60 leading-snug">
+													{m.description}
+												</div>
+											</div>
+										</button>
+									);
+								})}
+							</div>
+						</div>
+					)}
+
 					{step === "venue" && (
 						<div className="space-y-8">
 							<div className="flex items-center gap-3 mb-6">
 								<Store className="size-5 text-foreground/60" />
 								<div>
-									<h3 className="text-sm font-semibold">Select venues</h3>
+									<h3 className="text-sm font-semibold">
+										Select venues — {assetClassLabels[selectedAssetClass] ?? selectedAssetClass}
+									</h3>
 									<p className="text-xs text-foreground/50">
 										Where do you trade? Select one or more. This cannot be changed later.
 									</p>
 								</div>
 							</div>
 
-							{(["cex", "dex", "prediction"] as const).map((type) =>
-								venuesByType[type].length > 0 ? (
-									<div key={type}>
-										<div className="text-[10px] font-medium uppercase tracking-widest font-mono text-foreground/50 mb-2">
-											{venueTypeLabels[type]}
+							{(() => {
+								const byType = venuesByAssetClass[selectedAssetClass];
+								if (!byType) {
+									return (
+										<div className="text-xs text-foreground/50">
+											No venues available for this market yet.
 										</div>
-										<div className="flex flex-wrap gap-2">
-											{venuesByType[type].map((v) => (
-												<Tooltip key={v.id}>
-													<TooltipTrigger asChild>
-														<button
-															type="button"
-															aria-pressed={selectedVenues.includes(v.id)}
-															onClick={() => toggleVenue(v.id)}
-															className={cn(
-																"px-3 py-1.5 rounded-md text-xs border transition-colors focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-																selectedVenues.includes(v.id)
-																	? "bg-primary text-primary-foreground border-primary"
-																	: "bg-card border-border dark:border-foreground/20 text-foreground hover:bg-accent",
-															)}
-														>
-															{v.name}
-														</button>
-													</TooltipTrigger>
-													{v.url && (
-														<TooltipContent side="bottom">
-															{v.url.replace("https://", "")}
-														</TooltipContent>
-													)}
-												</Tooltip>
-											))}
+									);
+								}
+								return TYPE_ORDER.map((type) => {
+									const list = byType[type];
+									if (!list || list.length === 0) return null;
+									return (
+										<div key={`${selectedAssetClass}-${type}`}>
+											<div className="text-[10px] font-medium uppercase tracking-widest font-mono text-foreground/50 mb-2">
+												{venueTypeLabels[type]}
+											</div>
+											<div className="flex flex-wrap gap-2">
+												{list.map((v) => (
+													<Tooltip key={v.id}>
+														<TooltipTrigger asChild>
+															<button
+																type="button"
+																aria-pressed={selectedVenues.includes(v.id)}
+																onClick={() => toggleVenue(v.id)}
+																className={cn(
+																	"px-3 py-1.5 rounded-md text-xs border transition-colors focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+																	selectedVenues.includes(v.id)
+																		? "bg-primary text-primary-foreground border-primary"
+																		: "bg-card border-border dark:border-foreground/20 text-foreground hover:bg-accent",
+																)}
+															>
+																{v.name}
+															</button>
+														</TooltipTrigger>
+														{v.url && (
+															<TooltipContent side="bottom">
+																{v.url.replace("https://", "")}
+															</TooltipContent>
+														)}
+													</Tooltip>
+												))}
+											</div>
 										</div>
-									</div>
-								) : null,
-							)}
+									);
+								});
+							})()}
 
 							<div className="max-w-xs">
 								<div className="text-[10px] font-medium uppercase tracking-widest font-mono text-foreground/50 mb-2">
@@ -892,7 +1042,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									<div>
 										<div className="text-[13px] font-medium">Adapter environment check</div>
 										<div className="text-xs text-muted-foreground mt-0.5">
-											Runs a live probe that asks the adapter CLI to respond with hello.
+											Runs a probe that asks the adapter CLI to respond with hello.
 										</div>
 									</div>
 									<Button
