@@ -121,11 +121,11 @@ export function App() {
 					) : selectedExperiment && deskPage === "experiments" ? (
 						<CommentThread experiment={selectedExperiment} onOpenRun={() => setDeskPage("runs")} />
 					) : selectedDesk && deskPage !== "experiments" ? (
-						<div className="flex-1 flex items-center justify-center text-[13px] text-muted-foreground">
+						<div className="flex-1 flex items-center justify-center text-[13px] text-foreground/50">
 							{deskPage.charAt(0).toUpperCase() + deskPage.slice(1)} — coming soon
 						</div>
 					) : (
-						<div className="flex-1 flex items-center justify-center text-[13px] text-muted-foreground">
+						<div className="flex-1 flex items-center justify-center text-[13px] text-foreground/50">
 							Select a desk and experiment to get started
 						</div>
 					)

@@ -37,6 +37,7 @@ import venues from "../../../strategies/venues.json";
 import type { Strategy } from "../lib/api.js";
 import { createDesk, listStrategies } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
+import { StrategyAnimation } from "./StrategyAnimation.js";
 import { DeskIcon } from "./icons/DeskIcon.js";
 import { Badge } from "./ui/badge.js";
 import { Button } from "./ui/button.js";
@@ -529,144 +530,276 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 								);
 							}
 							const categories = [...new Set(filteredStrategies.map((s) => s.category))];
+							const detailStrategy =
+								selectedStrategyId && selectedStrategyId !== "custom"
+									? (filteredStrategies.find((s) => s.id === selectedStrategyId) ?? null)
+									: null;
+							const DetailIcon = detailStrategy
+								? (strategyIcons[detailStrategy.id] ??
+									categoryMeta[detailStrategy.category]?.icon ??
+									FlaskConical)
+								: null;
 							return (
-								<div className="space-y-8">
-									<div className="flex items-center gap-3">
-										<FlaskConical className="size-5 text-foreground/60" />
-										<div>
-											<h3 className="text-sm font-semibold">Choose a strategy</h3>
-											<p className="text-xs text-foreground/50">
-												Pick from catalog or let the agent write one from scratch. This cannot be
-												changed later.
-											</p>
+								<div className="flex gap-6">
+									{/* Left: strategy list */}
+									<div
+										className={cn(
+											"space-y-6 overflow-y-auto transition-all duration-300",
+											detailStrategy || selectedStrategyId === "custom"
+												? "w-[55%] shrink-0"
+												: "w-full",
+										)}
+									>
+										<div className="flex items-center gap-3">
+											<FlaskConical className="size-5 text-foreground/60" />
+											<div>
+												<h3 className="text-sm font-semibold">Choose a strategy</h3>
+												<p className="text-xs text-foreground/50">
+													Pick from catalog or let the agent write one from scratch.
+												</p>
+											</div>
 										</div>
-									</div>
 
-									{/* Search */}
-									<div className="relative max-w-sm">
-										<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-										<Input
-											value={strategySearch}
-											onChange={(e) => setStrategySearch(e.target.value)}
-											placeholder="Search strategies or indicators..."
-											className="pl-9"
-										/>
-									</div>
+										{/* Search */}
+										<div className="relative max-w-sm">
+											<Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+											<Input
+												value={strategySearch}
+												onChange={(e) => setStrategySearch(e.target.value)}
+												placeholder="Search strategies or indicators..."
+												className="pl-9"
+											/>
+										</div>
 
-									{/* Custom strategy — same grid card style */}
-									{!strategySearch && (
-										<div>
+										{/* Custom strategy */}
+										{!strategySearch && (
 											<button
 												type="button"
 												aria-pressed={selectedStrategyId === "custom"}
 												onClick={() => setSelectedStrategyId("custom")}
 												className={cn(
-													"text-left p-4 rounded-lg border transition-colors w-full focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+													"text-left p-3 rounded-lg border transition-colors w-full focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
 													selectedStrategyId === "custom"
 														? "border-foreground bg-accent"
 														: "border-border hover:bg-accent/50",
 												)}
 											>
-												<div className="flex items-start gap-3">
-													<div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted mt-0.5">
-														<Sparkles className="size-4 text-foreground/70" />
+												<div className="flex items-center gap-3">
+													<div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+														<Sparkles className="size-3.5 text-foreground/70" />
 													</div>
 													<div className="min-w-0">
-														<div className="text-[13px] font-medium text-foreground leading-tight">
+														<div className="text-[13px] font-medium text-foreground">
 															Custom Strategy
 														</div>
-														<div className="text-xs text-foreground/60 mt-1 line-clamp-2">
-															Describe what you want and the agent writes the strategy code
+														<div className="text-[11px] text-foreground/50">
+															Agent writes from your description
 														</div>
 													</div>
 												</div>
 											</button>
+										)}
 
-											{selectedStrategyId === "custom" && (
-												<div className="mt-3 max-w-md">
+										{filteredStrategies.length === 0 && strategySearch && (
+											<p className="text-[13px] text-muted-foreground py-6 text-center">
+												No strategies match &ldquo;{strategySearch}&rdquo;
+											</p>
+										)}
+
+										{/* Strategies grouped by category */}
+										{categories.map((cat) => {
+											const meta = categoryMeta[cat] ?? { label: cat, icon: FlaskConical };
+											const CatIcon = meta.icon;
+											const catStrategies = filteredStrategies.filter((s) => s.category === cat);
+											return (
+												<div key={cat}>
+													<div className="flex items-center gap-1.5 mb-1.5">
+														<CatIcon className="size-3 text-muted-foreground" />
+														<span className="text-[10px] font-medium uppercase tracking-widest font-mono text-foreground/50">
+															{meta.label}
+														</span>
+													</div>
+													<div className="space-y-1.5">
+														{catStrategies.map((s) => {
+															const SIcon = strategyIcons[s.id] ?? CatIcon;
+															const isActive = selectedStrategyId === s.id;
+															return (
+																<button
+																	key={s.id}
+																	type="button"
+																	aria-pressed={isActive}
+																	onClick={() => setSelectedStrategyId(s.id)}
+																	className={cn(
+																		"flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg border transition-all duration-200 focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+																		isActive
+																			? "border-foreground bg-accent shadow-sm"
+																			: "border-border dark:border-foreground/15 hover:bg-accent/50",
+																	)}
+																>
+																	<div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+																		<SIcon className="size-3.5 text-foreground/70" />
+																	</div>
+																	<div className="min-w-0 flex-1">
+																		<div className="text-[13px] font-medium text-foreground leading-tight">
+																			{s.name}
+																		</div>
+																		<div className="text-[11px] text-foreground/50 truncate">
+																			{s.summary ?? s.description}
+																		</div>
+																	</div>
+																	<div
+																		className={cn(
+																			"text-[10px] font-medium shrink-0",
+																			s.difficulty === "easy"
+																				? "text-green-600 dark:text-green-400"
+																				: s.difficulty === "advanced"
+																					? "text-orange-600 dark:text-orange-400"
+																					: "text-blue-600 dark:text-blue-400",
+																		)}
+																	>
+																		{s.difficulty}
+																	</div>
+																</button>
+															);
+														})}
+													</div>
+												</div>
+											);
+										})}
+									</div>
+
+									{/* Right: detail panel */}
+									{detailStrategy && DetailIcon && (
+										<div className="w-[45%] shrink-0 animate-in fade-in slide-in-from-right-4 duration-300">
+											<div className="sticky top-0 rounded-xl border border-border bg-background p-5 space-y-4 shadow-sm">
+												{/* Header */}
+												<div className="flex items-start gap-3">
+													<div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+														<DetailIcon className="size-5 text-foreground/70" />
+													</div>
+													<div className="min-w-0">
+														<div className="text-sm font-semibold">{detailStrategy.name}</div>
+														<div className="flex items-center gap-2 mt-1">
+															<Badge variant="secondary" className="text-[10px]">
+																{categoryMeta[detailStrategy.category]?.label ??
+																	detailStrategy.category}
+															</Badge>
+															<Badge
+																variant="outline"
+																className={cn(
+																	"text-[10px]",
+																	detailStrategy.difficulty === "easy"
+																		? "text-green-600 border-green-500/30 dark:text-green-400"
+																		: detailStrategy.difficulty === "advanced"
+																			? "text-orange-600 border-orange-500/30 dark:text-orange-400"
+																			: "text-blue-600 border-blue-500/30 dark:text-blue-400",
+																)}
+															>
+																{detailStrategy.difficulty}
+															</Badge>
+														</div>
+													</div>
+												</div>
+
+												{/* Animation */}
+												<div key={detailStrategy.id} className="text-foreground">
+													<StrategyAnimation category={detailStrategy.category} />
+												</div>
+
+												{/* Summary + Description */}
+												{detailStrategy.summary && (
+													<div className="text-[13px] font-medium text-foreground/90 leading-relaxed">
+														{detailStrategy.summary}
+													</div>
+												)}
+												<div className="text-xs text-foreground/60 leading-relaxed">
+													{detailStrategy.description}
+												</div>
+
+												{/* Indicators */}
+												{detailStrategy.indicators.length > 0 && (
+													<div>
+														<div className="text-[10px] font-medium uppercase tracking-widest text-foreground/40 mb-1.5">
+															Indicators
+														</div>
+														<div className="flex flex-wrap gap-1.5">
+															{detailStrategy.indicators.map((ind) => (
+																<Badge
+																	key={ind}
+																	variant="outline"
+																	className="text-[11px] font-mono"
+																>
+																	{ind}
+																</Badge>
+															))}
+														</div>
+													</div>
+												)}
+
+												{/* Timeframes */}
+												<div>
+													<div className="text-[10px] font-medium uppercase tracking-widest text-foreground/40 mb-1.5">
+														Timeframes
+													</div>
+													<div className="flex flex-wrap gap-1.5">
+														{detailStrategy.timeframes.map((tf) => (
+															<Badge key={tf} variant="secondary" className="text-[11px] font-mono">
+																{tf}
+															</Badge>
+														))}
+													</div>
+												</div>
+
+												{/* Source link */}
+												{detailStrategy.source && (
+													<a
+														href={detailStrategy.source}
+														target="_blank"
+														rel="noreferrer"
+														className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+													>
+														View source ↗
+													</a>
+												)}
+											</div>
+										</div>
+									)}
+
+									{/* Right: custom strategy detail */}
+									{selectedStrategyId === "custom" && (
+										<div className="w-[45%] shrink-0 animate-in fade-in slide-in-from-right-4 duration-300">
+											<div className="sticky top-0 rounded-xl border border-border bg-background p-5 space-y-4 shadow-sm">
+												<div className="flex items-start gap-3">
+													<div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
+														<Sparkles className="size-5 text-foreground/70" />
+													</div>
+													<div>
+														<div className="text-sm font-semibold">Custom Strategy</div>
+														<div className="text-xs text-foreground/50 mt-0.5">
+															The agent will write strategy code based on your description
+														</div>
+													</div>
+												</div>
+												<div>
 													<label
 														htmlFor="strategy-prompt"
-														className="text-xs text-muted-foreground mb-1.5 block"
+														className="text-[10px] font-medium uppercase tracking-widest text-foreground/40 mb-1.5 block"
 													>
-														Describe your strategy
+														Your description
 													</label>
 													<Textarea
 														id="strategy-prompt"
 														value={customStrategyPrompt}
 														onChange={(e) => setCustomStrategyPrompt(e.target.value)}
-														rows={3}
-														placeholder="e.g. A momentum strategy that buys when RSI crosses above 30 and sells when it crosses below 70..."
+														rows={10}
+														className="min-h-[200px] resize-y"
+														placeholder="e.g. A momentum strategy that buys when RSI crosses above 30 and sells when it crosses below 70. Use a 14-period RSI on 1h candles. Add a stop-loss at 2% and take-profit at 5%. Trade only during high-volume hours..."
 														required
 													/>
 												</div>
-											)}
+											</div>
 										</div>
 									)}
-
-									{filteredStrategies.length === 0 && strategySearch && (
-										<p className="text-[13px] text-muted-foreground py-6 text-center">
-											No strategies match &ldquo;{strategySearch}&rdquo;
-										</p>
-									)}
-
-									{/* Strategies grouped by category */}
-									{categories.map((cat) => {
-										const meta = categoryMeta[cat] ?? { label: cat, icon: FlaskConical };
-										const CatIcon = meta.icon;
-										const catStrategies = filteredStrategies.filter((s) => s.category === cat);
-										return (
-											<div key={cat}>
-												<div className="flex items-center gap-1.5 mb-2">
-													<CatIcon className="size-3.5 text-muted-foreground" />
-													<span className="text-[10px] font-medium uppercase tracking-widest font-mono text-foreground/50">
-														{meta.label}
-													</span>
-												</div>
-												<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-													{catStrategies.map((s) => {
-														const SIcon = strategyIcons[s.id] ?? CatIcon;
-														const diffColor =
-															s.difficulty === "easy"
-																? "text-green-600 dark:text-green-400"
-																: s.difficulty === "advanced"
-																	? "text-orange-600 dark:text-orange-400"
-																	: "text-blue-600 dark:text-blue-400";
-														return (
-															<button
-																key={s.id}
-																type="button"
-																aria-pressed={selectedStrategyId === s.id}
-																onClick={() => setSelectedStrategyId(s.id)}
-																className={cn(
-																	"text-left p-4 rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-																	selectedStrategyId === s.id
-																		? "border-foreground bg-accent"
-																		: "border-border dark:border-foreground/15 hover:bg-accent/50",
-																)}
-															>
-																<div className="flex items-start gap-3">
-																	<div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted mt-0.5">
-																		<SIcon className="size-4 text-foreground/70" />
-																	</div>
-																	<div className="min-w-0">
-																		<div className="text-[13px] font-medium text-foreground leading-tight">
-																			{s.name}
-																		</div>
-																		<div className="text-xs text-foreground/60 mt-1 line-clamp-2">
-																			{s.summary ?? s.description}
-																		</div>
-																		<div className={cn("text-[11px] mt-2 font-medium", diffColor)}>
-																			{s.difficulty}
-																		</div>
-																	</div>
-																</div>
-															</button>
-														);
-													})}
-												</div>
-											</div>
-										);
-									})}
 								</div>
 							);
 						})()}

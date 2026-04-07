@@ -52,7 +52,7 @@ export function Layout({
 						<button
 							type="button"
 							onClick={onNewDesk}
-							className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors w-full text-left"
+							className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground/70 hover:bg-accent/50 hover:text-foreground transition-colors w-full text-left"
 						>
 							<Plus className="h-4 w-4 shrink-0" />
 							<span className="truncate">New Desk</span>
