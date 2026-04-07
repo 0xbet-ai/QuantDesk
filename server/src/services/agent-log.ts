@@ -1,15 +1,16 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 
 /**
  * Persist agent streaming chunks as JSONL files.
- * One file per experiment: agent-logs/{experimentId}.jsonl
+ * Stored at ~/.quantdesk/logs/{experimentId}.jsonl (Paperclip-style home dir storage).
  * Each line is a timestamped StreamChunk from the adapter.
  */
 
 export type AgentLogEntry = { ts: string } & Record<string, unknown>;
 
-const LOGS_DIR = join(process.cwd(), "agent-logs");
+const LOGS_DIR = join(homedir(), ".quantdesk", "logs");
 
 function logPath(experimentId: string): string {
 	return join(LOGS_DIR, `${experimentId}.jsonl`);
