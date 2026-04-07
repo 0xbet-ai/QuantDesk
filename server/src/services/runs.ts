@@ -3,6 +3,62 @@ import { runLogs, runs } from "@quantdesk/db/schema";
 import { eq } from "drizzle-orm";
 import { assignBaseline, validateGoLive, validateStop } from "./logic.js";
 
+interface Metric {
+	key: string;
+	label: string;
+	value: number;
+	format: "percent" | "number" | "integer" | "currency";
+	tone?: "positive" | "negative" | "neutral";
+}
+
+/** Convert legacy {returnPct, drawdownPct, ...} into {metrics: [...]} */
+function normalizeResult(result: unknown): { metrics: Metric[] } | null {
+	if (!result || typeof result !== "object") return null;
+	const r = result as Record<string, unknown>;
+	if (Array.isArray(r.metrics)) return { metrics: r.metrics as Metric[] };
+
+	const metrics: Metric[] = [];
+	if (typeof r.returnPct === "number") {
+		metrics.push({
+			key: "return",
+			label: "Return",
+			value: r.returnPct,
+			format: "percent",
+			tone: "positive",
+		});
+	}
+	if (typeof r.drawdownPct === "number") {
+		metrics.push({
+			key: "drawdown",
+			label: "Max Drawdown",
+			value: r.drawdownPct,
+			format: "percent",
+			tone: "negative",
+		});
+	}
+	if (typeof r.winRate === "number") {
+		metrics.push({
+			key: "win_rate",
+			label: "Win Rate",
+			value: r.winRate,
+			format: "percent",
+		});
+	}
+	if (typeof r.totalTrades === "number") {
+		metrics.push({
+			key: "trades",
+			label: "Trades",
+			value: r.totalTrades,
+			format: "integer",
+		});
+	}
+	return metrics.length > 0 ? { metrics } : null;
+}
+
+function normalizeRun<T extends { result: unknown }>(run: T): T {
+	return { ...run, result: normalizeResult(run.result) } as T;
+}
+
 interface CreateRunInput {
 	experimentId: string;
 	mode: string;
@@ -32,12 +88,17 @@ export async function createRun(input: CreateRunInput) {
 }
 
 export async function listRuns(experimentId: string) {
-	return db.select().from(runs).where(eq(runs.experimentId, experimentId)).orderBy(runs.runNumber);
+	const rows = await db
+		.select()
+		.from(runs)
+		.where(eq(runs.experimentId, experimentId))
+		.orderBy(runs.runNumber);
+	return rows.map(normalizeRun);
 }
 
 export async function getRun(id: string) {
 	const [run] = await db.select().from(runs).where(eq(runs.id, id));
-	return run ?? null;
+	return run ? normalizeRun(run) : null;
 }
 
 export async function goLive(runId: string) {
