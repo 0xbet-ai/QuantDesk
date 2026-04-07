@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, rmSync, type WriteStream } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import EmbeddedPostgres from "embedded-postgres";
@@ -25,6 +25,10 @@ function defaultDataDir(): string {
 	return process.env.QUANTDESK_PG_DATA_DIR ?? resolve(homedir(), ".quantdesk", "pgdata");
 }
 
+function defaultLogFile(): string {
+	return process.env.QUANTDESK_PG_LOG_FILE ?? resolve(homedir(), ".quantdesk", "pg.log");
+}
+
 function defaultPort(): number {
 	const raw = process.env.QUANTDESK_PG_PORT;
 	if (raw) {
@@ -36,6 +40,19 @@ function defaultPort(): number {
 
 let started: Promise<string> | null = null;
 let instance: EmbeddedPostgres | null = null;
+let logStream: WriteStream | null = null;
+
+function writeLog(prefix: string, message: unknown): void {
+	if (!logStream) return;
+	const text =
+		message instanceof Error
+			? `${message.stack ?? message.message}`
+			: typeof message === "string"
+				? message
+				: JSON.stringify(message);
+	const line = text.endsWith("\n") ? text : `${text}\n`;
+	logStream.write(prefix ? `${prefix} ${line}` : line);
+}
 
 export async function getEmbeddedConnectionString(): Promise<string> {
 	if (!started) {
@@ -47,8 +64,15 @@ export async function getEmbeddedConnectionString(): Promise<string> {
 async function startEmbedded(): Promise<string> {
 	const dataDir = defaultDataDir();
 	const port = defaultPort();
+	const logFile = defaultLogFile();
 
 	mkdirSync(dataDir, { recursive: true });
+	mkdirSync(resolve(logFile, ".."), { recursive: true });
+
+	if (!logStream) {
+		logStream = createWriteStream(logFile, { flags: "a" });
+		logStream.write(`\n=== embedded postgres session ${new Date().toISOString()} ===\n`);
+	}
 
 	// Only remove a stale postmaster.pid if the referenced PID is not actually
 	// alive. Blindly deleting it causes shmem conflicts when two processes race
@@ -79,6 +103,8 @@ async function startEmbedded(): Promise<string> {
 		port,
 		persistent: true,
 		initdbFlags: ["--encoding=UTF8", "--locale=C", "--lc-messages=C"],
+		onLog: (msg) => writeLog("", msg),
+		onError: (msg) => writeLog("[ERR]", msg),
 	});
 
 	if (!existsSync(resolve(dataDir, "PG_VERSION"))) {
@@ -124,18 +150,27 @@ async function startEmbedded(): Promise<string> {
 		process.exit(143);
 	});
 
+	console.log(
+		`Embedded Postgres ready at 127.0.0.1:${port} (data: ${dataDir}, logs: ${logFile})`,
+	);
+
 	return `postgresql://${USER}:${PASSWORD}@127.0.0.1:${port}/${DATABASE}`;
 }
 
 export async function stopEmbedded(): Promise<void> {
-	if (!instance) return;
-	try {
-		await instance.stop();
-	} catch {
-		// best effort on shutdown
+	if (instance) {
+		try {
+			await instance.stop();
+		} catch {
+			// best effort on shutdown
+		}
+		instance = null;
+		started = null;
 	}
-	instance = null;
-	started = null;
+	if (logStream) {
+		logStream.end();
+		logStream = null;
+	}
 }
 
 /**
