@@ -101,6 +101,21 @@ After you run the backtest and get the JSON result, include it in your response 
 
 This will automatically create a Run record visible in the UI.
 
+## Dataset Registration
+When you download market data, save it to a CSV file in the workspace and include a dataset marker in your response:
+[DATASET]
+{"exchange": "<exchange name>", "pairs": ["BTC/USDT"], "timeframe": "5m", "dateRange": {"start": "2025-01-01", "end": "2025-03-01"}, "path": "<path to saved CSV file>"}
+[/DATASET]
+
+This registers the dataset in the UI so the user can see what data was used.
+
+## Response Formatting
+Always use proper Markdown in your responses:
+- Tables: use | col1 | col2 | format with header separators
+- Lists: use - item or 1. item
+- Metrics and key numbers: use **bold**
+- Code: use fenced code blocks with language tags
+
 ## Proposals
 When you want to propose actions, use these markers at the start of a line:
 - [PROPOSE_VALIDATION] — suggest Risk Manager validation

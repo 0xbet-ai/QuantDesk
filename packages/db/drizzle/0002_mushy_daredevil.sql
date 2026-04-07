@@ -1,0 +1,1 @@
+ALTER TABLE "strategy_catalog" ADD COLUMN "summary" text;

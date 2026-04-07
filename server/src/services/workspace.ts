@@ -123,3 +123,30 @@ export async function hasChanges(cwd: string): Promise<boolean> {
 	const status = await git(cwd, "status", "--porcelain");
 	return status.length > 0;
 }
+
+export interface CommitInfo {
+	hash: string;
+	message: string;
+	date: string;
+}
+
+export async function getLog(cwd: string, limit = 50): Promise<CommitInfo[]> {
+	const raw = await git(cwd, "log", `--max-count=${limit}`, "--format=%H%n%s%n%aI%n---");
+	if (!raw) return [];
+	const commits: CommitInfo[] = [];
+	const entries = raw.split("---").filter((s) => s.trim());
+	for (const entry of entries) {
+		const lines = entry.trim().split("\n");
+		if (lines.length >= 3) {
+			commits.push({ hash: lines[0]!, message: lines[1]!, date: lines[2]! });
+		}
+	}
+	return commits;
+}
+
+export async function listFiles(cwd: string, commitHash?: string): Promise<string[]> {
+	const ref = commitHash ?? "HEAD";
+	const raw = await git(cwd, "ls-tree", "-r", "--name-only", ref);
+	if (!raw) return [];
+	return raw.split("\n").filter((s) => s.trim());
+}

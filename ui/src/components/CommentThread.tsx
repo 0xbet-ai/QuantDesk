@@ -97,12 +97,17 @@ const PROPOSAL_RE =
 // Strip [user]/[analyst]/[system]/[risk_manager] prefixes that the agent may echo
 const AUTHOR_PREFIX_RE = /^\[(user|analyst|system|risk_manager)\]\s*/gm;
 
-/** Convert [BACKTEST_RESULT]...[/BACKTEST_RESULT] markers to fenced JSON code blocks */
-function formatBacktestResults(text: string): string {
-	return text.replace(
-		/\[BACKTEST_RESULT\]\s*([\s\S]*?)\s*\[\/BACKTEST_RESULT\]/g,
-		(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
-	);
+/** Convert [BACKTEST_RESULT] and [DATASET] markers to fenced JSON code blocks */
+function formatAgentMarkers(text: string): string {
+	return text
+		.replace(
+			/\[BACKTEST_RESULT\]\s*([\s\S]*?)\s*\[\/BACKTEST_RESULT\]/g,
+			(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
+		)
+		.replace(
+			/\[DATASET\]\s*([\s\S]*?)\s*\[\/DATASET\]/g,
+			(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
+		);
 }
 
 function parseProposals(content: string): { cleanContent: string; proposals: Proposal[] } {
@@ -357,7 +362,7 @@ export function CommentThread({ experiment, onOpenRun }: Props) {
 							{cleanContent && (
 								<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2 prose-strong:text-foreground">
 									<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-										{formatBacktestResults(cleanContent)}
+										{formatAgentMarkers(cleanContent)}
 									</Markdown>
 								</div>
 							)}

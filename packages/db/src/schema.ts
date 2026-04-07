@@ -123,6 +123,7 @@ export const strategyCatalog = pgTable("strategy_catalog", {
 	category: text("category").notNull(),
 	difficulty: text("difficulty").notNull(),
 	description: text("description").notNull(),
+	summary: text("summary"),
 	indicators: jsonb("indicators").notNull().$type<string[]>(),
 	defaultParams: jsonb("default_params").notNull().$type<Record<string, unknown>>(),
 	timeframes: jsonb("timeframes").notNull().$type<string[]>(),

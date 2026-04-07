@@ -128,5 +128,41 @@ export type AgentLogEntry = { ts: string } & Record<string, unknown>;
 export const getAgentLogs = (experimentId: string) =>
 	api<AgentLogEntry[]>(`/experiments/${experimentId}/agent/logs`);
 
+export interface Dataset {
+	id: string;
+	deskId: string;
+	exchange: string;
+	pairs: string[];
+	timeframe: string;
+	dateRange: { start: string; end: string };
+	path: string;
+	createdAt: string;
+}
+
+export const listDatasets = (deskId: string) => api<Dataset[]>(`/desks/${deskId}/datasets`);
+export const deleteDataset = (deskId: string, datasetId: string) =>
+	api<Dataset>(`/desks/${deskId}/datasets/${datasetId}`, { method: "DELETE" });
+
+export interface CommitInfo {
+	hash: string;
+	message: string;
+	date: string;
+}
+
+export const getCodeLog = (deskId: string) => api<CommitInfo[]>(`/desks/${deskId}/code/log`);
+export const getCodeFiles = (deskId: string, commit?: string) =>
+	api<string[]>(`/desks/${deskId}/code/files${commit ? `?commit=${commit}` : ""}`);
+export const getCodeFile = async (
+	deskId: string,
+	path: string,
+	commit?: string,
+): Promise<string> => {
+	const params = new URLSearchParams({ path });
+	if (commit) params.set("commit", commit);
+	const res = await fetch(`/api/desks/${deskId}/code/file?${params}`);
+	if (!res.ok) throw new Error("Failed to fetch file");
+	return res.text();
+};
+
 export const goLive = (runId: string) => api<Run>(`/runs/${runId}/go-live`, { method: "POST" });
 export const stopRun = (runId: string) => api<Run>(`/runs/${runId}/stop`, { method: "POST" });

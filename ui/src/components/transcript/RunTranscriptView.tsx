@@ -349,19 +349,24 @@ const markdownComponents = {
 
 // ── Block renderers ──────────────────────────────────────────────────
 
-/** Convert [BACKTEST_RESULT]...[\BACKTEST_RESULT] markers to fenced JSON code blocks */
-function formatBacktestResults(text: string): string {
-	return text.replace(
-		/\[BACKTEST_RESULT\]\s*([\s\S]*?)\s*\[\/BACKTEST_RESULT\]/g,
-		(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
-	);
+/** Convert [BACKTEST_RESULT] and [DATASET] markers to fenced JSON code blocks */
+function formatAgentMarkers(text: string): string {
+	return text
+		.replace(
+			/\[BACKTEST_RESULT\]\s*([\s\S]*?)\s*\[\/BACKTEST_RESULT\]/g,
+			(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
+		)
+		.replace(
+			/\[DATASET\]\s*([\s\S]*?)\s*\[\/DATASET\]/g,
+			(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
+		);
 }
 
 function TextBlock({
 	block,
 	compact,
 }: { block: Extract<TranscriptBlock, { type: "text" }>; compact: boolean }) {
-	const content = formatBacktestResults(block.content);
+	const content = formatAgentMarkers(block.content);
 	return (
 		<div>
 			<div
@@ -846,7 +851,7 @@ function ResultRow({
 								)}
 							>
 								<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-									{block.content || "Completed"}
+									{formatAgentMarkers(block.content || "Completed")}
 								</Markdown>
 							</div>
 							<pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground/75">

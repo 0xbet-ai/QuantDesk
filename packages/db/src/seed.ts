@@ -9,6 +9,7 @@ interface StrategyEntry {
 	category: string;
 	difficulty: string;
 	description: string;
+	summary?: string;
 	indicators: string[];
 	default_params: Record<string, unknown>;
 	timeframes: string[];
@@ -35,6 +36,7 @@ async function seed() {
 					category: entry.category,
 					difficulty: entry.difficulty,
 					description: entry.description,
+					summary: entry.summary ?? null,
 					indicators: entry.indicators,
 					defaultParams: entry.default_params,
 					timeframes: entry.timeframes,
@@ -47,6 +49,7 @@ async function seed() {
 						name: entry.name,
 						category: entry.category,
 						description: entry.description,
+						summary: entry.summary ?? null,
 						indicators: entry.indicators,
 						defaultParams: entry.default_params,
 						timeframes: entry.timeframes,

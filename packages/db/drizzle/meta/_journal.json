@@ -15,6 +15,13 @@
       "when": 1775488085662,
       "tag": "0001_burly_jean_grey",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775527832166,
+      "tag": "0002_mushy_daredevil",
+      "breakpoints": true
     }
   ]
 }

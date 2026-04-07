@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityView } from "./components/ActivityView.js";
+import { CodeView } from "./components/CodeView.js";
 import { CommentThread } from "./components/CommentThread.js";
 import { CreateDeskWizard } from "./components/CreateDeskWizard.js";
+import { DatasetView } from "./components/DatasetView.js";
 import type { DeskPage } from "./components/DeskPanel.js";
 import { DeskPanel } from "./components/DeskPanel.js";
 import { DeskSettings } from "./components/DeskSettings.js";
@@ -104,6 +106,10 @@ export function App() {
 								refreshDesks();
 							}}
 						/>
+					) : selectedDesk && deskPage === "code" ? (
+						<CodeView desk={selectedDesk} />
+					) : selectedDesk && deskPage === "datasets" ? (
+						<DatasetView desk={selectedDesk} />
 					) : selectedDesk && deskPage === "activity" ? (
 						<ActivityView desk={selectedDesk} />
 					) : selectedExperiment && deskPage === "runs" ? (

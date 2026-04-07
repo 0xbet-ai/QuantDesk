@@ -5,6 +5,7 @@ import { db } from "@quantdesk/db";
 import {
 	agentSessions,
 	comments,
+	datasets,
 	desks,
 	experiments,
 	memorySummaries,
@@ -277,10 +278,37 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 		}
 	}
 
+	// 8b. Extract dataset info from agent output
+	if (result.resultText) {
+		const datasetMatch = result.resultText.match(/\[DATASET\]\s*([\s\S]*?)\s*\[\/DATASET\]/);
+		if (datasetMatch?.[1]) {
+			try {
+				const parsed = JSON.parse(datasetMatch[1]) as {
+					exchange: string;
+					pairs: string[];
+					timeframe: string;
+					dateRange: { start: string; end: string };
+					path: string;
+				};
+				await db.insert(datasets).values({
+					deskId: desk.id,
+					exchange: parsed.exchange,
+					pairs: parsed.pairs,
+					timeframe: parsed.timeframe,
+					dateRange: parsed.dateRange,
+					path: parsed.path,
+				});
+			} catch {
+				/* dataset parse failed, non-fatal */
+			}
+		}
+	}
+
 	// 9. Post agent response as comment (strip backtest markers)
 	if (result.resultText) {
 		const cleanText = result.resultText
 			.replace(/\[BACKTEST_RESULT\][\s\S]*?\[\/BACKTEST_RESULT\]/g, "")
+			.replace(/\[DATASET\][\s\S]*?\[\/DATASET\]/g, "")
 			.trim();
 		if (cleanText) {
 			await createComment({
