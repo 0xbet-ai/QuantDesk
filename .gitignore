@@ -9,4 +9,6 @@ coverage/
 .agent/
 .claude/
 workspaces/
+agent-logs/
+backtest_*.py
 
