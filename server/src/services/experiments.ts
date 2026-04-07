@@ -1,5 +1,5 @@
 import { db } from "@quantdesk/db";
-import { experiments } from "@quantdesk/db/schema";
+import { agentSessions, comments, experiments, memorySummaries, runs } from "@quantdesk/db/schema";
 import { eq } from "drizzle-orm";
 import { autoIncrementExperimentNumber } from "./logic.js";
 
@@ -38,4 +38,97 @@ export async function listExperiments(deskId: string) {
 export async function getExperiment(id: string) {
 	const [experiment] = await db.select().from(experiments).where(eq(experiments.id, id));
 	return experiment ?? null;
+}
+
+/**
+ * Generate a memory summary for a completed experiment.
+ * Template-based (no LLM) — summarizes best/latest runs and key user messages.
+ * Phase 7 will upgrade this to LLM-generated summaries.
+ */
+async function generateMemorySummary(experimentId: string): Promise<string> {
+	const [experiment] = await db.select().from(experiments).where(eq(experiments.id, experimentId));
+	if (!experiment) return "";
+
+	const expRuns = await db.select().from(runs).where(eq(runs.experimentId, experimentId));
+	const expComments = await db
+		.select()
+		.from(comments)
+		.where(eq(comments.experimentId, experimentId))
+		.orderBy(comments.createdAt);
+
+	const lines: string[] = [];
+	lines.push(`Experiment #${experiment.number}: ${experiment.title}`);
+
+	// Summarize runs
+	const completedRuns = expRuns.filter((r) => r.result != null);
+	if (completedRuns.length > 0) {
+		type Result = { returnPct: number; drawdownPct: number; winRate: number; totalTrades: number };
+		const best = completedRuns.reduce((a, b) =>
+			(a.result as Result).returnPct > (b.result as Result).returnPct ? a : b,
+		);
+		const bestResult = best.result as Result;
+		lines.push(
+			`Best run: #${best.runNumber} — returnPct=${bestResult.returnPct.toFixed(2)}%, drawdown=${bestResult.drawdownPct.toFixed(2)}%, winRate=${(bestResult.winRate * 100).toFixed(0)}%, trades=${bestResult.totalTrades}`,
+		);
+		lines.push(`Total runs: ${completedRuns.length}`);
+	}
+
+	// Include last analyst/risk_manager conclusion
+	const lastAgentComment = [...expComments]
+		.reverse()
+		.find((c) => c.author === "analyst" || c.author === "risk_manager");
+	if (lastAgentComment) {
+		const snippet = lastAgentComment.content.slice(0, 300).replace(/\n+/g, " ");
+		lines.push(`Final conclusion: ${snippet}`);
+	}
+
+	return lines.join("\n");
+}
+
+/**
+ * Complete current experiment and create a new one.
+ * - Marks current as completed
+ * - Generates memory summary (stored in memory_summaries)
+ * - Creates new experiment with fresh agentSession (no session resume)
+ * Used by both user-triggered (+ button) and agent-proposed (PROPOSE_NEW_EXPERIMENT) flows.
+ */
+export async function completeAndCreateNewExperiment(input: {
+	currentExperimentId: string;
+	newTitle: string;
+	newDescription?: string;
+}) {
+	const current = await getExperiment(input.currentExperimentId);
+	if (!current) throw new Error("Current experiment not found");
+
+	// 1. Generate memory summary
+	const summary = await generateMemorySummary(current.id);
+	if (summary) {
+		await db.insert(memorySummaries).values({
+			deskId: current.deskId,
+			experimentId: current.id,
+			level: "experiment",
+			content: summary,
+		});
+	}
+
+	// 2. Mark current experiment as completed
+	await db
+		.update(experiments)
+		.set({ status: "completed", updatedAt: new Date() })
+		.where(eq(experiments.id, current.id));
+
+	// 3. Reset agent session for this desk (new sessionId on next run)
+	await db
+		.update(agentSessions)
+		.set({ sessionId: null, updatedAt: new Date() })
+		.where(eq(agentSessions.deskId, current.deskId));
+
+	// 4. Create new experiment
+	const newExperiment = await createExperiment({
+		deskId: current.deskId,
+		title: input.newTitle,
+		description: input.newDescription,
+	});
+
+	return newExperiment;
 }

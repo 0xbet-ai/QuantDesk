@@ -93,6 +93,11 @@ export function App() {
 								setDeskPage("experiments");
 							}}
 							onPageChange={setDeskPage}
+							onNewExperiment={(newExp) => {
+								setExperiments((prev) => [...prev, newExp]);
+								setSelectedExperimentId(newExp.id);
+								setDeskPage("experiments");
+							}}
 						/>
 					) : null
 				}
@@ -119,7 +124,15 @@ export function App() {
 							onBack={() => setDeskPage("experiments")}
 						/>
 					) : selectedExperiment && deskPage === "experiments" ? (
-						<CommentThread experiment={selectedExperiment} onOpenRun={() => setDeskPage("runs")} />
+						<CommentThread
+							experiment={selectedExperiment}
+							onOpenRun={() => setDeskPage("runs")}
+							onNewExperiment={(newExp) => {
+								setExperiments((prev) => [...prev, newExp]);
+								setSelectedExperimentId(newExp.id);
+								setDeskPage("experiments");
+							}}
+						/>
 					) : selectedDesk && deskPage !== "experiments" ? (
 						<div className="flex-1 flex items-center justify-center text-[13px] text-foreground/50">
 							{deskPage.charAt(0).toUpperCase() + deskPage.slice(1)} — coming soon

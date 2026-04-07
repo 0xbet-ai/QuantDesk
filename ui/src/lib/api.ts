@@ -109,6 +109,14 @@ export const archiveDesk = (id: string) => api<Desk>(`/desks/${id}/archive`, { m
 
 export const listExperiments = (deskId: string) =>
 	api<Experiment[]>(`/desks/${deskId}/experiments`);
+export const completeAndCreateNewExperiment = (
+	experimentId: string,
+	data: { title: string; description?: string },
+) =>
+	api<Experiment>(`/experiments/${experimentId}/complete-and-new`, {
+		method: "POST",
+		body: JSON.stringify(data),
+	});
 export const listRuns = (experimentId: string) => api<Run[]>(`/experiments/${experimentId}/runs`);
 export const listComments = (experimentId: string) =>
 	api<Comment[]>(`/experiments/${experimentId}/comments`);
@@ -139,9 +147,18 @@ export interface Dataset {
 	createdAt: string;
 }
 
+export interface DatasetPreview {
+	headers: string[];
+	rows: string[][];
+	totalRows: number;
+	fileSize: number;
+}
+
 export const listDatasets = (deskId: string) => api<Dataset[]>(`/desks/${deskId}/datasets`);
 export const deleteDataset = (deskId: string, datasetId: string) =>
 	api<Dataset>(`/desks/${deskId}/datasets/${datasetId}`, { method: "DELETE" });
+export const previewDataset = (deskId: string, datasetId: string, limit = 50) =>
+	api<DatasetPreview>(`/desks/${deskId}/datasets/${datasetId}/preview?limit=${limit}`);
 
 export interface CommitInfo {
 	hash: string;

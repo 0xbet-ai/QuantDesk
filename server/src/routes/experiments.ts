@@ -4,7 +4,7 @@ import { publishExperimentEvent } from "../realtime/live-events.js";
 import { readAgentLog } from "../services/agent-log.js";
 import { stopAgent, triggerAgent } from "../services/agent-trigger.js";
 import { createComment, listComments } from "../services/comments.js";
-import { getExperiment } from "../services/experiments.js";
+import { completeAndCreateNewExperiment, getExperiment } from "../services/experiments.js";
 import { listRuns } from "../services/runs.js";
 
 const router = Router();
@@ -68,6 +68,23 @@ router.get("/:id/agent/logs", async (req, res, next) => {
 	try {
 		const entries = readAgentLog(req.params.id);
 		res.json(entries);
+	} catch (err) {
+		next(err);
+	}
+});
+
+router.post("/:id/complete-and-new", async (req, res, next) => {
+	try {
+		const { title, description } = req.body as { title?: string; description?: string };
+		if (!title || typeof title !== "string" || !title.trim()) {
+			throw new HttpError(400, "title is required");
+		}
+		const newExperiment = await completeAndCreateNewExperiment({
+			currentExperimentId: req.params.id,
+			newTitle: title.trim(),
+			newDescription: description,
+		});
+		res.status(201).json(newExperiment);
 	} catch (err) {
 		next(err);
 	}

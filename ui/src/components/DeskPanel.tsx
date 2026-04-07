@@ -1,8 +1,8 @@
-import { Activity, Code, Database, FlaskConical, Settings } from "lucide-react";
+import { Activity, Code, Database, FlaskConical, Plus, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import venues from "../../../strategies/venues.json";
 import type { Desk, Experiment, Run, Strategy } from "../lib/api.js";
-import { listRuns, listStrategies } from "../lib/api.js";
+import { completeAndCreateNewExperiment, listRuns, listStrategies } from "../lib/api.js";
 import { SidebarNavItem } from "./SidebarNavItem.js";
 import { SidebarSection } from "./SidebarSection.js";
 import { StatusDot } from "./StatusDot.js";
@@ -20,6 +20,7 @@ interface Props {
 	activePage: DeskPage;
 	onSelectExperiment: (id: string) => void;
 	onPageChange: (page: DeskPage) => void;
+	onNewExperiment: (newExperiment: Experiment) => void;
 }
 
 function formatUSD(value: string | number): string {
@@ -40,7 +41,30 @@ export function DeskPanel({
 	activePage,
 	onSelectExperiment,
 	onPageChange,
+	onNewExperiment,
 }: Props) {
+	const [creating, setCreating] = useState(false);
+
+	const handleNewExperiment = async () => {
+		if (creating || experiments.length === 0) return;
+		const title = window.prompt("New experiment title:", "");
+		if (!title || !title.trim()) return;
+
+		setCreating(true);
+		try {
+			// Use the latest experiment as the "current" to complete
+			const current = experiments[experiments.length - 1]!;
+			const newExp = await completeAndCreateNewExperiment(current.id, {
+				title: title.trim(),
+			});
+			onNewExperiment(newExp);
+		} catch (err) {
+			console.error(err);
+			window.alert("Failed to create new experiment.");
+		} finally {
+			setCreating(false);
+		}
+	};
 	const [bestReturns, setBestReturns] = useState<Record<string, number | null>>({});
 	const [strategy, setStrategy] = useState<Strategy | null>(null);
 
@@ -129,7 +153,20 @@ export function DeskPanel({
 			<ScrollArea className="flex-1">
 				<div className="flex flex-col gap-4 py-2">
 					{/* Experiments */}
-					<SidebarSection label="Experiments">
+					<SidebarSection
+						label="Experiments"
+						action={
+							<button
+								type="button"
+								onClick={handleNewExperiment}
+								disabled={creating || experiments.length === 0}
+								className="inline-flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
+								title="New experiment"
+							>
+								<Plus className="h-3 w-3" />
+							</button>
+						}
+					>
 						{experiments.map((exp) => {
 							const best = bestReturns[exp.id];
 							return (

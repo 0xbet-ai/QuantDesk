@@ -15,7 +15,12 @@ import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import type { Comment, Experiment } from "../lib/api.js";
-import { getAgentLogs, listComments, postComment } from "../lib/api.js";
+import {
+	completeAndCreateNewExperiment,
+	getAgentLogs,
+	listComments,
+	postComment,
+} from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { LiveRunWidget } from "./LiveRunWidget.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
@@ -27,6 +32,7 @@ import { Separator } from "./ui/separator.js";
 interface Props {
 	experiment: Experiment;
 	onOpenRun?: () => void;
+	onNewExperiment?: (newExperiment: Experiment) => void;
 }
 
 const authorConfig: Record<string, { icon: typeof User; color: string; label: string }> = {
@@ -140,11 +146,32 @@ function ProposalCard({
 	proposal,
 	experimentId,
 	onAction,
-}: { proposal: Proposal; experimentId: string; onAction: () => void }) {
+	onNewExperiment,
+}: {
+	proposal: Proposal;
+	experimentId: string;
+	onAction: () => void;
+	onNewExperiment?: (newExp: Experiment) => void;
+}) {
 	const [status, setStatus] = useState<"pending" | "approved" | "declined">("pending");
 
 	const handleApprove = async () => {
 		setStatus("approved");
+
+		// Special handling for NEW_EXPERIMENT — actually create the experiment
+		if (proposal.type === "NEW_EXPERIMENT" && onNewExperiment) {
+			try {
+				const title = proposal.value || "New Experiment";
+				const newExp = await completeAndCreateNewExperiment(experimentId, { title });
+				onNewExperiment(newExp);
+				return;
+			} catch (err) {
+				console.error("Failed to create new experiment:", err);
+				setStatus("pending");
+				return;
+			}
+		}
+
 		const message = `Approved: ${proposalLabels[proposal.type]}${proposal.value ? ` — ${proposal.value}` : ""}`;
 		await postComment(experimentId, message);
 		onAction();
@@ -235,13 +262,14 @@ function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
 	);
 }
 
-export function CommentThread({ experiment, onOpenRun }: Props) {
+export function CommentThread({ experiment, onOpenRun, onNewExperiment }: Props) {
 	const [comments, setComments] = useState<Comment[]>([]);
 	const [input, setInput] = useState("");
 	const [sending, setSending] = useState(false);
 	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
 	const [streamEntries, setStreamEntries] = useState<TranscriptEntry[]>([]);
 	const [runStartedAt, setRunStartedAt] = useState<Date | null>(null);
+	const [fadingOut, setFadingOut] = useState(false);
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	const refresh = useCallback(() => {
@@ -303,7 +331,12 @@ export function CommentThread({ experiment, onOpenRun }: Props) {
 			setThinkingRole(null);
 			setRunStartedAt(null);
 			refresh();
-			// Keep streamEntries — they'll show as completed transcript
+			// Fade out the live widget — the completed transcript is now in the comment card
+			setFadingOut(true);
+			setTimeout(() => {
+				setStreamEntries([]);
+				setFadingOut(false);
+			}, 600);
 		}
 		if (event.type === "comment.new") {
 			refresh();
@@ -376,6 +409,7 @@ export function CommentThread({ experiment, onOpenRun }: Props) {
 										setThinkingRole("analyst");
 										setStreamEntries([]);
 									}}
+									onNewExperiment={onNewExperiment}
 								/>
 							))}
 							{(c.author === "analyst" || c.author === "risk_manager") && (
@@ -390,7 +424,14 @@ export function CommentThread({ experiment, onOpenRun }: Props) {
 					</div>
 				)}
 				{(thinkingRole || streamEntries.length > 0) && (
-					<div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+					<div
+						className={cn(
+							"transition-all duration-500 ease-out",
+							fadingOut
+								? "opacity-0 -translate-y-2 max-h-0 overflow-hidden"
+								: "opacity-100 translate-y-0 animate-in fade-in slide-in-from-bottom-2 duration-300",
+						)}
+					>
 						<LiveRunWidget
 							experimentNumber={experiment.number}
 							agentRole={thinkingRole ?? "analyst"}
