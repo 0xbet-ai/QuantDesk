@@ -25,6 +25,18 @@ export interface Experiment {
 	updatedAt: string;
 }
 
+export interface Metric {
+	key: string;
+	label: string;
+	value: number;
+	format: "percent" | "number" | "integer" | "currency";
+	tone?: "positive" | "negative" | "neutral";
+}
+
+export interface RunResult {
+	metrics: Metric[];
+}
+
 export interface Run {
 	id: string;
 	experimentId: string;
@@ -33,7 +45,7 @@ export interface Run {
 	mode: string;
 	status: string;
 	config: Record<string, unknown>;
-	result: { returnPct: number; drawdownPct: number; winRate: number; totalTrades: number } | null;
+	result: RunResult | null;
 	commitHash: string | null;
 	datasetId: string | null;
 	error: string | null;

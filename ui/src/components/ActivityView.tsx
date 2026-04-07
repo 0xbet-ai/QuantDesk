@@ -33,17 +33,40 @@ function formatRelativeTime(timestamp: string): string {
 	return new Date(timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function actorInitials(actor: string): string {
-	if (actor === "You") return "YO";
-	if (actor === "System") return "SY";
-	return actor.slice(0, 2).toUpperCase();
+function actorLabel(actor: string): string {
+	if (actor === "You") return "You";
+	if (actor === "System") return "System";
+	if (actor === "analyst") return "Analyst";
+	if (actor === "risk_manager") return "Risk Manager";
+	return actor.charAt(0).toUpperCase() + actor.slice(1);
 }
 
-function actorColor(actor: string): string {
+function actorBadgeColor(actor: string): string {
 	if (actor === "You") return "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300";
 	if (actor === "System")
 		return "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300";
+	if (actor === "risk_manager")
+		return "bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300";
 	return "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300";
+}
+
+function actorIconColor(actor: string): string {
+	if (actor === "You") return "text-blue-600 dark:text-blue-400";
+	if (actor === "System") return "text-amber-600 dark:text-amber-400";
+	if (actor === "risk_manager") return "text-orange-600 dark:text-orange-400";
+	return "text-purple-600 dark:text-purple-400";
+}
+
+function stripActorPrefix(summary: string, actor: string): string {
+	// Remove leading actor mention so the badge isn't duplicated.
+	// e.g. "You commented" -> "commented", "analyst commented" -> "commented"
+	const label = actorLabel(actor);
+	const lower = summary.toLowerCase();
+	const candidates = [label.toLowerCase(), actor.toLowerCase()];
+	for (const c of candidates) {
+		if (lower.startsWith(`${c} `)) return summary.slice(c.length + 1);
+	}
+	return summary;
 }
 
 const typeIcons: Record<ActivityItem["type"], typeof Activity> = {
@@ -96,19 +119,21 @@ export function ActivityView({ desk }: Props) {
 								const Icon = typeIcons[item.type];
 								return (
 									<div key={item.id} className="flex items-center gap-3 py-2.5 group">
-										{/* Actor badge */}
-										<div
-											className={`flex size-7 items-center justify-center rounded-full text-[10px] font-semibold shrink-0 ${actorColor(item.actor)}`}
+										{/* Actor badge (full name) */}
+										<span
+											className={`px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${actorBadgeColor(item.actor)}`}
 										>
-											{actorInitials(item.actor)}
-										</div>
+											{actorLabel(item.actor)}
+										</span>
 
 										{/* Icon */}
-										<Icon className="size-3.5 text-muted-foreground shrink-0" />
+										<Icon className={`size-3.5 shrink-0 ${actorIconColor(item.actor)}`} />
 
 										{/* Summary + detail */}
 										<div className="flex-1 min-w-0 flex items-center gap-1.5">
-											<span className="text-[13px] text-foreground">{item.summary}</span>
+											<span className="text-[13px] text-foreground">
+												{stripActorPrefix(item.summary, item.actor)}
+											</span>
 											{item.detail && (
 												<span className="text-[13px] text-muted-foreground truncate">
 													— {item.detail}

@@ -1,4 +1,14 @@
-import { Activity, Code, Database, FlaskConical, Plus, Settings } from "lucide-react";
+import {
+	Activity,
+	Bot,
+	Code,
+	Database,
+	FlaskConical,
+	Plus,
+	Settings,
+	Shield,
+	User,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import venues from "../../../strategies/venues.json";
 import type { Desk, Experiment, Run, Strategy } from "../lib/api.js";
@@ -10,6 +20,7 @@ import { DeskIcon } from "./icons/DeskIcon.js";
 import { Badge } from "./ui/badge.js";
 import { ScrollArea } from "./ui/scroll-area.js";
 import { Separator } from "./ui/separator.js";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip.js";
 
 export type DeskPage = "experiments" | "runs" | "datasets" | "code" | "activity" | "settings";
 
@@ -29,9 +40,11 @@ function formatUSD(value: string | number): string {
 }
 
 function bestReturn(runs: Run[]): number | null {
-	const completed = runs.filter((r) => r.result != null);
-	if (completed.length === 0) return null;
-	return Math.max(...completed.map((r) => r.result!.returnPct));
+	const values = runs
+		.map((r) => r.result?.metrics?.[0]?.value)
+		.filter((v): v is number => typeof v === "number");
+	if (values.length === 0) return null;
+	return Math.max(...values);
 }
 
 export function DeskPanel({
@@ -47,15 +60,15 @@ export function DeskPanel({
 
 	const handleNewExperiment = async () => {
 		if (creating || experiments.length === 0) return;
-		const title = window.prompt("New experiment title:", "");
-		if (!title || !title.trim()) return;
 
 		setCreating(true);
 		try {
-			// Use the latest experiment as the "current" to complete
+			// Use the latest experiment as the "current" to complete.
+			// Placeholder title — server will auto-trigger agent to propose a direction,
+			// and the agent response will update the title via [EXPERIMENT_TITLE] marker.
 			const current = experiments[experiments.length - 1]!;
 			const newExp = await completeAndCreateNewExperiment(current.id, {
-				title: title.trim(),
+				title: "New Experiment",
 			});
 			onNewExperiment(newExp);
 		} catch (err) {
@@ -101,7 +114,36 @@ export function DeskPanel({
 					<div className="flex size-7 items-center justify-center rounded-md bg-muted shrink-0">
 						<DeskIcon className="size-3.5 text-foreground/70" />
 					</div>
-					<h2 className="text-xs font-semibold truncate">{desk.name}</h2>
+					<h2 className="text-xs font-semibold truncate flex-1">{desk.name}</h2>
+					{/* Team avatars */}
+					<div className="flex items-center -space-x-1 shrink-0">
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<div className="flex size-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40 ring-2 ring-background">
+									<User className="size-2.5 text-blue-700 dark:text-blue-300" />
+								</div>
+							</TooltipTrigger>
+							<TooltipContent side="bottom">You — Lead</TooltipContent>
+						</Tooltip>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<div className="flex size-5 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/40 ring-2 ring-background">
+									<Bot className="size-2.5 text-purple-700 dark:text-purple-300" />
+								</div>
+							</TooltipTrigger>
+							<TooltipContent side="bottom">Analyst — Strategy research & backtests</TooltipContent>
+						</Tooltip>
+						<Tooltip>
+							<TooltipTrigger asChild>
+								<div className="flex size-5 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40 ring-2 ring-background">
+									<Shield className="size-2.5 text-orange-700 dark:text-orange-300" />
+								</div>
+							</TooltipTrigger>
+							<TooltipContent side="bottom">
+								Risk Manager — Position sizing & risk review
+							</TooltipContent>
+						</Tooltip>
+					</div>
 				</div>
 
 				{desk.description && (
@@ -152,21 +194,19 @@ export function DeskPanel({
 			{/* Scrollable middle: Experiments + Live */}
 			<ScrollArea className="flex-1">
 				<div className="flex flex-col gap-4 py-2">
-					{/* Experiments */}
-					<SidebarSection
-						label="Experiments"
-						action={
-							<button
-								type="button"
-								onClick={handleNewExperiment}
-								disabled={creating || experiments.length === 0}
-								className="inline-flex h-4 w-4 items-center justify-center text-muted-foreground hover:text-foreground transition-colors disabled:opacity-40"
-								title="New experiment"
-							>
-								<Plus className="h-3 w-3" />
-							</button>
-						}
+					{/* New Experiment button — same style as New Desk */}
+					<button
+						type="button"
+						onClick={handleNewExperiment}
+						disabled={creating || experiments.length === 0}
+						className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground/70 hover:bg-accent/50 hover:text-foreground transition-colors w-full text-left disabled:opacity-40 disabled:hover:bg-transparent"
 					>
+						<Plus className="h-4 w-4 shrink-0" />
+						<span className="truncate">{creating ? "Creating..." : "New Experiment"}</span>
+					</button>
+
+					{/* Experiments */}
+					<SidebarSection label="Experiments">
 						{experiments.map((exp) => {
 							const best = bestReturns[exp.id];
 							return (

@@ -84,7 +84,27 @@ router.post("/:id/complete-and-new", async (req, res, next) => {
 			newTitle: title.trim(),
 			newDescription: description,
 		});
+
+		// Insert a kickoff system comment and trigger agent to propose next direction
+		const kickoff = await createComment({
+			experimentId: newExperiment.id,
+			author: "system",
+			content:
+				"Based on the previous experiment's findings, propose the next experiment direction. Start your response with a line in the format: [EXPERIMENT_TITLE] <short title for this new experiment>",
+		});
+
+		publishExperimentEvent({
+			experimentId: newExperiment.id,
+			type: "comment.new",
+			payload: kickoff as unknown as Record<string, unknown>,
+		});
+
 		res.status(201).json(newExperiment);
+
+		// Trigger agent asynchronously
+		triggerAgent(newExperiment.id).catch((err) => {
+			console.error("Agent trigger failed on new experiment:", err);
+		});
 	} catch (err) {
 		next(err);
 	}

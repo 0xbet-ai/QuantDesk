@@ -25,12 +25,38 @@ const runs = [
 	{
 		runNumber: 1,
 		isBaseline: true,
-		result: { returnPct: 12.3, drawdownPct: -3.1, winRate: 0.6, totalTrades: 47 },
+		result: {
+			metrics: [
+				{ key: "return", label: "Return", value: 12.3, format: "percent", tone: "positive" },
+				{
+					key: "drawdown",
+					label: "Max Drawdown",
+					value: -3.1,
+					format: "percent",
+					tone: "negative",
+				},
+				{ key: "win_rate", label: "Win Rate", value: 60, format: "percent" },
+				{ key: "trades", label: "Trades", value: 47, format: "integer" },
+			],
+		},
 	},
 	{
 		runNumber: 2,
 		isBaseline: false,
-		result: { returnPct: 15.1, drawdownPct: -2.8, winRate: 0.65, totalTrades: 52 },
+		result: {
+			metrics: [
+				{ key: "return", label: "Return", value: 15.1, format: "percent", tone: "positive" },
+				{
+					key: "drawdown",
+					label: "Max Drawdown",
+					value: -2.8,
+					format: "percent",
+					tone: "negative",
+				},
+				{ key: "win_rate", label: "Win Rate", value: 65, format: "percent" },
+				{ key: "trades", label: "Trades", value: 52, format: "integer" },
+			],
+		},
 	},
 	{ runNumber: 3, isBaseline: false, result: null },
 ];
@@ -93,7 +119,14 @@ describe("buildAnalystPrompt", () => {
 });
 
 describe("buildRiskManagerPrompt", () => {
-	const runResult = { returnPct: 15.1, drawdownPct: -2.8, winRate: 0.65, totalTrades: 52 };
+	const runResult = {
+		metrics: [
+			{ key: "return", label: "Return", value: 15.1, format: "percent", tone: "positive" },
+			{ key: "drawdown", label: "Max Drawdown", value: -2.8, format: "percent", tone: "negative" },
+			{ key: "win_rate", label: "Win Rate", value: 65, format: "percent" },
+			{ key: "trades", label: "Trades", value: 52, format: "integer" },
+		],
+	};
 
 	it("includes run result + desk constraints", () => {
 		const prompt = buildRiskManagerPrompt({ desk, runResult });

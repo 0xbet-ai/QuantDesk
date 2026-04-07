@@ -13,10 +13,18 @@ interface ExperimentContext {
 	title: string;
 }
 
+interface MetricEntry {
+	key: string;
+	label: string;
+	value: number;
+	format: string;
+	tone?: string;
+}
+
 interface RunContext {
 	runNumber: number;
 	isBaseline: boolean;
-	result: { returnPct: number; drawdownPct: number; winRate: number; totalTrades: number } | null;
+	result: { metrics: MetricEntry[] } | null;
 }
 
 interface CommentContext {
@@ -40,7 +48,7 @@ interface AnalystPromptInput {
 
 interface RiskManagerPromptInput {
 	desk: DeskContext;
-	runResult: { returnPct: number; drawdownPct: number; winRate: number; totalTrades: number };
+	runResult: { metrics: MetricEntry[] };
 }
 
 export function estimateTokens(text: string): number {
@@ -91,8 +99,28 @@ Write a Python backtest script and execute it. The script should:
 2. Always use real market data. Choose the data type the strategy requires (OHLCV, tick, orderbook, funding rate, OI, etc.) and fetch it via ccxt or other appropriate libraries. Never use synthetic or random data.
 3. Calculate performance metrics
 4. For long-running backtests, split execution into phases (e.g., data download, optimization, final backtest) and run each phase as a separate command so the user can see intermediate progress
-5. Print a JSON result to stdout as the LAST line of output, with this exact schema:
-   {"returnPct": <number>, "drawdownPct": <number>, "winRate": <number>, "totalTrades": <number>}
+5. Print a JSON result to stdout as the LAST line of output
+
+The result must be a JSON object with a "metrics" array. Choose the metrics that are most relevant to the strategy you ran — different strategies have different important metrics (e.g. arbitrage cares about Sharpe and slippage, market making cares about inventory turnover and spread capture, trend following cares about return and max drawdown).
+
+Schema:
+{
+  "metrics": [
+    {"key": "return", "label": "Return", "value": <number>, "format": "percent", "tone": "positive"},
+    {"key": "drawdown", "label": "Max Drawdown", "value": <number>, "format": "percent", "tone": "negative"},
+    {"key": "sharpe", "label": "Sharpe Ratio", "value": <number>, "format": "number"},
+    {"key": "trades", "label": "Total Trades", "value": <number>, "format": "integer"}
+  ]
+}
+
+Field reference:
+- key: short identifier (snake_case or camelCase)
+- label: human-readable name shown in the UI
+- value: numeric value (raw number, not formatted string)
+- format: one of "percent" | "number" | "integer" | "currency"
+- tone (optional): "positive" (green when value > 0), "negative" (red), "neutral" (default)
+
+Pick 4-8 metrics that best characterize the strategy's performance. Always include at least one return-like metric (for sorting). Order them by importance.
 
 After you run the backtest and get the JSON result, include it in your response wrapped in:
 [BACKTEST_RESULT]
@@ -116,6 +144,12 @@ Always use proper Markdown in your responses:
 - Metrics and key numbers: use **bold**
 - Code: use fenced code blocks with language tags
 
+## Experiment Title
+If the current experiment has no meaningful title yet (e.g. placeholder "New Experiment"), start your first response with a line in the format:
+[EXPERIMENT_TITLE] <short descriptive title, max 8 words>
+
+The title should clearly describe the hypothesis or approach being tested (e.g. "EMA 7/26 crossover with RSI filter").
+
 ## Proposals
 When you want to propose actions, use these markers at the start of a line:
 - [PROPOSE_VALIDATION] — suggest Risk Manager validation
@@ -138,10 +172,21 @@ ${desk.description ?? ""}
 	// Runs
 	if (runs.length > 0) {
 		const runLines = runs
-			.filter((r) => r.result)
+			.filter((r) => r.result && r.result.metrics.length > 0)
 			.map((r) => {
 				const tag = r.isBaseline ? " (baseline)" : "";
-				return `- Run #${r.runNumber}${tag}: return ${r.result!.returnPct}%, drawdown ${r.result!.drawdownPct}%, win rate ${(r.result!.winRate * 100).toFixed(0)}%, ${r.result!.totalTrades} trades`;
+				const metricsStr = r
+					.result!.metrics.map((m) => {
+						const v =
+							m.format === "percent"
+								? `${m.value}%`
+								: m.format === "integer"
+									? Math.round(m.value)
+									: m.value;
+						return `${m.label} ${v}`;
+					})
+					.join(", ");
+				return `- Run #${r.runNumber}${tag}: ${metricsStr}`;
 			});
 		if (runLines.length > 0) {
 			sections.push(`## Run History\n${runLines.join("\n")}`);
@@ -185,10 +230,17 @@ Validate the backtest results against desk constraints. Flag overfitting, bias, 
 - Stop loss (max drawdown): ${desk.stopLoss}%
 
 ## Backtest Result to Validate
-- Return: ${runResult.returnPct}%
-- Max drawdown: ${runResult.drawdownPct}%
-- Win rate: ${(runResult.winRate * 100).toFixed(0)}%
-- Total trades: ${runResult.totalTrades}
+${runResult.metrics
+	.map((m) => {
+		const v =
+			m.format === "percent"
+				? `${m.value}%`
+				: m.format === "integer"
+					? Math.round(m.value)
+					: m.value;
+		return `- ${m.label}: ${v}`;
+	})
+	.join("\n")}
 
-Provide a validation report. If the result exceeds the target by an unusually large margin or the drawdown is suspiciously low, flag it.`;
+Provide a validation report. Look for signs of overfitting, unrealistic performance, suspiciously low drawdown, or returns that exceed the target by an unusually large margin.`;
 }

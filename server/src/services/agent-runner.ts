@@ -11,19 +11,27 @@ interface DeskContext {
 	description: string | null;
 }
 
+interface MetricEntry {
+	key: string;
+	label: string;
+	value: number;
+	format: string;
+	tone?: string;
+}
+
 interface RunInput {
 	desk: DeskContext;
 	experiment: { number: number; title: string };
 	runs: Array<{
 		runNumber: number;
 		isBaseline: boolean;
-		result: { returnPct: number; drawdownPct: number; winRate: number; totalTrades: number } | null;
+		result: { metrics: MetricEntry[] } | null;
 	}>;
 	comments: Array<{ author: string; content: string }>;
 	memorySummaries: Array<{ level: string; content: string }>;
 	sessionId: string | undefined;
 	agentRole: "analyst" | "risk_manager";
-	runResult?: { returnPct: number; drawdownPct: number; winRate: number; totalTrades: number };
+	runResult?: { metrics: MetricEntry[] };
 }
 
 interface RunResult {

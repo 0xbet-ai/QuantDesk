@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import "./index.css";
 import { App } from "./App.js";
 import { TooltipProvider } from "./components/ui/tooltip.js";
@@ -18,13 +19,15 @@ const root = document.getElementById("root");
 if (root) {
 	createRoot(root).render(
 		<StrictMode>
-			<ThemeProvider>
-				<LiveUpdatesProvider>
-					<TooltipProvider>
-						<App />
-					</TooltipProvider>
-				</LiveUpdatesProvider>
-			</ThemeProvider>
+			<BrowserRouter>
+				<ThemeProvider>
+					<LiveUpdatesProvider>
+						<TooltipProvider>
+							<App />
+						</TooltipProvider>
+					</LiveUpdatesProvider>
+				</ThemeProvider>
+			</BrowserRouter>
 		</StrictMode>,
 	);
 }

@@ -33,6 +33,7 @@ interface Props {
 	experiment: Experiment;
 	onOpenRun?: () => void;
 	onNewExperiment?: (newExperiment: Experiment) => void;
+	onExperimentUpdated?: () => void;
 }
 
 const authorConfig: Record<string, { icon: typeof User; color: string; label: string }> = {
@@ -262,7 +263,12 @@ function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
 	);
 }
 
-export function CommentThread({ experiment, onOpenRun, onNewExperiment }: Props) {
+export function CommentThread({
+	experiment,
+	onOpenRun,
+	onNewExperiment,
+	onExperimentUpdated,
+}: Props) {
 	const [comments, setComments] = useState<Comment[]>([]);
 	const [input, setInput] = useState("");
 	const [sending, setSending] = useState(false);
@@ -340,6 +346,9 @@ export function CommentThread({ experiment, onOpenRun, onNewExperiment }: Props)
 		}
 		if (event.type === "comment.new") {
 			refresh();
+		}
+		if (event.type === "experiment.updated") {
+			onExperimentUpdated?.();
 		}
 	});
 

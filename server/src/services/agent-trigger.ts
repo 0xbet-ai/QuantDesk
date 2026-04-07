@@ -189,10 +189,13 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 			runNumber: r.runNumber,
 			isBaseline: r.isBaseline,
 			result: r.result as {
-				returnPct: number;
-				drawdownPct: number;
-				winRate: number;
-				totalTrades: number;
+				metrics: {
+					key: string;
+					label: string;
+					value: number;
+					format: string;
+					tone?: string;
+				}[];
 			} | null,
 		})),
 		comments: expComments.map((c) => ({ author: c.author, content: c.content })),
@@ -237,6 +240,56 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 		if (backtestMatch?.[1]) {
 			try {
 				const parsed = JSON.parse(backtestMatch[1]);
+				// Support both new schema (metrics array) and legacy flat schema
+				let resultPayload: { metrics: unknown[] };
+				if (Array.isArray(parsed.metrics)) {
+					resultPayload = { metrics: parsed.metrics };
+				} else {
+					// Legacy fallback — wrap old shape into the new one
+					const legacy: {
+						key: string;
+						label: string;
+						value: number;
+						format: string;
+						tone?: string;
+					}[] = [];
+					if (typeof parsed.returnPct === "number") {
+						legacy.push({
+							key: "return",
+							label: "Return",
+							value: parsed.returnPct,
+							format: "percent",
+							tone: "positive",
+						});
+					}
+					if (typeof parsed.drawdownPct === "number") {
+						legacy.push({
+							key: "drawdown",
+							label: "Max Drawdown",
+							value: parsed.drawdownPct,
+							format: "percent",
+							tone: "negative",
+						});
+					}
+					if (typeof parsed.winRate === "number") {
+						legacy.push({
+							key: "win_rate",
+							label: "Win Rate",
+							value: parsed.winRate,
+							format: "percent",
+						});
+					}
+					if (typeof parsed.totalTrades === "number") {
+						legacy.push({
+							key: "trades",
+							label: "Trades",
+							value: parsed.totalTrades,
+							format: "integer",
+						});
+					}
+					resultPayload = { metrics: legacy };
+				}
+
 				const existingRuns = await db
 					.select()
 					.from(runs)
@@ -252,12 +305,7 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 						isBaseline,
 						mode: "backtest",
 						status: "completed",
-						result: {
-							returnPct: parsed.returnPct,
-							drawdownPct: parsed.drawdownPct,
-							winRate: parsed.winRate,
-							totalTrades: parsed.totalTrades,
-						},
+						result: resultPayload,
 						commitHash: latestCommitHash,
 						completedAt: new Date(),
 					})
@@ -304,11 +352,35 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 		}
 	}
 
-	// 9. Post agent response as comment (strip backtest markers)
+	// 8c. Extract experiment title from [EXPERIMENT_TITLE] marker and update experiment
+	if (result.resultText) {
+		const titleMatch = result.resultText.match(/\[EXPERIMENT_TITLE\]\s*(.+?)(?:\n|$)/);
+		if (titleMatch?.[1]) {
+			const newTitle = titleMatch[1].trim().slice(0, 120);
+			if (newTitle && newTitle !== experiment.title) {
+				try {
+					await db
+						.update(experiments)
+						.set({ title: newTitle, updatedAt: new Date() })
+						.where(eq(experiments.id, experimentId));
+					publishExperimentEvent({
+						experimentId,
+						type: "experiment.updated",
+						payload: { title: newTitle },
+					});
+				} catch {
+					/* title update failed, non-fatal */
+				}
+			}
+		}
+	}
+
+	// 9. Post agent response as comment (strip all markers)
 	if (result.resultText) {
 		const cleanText = result.resultText
 			.replace(/\[BACKTEST_RESULT\][\s\S]*?\[\/BACKTEST_RESULT\]/g, "")
 			.replace(/\[DATASET\][\s\S]*?\[\/DATASET\]/g, "")
+			.replace(/^\[EXPERIMENT_TITLE\].*$/gm, "")
 			.trim();
 		if (cleanText) {
 			await createComment({

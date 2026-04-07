@@ -1,5 +1,6 @@
 import { ArrowLeft, GitCommit, Play, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { Experiment, Run } from "../lib/api.js";
 import { getAgentLogs, goLive, listRuns } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
@@ -34,11 +35,17 @@ function formatDuration(start: string, end: string): string {
 	return `${sec}s`;
 }
 
-/** Safely format win rate — handle both 0-1 (ratio) and 0-100 (percent) inputs */
-function formatWinRate(winRate: number): string {
-	// If value is > 1, it's already a percentage
-	if (winRate > 1) return `${winRate.toFixed(0)}%`;
-	return `${(winRate * 100).toFixed(0)}%`;
+function formatMetricValue(value: number, format: string): string {
+	if (format === "percent") return `${value.toFixed(2)}%`;
+	if (format === "integer") return Math.round(value).toLocaleString();
+	if (format === "currency") return `$${value.toLocaleString()}`;
+	return value.toFixed(2);
+}
+
+/** Get the primary numeric value from a run — uses the first metric (convention) */
+function primaryValue(run: Run): number | null {
+	const m = run.result?.metrics?.[0];
+	return m?.value ?? null;
 }
 
 function RunListItem({
@@ -46,7 +53,8 @@ function RunListItem({
 	isSelected,
 	onClick,
 }: { run: Run; isSelected: boolean; onClick: () => void }) {
-	const ret = run.result?.returnPct;
+	const ret = primaryValue(run);
+	const retFormat = run.result?.metrics?.[0]?.format ?? "number";
 	return (
 		<button
 			type="button"
@@ -71,9 +79,13 @@ function RunListItem({
 				{run.status === "running" ? (
 					<span className="text-cyan-500">live</span>
 				) : ret != null ? (
-					<span className={ret > 0 ? "text-green-500" : "text-red-500"}>
-						{ret > 0 ? "+" : ""}
-						{ret.toFixed(1)}%
+					<span
+						className={
+							ret > 0 ? "text-green-500" : ret < 0 ? "text-red-500" : "text-muted-foreground"
+						}
+					>
+						{retFormat === "percent" && ret > 0 ? "+" : ""}
+						{formatMetricValue(ret, retFormat)}
 					</span>
 				) : (
 					<span className="text-muted-foreground">&mdash;</span>
@@ -141,69 +153,65 @@ function RunDetail({
 				</div>
 
 				{/* Metrics */}
-				{hasResult && (
+				{hasResult && run.result!.metrics.length > 0 && (
 					<div className="border-t border-border p-4">
 						<div className="grid grid-cols-2 sm:grid-cols-4 gap-4 tabular-nums">
-							<div>
-								<div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">
-									Return
-								</div>
-								<div
-									className={cn(
-										"text-lg font-semibold font-mono",
-										run.result!.returnPct > 0 ? "text-green-500" : "text-red-500",
-									)}
-								>
-									{run.result!.returnPct > 0 ? "+" : ""}
-									{run.result!.returnPct.toFixed(2)}%
-								</div>
-							</div>
-							<div>
-								<div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">
-									Drawdown
-								</div>
-								<div className="text-lg font-semibold font-mono text-red-500">
-									{run.result!.drawdownPct.toFixed(2)}%
-								</div>
-							</div>
-							<div>
-								<div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">
-									Win Rate
-								</div>
-								<div className="text-lg font-semibold font-mono">
-									{formatWinRate(run.result!.winRate)}
-								</div>
-							</div>
-							<div>
-								<div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">
-									Trades
-								</div>
-								<div className="text-lg font-semibold font-mono">{run.result!.totalTrades}</div>
-							</div>
+							{run.result!.metrics.map((m) => {
+								const toneClass =
+									m.tone === "positive" && m.value > 0
+										? "text-green-500"
+										: m.tone === "negative"
+											? "text-red-500"
+											: m.tone === "positive" && m.value < 0
+												? "text-red-500"
+												: "text-foreground";
+								return (
+									<div key={m.key}>
+										<div className="text-[11px] text-muted-foreground uppercase tracking-wide mb-1">
+											{m.label}
+										</div>
+										<div className={cn("text-lg font-semibold font-mono", toneClass)}>
+											{m.format === "percent" && m.tone === "positive" && m.value > 0 ? "+" : ""}
+											{formatMetricValue(m.value, m.format)}
+										</div>
+									</div>
+								);
+							})}
 						</div>
 					</div>
 				)}
 
-				{/* Delta vs baseline */}
-				{baseline?.result && run.result && !run.isBaseline && (
-					<div className="border-t border-border px-4 py-2.5">
-						<div className="flex items-center gap-1.5 text-xs">
-							<TrendingUp className="h-3 w-3 text-green-500" />
-							<span className="text-muted-foreground">vs baseline</span>
-							<span
-								className={cn(
-									"font-mono font-medium",
-									run.result.returnPct - baseline.result.returnPct > 0
-										? "text-green-500"
-										: "text-red-500",
-								)}
-							>
-								{run.result.returnPct - baseline.result.returnPct > 0 ? "+" : ""}
-								{(run.result.returnPct - baseline.result.returnPct).toFixed(2)}%
-							</span>
+				{/* Delta vs baseline — compare primary metric */}
+				{(() => {
+					const runPrimary = primaryValue(run);
+					const basePrimary = baseline ? primaryValue(baseline) : null;
+					if (baseline == null || runPrimary == null || basePrimary == null || run.isBaseline)
+						return null;
+					const delta = runPrimary - basePrimary;
+					const primaryLabel = run.result?.metrics?.[0]?.label ?? "value";
+					const primaryFormat = run.result?.metrics?.[0]?.format ?? "number";
+					return (
+						<div className="border-t border-border px-4 py-2.5">
+							<div className="flex items-center gap-1.5 text-xs">
+								<TrendingUp className="h-3 w-3 text-green-500" />
+								<span className="text-muted-foreground">vs baseline ({primaryLabel})</span>
+								<span
+									className={cn(
+										"font-mono font-medium",
+										delta > 0
+											? "text-green-500"
+											: delta < 0
+												? "text-red-500"
+												: "text-muted-foreground",
+									)}
+								>
+									{delta > 0 ? "+" : ""}
+									{formatMetricValue(delta, primaryFormat)}
+								</span>
+							</div>
 						</div>
-					</div>
-				)}
+					);
+				})()}
 			</div>
 
 			{/* Go Live button */}
@@ -237,10 +245,16 @@ function RunDetail({
 }
 
 export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailViewProps) {
+	const navigate = useNavigate();
 	const [runs, setRuns] = useState<Run[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [activeRunId, setActiveRunId] = useState<string | null>(selectedRunId);
 	const [transcriptEntries, setTranscriptEntries] = useState<TranscriptEntry[]>([]);
+
+	// Sync from URL
+	useEffect(() => {
+		setActiveRunId(selectedRunId);
+	}, [selectedRunId]);
 
 	useEffect(() => {
 		setLoading(true);
@@ -254,6 +268,13 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 			.catch(() => {})
 			.finally(() => setLoading(false));
 	}, [experiment.id, activeRunId]);
+
+	const selectRun = (id: string) => {
+		setActiveRunId(id);
+		navigate(`/desks/${experiment.deskId}/experiments/${experiment.id}/runs/${id}`, {
+			replace: true,
+		});
+	};
 
 	useEffect(() => {
 		getAgentLogs(experiment.id)
@@ -316,7 +337,7 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 								key={run.id}
 								run={run}
 								isSelected={run.id === activeRunId}
-								onClick={() => setActiveRunId(run.id)}
+								onClick={() => selectRun(run.id)}
 							/>
 						))}
 					</div>

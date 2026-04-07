@@ -9,7 +9,8 @@ export interface LiveEvent {
 		| "run.live"
 		| "agent.thinking"
 		| "agent.streaming"
-		| "agent.done";
+		| "agent.done"
+		| "experiment.updated";
 	payload: Record<string, unknown>;
 	createdAt: string;
 }

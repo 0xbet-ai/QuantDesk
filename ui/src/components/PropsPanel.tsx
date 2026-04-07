@@ -79,12 +79,13 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 						</thead>
 						<tbody>
 							{runs.map((run) => {
-								const ret = run.result?.returnPct;
-								const dd = run.result?.drawdownPct;
+								const m0 = run.result?.metrics?.[0];
+								const m1 = run.result?.metrics?.[1];
+								const ret = m0?.value;
+								const dd = m1?.value;
+								const baselineM0 = baseline?.result?.metrics?.[0];
 								const delta =
-									!run.isBaseline && baseline?.result && run.result
-										? run.result.returnPct - baseline.result.returnPct
-										: null;
+									!run.isBaseline && baselineM0 && m0 ? m0.value - baselineM0.value : null;
 								return (
 									<tr
 										key={run.id}
@@ -146,34 +147,50 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 							Run #{selectedRun.runNumber}
 						</div>
 
-						{selectedRun.result && (
-							<>
-								<PropRow label="Return">
-									<span
-										className={cn(
-											selectedRun.result.returnPct > 0 ? "text-green-500" : "text-red-500",
-										)}
-									>
-										{selectedRun.result.returnPct > 0 ? "+" : ""}
-										{selectedRun.result.returnPct.toFixed(1)}%
-									</span>
+						{selectedRun.result?.metrics.map((m) => {
+							const toneClass =
+								m.tone === "positive" && m.value > 0
+									? "text-green-500"
+									: m.tone === "negative"
+										? "text-red-500"
+										: "";
+							const formatted =
+								m.format === "percent"
+									? `${m.value > 0 && m.tone === "positive" ? "+" : ""}${m.value.toFixed(2)}%`
+									: m.format === "integer"
+										? Math.round(m.value).toLocaleString()
+										: m.format === "currency"
+											? `$${m.value.toLocaleString()}`
+											: m.value.toFixed(2);
+							return (
+								<PropRow key={m.key} label={m.label}>
+									<span className={toneClass}>{formatted}</span>
 								</PropRow>
-								<PropRow label="Drawdown">
-									<span className="text-red-500">{selectedRun.result.drawdownPct.toFixed(1)}%</span>
-								</PropRow>
-								<PropRow label="Win Rate">{(selectedRun.result.winRate * 100).toFixed(0)}%</PropRow>
-								<PropRow label="Trades">{selectedRun.result.totalTrades}</PropRow>
-							</>
-						)}
+							);
+						})}
 
-						{selectedRun.result && baseline?.result && !selectedRun.isBaseline && (
-							<div className="flex items-center gap-1.5 text-xs text-green-500 mt-2">
-								<TrendingUp className="size-3" />
-								vs baseline{" "}
-								{selectedRun.result.returnPct - baseline.result.returnPct > 0 ? "+" : ""}
-								{(selectedRun.result.returnPct - baseline.result.returnPct).toFixed(1)}%
-							</div>
-						)}
+						{(() => {
+							const runM0 = selectedRun.result?.metrics?.[0];
+							const baseM0 = baseline?.result?.metrics?.[0];
+							if (!runM0 || !baseM0 || selectedRun.isBaseline) return null;
+							const delta = runM0.value - baseM0.value;
+							return (
+								<div
+									className={cn(
+										"flex items-center gap-1.5 text-xs mt-2",
+										delta > 0
+											? "text-green-500"
+											: delta < 0
+												? "text-red-500"
+												: "text-muted-foreground",
+									)}
+								>
+									<TrendingUp className="size-3" />
+									vs baseline {delta > 0 ? "+" : ""}
+									{runM0.format === "percent" ? `${delta.toFixed(2)}%` : delta.toFixed(2)}
+								</div>
+							);
+						})()}
 
 						{selectedRun.mode === "backtest" && selectedRun.status === "completed" && (
 							<Button

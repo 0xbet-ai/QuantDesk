@@ -59,17 +59,23 @@ async function generateMemorySummary(experimentId: string): Promise<string> {
 	const lines: string[] = [];
 	lines.push(`Experiment #${experiment.number}: ${experiment.title}`);
 
-	// Summarize runs
+	// Summarize runs — use the first metric as the "primary" for sorting (usually return-like)
+	type Metric = { key: string; label: string; value: number; format: string };
+	type RunResult = { metrics: Metric[] };
+
 	const completedRuns = expRuns.filter((r) => r.result != null);
 	if (completedRuns.length > 0) {
-		type Result = { returnPct: number; drawdownPct: number; winRate: number; totalTrades: number };
-		const best = completedRuns.reduce((a, b) =>
-			(a.result as Result).returnPct > (b.result as Result).returnPct ? a : b,
-		);
-		const bestResult = best.result as Result;
-		lines.push(
-			`Best run: #${best.runNumber} — returnPct=${bestResult.returnPct.toFixed(2)}%, drawdown=${bestResult.drawdownPct.toFixed(2)}%, winRate=${(bestResult.winRate * 100).toFixed(0)}%, trades=${bestResult.totalTrades}`,
-		);
+		const primary = (r: (typeof completedRuns)[number]): number => {
+			const result = r.result as RunResult | null;
+			return result?.metrics?.[0]?.value ?? 0;
+		};
+		const best = completedRuns.reduce((a, b) => (primary(a) > primary(b) ? a : b));
+		const bestResult = best.result as RunResult;
+		const metricSummary = bestResult.metrics
+			.slice(0, 4)
+			.map((m) => `${m.label}=${m.value}`)
+			.join(", ");
+		lines.push(`Best run: #${best.runNumber} — ${metricSummary}`);
 		lines.push(`Total runs: ${completedRuns.length}`);
 	}
 
