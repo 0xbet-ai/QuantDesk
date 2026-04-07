@@ -1,11 +1,15 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, symlinkSync, unlinkSync } from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { db } from "@quantdesk/db";
-import { datasets, desks, experiments } from "@quantdesk/db/schema";
+import { datasets, deskDatasets, desks, experiments } from "@quantdesk/db/schema";
 import { ENGINE_IMAGES, runContainer } from "@quantdesk/engines";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { createComment } from "./comments.js";
 import type { DataFetchProposal } from "./triggers.js";
+
+const DATA_CACHE_ROOT =
+	process.env.QUANTDESK_DATA_CACHE ?? join(homedir(), ".quantdesk", "datacache");
 
 interface ExecuteArgs {
 	experimentId: string;
@@ -13,12 +17,17 @@ interface ExecuteArgs {
 }
 
 /**
- * Execute an approved data-fetch proposal. Engine-aware:
- *  - classic → runs `freqtrade download-data` in a container
- *  - realtime / generic → stubbed (agent fetches via its own tools)
+ * Execute an approved data-fetch proposal.
  *
- * Posts a system comment summarising the outcome and returns the created
- * dataset row (if any).
+ * Datasets are stored in a single global cache at
+ *   `~/.quantdesk/datacache/<exchange>/...`
+ * and linked into each desk's workspace via a symlink at
+ *   `<workspace>/data/<exchange>`
+ * so the agent sees a workspace-local path but storage is shared across
+ * every desk that has approved the same (exchange, pairs, timeframe,
+ * date-range) dataset. The global `datasets` table holds one row per
+ * dataset identity; the `desk_datasets` join table records which desks
+ * have linked which datasets.
  */
 export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) {
 	const [experiment] = await db
@@ -35,39 +44,84 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 	}
 
 	if (desk.strategyMode !== "classic") {
-		// realtime / generic: we don't run a download container — the agent
-		// is responsible. Just log a system comment so the conversation
-		// moves forward.
+		// realtime / generic: no server-side fetcher — the agent handles it.
 		await createComment({
 			experimentId,
 			author: "system",
 			content:
 				`Data-fetch proposal approved, but strategy_mode=${desk.strategyMode} does not have a ` +
-				"server-side fetcher. Proceed to fetch the data yourself from within your strategy workspace.",
+				"server-side fetcher yet. Proceed to fetch the data yourself from within your " +
+				"strategy workspace.",
 		});
 		return null;
 	}
 
-	// Classic: freqtrade download-data
-	const workspaceAbs = resolve(desk.workspacePath);
+	// Classic: freqtrade download-data into the shared cache, then symlink
+	// into the desk workspace.
 	const end = new Date();
 	const start = new Date(end.getTime() - proposal.days * 24 * 60 * 60 * 1000);
 	const fmt = (d: Date) =>
 		`${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}`;
 	const timerange = `${fmt(start)}-${fmt(end)}`;
+	const startDate = start.toISOString().slice(0, 10);
+	const endDate = end.toISOString().slice(0, 10);
+
+	// 1. Check if an identical dataset row already exists globally. If so,
+	//    we can skip the download entirely and just link it to this desk.
+	const sortedPairs = [...proposal.pairs].sort();
+	const existing = await db
+		.select()
+		.from(datasets)
+		.where(
+			and(
+				eq(datasets.exchange, proposal.exchange),
+				eq(datasets.timeframe, proposal.timeframe),
+				sql`${datasets.pairs}::jsonb = ${JSON.stringify(sortedPairs)}::jsonb`,
+				sql`${datasets.dateRange}->>'start' = ${startDate}`,
+				sql`${datasets.dateRange}->>'end' = ${endDate}`,
+			),
+		);
+
+	const exchangeCachePath = join(DATA_CACHE_ROOT, proposal.exchange);
+	const workspaceAbs = resolve(desk.workspacePath);
+	const workspaceDataLink = join(workspaceAbs, "data", proposal.exchange);
+
+	if (existing.length > 0) {
+		const dataset = existing[0]!;
+		await linkDatasetToDesk(desk.id, dataset.id);
+		ensureSymlink(exchangeCachePath, workspaceDataLink);
+		await createComment({
+			experimentId,
+			author: "system",
+			content:
+				`Reusing existing dataset for ${proposal.pairs.join(", ")} ${proposal.timeframe} ` +
+				`from ${proposal.exchange} (${startDate} → ${endDate}). No download needed. ` +
+				"You may now write the strategy and emit [RUN_BACKTEST].",
+		});
+		return dataset;
+	}
+
+	// 2. No match — download into the shared cache.
+	mkdirSync(DATA_CACHE_ROOT, { recursive: true });
+	mkdirSync(exchangeCachePath, { recursive: true });
+	// freqtrade wants a user_data-shaped directory. We give it a temp
+	// workspace rooted at DATA_CACHE_ROOT with the target `data/<exchange>`
+	// being the real cache path — freqtrade writes there directly.
+	const cacheUserDir = DATA_CACHE_ROOT;
+	mkdirSync(join(cacheUserDir, "data"), { recursive: true });
 
 	await createComment({
 		experimentId,
 		author: "system",
 		content:
 			`Downloading ${proposal.pairs.join(", ")} ${proposal.timeframe} from ${proposal.exchange} ` +
-			`(${proposal.days}d, ${timerange})...`,
+			`(${proposal.days}d, ${timerange}) into shared data cache...`,
 	});
 
 	const cmd = [
 		"download-data",
 		"--userdir",
-		"/freqtrade/user_data",
+		"/datacache",
 		"--exchange",
 		proposal.exchange,
 		"--pairs",
@@ -84,13 +138,13 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 	const result = await runContainer({
 		image: ENGINE_IMAGES.freqtrade,
 		rm: true,
-		volumes: [`${workspaceAbs}:/freqtrade/user_data`],
+		volumes: [`${cacheUserDir}:/datacache`],
 		command: cmd,
 	});
 
-	const dataDir = join(workspaceAbs, "data", proposal.exchange);
 	const files =
-		existsSync(dataDir) && readdirSync(dataDir).filter((f) => !f.startsWith("."));
+		existsSync(exchangeCachePath) &&
+		readdirSync(exchangeCachePath).filter((f) => !f.startsWith("."));
 	const fileCount = files ? files.length : 0;
 
 	if (result.exitCode !== 0 || fileCount === 0) {
@@ -110,29 +164,57 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 		return null;
 	}
 
+	// 3. Insert global dataset row + link to this desk + symlink into the
+	//    workspace so strategy.py sees the standard `data/<exchange>/` path.
 	const [dataset] = await db
 		.insert(datasets)
 		.values({
-			deskId: desk.id,
 			exchange: proposal.exchange,
-			pairs: proposal.pairs,
+			pairs: sortedPairs,
 			timeframe: proposal.timeframe,
-			dateRange: {
-				start: start.toISOString().slice(0, 10),
-				end: end.toISOString().slice(0, 10),
-			},
-			path: dataDir,
+			dateRange: { start: startDate, end: endDate },
+			path: exchangeCachePath,
 		})
 		.returning();
+
+	if (dataset) {
+		await linkDatasetToDesk(desk.id, dataset.id);
+		ensureSymlink(exchangeCachePath, workspaceDataLink);
+	}
 
 	await createComment({
 		experimentId,
 		author: "system",
 		content:
 			`Downloaded ${fileCount} file(s) for ${proposal.pairs.join(", ")} ` +
-			`${proposal.timeframe} from ${proposal.exchange}. Dataset registered. ` +
-			"You may now write the strategy and emit [RUN_BACKTEST].",
+			`${proposal.timeframe} from ${proposal.exchange} into shared cache. Dataset registered ` +
+			"and linked to this desk. You may now write the strategy and emit [RUN_BACKTEST].",
 	});
 
 	return dataset ?? null;
+}
+
+async function linkDatasetToDesk(deskId: string, datasetId: string) {
+	const existing = await db
+		.select()
+		.from(deskDatasets)
+		.where(and(eq(deskDatasets.deskId, deskId), eq(deskDatasets.datasetId, datasetId)));
+	if (existing.length === 0) {
+		await db.insert(deskDatasets).values({ deskId, datasetId });
+	}
+}
+
+/**
+ * Ensure `linkPath` is a symlink pointing at `target`. If something is
+ * already there (file, dir, or a stale link), replace it.
+ */
+function ensureSymlink(target: string, linkPath: string) {
+	const parent = linkPath.substring(0, linkPath.lastIndexOf("/"));
+	mkdirSync(parent, { recursive: true });
+	try {
+		unlinkSync(linkPath);
+	} catch {
+		/* nothing to remove */
+	}
+	symlinkSync(target, linkPath);
 }

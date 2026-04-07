@@ -214,14 +214,14 @@ export function DeskPanel({
 									key={exp.id}
 									type="button"
 									onClick={() => onSelectExperiment(exp.id)}
-									className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2.5 ${
+									className={`w-full min-w-0 text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2.5 ${
 										exp.id === selectedExperimentId
 											? "bg-accent text-accent-foreground"
 											: "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
 									}`}
 								>
 									<FlaskConical className="h-4 w-4 shrink-0 text-muted-foreground" />
-									<span className="flex-1 truncate">
+									<span className="flex-1 min-w-0 truncate" title={`#${exp.number} ${exp.title}`}>
 										#{exp.number} {exp.title}
 									</span>
 									{best != null && (

@@ -6,6 +6,7 @@ import {
 	agentSessions,
 	comments,
 	datasets,
+	deskDatasets,
 	desks,
 	experiments,
 	memorySummaries,
@@ -14,7 +15,7 @@ import {
 import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
 import { stripAgentMarkers } from "@quantdesk/shared";
 import type { NormalizedResult } from "@quantdesk/shared";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog, clearAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
@@ -307,13 +308,15 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 		: null;
 	if (runBacktestRequest && desk.strategyMode !== "generic") {
 		// Hard gate: a backtest cannot run without an approved dataset
-		// (CLAUDE.md rule #13). If the agent tries to jump straight to
-		// [RUN_BACKTEST], refuse and push it back to the proposal flow.
-		const existingDatasets = await db
-			.select()
-			.from(datasets)
-			.where(eq(datasets.deskId, desk.id));
-		if (existingDatasets.length === 0) {
+		// (CLAUDE.md rule #13). Lookup via the desk_datasets join — datasets
+		// are global and shared across desks.
+		const linkedDatasets = await db
+			.select({ dataset: datasets, linkedAt: deskDatasets.createdAt })
+			.from(deskDatasets)
+			.innerJoin(datasets, eq(deskDatasets.datasetId, datasets.id))
+			.where(eq(deskDatasets.deskId, desk.id))
+			.orderBy(desc(deskDatasets.createdAt));
+		if (linkedDatasets.length === 0) {
 			await createComment({
 				experimentId,
 				author: "system",
@@ -350,6 +353,9 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 
 			const resultPayload = normalizedResultToMetrics(backtestResult.normalized);
 
+			// Link the run to the most recently approved dataset for this desk.
+			const latestDatasetId = linkedDatasets[0]?.dataset.id ?? null;
+
 			const [run] = await db
 				.insert(runs)
 				.values({
@@ -361,6 +367,7 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 					status: "completed",
 					result: resultPayload,
 					commitHash: latestCommitHash,
+					datasetId: latestDatasetId,
 					completedAt: new Date(),
 				})
 				.returning();
@@ -509,22 +516,32 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 					dateRange: { start: string; end: string };
 					path: string;
 				};
-				await db.insert(datasets).values({
-					deskId: desk.id,
-					exchange: parsed.exchange,
-					pairs: parsed.pairs,
-					timeframe: parsed.timeframe,
-					dateRange: parsed.dateRange,
-					path: parsed.path,
-				});
+				const [inserted] = await db
+					.insert(datasets)
+					.values({
+						exchange: parsed.exchange,
+						pairs: parsed.pairs,
+						timeframe: parsed.timeframe,
+						dateRange: parsed.dateRange,
+						path: parsed.path,
+					})
+					.returning();
+				if (inserted) {
+					await db.insert(deskDatasets).values({
+						deskId: desk.id,
+						datasetId: inserted.id,
+					});
+				}
 			} catch {
 				/* dataset parse failed, non-fatal */
 			}
 		}
 	}
 
-	// 8c. Extract experiment title from [EXPERIMENT_TITLE] marker and update experiment
-	if (result.resultText) {
+	// 8c. Extract experiment title from [EXPERIMENT_TITLE] marker and update experiment.
+	// The first experiment of a desk is always pinned to "Baseline" — don't let
+	// the agent rename it.
+	if (result.resultText && experiment.number !== 1) {
 		const titleMatch = result.resultText.match(/\[EXPERIMENT_TITLE\]\s*(.+?)(?:\n|$)/);
 		if (titleMatch?.[1]) {
 			const newTitle = titleMatch[1].trim().slice(0, 120);

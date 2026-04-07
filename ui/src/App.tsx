@@ -5,6 +5,7 @@ import { CodeView } from "./components/CodeView.js";
 import { CommentThread } from "./components/CommentThread.js";
 import { CreateDeskWizard } from "./components/CreateDeskWizard.js";
 import { DatasetView } from "./components/DatasetView.js";
+import { GlobalDatasetsView } from "./components/GlobalDatasetsView.js";
 import type { DeskPage } from "./components/DeskPanel.js";
 import { DeskPanel } from "./components/DeskPanel.js";
 import { DeskSettings } from "./components/DeskSettings.js";
@@ -237,6 +238,21 @@ export function App() {
 		<>
 			<Routes>
 				<Route path="/" element={<HomeRoute desks={desks} setShowWizard={setShowWizard} />} />
+				<Route
+					path="/datasets"
+					element={
+						<Layout
+							desks={desks}
+							selectedDesk={null}
+							selectedExperiment={null}
+							onSelectDesk={(id) => navigate(`/desks/${id}`)}
+							onNewDesk={() => setShowWizard(true)}
+							sidebar={null}
+							main={<GlobalDatasetsView />}
+							panel={null}
+						/>
+					}
+				/>
 				<Route path="/desks/:deskId" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/experiments/:expId" element={<DeskRoute {...routeState} />} />
 				<Route
