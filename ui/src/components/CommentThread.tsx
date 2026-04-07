@@ -1,4 +1,14 @@
-import { Bot, CheckCircle2, ChevronRight, Code2, Send, Shield, User, XCircle } from "lucide-react";
+import {
+	Bot,
+	CheckCircle2,
+	ChevronDown,
+	ChevronRight,
+	Code2,
+	Send,
+	Shield,
+	User,
+	XCircle,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
@@ -9,6 +19,7 @@ import { getAgentLogs, listComments, postComment } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { LiveRunWidget } from "./LiveRunWidget.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
+import { RunTranscriptView } from "./transcript/RunTranscriptView.js";
 import { Button } from "./ui/button.js";
 import { Input } from "./ui/input.js";
 import { Separator } from "./ui/separator.js";
@@ -176,6 +187,41 @@ function ProposalCard({
 	);
 }
 
+function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
+	const [open, setOpen] = useState(false);
+	const [entries, setEntries] = useState<TranscriptEntry[] | null>(null);
+
+	const handleToggle = () => {
+		if (!open && entries === null) {
+			getAgentLogs(experimentId)
+				.then((logs) => setEntries(logs as unknown as TranscriptEntry[]))
+				.catch(() => setEntries([]));
+		}
+		setOpen((v) => !v);
+	};
+
+	return (
+		<div className="mt-2">
+			<button
+				type="button"
+				onClick={handleToggle}
+				className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+			>
+				{open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+				<span>View agent transcript</span>
+			</button>
+			{open && entries && entries.length > 0 && (
+				<div className="mt-2 max-h-[400px] overflow-y-auto rounded-md border border-border/50 bg-muted/20 p-3">
+					<RunTranscriptView entries={entries} density="compact" streaming={false} />
+				</div>
+			)}
+			{open && entries && entries.length === 0 && (
+				<div className="mt-2 text-[11px] text-muted-foreground">No transcript available.</div>
+			)}
+		</div>
+	);
+}
+
 export function CommentThread({ experiment, onOpenRun }: Props) {
 	const [comments, setComments] = useState<Comment[]>([]);
 	const [input, setInput] = useState("");
@@ -276,7 +322,7 @@ export function CommentThread({ experiment, onOpenRun }: Props) {
 			<Separator />
 
 			{/* Messages */}
-			<div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+			<div className="flex-1 overflow-y-auto pl-4 pr-6 py-4 space-y-3">
 				{comments.map((c) => {
 					const config = authorConfig[c.author] ?? authorConfig.system!;
 					const Icon = config.icon;
@@ -319,6 +365,9 @@ export function CommentThread({ experiment, onOpenRun }: Props) {
 									}}
 								/>
 							))}
+							{(c.author === "analyst" || c.author === "risk_manager") && (
+								<AgentTranscriptToggle experimentId={experiment.id} />
+							)}
 						</div>
 					);
 				})}
