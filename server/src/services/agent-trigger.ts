@@ -100,13 +100,8 @@ function spawnCli(
 		child.stdin.write(stdin);
 		child.stdin.end();
 
-		// Timeout after 30 minutes — agents may run long backtests, optimizations,
-		// and poll background shells. Even on timeout, the sessionId is already
-		// saved (see streaming onLine handler), so the next message resumes context.
-		setTimeout(() => {
-			child.kill();
-			reject(new Error("Agent CLI timed out after 1800s"));
-		}, 1_800_000);
+		// No timeout — agents may run arbitrarily long backtests/optimizations.
+		// Users can cancel via the Stop button (sends SIGTERM via stopAgent).
 	});
 }
 
@@ -404,12 +399,9 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 		}
 	} else if (result.error) {
 		const isStopped = result.error.includes("code 143") || result.error.includes("SIGTERM");
-		const isTimeout = result.error.includes("timed out");
 		const message = isStopped
 			? "Agent was stopped by user."
-			: isTimeout
-				? "Agent timed out after 30 minutes. Send another message to resume from where it left off."
-				: "Something went wrong. Please try again.";
+			: "Something went wrong. Please try again.";
 		await createComment({
 			experimentId,
 			author: "system",
