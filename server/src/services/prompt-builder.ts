@@ -155,7 +155,15 @@ When you want to propose actions, use these markers at the start of a line:
 - [PROPOSE_VALIDATION] — suggest Risk Manager validation
 - [PROPOSE_NEW_EXPERIMENT] <title> — suggest a new experiment
 - [PROPOSE_COMPLETE_EXPERIMENT] — suggest marking experiment as completed
-- [PROPOSE_GO_LIVE] <runId> — suggest going live with a run`);
+- [PROPOSE_GO_LIVE] <runId> — suggest going live with a run
+
+### When to propose a new experiment
+Only propose [PROPOSE_NEW_EXPERIMENT] when one of these signals is present:
+- The current hypothesis has been clearly validated or invalidated and further work on it has diminishing returns.
+- The user explicitly mentions a different direction, strategy, or approach.
+- Backtest results suggest a fundamentally different approach is needed (not just parameter tuning).
+
+Do NOT propose a new experiment for routine parameter tuning, indicator threshold adjustments, or small variations on the same hypothesis — keep those within the current experiment.`);
 
 	// Desk context
 	sections.push(`## Desk: ${desk.name}
