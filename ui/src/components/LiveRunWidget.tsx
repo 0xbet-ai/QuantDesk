@@ -48,7 +48,15 @@ export function LiveRunWidget({
 	const isAnalyst = agentRole !== "risk_manager";
 	const roleLabel = isAnalyst ? "Analyst" : "Risk Manager";
 	const RoleIcon = isAnalyst ? Bot : Shield;
-	const roleColor = isAnalyst ? "text-green-400" : "text-orange-400";
+	const avatarBg = isAnalyst
+		? "bg-purple-100 dark:bg-purple-900/40"
+		: "bg-orange-100 dark:bg-orange-900/40";
+	const avatarIconColor = isAnalyst
+		? "text-purple-700 dark:text-purple-300"
+		: "text-orange-700 dark:text-orange-300";
+	const roleTextColor = isAnalyst
+		? "text-purple-700 dark:text-purple-300"
+		: "text-orange-700 dark:text-orange-300";
 
 	return (
 		<div className="overflow-hidden rounded-xl border border-cyan-500/25 bg-background/80 shadow-[0_18px_50px_rgba(6,182,212,0.08)]">
@@ -70,10 +78,15 @@ export function LiveRunWidget({
 					<div className="min-w-0">
 						{/* Agent identity */}
 						<div className="flex items-center gap-2">
-							<div className="size-6 rounded-full flex items-center justify-center shrink-0 bg-muted">
-								<RoleIcon className={cn("size-3", roleColor)} />
+							<div
+								className={cn(
+									"flex size-5 items-center justify-center rounded-full shrink-0 ring-2 ring-background",
+									avatarBg,
+								)}
+							>
+								<RoleIcon className={cn("size-2.5", avatarIconColor)} />
 							</div>
-							<span className={cn("text-xs font-medium", roleColor)}>{roleLabel}</span>
+							<span className={cn("text-xs font-medium", roleTextColor)}>{roleLabel}</span>
 						</div>
 
 						{/* Status row */}

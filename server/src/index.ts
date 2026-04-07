@@ -6,6 +6,7 @@ import desksRouter from "./routes/desks.js";
 import experimentsRouter from "./routes/experiments.js";
 import runsRouter from "./routes/runs.js";
 import strategiesRouter from "./routes/strategies.js";
+import { cleanupStaleAgentRuns } from "./services/startup-cleanup.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -43,6 +44,10 @@ setupWebSocket(server);
 
 server.listen(port, () => {
 	console.log(`QuantDesk server listening on port ${port}`);
+	// Clean up any stale agent runs from a previous crash/restart
+	cleanupStaleAgentRuns().catch((err) => {
+		console.error("Startup cleanup failed:", err);
+	});
 });
 
 export { app };
