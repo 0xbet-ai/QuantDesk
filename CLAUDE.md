@@ -9,8 +9,8 @@ Users research, backtest, and validate strategies through async interaction with
 - **Experiments & Runs**: Organize work into experiments (research threads) within a desk. Each experiment tracks multiple backtest runs with normalized results for comparison.
 - **Dataset Management**: Reusable market data scoped per desk — exchange, pairs, timeframe, and date range. Shared across runs.
 - **Code Versioning**: Per-desk git workspace. Agent commits strategy code on every change; each run links to its exact commit hash.
-- **Live Trading**: User approves a validated strategy to go live. Engine runs the strategy in live mode.
-- **Engine Adapters**: Pluggable engines for backtesting and live trading. See `doc/architecture/ENGINE_ADAPTER.md`.
+- **Paper Trading**: User approves a validated strategy to start paper trading. Engine runs the strategy in paper mode.
+- **Engine Adapters**: Pluggable engines for backtesting and paper trading. See `doc/architecture/ENGINE_ADAPTER.md`.
 - **Agent Layer**: AI CLI subprocess with session persistence and hipocampus-inspired memory compaction.
 
 ## Read This First
@@ -70,7 +70,7 @@ pnpm dev
 2. **File refs** — repo-root relative (`src/core/runner.ts:42`), never absolute.
 3. **Commits** — `<type>: <description>`. Types: `feat`, `fix`, `refactor`, `docs`, `chore`.
 4. **Secrets** — never commit. Use env vars. `.env` is gitignored.
-5. **Scope** — backtesting and live trading.
+5. **Scope** — backtesting and paper trading.
 6. **Engine is internal** — never expose engine name (freqtrade, hummingbot, etc.) to the user in UI. Engine is resolved by the agent behind the scenes.
 
 ## Conventions

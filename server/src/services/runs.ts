@@ -1,7 +1,7 @@
 import { db } from "@quantdesk/db";
 import { runLogs, runs } from "@quantdesk/db/schema";
 import { eq } from "drizzle-orm";
-import { assignBaseline, validateGoLive, validateStop } from "./logic.js";
+import { assignBaseline, validateGoPaper, validateStop } from "./logic.js";
 
 interface Metric {
 	key: string;
@@ -101,25 +101,25 @@ export async function getRun(id: string) {
 	return run ? normalizeRun(run) : null;
 }
 
-export async function goLive(runId: string) {
+export async function goPaper(runId: string) {
 	const run = await getRun(runId);
 	if (!run) throw new Error("Run not found");
-	validateGoLive({ status: run.status, mode: run.mode });
+	validateGoPaper({ status: run.status, mode: run.mode });
 
-	const [liveRun] = await db
+	const [paperRun] = await db
 		.insert(runs)
 		.values({
 			experimentId: run.experimentId,
 			runNumber: run.runNumber,
 			isBaseline: false,
-			mode: "live",
+			mode: "paper",
 			status: "running",
 			config: run.config as Record<string, unknown>,
 			commitHash: run.commitHash,
 		})
 		.returning();
 
-	return liveRun!;
+	return paperRun!;
 }
 
 export async function stopRun(runId: string) {

@@ -75,7 +75,7 @@ const typeIcons: Record<ActivityItem["type"], typeof Activity> = {
 	run_completed: CheckCircle2,
 	run_failed: XCircle,
 	comment: MessageSquare,
-	go_live: Radio,
+	go_paper: Radio,
 	run_stopped: Square,
 };
 

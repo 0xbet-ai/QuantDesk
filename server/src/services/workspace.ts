@@ -70,7 +70,7 @@ config = StrategyConfig(
 		"README.md": `# QuantDesk generic workspace
 
 Agent-written strategy. No engine template — the agent writes both
-the strategy and the backtest/live scripts from scratch.
+the strategy and the backtest/paper trading scripts from scratch.
 `,
 	},
 };

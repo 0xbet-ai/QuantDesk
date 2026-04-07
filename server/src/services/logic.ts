@@ -50,17 +50,17 @@ interface RunState {
 	mode: string;
 }
 
-export function validateGoLive(run: RunState): void {
-	if (run.mode === "live") {
-		throw new Error("Run is already a live run");
+export function validateGoPaper(run: RunState): void {
+	if (run.mode === "paper") {
+		throw new Error("Run is already a paper trading run");
 	}
 	if (run.status !== "completed") {
-		throw new Error("Can only go live from a completed backtest run");
+		throw new Error("Can only start paper trading from a completed backtest run");
 	}
 }
 
 export function validateStop(run: RunState): void {
-	if (run.mode !== "live" || run.status !== "running") {
-		throw new Error("Can only stop a running live run");
+	if (run.mode !== "paper" || run.status !== "running") {
+		throw new Error("Can only stop a running paper trading run");
 	}
 }

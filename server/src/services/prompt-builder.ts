@@ -155,7 +155,7 @@ When you want to propose actions, use these markers at the start of a line:
 - [PROPOSE_VALIDATION] — suggest Risk Manager validation
 - [PROPOSE_NEW_EXPERIMENT] <title> — suggest a new experiment
 - [PROPOSE_COMPLETE_EXPERIMENT] — suggest marking experiment as completed
-- [PROPOSE_GO_LIVE] <runId> — suggest going live with a run
+- [PROPOSE_GO_PAPER] <runId> — suggest starting paper trading with a run
 
 ### When to propose a new experiment
 Only propose [PROPOSE_NEW_EXPERIMENT] when one of these signals is present:

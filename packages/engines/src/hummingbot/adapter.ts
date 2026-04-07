@@ -4,10 +4,10 @@ import type {
 	DataConfig,
 	DataRef,
 	EngineAdapter,
-	LiveConfig,
-	LiveHandle,
-	LiveStatus,
 	NormalizedResult,
+	PaperConfig,
+	PaperHandle,
+	PaperStatus,
 	TradeEntry,
 } from "../types.js";
 
@@ -21,13 +21,13 @@ export class HummingbotAdapter implements EngineAdapter {
 	async runBacktest(_config: BacktestConfig): Promise<BacktestResult> {
 		throw new Error("Not implemented — requires hummingbot CLI");
 	}
-	async startLive(_config: LiveConfig): Promise<LiveHandle> {
+	async startPaper(_config: PaperConfig): Promise<PaperHandle> {
 		throw new Error("Not implemented");
 	}
-	async stopLive(_handle: LiveHandle): Promise<void> {
+	async stopPaper(_handle: PaperHandle): Promise<void> {
 		throw new Error("Not implemented");
 	}
-	async getLiveStatus(_handle: LiveHandle): Promise<LiveStatus> {
+	async getPaperStatus(_handle: PaperHandle): Promise<PaperStatus> {
 		throw new Error("Not implemented");
 	}
 

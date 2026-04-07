@@ -10,7 +10,7 @@ export interface ActivityItem {
 		| "run_completed"
 		| "run_failed"
 		| "comment"
-		| "go_live"
+		| "go_paper"
 		| "run_stopped";
 	actor: string;
 	summary: string;
@@ -63,10 +63,12 @@ export async function listActivity(deskId: string, limit = 50): Promise<Activity
 
 		items.push({
 			id: `run-create-${run.id}`,
-			type: run.mode === "live" ? "go_live" : "run_created",
+			type: run.mode === "paper" ? "go_paper" : "run_created",
 			actor: "System",
 			summary:
-				run.mode === "live" ? `Run #${run.runNumber} went live` : `Run #${run.runNumber} started`,
+				run.mode === "paper"
+					? `Run #${run.runNumber} started paper trading`
+					: `Run #${run.runNumber} started`,
 			detail: expLabel,
 			timestamp: run.createdAt.toISOString(),
 		});

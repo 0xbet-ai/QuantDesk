@@ -42,11 +42,11 @@ Each backtest creates a new **Run** within the same Experiment. Parameter tweaks
 
 Agent proposes splitting when direction changes significantly. User approves or declines. See `doc/product/AGENTS.md` for the interaction pattern and criteria.
 
-## 6. Go Live
+## 6. Start Paper Trading
 
-User approves a strategy for live trading. Risk Manager validation is optional — a warning is shown if not validated, but user can proceed.
-1. User clicks "Go Live" button next to a completed backtest run
-2. Agent starts engine in live mode with the same strategy and config
-3. Live run appears in the experiment with real-time status updates
-4. User can stop the live run at any time
+User approves a strategy for paper trading. Risk Manager validation is optional — a warning is shown if not validated, but user can proceed.
+1. User clicks "Start Paper Trading" button next to a completed backtest run
+2. Agent starts engine in paper mode with the same strategy and config
+3. Paper run appears in the experiment with real-time status updates
+4. User can stop the paper run at any time
 

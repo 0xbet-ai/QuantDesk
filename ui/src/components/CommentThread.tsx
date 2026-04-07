@@ -90,7 +90,7 @@ const markdownComponents = {
 };
 
 interface Proposal {
-	type: "VALIDATION" | "NEW_EXPERIMENT" | "COMPLETE_EXPERIMENT" | "GO_LIVE";
+	type: "VALIDATION" | "NEW_EXPERIMENT" | "COMPLETE_EXPERIMENT" | "GO_PAPER";
 	value: string;
 }
 
@@ -98,11 +98,11 @@ const proposalLabels: Record<Proposal["type"], string> = {
 	VALIDATION: "Run Risk Manager validation",
 	NEW_EXPERIMENT: "Create new experiment",
 	COMPLETE_EXPERIMENT: "Mark experiment as completed",
-	GO_LIVE: "Go live with this run",
+	GO_PAPER: "Start paper trading with this run",
 };
 
 const PROPOSAL_RE =
-	/^\[PROPOSE_(VALIDATION|NEW_EXPERIMENT|COMPLETE_EXPERIMENT|GO_LIVE)\]\s*(?:—\s*)?(.*)$/gm;
+	/^\[PROPOSE_(VALIDATION|NEW_EXPERIMENT|COMPLETE_EXPERIMENT|GO_PAPER)\]\s*(?:—\s*)?(.*)$/gm;
 
 // Strip [user]/[analyst]/[system]/[risk_manager] prefixes that the agent may echo
 const AUTHOR_PREFIX_RE = /^\[(user|analyst|system|risk_manager)\]\s*/gm;
@@ -134,7 +134,7 @@ function parseProposals(content: string): { cleanContent: string; proposals: Pro
 	});
 	// Catch any remaining standalone markers not on their own line
 	cleanContent = cleanContent.replace(
-		/\[PROPOSE_(VALIDATION|NEW_EXPERIMENT|COMPLETE_EXPERIMENT|GO_LIVE)\]/g,
+		/\[PROPOSE_(VALIDATION|NEW_EXPERIMENT|COMPLETE_EXPERIMENT|GO_PAPER)\]/g,
 		(_, type: Proposal["type"]) => {
 			if (!proposals.some((p) => p.type === type)) {
 				proposals.push({ type, value: "" });

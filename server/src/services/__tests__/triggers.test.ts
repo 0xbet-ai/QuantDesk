@@ -25,11 +25,11 @@ describe("proposal marker detection", () => {
 		expect(proposals[0]!.type).toBe("PROPOSE_COMPLETE_EXPERIMENT");
 	});
 
-	it("detects [PROPOSE_GO_LIVE] with runId", () => {
-		const text = "Backtest looks solid.\n[PROPOSE_GO_LIVE] run-abc-123";
+	it("detects [PROPOSE_GO_PAPER] with runId", () => {
+		const text = "Backtest looks solid.\n[PROPOSE_GO_PAPER] run-abc-123";
 		const proposals = detectProposals(text);
 		expect(proposals).toHaveLength(1);
-		expect(proposals[0]!.type).toBe("PROPOSE_GO_LIVE");
+		expect(proposals[0]!.type).toBe("PROPOSE_GO_PAPER");
 		expect(proposals[0]!.value).toBe("run-abc-123");
 	});
 

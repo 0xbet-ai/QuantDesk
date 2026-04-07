@@ -22,7 +22,7 @@ export const normalizedResultSchema = z.object({
 
 export type NormalizedResult = z.infer<typeof normalizedResultSchema>;
 
-export const liveStatusSchema = z.object({
+export const paperStatusSchema = z.object({
 	running: z.boolean(),
 	unrealizedPnl: z.number(),
 	realizedPnl: z.number(),
@@ -30,7 +30,7 @@ export const liveStatusSchema = z.object({
 	uptime: z.number(),
 });
 
-export type LiveStatus = z.infer<typeof liveStatusSchema>;
+export type PaperStatus = z.infer<typeof paperStatusSchema>;
 
 export const adapterConfigSchema = z.discriminatedUnion("type", [
 	z.object({
@@ -52,7 +52,7 @@ export const proposalMarkerSchema = z.enum([
 	"PROPOSE_VALIDATION",
 	"PROPOSE_NEW_EXPERIMENT",
 	"PROPOSE_COMPLETE_EXPERIMENT",
-	"PROPOSE_GO_LIVE",
+	"PROPOSE_GO_PAPER",
 ]);
 
 export type ProposalMarker = z.infer<typeof proposalMarkerSchema>;

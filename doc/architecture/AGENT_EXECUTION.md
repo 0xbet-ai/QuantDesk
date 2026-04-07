@@ -14,11 +14,11 @@ No heartbeat or scheduler. Simple request-response triggered by comments.
    # http → POST to adapter_config.url with API key
    ```
 3. Prompt piped via stdin (desk config, experiment context, run history, comment)
-4. Agent executes: writes code in workspace, runs engine backtest/live, collects results
+4. Agent executes: writes code in workspace, runs engine backtest/paper, collects results
 5. Output parsed from JSONL stream:
    - Claude: `system`, `assistant`, `result` events → session ID, usage, summary
    - Codex: `thread.started`, `item.completed`, `turn.completed` events → thread ID, usage, summary
-6. Agent posts result as comment + creates Run record (backtest or live)
+6. Agent posts result as comment + creates Run record (backtest or paper)
 7. Session ID persisted for resume on next comment
 
 ## Session Management

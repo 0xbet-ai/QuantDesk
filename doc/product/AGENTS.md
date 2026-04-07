@@ -2,7 +2,7 @@
 
 ## Analyst
 
-Resolves engine from desk venues + strategy description, fetches data, writes/modifies strategy code, runs backtests, manages live trading, posts results as comments.
+Resolves engine from desk venues + strategy description, fetches data, writes/modifies strategy code, runs backtests, manages paper trading, posts results as comments.
 
 If results look anomalous, proposes Risk Manager validation to the user. Anomaly detection is left to the agent's judgment — no fixed thresholds.
 
@@ -25,7 +25,7 @@ Examples:
 - Complete Experiment: "This experiment has converged. Mark as completed?"
 - Risk validation: "Results look unusual. Run Risk Manager validation?"
 - Data re-download: "Data might be stale. Re-download?"
-- Go live: "Backtest looks solid. Go live?"
+- Start paper trading: "Backtest looks solid. Start paper trading?"
 
 ## New Experiment Criteria
 
@@ -48,7 +48,7 @@ Agent uses structured markers in comment output to propose actions:
 | `[PROPOSE_VALIDATION]` | Suggest Risk Manager validation |
 | `[PROPOSE_NEW_EXPERIMENT] <title>` | Suggest creating a new experiment |
 | `[PROPOSE_COMPLETE_EXPERIMENT]` | Suggest marking current experiment as completed |
-| `[PROPOSE_GO_LIVE] <run_id>` | Suggest going live with a backtest run |
+| `[PROPOSE_GO_PAPER] <run_id>` | Suggest starting paper trading with a backtest run |
 
 Format: marker tag at start of line, space, then value (everything after the space). No braces.
 

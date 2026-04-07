@@ -1,15 +1,15 @@
 export {
-	normalizedResultSchema,
-	tradeEntrySchema,
-	liveStatusSchema,
 	adapterConfigSchema,
+	normalizedResultSchema,
+	paperStatusSchema,
 	proposalMarkerSchema,
+	tradeEntrySchema,
 } from "./schemas.js";
 
 export type {
-	NormalizedResult,
-	TradeEntry,
-	LiveStatus,
 	AdapterConfig,
+	NormalizedResult,
+	PaperStatus,
 	ProposalMarker,
+	TradeEntry,
 } from "./schemas.js";

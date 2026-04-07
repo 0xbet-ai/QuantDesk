@@ -1,12 +1,12 @@
 import { Router } from "express";
 import { HttpError } from "../middleware/error.js";
-import { getRunStatus, goLive, stopRun } from "../services/runs.js";
+import { getRunStatus, goPaper, stopRun } from "../services/runs.js";
 
 const router = Router();
 
-router.post("/:id/go-live", async (req, res, next) => {
+router.post("/:id/go-paper", async (req, res, next) => {
 	try {
-		const result = await goLive(req.params.id);
+		const result = await goPaper(req.params.id);
 		res.status(201).json(result);
 	} catch (err) {
 		if (err instanceof Error && err.message.includes("Can only")) {

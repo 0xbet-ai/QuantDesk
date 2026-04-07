@@ -6,10 +6,10 @@ import type {
 	DataConfig,
 	DataRef,
 	EngineAdapter,
-	LiveConfig,
-	LiveHandle,
-	LiveStatus,
 	NormalizedResult,
+	PaperConfig,
+	PaperHandle,
+	PaperStatus,
 } from "../types.js";
 
 const execAsync = promisify(exec);
@@ -41,14 +41,14 @@ export class GenericAdapter implements EngineAdapter {
 		return { raw: stdout, normalized };
 	}
 
-	async startLive(config: LiveConfig): Promise<LiveHandle> {
-		const { stdout } = await execAsync(`node ${config.strategyPath} --live &`, {
+	async startPaper(config: PaperConfig): Promise<PaperHandle> {
+		const { stdout } = await execAsync(`node ${config.strategyPath} --paper &`, {
 			cwd: config.workspacePath,
 		});
 		return { processId: stdout.trim(), runId: crypto.randomUUID() };
 	}
 
-	async stopLive(handle: LiveHandle): Promise<void> {
+	async stopPaper(handle: PaperHandle): Promise<void> {
 		try {
 			await execAsync(`kill ${handle.processId}`);
 		} catch {
@@ -56,7 +56,7 @@ export class GenericAdapter implements EngineAdapter {
 		}
 	}
 
-	async getLiveStatus(_handle: LiveHandle): Promise<LiveStatus> {
+	async getPaperStatus(_handle: PaperHandle): Promise<PaperStatus> {
 		return {
 			running: false,
 			unrealizedPnl: 0,

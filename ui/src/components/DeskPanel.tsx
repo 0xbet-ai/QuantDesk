@@ -191,7 +191,7 @@ export function DeskPanel({
 
 			<Separator />
 
-			{/* Scrollable middle: Experiments + Live */}
+			{/* Scrollable middle: Experiments + Paper Trading */}
 			<ScrollArea className="flex-1">
 				<div className="flex flex-col gap-4 py-2">
 					{/* New Experiment button — same style as New Desk */}
@@ -245,9 +245,9 @@ export function DeskPanel({
 						)}
 					</SidebarSection>
 
-					{/* Live */}
-					<SidebarSection label="Live">
-						<div className="px-3 py-2 text-xs text-muted-foreground">No live runs</div>
+					{/* Paper Trading */}
+					<SidebarSection label="Paper Trading">
+						<div className="px-3 py-2 text-xs text-muted-foreground">No paper runs</div>
 					</SidebarSection>
 				</div>
 			</ScrollArea>

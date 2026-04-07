@@ -2,7 +2,7 @@ import { ArrowLeft, GitCommit, Play, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Experiment, Run } from "../lib/api.js";
-import { getAgentLogs, goLive, listRuns } from "../lib/api.js";
+import { getAgentLogs, goPaper, listRuns } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { StatusBadge } from "./StatusBadge.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
@@ -77,7 +77,7 @@ function RunListItem({
 			</div>
 			<div className="text-xs font-mono tabular-nums shrink-0 ml-2">
 				{run.status === "running" ? (
-					<span className="text-cyan-500">live</span>
+					<span className="text-cyan-500">running</span>
 				) : ret != null ? (
 					<span
 						className={
@@ -98,12 +98,12 @@ function RunListItem({
 function RunDetail({
 	run,
 	baseline,
-	onGoLive,
+	onGoPaper,
 	transcriptEntries,
 }: {
 	run: Run;
 	baseline: Run | null;
-	onGoLive: (id: string) => void;
+	onGoPaper: (id: string) => void;
 	transcriptEntries: TranscriptEntry[];
 }) {
 	const hasResult = !!run.result;
@@ -214,11 +214,14 @@ function RunDetail({
 				})()}
 			</div>
 
-			{/* Go Live button */}
+			{/* Start Paper Trading button */}
 			{run.mode === "backtest" && run.status === "completed" && (
-				<Button className="w-full bg-green-600 hover:bg-green-500" onClick={() => onGoLive(run.id)}>
+				<Button
+					className="w-full bg-green-600 hover:bg-green-500"
+					onClick={() => onGoPaper(run.id)}
+				>
 					<Play className="size-4 mr-2" />
-					Go Live
+					Start Paper Trading
 				</Button>
 			)}
 
@@ -288,9 +291,9 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 	const selectedRun = sorted.find((r) => r.id === activeRunId) ?? null;
 	const baseline = sorted.find((r) => r.isBaseline) ?? null;
 
-	const handleGoLive = async (runId: string) => {
+	const handleGoPaper = async (runId: string) => {
 		try {
-			await goLive(runId);
+			await goPaper(runId);
 		} catch (err) {
 			console.error(err);
 		}
@@ -349,7 +352,7 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 								<RunDetail
 									run={selectedRun}
 									baseline={baseline}
-									onGoLive={handleGoLive}
+									onGoPaper={handleGoPaper}
 									transcriptEntries={transcriptEntries}
 								/>
 							</div>

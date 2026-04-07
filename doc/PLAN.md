@@ -14,7 +14,7 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 - [ ] TypeScript strict, Biome, Vitest configs
 - [ ] Docker Compose with PostgreSQL 17
 - [ ] Drizzle schema for all tables (desks, experiments, runs, run_logs, datasets, comments, agent_sessions, memory_summaries, strategy_catalog)
-- [ ] Shared Zod schemas in `packages/shared/` (including NormalizedResult, TradeEntry, LiveStatus)
+- [ ] Shared Zod schemas in `packages/shared/` (including NormalizedResult, TradeEntry, PaperStatus)
 - [ ] Seed script: `strategies/*.json` → `strategy_catalog` table
 
 **Done when:** `pnpm install && pnpm typecheck && pnpm check && pnpm db:migrate` passes.
@@ -27,7 +27,7 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 
 **Tasks:**
 - [ ] Express server with routes per `doc/architecture/API.md`
-- [ ] All endpoints: desks, experiments, runs, run_logs, comments, datasets, strategies, go-live, stop, status
+- [ ] All endpoints: desks, experiments, runs, run_logs, comments, datasets, strategies, go-paper, stop, status
 - [ ] Error handling middleware
 
 **Tests (business logic only):**
@@ -38,8 +38,8 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 - Run delta calculation: run.result vs baseline.result produces correct return/drawdown/winrate diff
 - GET /api/strategies?engine=freqtrade returns only freqtrade strategies from seeded catalog
 - Dataset with same exchange+pairs+timeframe+date_range can coexist (re-download = new record)
-- POST /api/runs/:id/go-live on a non-completed run → 400
-- POST /api/runs/:id/stop on a non-live run → 400
+- POST /api/runs/:id/go-paper on a non-completed run → 400
+- POST /api/runs/:id/stop on a non-paper run → 400
 ```
 
 **Done when:** `pnpm test --filter=server` passes.
@@ -54,10 +54,10 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 - [ ] Desk creation wizard (5 steps: Desk → Venue → Strategy → Config → Launch)
 - [ ] Venue multi-select chips from `strategies/venues.json` with "+ Add" custom venue
 - [ ] Strategy catalog browser filtered by selected venues, with category/difficulty filters
-- [ ] ExperimentList + Live list in col2
+- [ ] ExperimentList + Paper list in col2
 - [ ] RunTable in props panel (top section) with baseline delta display
 - [ ] CommentThread (scrollable bottom in col3) with role tags
-- [ ] Props panel: experiment props when no run selected, run metrics + [Go Live] button when run selected
+- [ ] Props panel: experiment props when no run selected, run metrics + [Start Paper Trading] button when run selected
 
 **Tests:**
 ```
@@ -65,8 +65,8 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 - RunTable correctly shows "—" for baseline delta, computed delta for other rows
 - CommentThread renders [user], [analyst], [risk_manager] tags from author field
 - Default: most recent experiment auto-selected when desk is clicked
-- Props panel shows [Go Live] button only for completed backtest runs
-- Clicking [Go Live] → POST /api/runs/:id/go-live
+- Props panel shows [Start Paper Trading] button only for completed backtest runs
+- Clicking [Start Paper Trading] → POST /api/runs/:id/go-paper
 ```
 
 **Done when:** Full UI renders with API data, desk creation wizard works end-to-end.
@@ -110,7 +110,7 @@ All four engines implemented in parallel. Each adapter implements the full `Engi
 - [ ] `packages/engines/nautilus/` — NautilusAdapter
 - [ ] `packages/engines/generic/` — GenericAdapter (agent-written scripts)
 - [ ] Each: `ensureInstalled()`, `downloadData()`, `runBacktest()`, `parseResult()`
-- [ ] Each: `startLive()`, `stopLive()`, `getLiveStatus()`
+- [ ] Each: `startPaper()`, `stopPaper()`, `getPaperStatus()`
 - [ ] Trade entries parsed into TradeEntry[] for run_logs
 - [ ] Engine registry: `getAdapter(engine) → EngineAdapter`
 
@@ -139,9 +139,9 @@ Generic:
 All engines:
 - downloadData creates files at expected workspace path
 - runBacktest with a known strategy produces non-empty result (integration, skippable in CI)
-- startLive returns LiveHandle with process ID
-- getLiveStatus on running handle → { running: true, unrealizedPnl, ... }
-- stopLive → process terminated, getLiveStatus → { running: false }
+- startPaper returns PaperHandle with process ID
+- getPaperStatus on running handle → { running: true, unrealizedPnl, ... }
+- stopPaper → process terminated, getPaperStatus → { running: false }
 - getAdapter("freqtrade") → FreqtradeAdapter instance
 - getAdapter("unknown") → throws
 ```
@@ -227,9 +227,9 @@ All engines:
 ### 5.3 Agent Triggers
 
 **Tasks:**
-- [ ] Proposal marker detection: `[PROPOSE_VALIDATION]`, `[PROPOSE_NEW_EXPERIMENT]`, `[PROPOSE_COMPLETE_EXPERIMENT]`, `[PROPOSE_GO_LIVE]`
+- [ ] Proposal marker detection: `[PROPOSE_VALIDATION]`, `[PROPOSE_NEW_EXPERIMENT]`, `[PROPOSE_COMPLETE_EXPERIMENT]`, `[PROPOSE_GO_PAPER]`
 - [ ] Button UI for approval (Approve / Decline)
-- [ ] Risk Manager / new experiment / complete experiment / go-live execution on approval
+- [ ] Risk Manager / new experiment / complete experiment / go-paper execution on approval
 
 **Tests:**
 ```
@@ -240,9 +240,9 @@ All engines:
 - User approves → experiment created with title "My Title", number auto-incremented
 - Agent output with [PROPOSE_COMPLETE_EXPERIMENT] → proposal UI shown
 - User approves → experiment status set to "completed", experiment summary generated
-- Agent output with [PROPOSE_GO_LIVE] <runId> → proposal UI shown
-- User approves → POST /api/runs/:id/go-live triggered
-- Go-live without Risk Manager validation → warning shown, user can still proceed
+- Agent output with [PROPOSE_GO_PAPER] <runId> → proposal UI shown
+- User approves → POST /api/runs/:id/go-paper triggered
+- Start paper trading without Risk Manager validation → warning shown, user can still proceed
 ```
 
 **Done when:** `pnpm test --filter=server -- triggers` passes.
@@ -253,14 +253,14 @@ All engines:
 
 **Tasks:**
 - [ ] WebSocket server at `/api/experiments/:id/events/ws`
-- [ ] Broadcast events: `run.status`, `run.live`, `comment.new`
+- [ ] Broadcast events: `run.status`, `run.paper`, `comment.new`
 - [ ] UI: LiveUpdatesProvider + auto-refresh components
 
 **Tests:**
 ```
 - Client on experiment A receives events for A only
 - run.status event received within 1s of status change
-- run.live event broadcasts live PnL/position updates
+- run.paper event broadcasts live PnL/position updates
 - comment.new contains full comment data
 - UI RunTable and CommentThread auto-update on events
 ```
@@ -325,8 +325,8 @@ All engines:
   → session persists across experiments
 - Complete experiment #1 → memory summary generated
 - In experiment #2, prompt includes experiment #1 summary
-- Click [Go Live] on run #2 → live run created (mode=live), run_logs stream pnl events
-- Click Stop → live run stopped
+- Click [Start Paper Trading] on run #2 → paper run created (mode=paper), run_logs stream pnl events
+- Click Stop → paper run stopped
 ```
 
 **Done when:** `pnpm test:e2e` passes.

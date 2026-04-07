@@ -5,9 +5,9 @@ export type {
 	DataConfig,
 	DataRef,
 	EngineAdapter,
-	LiveConfig,
-	LiveHandle,
-	LiveStatus,
 	NormalizedResult,
+	PaperConfig,
+	PaperHandle,
+	PaperStatus,
 	TradeEntry,
 } from "./types.js";

@@ -42,19 +42,19 @@ export interface BacktestResult {
 	normalized: NormalizedResult;
 }
 
-export interface LiveConfig {
+export interface PaperConfig {
 	strategyPath: string;
 	workspacePath: string;
-	mode: "live";
+	mode: "paper";
 	exchangeConfig: Record<string, unknown>;
 }
 
-export interface LiveHandle {
+export interface PaperHandle {
 	processId: string;
 	runId: string;
 }
 
-export interface LiveStatus {
+export interface PaperStatus {
 	running: boolean;
 	unrealizedPnl: number;
 	realizedPnl: number;
@@ -67,8 +67,8 @@ export interface EngineAdapter {
 	ensureInstalled(): Promise<void>;
 	downloadData(config: DataConfig): Promise<DataRef>;
 	runBacktest(config: BacktestConfig): Promise<BacktestResult>;
-	startLive(config: LiveConfig): Promise<LiveHandle>;
-	stopLive(handle: LiveHandle): Promise<void>;
-	getLiveStatus(handle: LiveHandle): Promise<LiveStatus>;
+	startPaper(config: PaperConfig): Promise<PaperHandle>;
+	stopPaper(handle: PaperHandle): Promise<void>;
+	getPaperStatus(handle: PaperHandle): Promise<PaperStatus>;
 	parseResult(raw: string): NormalizedResult;
 }

@@ -37,7 +37,7 @@ A thread of work within a desk. Agent proposes new Experiments when direction ch
 
 ## Run
 
-A single backtest or live trading execution within an Experiment.
+A single backtest or paper trading execution within an Experiment.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -45,7 +45,7 @@ A single backtest or live trading execution within an Experiment.
 | experiment_id | UUID | FK -> experiments |
 | run_number | INTEGER | Sequential within experiment |
 | is_baseline | BOOLEAN | True for first run in each experiment |
-| mode | TEXT | `backtest` / `live` |
+| mode | TEXT | `backtest` / `paper` |
 | status | TEXT | `pending` / `running` / `completed` / `stopped` / `failed` |
 | config | JSONB | Override params for this run (merged with desk defaults) |
 | result | JSONB | Return, drawdown, win_rate, trades |
@@ -57,7 +57,7 @@ A single backtest or live trading execution within an Experiment.
 
 ## Run Log
 
-Individual events within a Run. Backtest runs have trade logs; live runs additionally have pnl snapshots, errors, and status changes.
+Individual events within a Run. Backtest runs have trade logs; paper runs additionally have pnl snapshots, errors, and status changes.
 
 | Field | Type | Description |
 |-------|------|-------------|

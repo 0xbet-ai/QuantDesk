@@ -4,7 +4,7 @@ import {
 	autoIncrementExperimentNumber,
 	calculateRunDelta,
 	filterStrategiesByEngine,
-	validateGoLive,
+	validateGoPaper,
 	validateStop,
 } from "../services/logic.js";
 
@@ -70,28 +70,28 @@ describe("strategy catalog filtering", () => {
 	});
 });
 
-describe("go-live validation", () => {
-	it("POST /api/runs/:id/go-live on a non-completed run → error", () => {
-		expect(() => validateGoLive({ status: "running", mode: "backtest" })).toThrow();
-		expect(() => validateGoLive({ status: "pending", mode: "backtest" })).toThrow();
+describe("go-paper validation", () => {
+	it("POST /api/runs/:id/go-paper on a non-completed run → error", () => {
+		expect(() => validateGoPaper({ status: "running", mode: "backtest" })).toThrow();
+		expect(() => validateGoPaper({ status: "pending", mode: "backtest" })).toThrow();
 	});
 
 	it("completed backtest run → ok", () => {
-		expect(() => validateGoLive({ status: "completed", mode: "backtest" })).not.toThrow();
+		expect(() => validateGoPaper({ status: "completed", mode: "backtest" })).not.toThrow();
 	});
 
-	it("already live run → error", () => {
-		expect(() => validateGoLive({ status: "completed", mode: "live" })).toThrow();
+	it("already paper run → error", () => {
+		expect(() => validateGoPaper({ status: "completed", mode: "paper" })).toThrow();
 	});
 });
 
 describe("stop validation", () => {
-	it("POST /api/runs/:id/stop on a non-live run → error", () => {
+	it("POST /api/runs/:id/stop on a non-paper run → error", () => {
 		expect(() => validateStop({ status: "completed", mode: "backtest" })).toThrow();
 		expect(() => validateStop({ status: "pending", mode: "backtest" })).toThrow();
 	});
 
-	it("running live run → ok", () => {
-		expect(() => validateStop({ status: "running", mode: "live" })).not.toThrow();
+	it("running paper run → ok", () => {
+		expect(() => validateStop({ status: "running", mode: "paper" })).not.toThrow();
 	});
 });

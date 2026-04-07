@@ -1,6 +1,6 @@
 # Engine Adapter
 
-Pluggable interface for backtesting and live trading engines: Freqtrade, Hummingbot, Nautilus Trader, Generic.
+Pluggable interface for backtesting and paper trading engines: Freqtrade, Hummingbot, Nautilus Trader, Generic.
 
 ## Interface
 
@@ -49,19 +49,19 @@ interface TradeEntry {
   closedAt: string;
 }
 
-interface LiveConfig {
+interface PaperConfig {
   strategyPath: string;
   workspacePath: string;
-  mode: "live";
+  mode: "paper";
   exchangeConfig: Record<string, unknown>;  // API keys, etc.
 }
 
-interface LiveHandle {
+interface PaperHandle {
   processId: string;        // OS PID or engine-specific handle
   runId: string;
 }
 
-interface LiveStatus {
+interface PaperStatus {
   running: boolean;
   unrealizedPnl: number;
   realizedPnl: number;
@@ -73,9 +73,9 @@ interface EngineAdapter {
   ensureInstalled(): Promise<void>;
   downloadData(config: DataConfig): Promise<DataRef>;
   runBacktest(config: BacktestConfig): Promise<BacktestResult>;
-  startLive(config: LiveConfig): Promise<LiveHandle>;
-  stopLive(handle: LiveHandle): Promise<void>;
-  getLiveStatus(handle: LiveHandle): Promise<LiveStatus>;
+  startPaper(config: PaperConfig): Promise<PaperHandle>;
+  stopPaper(handle: PaperHandle): Promise<void>;
+  getPaperStatus(handle: PaperHandle): Promise<PaperStatus>;
   parseResult(raw: string): NormalizedResult;
 }
 ```
@@ -98,11 +98,11 @@ Resolution order:
 
 ## Generic Engine
 
-For strategies that don't fit existing engines. The agent writes both the strategy and the backtest/live scripts. Scripts must output `NormalizedResult` JSON to stdout.
+For strategies that don't fit existing engines. The agent writes both the strategy and the backtest/paper scripts. Scripts must output `NormalizedResult` JSON to stdout.
 
 ```
 ensureInstalled()   → checks node/python/bun available
 downloadData()      → runs agent-written data download script
 runBacktest()       → runs agent-written backtest script, parses stdout JSON
-startLive()         → spawns agent-written bot process
+startPaper()         → spawns agent-written bot process
 ```

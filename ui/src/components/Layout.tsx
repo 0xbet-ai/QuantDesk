@@ -119,7 +119,7 @@ export function Layout({
 				</div>
 			)}
 
-			{/* Col 2: Selected desk config + experiment list + live list */}
+			{/* Col 2: Selected desk config + experiment list + paper run list */}
 			{selectedDesk && (
 				<div className="w-56 shrink-0 border-r border-border flex flex-col">{sidebar}</div>
 			)}

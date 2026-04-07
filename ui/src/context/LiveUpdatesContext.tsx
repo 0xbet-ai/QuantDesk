@@ -7,7 +7,7 @@ interface LiveEvent {
 	type:
 		| "comment.new"
 		| "run.status"
-		| "run.live"
+		| "run.paper"
 		| "agent.thinking"
 		| "agent.streaming"
 		| "agent.done"

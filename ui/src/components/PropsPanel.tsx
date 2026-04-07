@@ -1,7 +1,7 @@
 import { Play, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Experiment, Run } from "../lib/api.js";
-import { goLive, listRuns } from "../lib/api.js";
+import { goPaper, listRuns } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { StatusDot } from "./StatusDot.js";
 import { Button } from "./ui/button.js";
@@ -33,9 +33,9 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 	const selectedRun = runs.find((r) => r.id === selectedRunId) ?? null;
 	const baseline = runs.find((r) => r.isBaseline) ?? null;
 
-	const handleGoLive = async (runId: string) => {
+	const handleGoPaper = async (runId: string) => {
 		try {
-			await goLive(runId);
+			await goPaper(runId);
 		} catch (err) {
 			console.error(err);
 		}
@@ -112,7 +112,7 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 													{run.status === "running" ? (
 														<span className="flex items-center justify-end gap-1">
 															<StatusDot status="running" />
-															<span className="text-[10px] text-blue-400">live</span>
+															<span className="text-[10px] text-blue-400">running</span>
 														</span>
 													) : ret != null ? (
 														<span className={ret > 0 ? "text-green-500" : "text-red-500"}>
@@ -213,10 +213,10 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 							<Button
 								size="sm"
 								className="w-full mt-3 bg-green-600 hover:bg-green-500"
-								onClick={() => handleGoLive(selectedRun.id)}
+								onClick={() => handleGoPaper(selectedRun.id)}
 							>
 								<Play className="size-4" />
-								Go Live
+								Start Paper Trading
 							</Button>
 						)}
 					</div>

@@ -3,12 +3,12 @@ export interface Proposal {
 		| "PROPOSE_VALIDATION"
 		| "PROPOSE_NEW_EXPERIMENT"
 		| "PROPOSE_COMPLETE_EXPERIMENT"
-		| "PROPOSE_GO_LIVE";
+		| "PROPOSE_GO_PAPER";
 	value: string;
 }
 
 const MARKER_PATTERN =
-	/^\[(PROPOSE_VALIDATION|PROPOSE_NEW_EXPERIMENT|PROPOSE_COMPLETE_EXPERIMENT|PROPOSE_GO_LIVE)\](?:\s+(.*))?$/;
+	/^\[(PROPOSE_VALIDATION|PROPOSE_NEW_EXPERIMENT|PROPOSE_COMPLETE_EXPERIMENT|PROPOSE_GO_PAPER)\](?:\s+(.*))?$/;
 
 export function detectProposals(text: string): Proposal[] {
 	const proposals: Proposal[] = [];

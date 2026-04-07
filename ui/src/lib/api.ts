@@ -71,7 +71,7 @@ export interface ActivityItem {
 		| "run_completed"
 		| "run_failed"
 		| "comment"
-		| "go_live"
+		| "go_paper"
 		| "run_stopped";
 	actor: string;
 	summary: string;
@@ -193,5 +193,5 @@ export const getCodeFile = async (
 	return res.text();
 };
 
-export const goLive = (runId: string) => api<Run>(`/runs/${runId}/go-live`, { method: "POST" });
+export const goPaper = (runId: string) => api<Run>(`/runs/${runId}/go-paper`, { method: "POST" });
 export const stopRun = (runId: string) => api<Run>(`/runs/${runId}/stop`, { method: "POST" });
