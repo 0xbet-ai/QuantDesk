@@ -7,8 +7,7 @@ This is a larger change than adding a venue. **Please open an issue first to dis
 ## Prerequisites
 
 - Familiarity with the target engine's CLI / SDK and how it runs backtests and paper trades.
-- Read [doc/architecture/ENGINE_ADAPTER.md](../architecture/ENGINE_ADAPTER.md) for the full interface contract.
-- Read [doc/architecture/WORKSPACE.md](../architecture/WORKSPACE.md) to understand per-desk git workspaces.
+- Read [./README.md](./README.md) for the full interface contract and the per-engine workspace layout.
 
 ## Steps
 
@@ -23,20 +22,7 @@ Use an existing adapter as a starting point — `freqtrade/adapter.ts` is the mo
 
 ### 2. Implement the `EngineAdapter` interface
 
-Defined in `packages/engines/src/types.ts`:
-
-```ts
-export interface EngineAdapter {
-  readonly name: string;
-  ensureImage(): Promise<void>;
-  downloadData(config: DataConfig): Promise<DataRef>;
-  runBacktest(config: BacktestConfig): Promise<BacktestResult>;
-  startPaper(config: PaperConfig): Promise<PaperHandle>;
-  stopPaper(handle: PaperHandle): Promise<void>;
-  getPaperStatus(handle: PaperHandle): Promise<PaperStatus>;
-  parseResult(raw: string): NormalizedResult;
-}
-```
+The interface and all related config / result types are defined in `packages/engines/src/types.ts` — read that file for the exact, up-to-date signatures. The summary below covers the method-level responsibilities only.
 
 Method responsibilities:
 
@@ -53,7 +39,7 @@ Method responsibilities:
 
 **Important conventions:**
 
-- All engine processes run **inside Docker containers** using **pinned** official images (never `:latest`). See `CLAUDE.md` rule 11 and `doc/architecture/ENGINE_ADAPTER.md`.
+- All engine processes run **inside Docker containers** using **pinned** official images (never `:latest`). See `CLAUDE.md` rule 11 and `doc/engine/README.md`.
 - The container mounts the desk workspace (`config.workspacePath`) as a volume. Never write outside it.
 - QuantDesk supports **paper trading only** — live trading is a forever non-goal. No API keys for trading.
 - Result normalization is critical — the UI assumes consistent metric names. See `NormalizedResult` in `types.ts`.
@@ -96,7 +82,7 @@ Create `strategies/<engine-name>.json` with at least one starter strategy. Use `
 
 ### 5. Add venues
 
-Edit `strategies/venues.json` to add the engine ID to the `engines` array of every venue your engine supports. See [ADD_VENUE.md](ADD_VENUE.md) for the venue format.
+Edit `strategies/venues.json` and add your engine's ID to the `engines` array of every venue it supports. Each entry has `id`, `name`, `assetClass`, `type`, `url`, and `engines` — see existing entries as a template. A venue is "supported" only if your adapter can `downloadData` and `runBacktest` against it end-to-end.
 
 ### 6. Add tests
 
@@ -109,7 +95,7 @@ Heavy integration tests that actually spawn the engine should be tagged so they 
 
 ### 7. Document the engine
 
-Add a short section to `doc/architecture/ENGINE_ADAPTER.md` describing:
+Add a short section to `doc/engine/README.md` describing:
 - What asset classes the engine covers.
 - Installation / runtime requirements (Docker image, Python version, etc.).
 - Any quirks in the result format.
@@ -146,7 +132,7 @@ It's used as the lookup key in `registry.ts` and as the engine field in `strateg
 
 ### Why are engines hidden from the user UI?
 
-QuantDesk's value proposition is "describe a strategy, get a backtest" — the user shouldn't need to know whether Freqtrade or Nautilus is running under the hood. Instead, users pick a **strategy mode** (`classic` or `realtime`) during desk creation, and the system derives the engine from the mode + venue intersection. See `CLAUDE.md` rule 6 and `doc/architecture/ENGINE_ADAPTER.md`.
+QuantDesk's value proposition is "describe a strategy, get a backtest" — the user shouldn't need to know whether Freqtrade or Nautilus is running under the hood. Instead, users pick a **strategy mode** (`classic` or `realtime`) during desk creation, and the system derives the engine from the mode + venue intersection. See `CLAUDE.md` rule 6 and `doc/engine/README.md`.
 
 ### Can I add an engine that only supports backtesting (no paper)?
 

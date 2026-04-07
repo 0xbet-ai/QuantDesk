@@ -10,7 +10,7 @@
 
 - https://github.com/kevin-hs-sohn/hipocampus
 - File-based hierarchical memory compaction for AI agents (Raw -> Daily -> Weekly -> Monthly -> ROOT).
-- We adapt the compaction concept to PostgreSQL: raw comments -> experiment summaries -> desk context. See `doc/architecture/MEMORY.md`.
+- We adapt the compaction concept to PostgreSQL: raw comments -> experiment summaries -> desk context. See `doc/agent/MEMORY.md`.
 
 ## Freqtrade
 
