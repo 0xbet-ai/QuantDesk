@@ -172,7 +172,7 @@ ${desk.description ?? ""}
 	// Runs
 	if (runs.length > 0) {
 		const runLines = runs
-			.filter((r) => r.result && r.result.metrics.length > 0)
+			.filter((r) => r.result && Array.isArray(r.result.metrics) && r.result.metrics.length > 0)
 			.map((r) => {
 				const tag = r.isBaseline ? " (baseline)" : "";
 				const metricsStr = r

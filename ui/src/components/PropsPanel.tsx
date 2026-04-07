@@ -69,72 +69,89 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 				{runs.length === 0 ? (
 					<div className="text-xs text-muted-foreground py-2">No runs yet</div>
 				) : (
-					<table className="w-full text-xs">
-						<thead>
-							<tr className="text-muted-foreground border-b border-border">
-								<th className="text-left py-1.5 font-medium">#</th>
-								<th className="text-right py-1.5 font-medium">Return</th>
-								<th className="text-right py-1.5 font-medium">DD</th>
-							</tr>
-						</thead>
-						<tbody>
-							{runs.map((run) => {
-								const m0 = run.result?.metrics?.[0];
-								const m1 = run.result?.metrics?.[1];
-								const ret = m0?.value;
-								const dd = m1?.value;
-								const baselineM0 = baseline?.result?.metrics?.[0];
-								const delta =
-									!run.isBaseline && baselineM0 && m0 ? m0.value - baselineM0.value : null;
-								return (
-									<tr
-										key={run.id}
-										onClick={() => setSelectedRunId(run.id)}
-										onKeyDown={(e) => e.key === "Enter" && setSelectedRunId(run.id)}
-										className={cn(
-											"cursor-pointer transition-colors border-b border-border/50",
-											run.id === selectedRunId ? "bg-accent" : "hover:bg-accent/50",
-										)}
-									>
-										<td className="py-1.5">
-											{run.runNumber}
-											{run.isBaseline && (
-												<span className="ml-1 text-[10px] text-muted-foreground">base</span>
-											)}
-										</td>
-										<td className="text-right py-1.5">
-											{run.status === "running" ? (
-												<span className="flex items-center justify-end gap-1">
-													<StatusDot status="running" />
-													<span className="text-[10px] text-blue-400">live</span>
-												</span>
-											) : ret != null ? (
-												<span className={ret > 0 ? "text-green-500" : "text-red-500"}>
-													{ret > 0 ? "+" : ""}
-													{ret.toFixed(1)}%
-												</span>
-											) : (
-												<span className="text-muted-foreground">&mdash;</span>
-											)}
-										</td>
-										<td className="text-right py-1.5">
-											{dd != null ? (
-												<span className="text-red-500">{dd.toFixed(1)}%</span>
-											) : (
-												<span className="text-muted-foreground">&mdash;</span>
-											)}
-											{delta != null && (
-												<span className="text-green-500 ml-1 text-[10px]">
-													({delta > 0 ? "+" : ""}
-													{delta.toFixed(1)})
-												</span>
-											)}
-										</td>
+					(() => {
+						// Use the first run with metrics to determine column headers
+						const sampleMetrics = runs.find((r) => r.result?.metrics?.length)?.result?.metrics;
+						const col1Label = sampleMetrics?.[0]?.label ?? "Value";
+						const col2Label = sampleMetrics?.[1]?.label;
+						return (
+							<table className="w-full text-xs">
+								<thead>
+									<tr className="text-muted-foreground border-b border-border">
+										<th className="text-left py-1.5 font-medium">#</th>
+										<th className="text-right py-1.5 font-medium">{col1Label}</th>
+										{col2Label && <th className="text-right py-1.5 font-medium">{col2Label}</th>}
 									</tr>
-								);
-							})}
-						</tbody>
-					</table>
+								</thead>
+								<tbody>
+									{runs.map((run) => {
+										const m0 = run.result?.metrics?.[0];
+										const m1 = run.result?.metrics?.[1];
+										const ret = m0?.value;
+										const dd = m1?.value;
+										const baselineM0 = baseline?.result?.metrics?.[0];
+										const delta =
+											!run.isBaseline && baselineM0 && m0 ? m0.value - baselineM0.value : null;
+										return (
+											<tr
+												key={run.id}
+												onClick={() => setSelectedRunId(run.id)}
+												onKeyDown={(e) => e.key === "Enter" && setSelectedRunId(run.id)}
+												className={cn(
+													"cursor-pointer transition-colors border-b border-border/50",
+													run.id === selectedRunId ? "bg-accent" : "hover:bg-accent/50",
+												)}
+											>
+												<td className="py-1.5">
+													{run.runNumber}
+													{run.isBaseline && (
+														<span className="ml-1 text-[10px] text-muted-foreground">base</span>
+													)}
+												</td>
+												<td className="text-right py-1.5">
+													{run.status === "running" ? (
+														<span className="flex items-center justify-end gap-1">
+															<StatusDot status="running" />
+															<span className="text-[10px] text-blue-400">live</span>
+														</span>
+													) : ret != null ? (
+														<span className={ret > 0 ? "text-green-500" : "text-red-500"}>
+															{ret > 0 ? "+" : ""}
+															{ret.toFixed(1)}%
+														</span>
+													) : (
+														<span className="text-muted-foreground">&mdash;</span>
+													)}
+												</td>
+												{col2Label && (
+													<td className="text-right py-1.5">
+														{dd != null ? (
+															<span className={m1?.tone === "negative" ? "text-red-500" : ""}>
+																{m1?.format === "percent" ? `${dd.toFixed(1)}%` : dd.toFixed(1)}
+															</span>
+														) : (
+															<span className="text-muted-foreground">&mdash;</span>
+														)}
+														{delta != null && (
+															<span
+																className={cn(
+																	"ml-1 text-[10px]",
+																	delta > 0 ? "text-green-500" : "text-red-500",
+																)}
+															>
+																({delta > 0 ? "+" : ""}
+																{delta.toFixed(1)})
+															</span>
+														)}
+													</td>
+												)}
+											</tr>
+										);
+									})}
+								</tbody>
+							</table>
+						);
+					})()
 				)}
 			</div>
 

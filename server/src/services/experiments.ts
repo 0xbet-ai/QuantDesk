@@ -63,11 +63,14 @@ async function generateMemorySummary(experimentId: string): Promise<string> {
 	type Metric = { key: string; label: string; value: number; format: string };
 	type RunResult = { metrics: Metric[] };
 
-	const completedRuns = expRuns.filter((r) => r.result != null);
+	const completedRuns = expRuns.filter((r) => {
+		const result = r.result as RunResult | null;
+		return result && Array.isArray(result.metrics) && result.metrics.length > 0;
+	});
 	if (completedRuns.length > 0) {
 		const primary = (r: (typeof completedRuns)[number]): number => {
-			const result = r.result as RunResult | null;
-			return result?.metrics?.[0]?.value ?? 0;
+			const result = r.result as RunResult;
+			return result.metrics[0]?.value ?? 0;
 		};
 		const best = completedRuns.reduce((a, b) => (primary(a) > primary(b) ? a : b));
 		const bestResult = best.result as RunResult;
