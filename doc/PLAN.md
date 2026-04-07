@@ -36,9 +36,14 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 - Subsequent runs get is_baseline=false
 - Experiment number auto-increments within a desk (create 3 → numbers are 1, 2, 3)
 - Run delta calculation: run.result vs baseline.result produces correct return/drawdown/winrate diff
-- GET /api/strategies?engine=freqtrade returns only freqtrade strategies from seeded catalog
+- GET /api/strategies?mode=classic&venues=binance returns only classic strategies whose engine matches the mode AND whose venue intersects the requested venues
+- GET /api/strategies?mode=realtime&venues=interactive_brokers returns only realtime strategies
+- POST /api/desks with strategy_mode=realtime on a venue that only supports classic → 400
+- PATCH /api/desks/:id with strategy_mode or engine in body → 400 (immutable)
+- POST /api/desks auto-derives engine from strategy_mode (classic→freqtrade, realtime→nautilus, generic fallback)
 - Dataset with same exchange+pairs+timeframe+date_range can coexist (re-download = new record)
 - POST /api/runs/:id/go-paper on a non-completed run → 400
+- POST /api/runs/:id/go-paper on a desk with engine=generic → 400
 - POST /api/runs/:id/stop on a non-paper run → 400
 ```
 
@@ -51,9 +56,10 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 **Tasks:**
 - [ ] React + Vite + Tailwind + Radix UI
 - [ ] 3-column layout + Props panel (col1: desk list, col2: desk panel, col3: experiment detail + props)
-- [ ] Desk creation wizard (5 steps: Desk → Venue → Strategy → Config → Launch)
+- [ ] Desk creation wizard (6 steps: Desk → Venue → **Strategy Mode** → Strategy → Config → Launch)
 - [ ] Venue multi-select chips from `strategies/venues.json` with "+ Add" custom venue
-- [ ] Strategy catalog browser filtered by selected venues, with category/difficulty filters
+- [ ] **Strategy mode step** (between Venue and Strategy): two cards `Classic` (recommended) and `Real-time` (advanced). Cards are disabled/enabled based on `availableModes(selectedVenues)` — if selected venues only support `classic`, the `realtime` card is disabled with a tooltip, and vice versa. Never mention engine names.
+- [ ] Strategy catalog browser filtered by selected venues **and strategy mode**, with category/difficulty filters
 - [ ] ExperimentList + Paper list in col2
 - [ ] RunTable in props panel (top section) with baseline delta display
 - [ ] CommentThread (scrollable bottom in col3) with role tags
@@ -91,8 +97,7 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 - getDiff between two commits → shows only the changed lines
 - Two desks get isolated workspaces (changes in one don't appear in other)
 - initWorkspace with engine=freqtrade → creates strategy.py + config.json
-- initWorkspace with engine=hummingbot → creates strategy.py + conf_*.yml
-- initWorkspace with engine=nautilus → creates strategy.py + config.py
+- initWorkspace with engine=nautilus → creates strategy.py + runner.py + config.py
 - initWorkspace with engine=generic → creates empty workspace with README
 ```
 
@@ -100,53 +105,65 @@ Skip boilerplate CRUD/validation tests — Zod and the framework handle those.
 
 ---
 
-### 3.2 Engine Adapters
+### 3.2 Engine Adapters (Docker-based)
 
-All four engines implemented in parallel. Each adapter implements the full `EngineAdapter` interface.
+Two managed engines (Freqtrade + Nautilus) plus Generic fallback. Hummingbot is **out of scope**. All engine processes run inside Docker containers using **pinned official images**. The server itself stays on the host. See `doc/architecture/ENGINE_ADAPTER.md` and `CLAUDE.md` rules 6–12.
 
 **Tasks:**
+- [ ] `packages/engines/src/images.ts` — pinned image tag constants (e.g. `freqtradeorg/freqtrade:2025.3`, `nautilustrader/nautilus_trader:1.220.0`)
+- [ ] `packages/engines/src/docker.ts` — small Docker helper (run, exec, ps, logs, labels, events)
+- [ ] `packages/engines/src/resolver.ts` — `resolveEngine(venue, mode) → engine` based on `MODE_TO_ENGINE = { classic: "freqtrade", realtime: "nautilus" }`; `availableModes(venue)` for wizard gating
 - [ ] `packages/engines/freqtrade/` — FreqtradeAdapter
-- [ ] `packages/engines/hummingbot/` — HummingbotAdapter
+  - [ ] `ensureImage()` (docker pull pinned tag)
+  - [ ] `downloadData()` ephemeral container with workspace mount
+  - [ ] `runBacktest()` ephemeral container, parses freqtrade JSON output
+  - [ ] `startPaper()` long-lived container with `dry_run: true`, REST API enabled, container labeled `quantdesk.runId / quantdesk.engine=freqtrade / quantdesk.kind=paper`
+  - [ ] `getPaperStatus()` REST GET `/api/v1/status` + `/profit`
+  - [ ] `stopPaper()` REST POST `/api/v1/stop` → SIGTERM fallback
+  - [ ] `parseResult()` from JSON fixture
 - [ ] `packages/engines/nautilus/` — NautilusAdapter
-- [ ] `packages/engines/generic/` — GenericAdapter (agent-written scripts)
-- [ ] Each: `ensureInstalled()`, `downloadData()`, `runBacktest()`, `parseResult()`
-- [ ] Each: `startPaper()`, `stopPaper()`, `getPaperStatus()`
-- [ ] Trade entries parsed into TradeEntry[] for run_logs
+  - [ ] `ensureImage()`, `downloadData()`, `runBacktest()`, `parseResult()`
+  - [ ] Ship `runner.py` that builds `TradingNode` with `SandboxExecutionClient` and emits `MessageBus` events as stdout JSONL
+  - [ ] `startPaper()` long-lived container running `runner.py`, labeled `quantdesk.engine=nautilus`
+  - [ ] `getPaperStatus()` reads container stdout JSONL stream
+  - [ ] `stopPaper()` SIGTERM
+- [ ] `packages/engines/generic/` — GenericAdapter (agent-written scripts, **backtest only**)
+  - [ ] `ensureImage()` pulls a generic python+node base image
+  - [ ] `downloadData()`, `runBacktest()` ephemeral container
+  - [ ] `startPaper()`, `stopPaper()`, `getPaperStatus()` all throw `"generic engine does not support paper trading"`
 - [ ] Engine registry: `getAdapter(engine) → EngineAdapter`
+- [ ] Remove existing Hummingbot adapter directory/files
 
-**Tests (per engine):**
+**Tests:**
 ```
-Freqtrade:
-- parseResult with real freqtrade JSON fixture → correct returnPct, drawdownPct, winRate, totalTrades
-- parseResult extracts individual TradeEntry[] with pair, side, price, amount, pnl, timestamps
-- parseResult with freqtrade error output → throws with meaningful message
+Per-engine parse tests (offline, fixture-based):
+- Freqtrade: parseResult with real freqtrade JSON fixture → correct NormalizedResult + TradeEntry[]
+- Nautilus: stdout JSONL parser with fixture from runner.py output
+- Generic: runBacktest stdout JSON parser
+- Each: parseResult with error output → throws with meaningful message
 
-Hummingbot:
-- parseResult with hummingbot trade CSV fixture → correct NormalizedResult
-- parseResult extracts TradeEntry[] from hummingbot format
-- parseResult with hummingbot error output → throws with meaningful message
+Engine resolver tests:
+- resolveEngine(binance, "classic") → "freqtrade"
+- resolveEngine(binance, "realtime") → "nautilus"
+- resolveEngine(bitvavo, "classic") → "freqtrade"
+- resolveEngine(bitvavo, "realtime") → throws (bitvavo not in nautilus)
+- resolveEngine(interactive_brokers, "realtime") → "nautilus"
+- resolveEngine(interactive_brokers, "classic") → throws
+- resolveEngine(kalshi, any) → "generic"
+- availableModes(binance) → ["classic", "realtime"]
+- availableModes(bitvavo) → ["classic"]
+- availableModes(interactive_brokers) → ["realtime"]
 
-Nautilus:
-- parseResult with nautilus backtest result fixture → correct NormalizedResult
-- parseResult extracts TradeEntry[] from nautilus format
-- parseResult with nautilus error output → throws with meaningful message
+Generic engine paper guard:
+- generic.startPaper() → throws "does not support paper trading"
 
-Generic:
-- runBacktest executes agent-written script, parses stdout JSON → NormalizedResult
-- runBacktest with non-JSON stdout → throws with meaningful message
-- downloadData executes agent-written data script at expected workspace path
-
-All engines:
-- downloadData creates files at expected workspace path
-- runBacktest with a known strategy produces non-empty result (integration, skippable in CI)
-- startPaper returns PaperHandle with process ID
-- getPaperStatus on running handle → { running: true, unrealizedPnl, ... }
-- stopPaper → process terminated, getPaperStatus → { running: false }
-- getAdapter("freqtrade") → FreqtradeAdapter instance
-- getAdapter("unknown") → throws
+Adapter integration tests (skippable in CI, requires Docker daemon):
+- ensureImage() pulls pinned tag
+- runBacktest with a known strategy in container produces non-empty result
+- startPaper container is launched with quantdesk.runId label
 ```
 
-**Done when:** `pnpm test --filter=engines-*` passes.
+**Done when:** `pnpm test --filter=engines-*` passes (offline tests). Integration tests are skippable.
 
 ---
 
@@ -193,7 +210,10 @@ All engines:
 - Prompt includes last 3 run results as structured data
 - With 100 comments, prompt only includes last N that fit within token budget
 - When memory_summaries exist (desk level), they appear before raw comments
-- Analyst prompt instructs agent to use desk's configured engine
+- Prompt includes desk.strategy_mode and desk.engine (both immutable)
+- When strategy_mode=classic, prompt instructs agent to write Freqtrade IStrategy subclasses (populate_indicators/populate_entry_trend/populate_exit_trend)
+- When strategy_mode=realtime, prompt instructs agent to write Nautilus Strategy subclasses with event handlers (on_quote_tick, on_order_book_delta, on_order_filled)
+- When engine=generic, prompt instructs agent to write backtest-only scripts and forbids proposing [PROPOSE_GO_PAPER]
 - Risk Manager prompt includes run result + desk constraints
 ```
 
@@ -266,6 +286,70 @@ All engines:
 ```
 
 **Done when:** `pnpm test --filter=server -- websocket` passes, UI updates live.
+
+---
+
+## Phase 6.5: Paper Trading Pipeline
+
+Common infrastructure that connects the Docker-based engine adapters (Phase 3.2) to long-lived paper trading sessions, with restart recovery via Docker labels. Engine-specific work lives in Phase 3.2; this phase is engine-agnostic plumbing.
+
+**Tasks:**
+- [ ] `server/src/services/paper-registry.ts` — `PaperProcessRegistry` (in-memory `Map<runId, PaperHandle>`, source of truth is Docker)
+- [ ] `server/src/services/paper-reconcile.ts` — on server startup, `docker ps --filter label=quantdesk.kind=paper` → rebuild registry from labels. Containers that vanished while server was down → mark run `interrupted`
+- [ ] Docker events listener — subscribe to container `die`/`destroy` events filtered by `quantdesk.kind=paper` → mark corresponding run `failed` or `interrupted`
+- [ ] `server/src/services/paper-poller.ts` — 5-second poller that calls `adapter.getPaperStatus()` for every handle, appends to `run_logs` (`type=pnl`), and broadcasts `run.paper` WS events
+- [ ] `services/runs.ts` `goPaper()` rewrite:
+  - resolve `desk.engine` and adapter
+  - check out `run.commitHash` into a runs subdirectory of the workspace
+  - call `adapter.startPaper({ workspacePath, strategyPath, wallet: desk.budget })`
+  - register handle, insert paper run row with `mode=paper, status=running`
+  - guard: throw if `desk.engine === "generic"`
+- [ ] `services/runs.ts` `stopRun()` rewrite:
+  - look up handle in registry
+  - call `adapter.stopPaper(handle)` (graceful → SIGTERM fallback)
+  - update DB to `status=stopped`, broadcast WS
+- [ ] `Run.status` enum migration: add `interrupted`
+- [ ] `Desk.strategy_mode` and `Desk.engine` immutability: `services/desks.ts` `updateDesk()` rejects both fields; type `UpdateDeskInput` excludes them
+- [ ] `run.paper` WebSocket event schema in `packages/shared/` (runId, unrealizedPnl, realizedPnl, openPositions, uptime, ts)
+- [ ] UI: `LiveUpdatesContext` subscribes to `run.paper`, props panel shows live PnL / open positions / uptime for selected paper run
+- [ ] UI: simulation fidelity disclaimer badge on paper run details ("Simulated execution — fills may be optimistic")
+- [ ] UI: [Start Paper Trading] button disabled (with tooltip) for desks where `engine=generic`
+
+**Tests:**
+```
+PaperProcessRegistry:
+- register/get/delete handle round-trip
+- list returns all active handles
+
+paper-reconcile:
+- with two labeled containers running → registry rebuilt with both handles
+- with a labeled run in DB but no container → run marked `interrupted`
+- with a container but no DB row → container left alone, logged as orphan
+
+paper-poller:
+- mock adapter returns status → run_logs row inserted, WS event broadcast
+- mock adapter throws → poller continues for other handles, error logged
+- handle removed mid-loop → no crash
+
+goPaper:
+- generic engine → throws "does not support paper trading"
+- non-completed run → 400
+- success path → adapter.startPaper called, registry has handle, DB row inserted
+- workspace checked out at run.commitHash before startPaper
+
+stopRun:
+- handle exists → adapter.stopPaper called, registry cleared, DB updated
+- non-paper run → 400
+
+Desk.engine immutability:
+- updateDesk({ engine: "freqtrade" }) on existing desk → rejected
+- type UpdateDeskInput does not contain engine field (compile-time)
+
+WS event:
+- run.paper event broadcast contains correct shape and reaches subscribed clients only
+```
+
+**Done when:** `pnpm test --filter=server -- paper` passes; UI shows live paper trading metrics; restart-then-reconcile scenario verified manually with Docker.
 
 ---
 
@@ -374,6 +458,9 @@ Phase 6  Phase 7  (parallel)
 (WS)    (memory)
   |       |
   +---+---+
+      v
+Phase 6.5 (paper pipeline)
+      |
       v
   Phase 8 (CLI)
       |

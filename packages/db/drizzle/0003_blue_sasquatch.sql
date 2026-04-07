@@ -1,0 +1,1 @@
+ALTER TABLE "desks" ADD COLUMN "strategy_mode" text DEFAULT 'classic' NOT NULL;

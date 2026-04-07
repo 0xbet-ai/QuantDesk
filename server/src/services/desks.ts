@@ -1,11 +1,18 @@
 import { join } from "node:path";
 import { db } from "@quantdesk/db";
 import { agentSessions, comments, desks, experiments, strategyCatalog } from "@quantdesk/db/schema";
+import { resolveEngine, type VenueEngines } from "@quantdesk/engines";
+import type { StrategyMode } from "@quantdesk/shared";
 import { eq } from "drizzle-orm";
+import venuesCatalog from "../../../strategies/venues.json" with { type: "json" };
 import { autoIncrementExperimentNumber } from "./logic.js";
 import { initWorkspace } from "./workspace.js";
 
 const WORKSPACES_ROOT = process.env.WORKSPACES_ROOT ?? join(process.cwd(), "workspaces");
+
+const VENUE_MAP = new Map<string, VenueEngines>(
+	(venuesCatalog as VenueEngines[]).map((v) => [v.id, v]),
+);
 
 interface CreateDeskInput {
 	name: string;
@@ -14,14 +21,38 @@ interface CreateDeskInput {
 	stopLoss: string;
 	strategyId?: string;
 	venues: string[];
-	engine: string;
+	strategyMode: StrategyMode;
 	config?: Record<string, unknown>;
 	description?: string;
 	adapterType?: string;
 	adapterConfig?: Record<string, unknown>;
 }
 
+function resolveEngineForVenues(venueIds: string[], mode: StrategyMode): string {
+	if (venueIds.length === 0) {
+		throw new Error("At least one venue is required");
+	}
+	const engines = new Set<string>();
+	for (const id of venueIds) {
+		const venue = VENUE_MAP.get(id);
+		if (!venue) {
+			// Custom venue (not in catalog) — default to generic
+			engines.add("generic");
+			continue;
+		}
+		engines.add(resolveEngine(venue, mode));
+	}
+	if (engines.size > 1) {
+		throw new Error(
+			`Selected venues require different engines for mode=${mode}: ${[...engines].join(", ")}. Pick venues that share a single engine.`,
+		);
+	}
+	return [...engines][0]!;
+}
+
 export async function createDesk(input: CreateDeskInput) {
+	const engine = resolveEngineForVenues(input.venues, input.strategyMode);
+
 	const [desk] = await db
 		.insert(desks)
 		.values({
@@ -31,14 +62,15 @@ export async function createDesk(input: CreateDeskInput) {
 			stopLoss: input.stopLoss,
 			strategyId: input.strategyId ?? null,
 			venues: input.venues,
-			engine: input.engine,
+			strategyMode: input.strategyMode,
+			engine,
 			config: input.config ?? {},
 			description: input.description ?? null,
 		})
 		.returning();
 
 	// Initialize workspace for this desk
-	const workspacePath = await initWorkspace(desk!.id, input.engine, WORKSPACES_ROOT);
+	const workspacePath = await initWorkspace(desk!.id, engine, WORKSPACES_ROOT);
 	await db.update(desks).set({ workspacePath }).where(eq(desks.id, desk!.id));
 
 	const existingCount = 0;

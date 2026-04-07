@@ -1,6 +1,6 @@
 # Adding a New Engine
 
-An **engine** is a backtesting / paper-trading framework that QuantDesk delegates strategy execution to. Current engines: Freqtrade, Hummingbot, Nautilus, Generic. Adding a new one means implementing the `EngineAdapter` interface and registering it.
+An **engine** is a backtesting / paper-trading framework that QuantDesk delegates strategy execution to. Current engines: **Freqtrade**, **Nautilus**, and **Generic** (backtest-only fallback). Hummingbot is explicitly out of scope. Adding a new engine means implementing the `EngineAdapter` interface, registering it, and mapping it to a `strategy_mode`.
 
 This is a larger change than adding a venue. **Please open an issue first to discuss design and scope** before opening a PR.
 
@@ -28,7 +28,7 @@ Defined in `packages/engines/src/types.ts`:
 ```ts
 export interface EngineAdapter {
   readonly name: string;
-  ensureInstalled(): Promise<void>;
+  ensureImage(): Promise<void>;
   downloadData(config: DataConfig): Promise<DataRef>;
   runBacktest(config: BacktestConfig): Promise<BacktestResult>;
   startPaper(config: PaperConfig): Promise<PaperHandle>;
@@ -43,20 +43,21 @@ Method responsibilities:
 | Method | What it does |
 |---|---|
 | `name` | Stable engine ID. Must match the key used in `registry.ts` and `venues.json`. |
-| `ensureInstalled` | Verify the engine binary / Docker image / Python env is available. Throw a clear error if not. |
-| `downloadData` | Fetch historical OHLCV (or tick) data into the desk workspace. Return a `DataRef`. |
-| `runBacktest` | Run a backtest using the strategy file in the workspace. Return raw output + normalized result. |
-| `startPaper` | Spawn a paper trading process. Return a handle. |
-| `stopPaper` | Cleanly terminate a paper process by handle. |
-| `getPaperStatus` | Query a running paper process for health + PnL. |
+| `ensureImage` | Pull the pinned Docker image for this engine (e.g. `docker pull freqtradeorg/freqtrade:2025.3`). Throw a clear error if Docker is unavailable. Native host installs are not supported. |
+| `downloadData` | Fetch historical OHLCV (or tick) data into the desk workspace via an ephemeral container. Return a `DataRef`. |
+| `runBacktest` | Run a backtest in an ephemeral container mounting the workspace. Return raw output + normalized result. |
+| `startPaper` | Spawn a long-lived paper trading container labeled `quantdesk.runId`, `quantdesk.engine`, `quantdesk.kind=paper`. Return a handle containing the container name. |
+| `stopPaper` | Cleanly stop the paper container by handle (graceful → SIGTERM fallback). |
+| `getPaperStatus` | Query a running paper container for health + PnL (via engine-specific mechanism: REST for Freqtrade, stdout JSONL for Nautilus). |
 | `parseResult` | Convert the engine's raw output JSON into `NormalizedResult`. Pure function — should be unit-testable without spawning processes. |
 
 **Important conventions:**
 
-- All process work happens **inside the desk workspace** (`config.workspacePath`). Never write outside it.
-- QuantDesk currently supports **paper trading only** — no real-money execution.
+- All engine processes run **inside Docker containers** using **pinned** official images (never `:latest`). See `CLAUDE.md` rule 11 and `doc/architecture/ENGINE_ADAPTER.md`.
+- The container mounts the desk workspace (`config.workspacePath`) as a volume. Never write outside it.
+- QuantDesk supports **paper trading only** — live trading is a forever non-goal. No API keys for trading.
 - Result normalization is critical — the UI assumes consistent metric names. See `NormalizedResult` in `types.ts`.
-- Engine names must **never leak to the user-facing UI**. The agent picks the engine internally based on the desk's strategy and venue.
+- Engine names must **never leak to the user-facing UI**. The engine is derived from `desk.strategy_mode` at desk creation time and is immutable for the desk's lifetime. Users pick a mode (`classic` or `realtime`), never an engine.
 
 ### 3. Register the adapter
 
@@ -67,7 +68,6 @@ import { MyEngineAdapter } from "./my-engine/adapter.js";
 
 const adapters: Record<string, EngineAdapter> = {
   freqtrade: new FreqtradeAdapter(),
-  hummingbot: new HummingbotAdapter(),
   nautilus: new NautilusAdapter(),
   generic: new GenericAdapter(),
   my_engine: new MyEngineAdapter(),
@@ -103,7 +103,7 @@ Edit `strategies/venues.json` to add the engine ID to the `engines` array of eve
 Create `packages/engines/src/__tests__/<engine-name>.test.ts`. At minimum, test:
 
 - `parseResult` correctly normalizes a sample raw output.
-- `ensureInstalled` throws when the engine binary is missing.
+- `ensureImage` throws when Docker is unavailable or the pinned image tag cannot be pulled.
 
 Heavy integration tests that actually spawn the engine should be tagged so they only run in CI.
 
@@ -146,7 +146,7 @@ It's used as the lookup key in `registry.ts` and as the engine field in `strateg
 
 ### Why are engines hidden from the user UI?
 
-QuantDesk's value proposition is "describe a strategy, get a backtest" — the user shouldn't need to know whether Freqtrade or Nautilus is running under the hood. The agent picks the engine based on the desk's venue and strategy. See `CLAUDE.md` rule #6.
+QuantDesk's value proposition is "describe a strategy, get a backtest" — the user shouldn't need to know whether Freqtrade or Nautilus is running under the hood. Instead, users pick a **strategy mode** (`classic` or `realtime`) during desk creation, and the system derives the engine from the mode + venue intersection. See `CLAUDE.md` rule 6 and `doc/architecture/ENGINE_ADAPTER.md`.
 
 ### Can I add an engine that only supports backtesting (no paper)?
 
@@ -154,4 +154,4 @@ Yes. Implement `startPaper` / `stopPaper` / `getPaperStatus` to throw a clear "n
 
 ### Can I add an engine that wraps an external API instead of a local binary?
 
-Yes. `ensureInstalled` should validate API credentials are present. Network calls happen in `runBacktest` / `startPaper` like any other engine — but be mindful of rate limits and idempotency.
+Yes. `ensureImage` can pull a generic runtime image (Python/Node base) instead of an engine-specific one. Validate any required API credentials at the start of `runBacktest` / `startPaper`. Network calls happen inside the container like any other engine — but be mindful of rate limits and idempotency. Note: QuantDesk is paper-trading-only, so trading API keys are out of scope; market data keys are acceptable.

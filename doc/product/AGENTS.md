@@ -2,7 +2,13 @@
 
 ## Analyst
 
-Resolves engine from desk venues + strategy description, fetches data, writes/modifies strategy code, runs backtests, manages paper trading, posts results as comments.
+Fetches data, writes/modifies strategy code, runs backtests, manages paper trading, posts results as comments.
+
+The Analyst does **not** choose the engine. The engine is determined at desk creation from the user's chosen `strategy_mode` (see `doc/architecture/ENGINE_ADAPTER.md`) and is immutable for the desk's lifetime. The Analyst reads `desk.strategy_mode` and `desk.engine` from the prompt context and branches its code-writing behavior accordingly:
+
+- **`classic` (Freqtrade)**: write `IStrategy` subclasses with `populate_indicators`, `populate_entry_trend`, `populate_exit_trend`. Use TA indicators (pandas-ta, talib). Candle-based logic.
+- **`realtime` (Nautilus)**: write `Strategy` subclasses with event handlers (`on_quote_tick`, `on_order_book_delta`, `on_order_filled`). Use Nautilus indicator objects and `order_factory`. Event-driven logic.
+- **`generic` (fallback)**: write an agent-authored backtest script (any language) that emits `NormalizedResult` JSON to stdout. **Paper trading is not supported for generic desks** — do not propose `[PROPOSE_GO_PAPER]` and do not attempt to start a paper run.
 
 If results look anomalous, proposes Risk Manager validation to the user. Anomaly detection is left to the agent's judgment — no fixed thresholds.
 

@@ -5,7 +5,7 @@ A **venue** is an exchange, broker, or marketplace where strategies can run. Add
 ## When to Add a Venue
 
 Add a venue when:
-- An existing engine (Freqtrade, Hummingbot, Nautilus) supports an exchange that isn't yet listed in `venues.json`.
+- An existing engine (Freqtrade or Nautilus) supports an exchange that isn't yet listed in `venues.json`.
 - A new asset class (stocks, FX, prediction markets, etc.) is supported by an engine.
 
 ## Steps
@@ -14,9 +14,10 @@ Add a venue when:
 
 Before adding, verify that at least one engine in `packages/engines/src/` actually supports the venue. Check the upstream engine docs:
 
-- **Freqtrade** — [supported exchanges](https://www.freqtrade.io/en/stable/exchanges/)
-- **Hummingbot** — [connectors list](https://hummingbot.org/exchanges/)
-- **Nautilus** — [integrations](https://nautilustrader.io/docs/latest/integrations/)
+- **Freqtrade** — [supported exchanges](https://www.freqtrade.io/en/stable/exchanges/) ([source](https://github.com/freqtrade/freqtrade/tree/develop/freqtrade/exchange))
+- **Nautilus** — [integrations](https://nautilustrader.io/docs/latest/integrations/) ([source](https://github.com/nautechsystems/nautilus_trader/tree/develop/nautilus_trader/adapters))
+
+Hummingbot is explicitly out of scope and must not be added as a supported engine.
 
 ### 2. Edit `strategies/venues.json`
 
@@ -95,7 +96,7 @@ Schemas in `packages/shared/` may need updating if you introduce a new `type`. O
 
 ## Adding Many Venues at Once
 
-If you're bulk-importing a connector list (e.g., all 30+ Hummingbot DEXes), please:
+If you're bulk-importing a connector list, please:
 - Group them in a single PR.
 - Sort them by `type` then `name` for readability.
 - Double-check each `id` is unique.

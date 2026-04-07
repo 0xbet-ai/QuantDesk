@@ -11,10 +11,6 @@ describe("engine registry", () => {
 		expect(adapter.name).toBe("freqtrade");
 	});
 
-	it('getAdapter("hummingbot") → HummingbotAdapter instance', () => {
-		expect(getAdapter("hummingbot").name).toBe("hummingbot");
-	});
-
 	it('getAdapter("nautilus") → NautilusAdapter instance', () => {
 		expect(getAdapter("nautilus").name).toBe("nautilus");
 	});
@@ -55,31 +51,6 @@ describe("freqtrade parseResult", () => {
 
 	it("throws with meaningful message on error output", () => {
 		expect(() => adapter.parseResult("ERROR: strategy not found")).toThrow("Failed to parse");
-	});
-});
-
-describe("hummingbot parseResult", () => {
-	const adapter = getAdapter("hummingbot");
-	const fixture = readFileSync(resolve(fixturesDir, "hummingbot-trades.csv"), "utf-8");
-
-	it("parses correct NormalizedResult", () => {
-		const result = adapter.parseResult(fixture);
-		expect(result.totalTrades).toBe(2);
-		expect(result.winRate).toBe(0.5);
-		expect(result.trades).toHaveLength(2);
-	});
-
-	it("extracts TradeEntry[] from hummingbot format", () => {
-		const result = adapter.parseResult(fixture);
-		const t = result.trades[0]!;
-		expect(t.pair).toBe("BTC/USDT");
-		expect(t.side).toBe("buy");
-		expect(t.price).toBe(42150.5);
-		expect(t.pnl).toBe(102.0);
-	});
-
-	it("throws with meaningful message on error output", () => {
-		expect(() => adapter.parseResult("")).toThrow("Failed to parse");
 	});
 });
 

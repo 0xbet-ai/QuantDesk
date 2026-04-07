@@ -54,7 +54,6 @@ describe("strategy catalog filtering", () => {
 	const catalog = [
 		{ id: "ft_1", engine: "freqtrade", name: "ADX" },
 		{ id: "ft_2", engine: "freqtrade", name: "RSI" },
-		{ id: "hb_1", engine: "hummingbot", name: "MM" },
 		{ id: "nt_1", engine: "nautilus", name: "HFT" },
 	];
 
@@ -66,7 +65,7 @@ describe("strategy catalog filtering", () => {
 
 	it("no filter returns all", () => {
 		const result = filterStrategiesByEngine(catalog, undefined);
-		expect(result).toHaveLength(4);
+		expect(result).toHaveLength(3);
 	});
 });
 

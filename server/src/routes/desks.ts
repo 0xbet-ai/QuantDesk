@@ -49,6 +49,9 @@ router.get("/:id", async (req, res, next) => {
 
 router.patch("/:id", async (req, res, next) => {
 	try {
+		if ("engine" in req.body || "strategyMode" in req.body || "strategy_mode" in req.body) {
+			throw new HttpError(400, "engine and strategy_mode are immutable for an existing desk");
+		}
 		const desk = await updateDesk(req.params.id, req.body);
 		if (!desk) throw new HttpError(404, "Desk not found");
 		res.json(desk);

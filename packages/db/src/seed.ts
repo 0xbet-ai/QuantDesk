@@ -18,7 +18,7 @@ interface StrategyEntry {
 }
 
 const strategiesDir = resolve(import.meta.dirname, "../../../strategies");
-const files = ["freqtrade.json", "hummingbot.json", "nautilus.json"];
+const files = ["freqtrade.json", "nautilus.json"];
 
 async function seed() {
 	console.log("Seeding strategy catalog...");

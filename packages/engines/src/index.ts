@@ -1,4 +1,10 @@
 export { getAdapter } from "./registry.js";
+export {
+	resolveEngine,
+	availableModes,
+	availableModesForVenues,
+	type VenueEngines,
+} from "./resolver.js";
 export type {
 	BacktestConfig,
 	BacktestResult,

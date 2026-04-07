@@ -1,13 +1,12 @@
 import { ChevronRight, Download, Lock, Settings, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import strategyCatalog from "../../../strategies/freqtrade.json";
-import hummingbotCatalog from "../../../strategies/hummingbot.json";
 import nautilusCatalog from "../../../strategies/nautilus.json";
 import venues from "../../../strategies/venues.json";
 import type { Desk } from "../lib/api.js";
 import { archiveDesk, updateDesk } from "../lib/api.js";
 
-const allStrategies = [...strategyCatalog, ...hummingbotCatalog, ...nautilusCatalog];
+const allStrategies = [...strategyCatalog, ...nautilusCatalog];
 
 function formatCategory(cat: string): string {
 	return cat

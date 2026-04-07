@@ -18,11 +18,17 @@ Step-by-step wizard on first visit (or "+" button):
 
 **Step 2 — Venue**: where to trade? Multi-select chips from curated list (`strategies/venues.json`). Custom venue can be added via "+ Add". Multi-venue strategies (e.g. CEX-DEX arbitrage) select multiple.
 
-**Step 3 — Strategy**: pick from curated catalog (`strategies/*.json`, filtered by selected venues) or describe in natural language. Agent will write the strategy code.
+**Step 3 — Strategy Mode**: how should strategies behave? Two cards:
+- **Classic** (Recommended): candle-based polling strategies, TA indicators, minute-to-hour timeframes. Best for trend following, mean reversion, momentum.
+- **Real-time** (Advanced): event-driven strategies reacting to ticks and order book deltas, sub-second timeframes. Best for market making, arbitrage, HFT.
 
-**Step 4 — Config**: budget (USD), target return % (per backtest period), stop-loss (max drawdown %).
+Cards are enabled/disabled based on the selected venues — if a venue only supports one mode, the other is disabled with a tooltip. Engine names are never shown; the system maps the chosen mode to the appropriate engine internally.
 
-**Step 5 — Launch**: review summary and confirm. Creates the desk + first Experiment.
+**Step 4 — Strategy**: pick from curated catalog (`strategies/*.json`, filtered by selected venues **and strategy mode**) or describe in natural language. Agent will write the strategy code.
+
+**Step 5 — Config**: budget (USD), target return % (per backtest period), stop-loss (max drawdown %).
+
+**Step 6 — Launch**: review summary and confirm. Creates the desk + first Experiment. The chosen strategy mode (and the resolved engine) are locked for the desk's lifetime.
 
 ## 3. First Experiment
 

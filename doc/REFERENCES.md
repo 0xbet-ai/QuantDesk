@@ -18,11 +18,6 @@
 - Crypto trading bot framework. Backtesting engine adapter.
 - Used for: data download, strategy execution, backtest result parsing.
 
-## Hummingbot
-
-- https://github.com/hummingbot/hummingbot
-- Crypto market making / trading bot. Backtesting engine adapter.
-
 ## Nautilus Trader
 
 - https://github.com/nautechsystems/nautilus_trader

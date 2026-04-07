@@ -17,6 +17,7 @@ export const desks = pgTable("desks", {
 	stopLoss: numeric("stop_loss").notNull(),
 	strategyId: text("strategy_id"),
 	venues: jsonb("venues").notNull().$type<string[]>(),
+	strategyMode: text("strategy_mode").notNull().default("classic"),
 	engine: text("engine").notNull(),
 	config: jsonb("config").notNull().$type<Record<string, unknown>>().default({}),
 	description: text("description"),

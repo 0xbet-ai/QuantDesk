@@ -1,3 +1,5 @@
+export type StrategyMode = "classic" | "realtime";
+
 export interface Desk {
 	id: string;
 	name: string;
@@ -6,6 +8,7 @@ export interface Desk {
 	stopLoss: string;
 	strategyId: string | null;
 	venues: string[];
+	strategyMode: StrategyMode;
 	engine: string;
 	config: Record<string, unknown>;
 	description: string | null;

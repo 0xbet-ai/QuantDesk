@@ -70,8 +70,17 @@ pnpm dev
 2. **File refs** — repo-root relative (`src/core/runner.ts:42`), never absolute.
 3. **Commits** — `<type>: <description>`. Types: `feat`, `fix`, `refactor`, `docs`, `chore`.
 4. **Secrets** — never commit. Use env vars. `.env` is gitignored.
-5. **Scope** — backtesting and paper trading.
-6. **Engine is internal** — never expose engine name (freqtrade, hummingbot, etc.) to the user in UI. Engine is resolved by the agent behind the scenes.
+5. **Scope** — backtesting and paper trading only. **Live trading is an explicit forever non-goal** — never implement, design for, or expose real-money trading in APIs or UI. No API keys for trading, no custody, no order routing to real venues.
+6. **Engine is internal** — never expose engine name (freqtrade, nautilus) to the user in UI. Users pick a **strategy mode** (`classic` or `realtime`); the system maps that to an engine behind the scenes.
+7. **Supported engines: Freqtrade and Nautilus Trader only.** Hummingbot is explicitly out of scope. Generic engine remains as a fallback for venues with no managed engine, and supports backtest only (no paper trading).
+8. **Strategy mode → engine mapping:**
+   - `classic` → **Freqtrade** — candle-based polling strategies, TA indicators, minute-to-hour timeframes. Default/recommended. Freqtrade's `dry_run` mode shares the same code path as live, giving the highest paper fidelity.
+   - `realtime` → **Nautilus** — event-driven strategies reacting to ticks and order book deltas, sub-second timeframes, market making, arbitrage, HFT. Uses `SandboxExecutionClient` for paper.
+   - The onboarding wizard asks the user to pick a mode **between venue selection and strategy selection**. When a venue supports both engines, the mode choice decides which engine is used. When a venue only supports one mode, the other mode is disabled for that venue.
+9. **Paper trading uses engine-native paper modes** — never build a custom paper trading simulator. Freqtrade `dry_run: true` and Nautilus `SandboxExecutionClient`. Generic engine has no paper trading support (backtest only).
+10. **One mode per desk** — each desk pins a single `strategy_mode` (and therefore a single engine) at creation time. Both are **immutable** for the desk's lifetime, enforced at the app level in `services/desks.ts`. All runs (backtest + paper) within the desk use the pinned engine. This guarantees backtest↔paper fidelity consistency and prevents cross-engine comparison confusion.
+11. **Engines run in Docker** — engine processes (backtest AND paper trading) execute inside Docker containers using official engine images with **pinned version tags** (never `:latest`). Never install Freqtrade or Nautilus natively on the host. Rationale: isolation of LLM-generated strategy code, reproducibility, simplified user setup. The server, UI, and Claude/Codex CLI run on the host — only the engine layer is containerized.
+12. **Paper session recovery** — paper runs may live for days. Containers are tagged with labels (`quantdesk.runId`, `quantdesk.engine`, `quantdesk.kind=paper`) so the server reconciles running containers on restart via `docker ps` rather than marking them as failed. The in-memory registry is rebuilt from Docker as the source of truth.
 
 ## Conventions
 

@@ -23,15 +23,6 @@ describe("initWorkspace", () => {
 		expect(JSON.parse(config)).toBeDefined();
 	});
 
-	it("engine=hummingbot → creates strategy.py + conf_*.yml", async () => {
-		const dir = await initWorkspace("desk-2", "hummingbot", workspacesRoot);
-		const strategy = await readFile(join(dir, "strategy.py"), "utf-8");
-		expect(strategy).toBeDefined();
-		const { readdirSync } = await import("node:fs");
-		const files = readdirSync(dir);
-		expect(files.some((f: string) => f.startsWith("conf_") && f.endsWith(".yml"))).toBe(true);
-	});
-
 	it("engine=nautilus → creates strategy.py + config.py", async () => {
 		const dir = await initWorkspace("desk-3", "nautilus", workspacesRoot);
 		const strategy = await readFile(join(dir, "strategy.py"), "utf-8");

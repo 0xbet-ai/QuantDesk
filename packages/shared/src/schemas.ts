@@ -48,6 +48,12 @@ export const adapterConfigSchema = z.discriminatedUnion("type", [
 
 export type AdapterConfig = z.infer<typeof adapterConfigSchema>;
 
+export const strategyModeSchema = z.enum(["classic", "realtime"]);
+export type StrategyMode = z.infer<typeof strategyModeSchema>;
+
+export const engineNameSchema = z.enum(["freqtrade", "nautilus", "generic"]);
+export type EngineName = z.infer<typeof engineNameSchema>;
+
 export const proposalMarkerSchema = z.enum([
 	"PROPOSE_VALIDATION",
 	"PROPOSE_NEW_EXPERIMENT",

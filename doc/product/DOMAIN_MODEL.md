@@ -12,8 +12,9 @@ One strategy workspace.
 | target_return | NUMERIC | Target return % per backtest period |
 | stop_loss | NUMERIC | Max acceptable drawdown % |
 | strategy_id | TEXT? | Catalog strategy ID (nullable for custom) |
-| venues | JSONB | Selected venues, e.g. `["binance"]` or `["binance", "uniswap"]` |
-| engine | TEXT | Resolved by agent: `freqtrade`, `hummingbot`, `nautilus`, `generic` |
+| venues | JSONB | Selected venues, e.g. `["binance"]` or `["binance", "bybit"]` |
+| strategy_mode | TEXT | `classic` or `realtime`. Picked by the user in the onboarding wizard between venue selection and strategy selection. **Immutable** after creation. |
+| engine | TEXT | Derived from `strategy_mode` at desk creation: `classic` → `freqtrade`, `realtime` → `nautilus`. `generic` is the fallback for venues with no managed engine (backtest only). **Immutable** — cannot be changed after creation. Enforced at app level in `services/desks.ts`. |
 | config | JSONB | Default params — pairs, timeframe, etc. |
 | description | TEXT? | Strategy description |
 | status | TEXT | `active` / `archived` |
@@ -46,7 +47,7 @@ A single backtest or paper trading execution within an Experiment.
 | run_number | INTEGER | Sequential within experiment |
 | is_baseline | BOOLEAN | True for first run in each experiment |
 | mode | TEXT | `backtest` / `paper` |
-| status | TEXT | `pending` / `running` / `completed` / `stopped` / `failed` |
+| status | TEXT | `pending` / `running` / `completed` / `stopped` / `failed` / `interrupted`. `interrupted` means the paper container disappeared due to external causes (manual `docker rm`, host reboot, image upgrade) — distinct from `failed` (strategy/engine error). |
 | config | JSONB | Override params for this run (merged with desk defaults) |
 | result | JSONB | Return, drawdown, win_rate, trades |
 | commit_hash | TEXT | Git commit hash in desk workspace |
@@ -143,7 +144,7 @@ Custom venues added via "+ Add" default to `generic` engine.
 
 ## Strategy Catalog
 
-Curated templates in `strategies/` directory, one JSON file per engine (`freqtrade.json`, `hummingbot.json`, `nautilus.json`). Seeded into DB on first run.
+Curated templates in `strategies/` directory, one JSON file per engine (`freqtrade.json`, `nautilus.json`). Seeded into DB on first run.
 
 Each entry has: id, name, category, difficulty, description, indicators, default_params, timeframes, engine, source URL.
 
