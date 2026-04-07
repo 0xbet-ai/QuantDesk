@@ -1,9 +1,11 @@
 import { ArrowLeft, GitCommit, Play, TrendingUp } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Experiment, Run } from "../lib/api.js";
-import { goLive, listRuns } from "../lib/api.js";
+import { getAgentLogs, goLive, listRuns } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { StatusBadge } from "./StatusBadge.js";
+import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
+import { RunTranscriptView } from "./transcript/RunTranscriptView.js";
 import { Button } from "./ui/button.js";
 import { ScrollArea } from "./ui/scroll-area.js";
 import { Separator } from "./ui/separator.js";
@@ -85,7 +87,13 @@ function RunDetail({
 	run,
 	baseline,
 	onGoLive,
-}: { run: Run; baseline: Run | null; onGoLive: (id: string) => void }) {
+	transcriptEntries,
+}: {
+	run: Run;
+	baseline: Run | null;
+	onGoLive: (id: string) => void;
+	transcriptEntries: TranscriptEntry[];
+}) {
 	const hasResult = !!run.result;
 	const hasDuration =
 		run.completedAt && new Date(run.completedAt).getTime() - new Date(run.createdAt).getTime() > 0;
@@ -93,7 +101,7 @@ function RunDetail({
 	return (
 		<div className="space-y-4 min-w-0">
 			{/* Run summary card */}
-			<div className="border border-border rounded-lg overflow-hidden">
+			<div className="border border-border rounded-lg overflow-hidden shadow-sm">
 				{/* Header row */}
 				<div className="p-4 space-y-3">
 					<div className="flex items-center gap-2 flex-wrap">
@@ -205,6 +213,25 @@ function RunDetail({
 					Go Live
 				</Button>
 			)}
+
+			{/* Agent transcript */}
+			{transcriptEntries.length > 0 && (
+				<div className="border border-border rounded-lg overflow-hidden shadow-sm">
+					<div className="px-4 py-2.5 border-b border-border bg-muted/30">
+						<span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+							Agent Transcript
+						</span>
+					</div>
+					<div className="p-3">
+						<RunTranscriptView
+							entries={transcriptEntries}
+							density="compact"
+							streaming={false}
+							emptyMessage="No transcript available."
+						/>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }
@@ -213,6 +240,7 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 	const [runs, setRuns] = useState<Run[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [activeRunId, setActiveRunId] = useState<string | null>(selectedRunId);
+	const [transcriptEntries, setTranscriptEntries] = useState<TranscriptEntry[]>([]);
 
 	useEffect(() => {
 		setLoading(true);
@@ -226,6 +254,12 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 			.catch(() => {})
 			.finally(() => setLoading(false));
 	}, [experiment.id, activeRunId]);
+
+	useEffect(() => {
+		getAgentLogs(experiment.id)
+			.then((logs) => setTranscriptEntries(logs as unknown as TranscriptEntry[]))
+			.catch(() => setTranscriptEntries([]));
+	}, [experiment.id]);
 
 	const sorted = [...runs].sort(
 		(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -291,7 +325,12 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 					{selectedRun && (
 						<ScrollArea className="flex-1 min-w-0">
 							<div className="p-4">
-								<RunDetail run={selectedRun} baseline={baseline} onGoLive={handleGoLive} />
+								<RunDetail
+									run={selectedRun}
+									baseline={baseline}
+									onGoLive={handleGoLive}
+									transcriptEntries={transcriptEntries}
+								/>
 							</div>
 						</ScrollArea>
 					)}

@@ -349,10 +349,19 @@ const markdownComponents = {
 
 // ── Block renderers ──────────────────────────────────────────────────
 
+/** Convert [BACKTEST_RESULT]...[\BACKTEST_RESULT] markers to fenced JSON code blocks */
+function formatBacktestResults(text: string): string {
+	return text.replace(
+		/\[BACKTEST_RESULT\]\s*([\s\S]*?)\s*\[\/BACKTEST_RESULT\]/g,
+		(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
+	);
+}
+
 function TextBlock({
 	block,
 	compact,
 }: { block: Extract<TranscriptBlock, { type: "text" }>; compact: boolean }) {
+	const content = formatBacktestResults(block.content);
 	return (
 		<div>
 			<div
@@ -362,7 +371,7 @@ function TextBlock({
 				)}
 			>
 				<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-					{block.content}
+					{content}
 				</Markdown>
 			</div>
 			{block.streaming && (
