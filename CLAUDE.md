@@ -18,6 +18,7 @@ Users research, backtest, and validate strategies through async interaction with
 - `doc/OVERVIEW.md` — tech stack, repo map
 - `doc/agent/TURN.md` — how a single agent turn is executed (CLI subprocess, prompt, session)
 - `doc/agent/LIFECYCLE.md` — turn-to-turn lifecycle, marker branching, fragile spots
+- `doc/agent/PAPER_LIFECYCLE.md` — long-running paper trading state machine, observer turns, reconcile
 - `doc/agent/MARKERS.md` — protocol glossary for the bracketed markers the agent emits
 - `doc/agent/ROLES.md` — Analyst, Risk Manager, interaction pattern
 - `doc/agent/MEMORY.md` — hipocampus-inspired long-term context

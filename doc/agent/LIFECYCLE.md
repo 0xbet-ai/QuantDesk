@@ -1,6 +1,6 @@
 # Agent Turn Lifecycle
 
-How a single agent turn is dispatched, what branches the server takes after parsing the agent's output, and how turns chain together across a desk's lifecycle. For the underlying CLI execution mechanics see `./TURN.md`. For the marker glossary see `./MARKERS.md`.
+How a single agent turn is dispatched, what branches the server takes after parsing the agent's output, and how turns chain together across a desk's lifecycle. This document covers the **turn-based backtest cycle**; for long-running paper trading sessions (which have no turn end) see `./PAPER_LIFECYCLE.md`. For the underlying CLI execution mechanics see `./TURN.md`. For the marker glossary see `./MARKERS.md`.
 
 `triggerAgent(experimentId)` in `server/src/services/agent-trigger.ts:168` is the single entry point for every agent turn. After the CLI subprocess returns, the server inspects `result.resultText` for marker blocks and dispatches the following branches. Branches are **not** mutually exclusive — they are checked in order within the same turn (the rule #13 refusal is the only early `return`).
 
@@ -122,3 +122,12 @@ sequenceDiagram
     S-->>U: render results + analysis
 ```
 
+## Failure handling
+
+There is **no automatic retry** anywhere in the lifecycle. If a stage fails, the run/turn is marked `failed` and the lifecycle stops — the server does not re-dispatch the same work on its own, and it does **not** advance to the next stage. A failure in Stage 1 means Stage 2 never runs; a failure in Stage 2 means Stage 3 never runs.
+
+- **Stage 1 (data fetch)** — a download error posts a system comment describing the failure and retriggers the agent. The agent decides whether to propose a revised `[PROPOSE_DATA_FETCH]` (e.g. different pair naming, shorter window) or give up. The user can also simply comment again to nudge it.
+- **Stage 2 (backtest)** — an engine/container error inserts the Run row with `status = failed` and posts the error as a system comment. No analysis turn is auto-dispatched. The next turn is a fresh `triggerAgent` triggered by the failure comment: the agent reads the failure, may edit `strategy.py`, and emits a **new** `[RUN_BACKTEST]` which becomes a new Run row. The failed run is preserved for history, never mutated in place.
+- **Stage 3 (analysis)** — if the agent CLI itself crashes mid-turn, the turn ends with no comment saved. The user retriggers by commenting again.
+
+Retry is therefore always **agent-driven and user-gated**, never a silent server loop. This keeps the audit trail (runs, comments, commits) linear and prevents runaway Docker spend on a broken strategy.
