@@ -77,6 +77,7 @@ flowchart TD
 - **Stage 2 (backtest)** can only succeed once Stage 1 has produced a dataset. The `dataset exists?` check at `B0` enforces this; without a dataset the server posts a refusal and returns, kicking the agent back to Stage 1.
 - **Stage 3 (analysis)** is the terminal stage of any turn. After a backtest result comment is posted, the recursive `triggerAgent` lands here: the agent reads the result and replies with plain text. `[EXPERIMENT_TITLE]` and `[DATASET]` are side-channel metadata markers that can ride along on any turn.
 - **Recursion** (`P4 → Trigger`, `B4 → Trigger`) is what stitches the stages together across turns. Each retrigger is a fresh `triggerAgent` invocation with the new system comment as input.
+- **Stage 1 spans more than one HTTP request.** The agent turn that emits `[PROPOSE_DATA_FETCH]` ends as soon as the `pendingProposal` is saved on the comment; the server does not block on user approval. Approval (or rejection) arrives later as a separate user-initiated request, and that is what actually triggers the download → validate → datasets row → re-trigger chain. If the user closes the tab and never decides, the lifecycle simply pauses forever in `P2`.
 
 ## Intended first-desk happy path
 

@@ -21,84 +21,22 @@ Each desk pins a `strategy_mode` at creation. The corresponding engine is derive
 
 ## Interface
 
-```typescript
-type StrategyMode = "classic" | "realtime";
-type EngineName = "freqtrade" | "nautilus" | "generic";
+The full `EngineAdapter` contract and all related config / result types live in `packages/engines/src/types.ts` — that file is the source of truth and is the only place that should change when the interface evolves.
 
-interface DataConfig {
-  exchange: string;         // e.g. "binance"
-  pairs: string[];          // e.g. ["BTC/USDT"]
-  timeframe: string;        // e.g. "5m" (classic) or "tick" (realtime)
-  startDate: string;        // ISO date
-  endDate: string;          // ISO date
-  workspacePath: string;
-}
+At a high level the adapter exposes the following methods:
 
-interface DataRef {
-  datasetId: string;
-  path: string;             // filesystem path to downloaded data (mounted into container)
-}
+| Method | Purpose |
+|---|---|
+| `name` | Stable engine id (must match the registry key and the value used in `venues.json`). |
+| `ensureImage()` | Pull the pinned Docker image for this engine. Native host installs are not supported. |
+| `downloadData(config)` | Fetch historical OHLCV (or tick) data into the desk workspace via an ephemeral container. |
+| `runBacktest(config)` | Run a backtest in an ephemeral container, return raw output + `NormalizedResult`. |
+| `startPaper(config)` | Spawn a long-lived paper container labelled `quantdesk.runId` / `quantdesk.engine` / `quantdesk.kind=paper`. |
+| `stopPaper(handle)` | Stop a paper container by handle (graceful → SIGTERM fallback). |
+| `getPaperStatus(handle)` | Query a running paper container for health + PnL via the engine-specific mechanism (REST for Freqtrade, stdout JSONL for Nautilus). |
+| `parseResult(raw)` | Pure function from raw engine output to `NormalizedResult`. Unit-testable without spawning processes. |
 
-interface BacktestConfig {
-  strategyPath: string;
-  dataRef: DataRef;
-  workspacePath: string;
-  extraParams?: Record<string, unknown>;
-}
-
-interface BacktestResult {
-  raw: string;
-  normalized: NormalizedResult;
-}
-
-interface NormalizedResult {
-  returnPct: number;
-  drawdownPct: number;
-  winRate: number;
-  totalTrades: number;
-  trades: TradeEntry[];
-}
-
-interface TradeEntry {
-  pair: string;
-  side: "buy" | "sell";
-  price: number;
-  amount: number;
-  pnl: number;
-  openedAt: string;
-  closedAt: string;
-}
-
-interface PaperConfig {
-  strategyPath: string;
-  workspacePath: string;
-  wallet: number;           // dry-run wallet size in USD (from desk.budget)
-  // No API keys. Paper mode uses public market data only — live trading is a forever non-goal.
-}
-
-interface PaperHandle {
-  containerName: string;    // e.g. "quantdesk-paper-{runId}"
-  runId: string;
-}
-
-interface PaperStatus {
-  running: boolean;
-  unrealizedPnl: number;
-  realizedPnl: number;
-  openPositions: number;
-  uptime: number;           // seconds
-}
-
-interface EngineAdapter {
-  ensureImage(): Promise<void>;                          // docker pull <pinned tag>
-  downloadData(config: DataConfig): Promise<DataRef>;    // ephemeral container
-  runBacktest(config: BacktestConfig): Promise<BacktestResult>;  // ephemeral container
-  startPaper(config: PaperConfig): Promise<PaperHandle>; // long-lived container with labels
-  stopPaper(handle: PaperHandle): Promise<void>;
-  getPaperStatus(handle: PaperHandle): Promise<PaperStatus>;
-  parseResult(raw: string): NormalizedResult;
-}
-```
+`NormalizedResult` is the cross-engine reporting contract. Engines may differ wildly in raw output but must always normalise to the same shape so the UI and the agent see consistent metrics.
 
 ## Engine Resolution
 
@@ -141,16 +79,11 @@ See `strategies/venues.json` for the full list of venues and which engines each 
 
 ### Image pinning
 
-Engine images are referenced by **pinned version tags**, never `:latest`. Single source of truth: `packages/engines/src/images.ts`.
+Engine images are referenced by **pinned, immutable references** — either a version tag or a digest. **Never `:latest`**, and never anything else that can drift under your feet (e.g. a moving branch tag). Reproducibility of backtests depends on this: a saved `runs.commit_hash` + `runs.dataset_id` is only meaningful if the engine version is also fixed.
 
-```ts
-export const ENGINE_IMAGES = {
-  freqtrade: "freqtradeorg/freqtrade:2025.3",
-  nautilus: "nautilustrader/nautilus_trader:1.220.0",
-} as const;
-```
+The current pinned references live in `packages/engines/src/images.ts`. That file is the single source of truth — do not duplicate the values here.
 
-Bumping a tag is a deliberate change that must be accompanied by fixture updates (parser fixtures, integration test baselines).
+Bumping an image is a deliberate change that must be accompanied by fixture updates (parser fixtures, integration test baselines) in the same commit.
 
 ### Container labels
 
