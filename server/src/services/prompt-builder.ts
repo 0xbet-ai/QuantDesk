@@ -3,6 +3,7 @@ interface DeskContext {
 	budget: string;
 	targetReturn: string;
 	stopLoss: string;
+	strategyMode: "classic" | "realtime";
 	engine: string;
 	venues: string[];
 	description: string | null;
@@ -71,6 +72,109 @@ export function trimCommentsToTokenBudget(
 	}
 
 	return result;
+}
+
+function buildModeInstructions(desk: DeskContext): string {
+	// The engine is derived from strategy mode by the server. Don't expose
+	// the engine name to the user, but the agent needs to know which engine
+	// API to code against.
+	if (desk.strategyMode === "classic") {
+		return `## Execution Model: Classic (candle-based, polling)
+
+You are working with a **Freqtrade** engine under the hood. Write the
+strategy as a Freqtrade \`IStrategy\` subclass in \`strategy.py\`.
+
+Required methods:
+- \`populate_indicators(dataframe, metadata)\` — compute TA indicators on the OHLCV dataframe
+- \`populate_entry_trend(dataframe, metadata)\` — set the \`enter_long\` / \`enter_short\` columns
+- \`populate_exit_trend(dataframe, metadata)\` — set the \`exit_long\` / \`exit_short\` columns
+
+Also maintain a \`config.json\` at workspace root with at minimum:
+- \`timeframe\`, \`stake_currency\`, \`stake_amount\`, \`exchange.name\`, \`exchange.pair_whitelist\`
+
+Use pandas-ta or talib for indicators. Think in minutes to hours — not ticks.
+
+### Running backtests and paper trading
+
+**Do NOT execute python or freqtrade directly.** The server runs everything
+inside a pinned Freqtrade Docker container. Instead, emit a marker at the
+end of your response when you want a backtest or paper run:
+
+\`\`\`
+[RUN_BACKTEST]
+{"strategyName": "QuantDeskStrategy", "configFile": "config.json"}
+[/RUN_BACKTEST]
+\`\`\`
+
+or, for paper trading a previously-completed backtest run:
+
+\`\`\`
+[RUN_PAPER] <runId>
+\`\`\`
+
+The server will execute the container, capture the result, and post a
+system comment back with the metrics. You will then be triggered again to
+analyse the result — do **not** try to read files or poll for completion
+yourself.`;
+	}
+
+	if (desk.strategyMode === "realtime") {
+		return `## Execution Model: Real-time (event-driven, tick-level)
+
+You are working with a **Nautilus Trader** engine under the hood. Write
+the strategy as a Nautilus \`Strategy\` subclass in \`strategy.py\` with
+event handlers:
+
+- \`on_start(self)\` — subscribe to data (\`subscribe_quote_ticks\`, \`subscribe_order_book_deltas\`, \`subscribe_bars\`)
+- \`on_quote_tick(self, tick)\` — react to new best bid/ask
+- \`on_trade_tick(self, tick)\` — react to prints
+- \`on_order_book_delta(self, delta)\` — react to book updates
+- \`on_order_filled(self, event)\` — handle own fills
+
+Create orders via \`self.order_factory\` (market, limit, post-only, OCO…).
+Use Nautilus indicator objects (\`ExponentialMovingAverage\`, \`RelativeStrengthIndex\`, …)
+and feed them via \`handle_bar\` / \`handle_tick\`.
+
+The workspace also needs a \`runner.py\` — the default one emits JSONL
+status events on stdout; feel free to extend it to wire your strategy into
+the TradingNode.
+
+### Running backtests and paper trading
+
+**Do NOT execute python directly.** The server runs runner.py inside a
+pinned Nautilus Docker container. Emit markers to request execution:
+
+\`\`\`
+[RUN_BACKTEST]
+{"strategyName": "QuantDeskStrategy"}
+[/RUN_BACKTEST]
+\`\`\`
+
+or, for paper trading a previously-completed backtest run:
+
+\`\`\`
+[RUN_PAPER] <runId>
+\`\`\`
+
+The server will execute the container and post a system comment with the
+result. You will be re-triggered for analysis — do not poll or read files
+yourself.`;
+	}
+
+	// Generic fallback — agent runs scripts directly on the host.
+	return `## Execution Model: Generic (agent-authored scripts, host execution)
+
+This desk uses a venue without a managed engine, so you write and run the
+backtest script yourself. This is the explicit opt-out from container
+isolation — the script runs on the host Node/Python.
+
+1. Write the strategy as a standalone script in the workspace (Python, JS,
+   whatever fits the venue).
+2. Execute it with the Bash tool. The script must output a NormalizedResult
+   JSON to stdout and wrap it in:
+   \`[BACKTEST_RESULT] {...} [/BACKTEST_RESULT]\`
+3. **Paper trading is not supported** for generic desks. Do **not** propose
+   \`[PROPOSE_GO_PAPER]\`. Only backtest workflows are allowed here.`;
 }
 
 export function buildAnalystPrompt(input: AnalystPromptInput): string {
@@ -170,13 +274,18 @@ Only propose [PROPOSE_NEW_EXPERIMENT] when one of these signals is present:
 
 Do NOT propose a new experiment for routine parameter tuning, indicator threshold adjustments, or small variations on the same hypothesis — keep those within the current experiment.`);
 
+	// Strategy-mode-specific execution instructions.
+	// The mode is pinned at desk creation and immutable — the agent never
+	// switches modes or picks an engine; it follows the contract below.
+	sections.push(buildModeInstructions(desk));
+
 	// Desk context
 	sections.push(`## Desk: ${desk.name}
 ${desk.description ?? ""}
 - Budget: $${Number(desk.budget).toLocaleString("en-US")}
 - Target return: ${desk.targetReturn}%
 - Stop loss: ${desk.stopLoss}% (max drawdown)
-- Engine: ${desk.engine}
+- Strategy mode: ${desk.strategyMode}
 - Venues: ${desk.venues.join(", ")}`);
 
 	// Experiment

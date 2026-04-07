@@ -6,6 +6,7 @@ interface DeskContext {
 	budget: string;
 	targetReturn: string;
 	stopLoss: string;
+	strategyMode: "classic" | "realtime";
 	engine: string;
 	venues: string[];
 	description: string | null;

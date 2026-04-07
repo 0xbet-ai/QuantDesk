@@ -4,6 +4,7 @@ export {
 	normalizedResultSchema,
 	paperStatusSchema,
 	proposalMarkerSchema,
+	runStatusSchema,
 	strategyModeSchema,
 	tradeEntrySchema,
 } from "./schemas.js";
@@ -14,6 +15,7 @@ export type {
 	NormalizedResult,
 	PaperStatus,
 	ProposalMarker,
+	RunStatus,
 	StrategyMode,
 	TradeEntry,
 } from "./schemas.js";
