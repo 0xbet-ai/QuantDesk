@@ -522,10 +522,28 @@ export function CommentThread({
 		refresh();
 	}, [refresh]);
 
-	// Fade-out-and-clear on completed. 900ms hold lets the user see the
-	// "Completed" badge, then 500ms CSS transition fades the card away.
+	// Fade-out-and-clear on completed — BUT only when nothing else is still
+	// happening. A completed agent turn often kicks off a downstream server
+	// operation (data fetch, backtest) whose progress the user needs to see.
+	// We consider the work "truly done" when:
+	//   - turnStatus === "completed", AND
+	//   - no live data-fetch tail, AND
+	//   - no live engine log tail, AND
+	//   - the last comment does NOT carry a pendingProposal (user hasn't
+	//     been asked to act on anything yet).
+	// failed / stopped stay visible regardless so the user can react.
 	useEffect(() => {
 		if (turnStatus !== "completed") {
+			setFadingOut(false);
+			return;
+		}
+		const last = comments[comments.length - 1];
+		const hasPendingProposal = !!(
+			last?.metadata as { pendingProposal?: unknown } | null | undefined
+		)?.pendingProposal;
+		const workStillHappening =
+			dataFetchProgress.length > 0 || runLogLines.length > 0 || hasPendingProposal;
+		if (workStillHappening) {
 			setFadingOut(false);
 			return;
 		}
@@ -542,7 +560,7 @@ export function CommentThread({
 			clearTimeout(holdId);
 			clearTimeout(clearId);
 		};
-	}, [turnStatus]);
+	}, [turnStatus, comments, dataFetchProgress.length, runLogLines.length]);
 
 	// Auto-refresh on WebSocket events
 	useLiveUpdates(experiment.id, (event) => {
