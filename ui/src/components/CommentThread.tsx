@@ -2,7 +2,6 @@ import { formatAgentMarkersForDisplay } from "@quantdesk/shared";
 import {
 	Bot,
 	CheckCircle2,
-	ChevronDown,
 	ChevronRight,
 	Code2,
 	Database,
@@ -28,9 +27,9 @@ import {
 } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { DatasetPreviewModal } from "./DatasetView.js";
+import { listExperimentTurns } from "../lib/api.js";
 import { TurnCard, type TurnLifecycleStatus } from "./TurnCard.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
-import { RunTranscriptView } from "./transcript/RunTranscriptView.js";
 import { Button } from "./ui/button.js";
 import { Input } from "./ui/input.js";
 import { Separator } from "./ui/separator.js";
@@ -425,40 +424,6 @@ function DatasetChips({ deskId, after }: { deskId: string; after: string }) {
 	);
 }
 
-function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
-	const [open, setOpen] = useState(false);
-	const [entries, setEntries] = useState<TranscriptEntry[] | null>(null);
-
-	const handleToggle = () => {
-		if (!open && entries === null) {
-			getAgentLogs(experimentId)
-				.then((logs) => setEntries(logs as unknown as TranscriptEntry[]))
-				.catch(() => setEntries([]));
-		}
-		setOpen((v) => !v);
-	};
-
-	return (
-		<div className="mt-2">
-			<button
-				type="button"
-				onClick={handleToggle}
-				className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-			>
-				{open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-				<span>View agent transcript</span>
-			</button>
-			{open && entries && entries.length > 0 && (
-				<div className="mt-2 max-h-[400px] overflow-y-auto rounded-md border border-border/50 bg-muted/20 p-3">
-					<RunTranscriptView entries={entries} density="compact" streaming={false} />
-				</div>
-			)}
-			{open && entries && entries.length === 0 && (
-				<div className="mt-2 text-[11px] text-muted-foreground">No transcript available.</div>
-			)}
-		</div>
-	);
-}
 
 export function CommentThread({
 	experiment,
@@ -522,6 +487,28 @@ export function CommentThread({
 							setThinkingRole("analyst");
 						});
 				}
+				// Phase 27 — hydrate the TurnCard from the latest agent_turns
+				// row so a mid-turn reload (or revisit after the turn finished)
+				// restores the same card the user saw before refresh instead
+				// of vanishing because turnStatus lived only in React state.
+				listExperimentTurns(experiment.id)
+					.then((turns) => {
+						const latest = turns[turns.length - 1];
+						if (!latest) {
+							setTurnStatus(null);
+							setCurrentTurnId(null);
+							setTurnFailureReason(null);
+							return;
+						}
+						setCurrentTurnId(latest.id);
+						setTurnStatus(latest.status);
+						setTurnFailureReason(latest.failureReason ?? null);
+						if (latest.status === "running") {
+							setThinkingRole(latest.agentRole);
+							setRunStartedAt((prev) => prev ?? new Date(latest.startedAt));
+						}
+					})
+					.catch(() => {});
 				setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "auto" }), 50);
 			})
 			.catch(() => {});
@@ -723,12 +710,7 @@ export function CommentThread({
 										) : null;
 									})()}
 									{(c.author === "analyst" || c.author === "risk_manager") && (
-										<>
-											<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
-											{turnStatus !== "running" && (
-												<AgentTranscriptToggle experimentId={experiment.id} />
-											)}
-										</>
+										<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
 									)}
 								</div>
 								{children.map((child) => renderComment(child, true))}
