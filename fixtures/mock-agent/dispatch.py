@@ -1,22 +1,17 @@
-"""Keyword dispatcher (conversational approval).
+"""Keyword dispatcher (direct action).
 
-Reads the user prompt from stdin (server pipes the full prompt into the
-docker container) and emits either a plain-text question or a direct
-action marker, depending on what the user just typed and what context is
-already in the prompt.
+Reads the user prompt from stdin and dispatches on the keyword in the
+most recent user message. Each keyword maps to exactly one action
+marker, emitted directly in the same turn.
 
-CLAUDE.md rule #15 makes approval conversational:
- - turn N:   user types a keyword like `data` → dispatcher emits a plain
-             text question, no marker, turn ends
- - turn N+1: user replies "yes" (or any affirmative) → dispatcher emits
-             the corresponding action marker, server executes it
-
-Priority rules:
- 1. If the most recent user message is an affirmative ("yes", "go",
-    "ok", "sure", "do it", "proceed") AND an earlier ask is visible in
-    the prompt history, fire the execution marker that matches the ask.
- 2. Otherwise, route on the keyword in the last user message and emit
-    the corresponding *question* — no marker.
+Note: a real Claude/Codex agent follows the two-turn conversational
+approval pattern (CLAUDE.md rule #15) — ask in plain text, wait, then
+emit the marker on the next turn after the user agrees. The mock does
+NOT simulate that because it's a stateless regex dispatcher and can't
+see its own previous question in the resume prompt. Mock exists to
+exercise the server dispatch + UI rendering pipeline with deterministic
+input, not to validate conversational reasoning. For conversational UX
+testing use a live agent (claude/codex), not MOCK_AGENT=1.
 """
 
 import sys
@@ -34,58 +29,32 @@ def block(name: str, body: str) -> None:
     print(f"[/{name}]", flush=True)
 
 
-AFFIRMATIVE = {
-    "yes",
-    "y",
-    "go",
-    "ok",
-    "okay",
-    "sure",
-    "do it",
-    "proceed",
-    "confirm",
-    "confirmed",
-    "please do",
-    "let's go",
-    "lets go",
-    "approve",
-    "approved",
-}
-
-
-def is_affirmative(text: str) -> bool:
-    t = text.strip().lower().rstrip(".!")
-    if not t:
-        return False
-    if t in AFFIRMATIVE:
-        return True
-    # `yes, but ...` / `go ahead and ...` count too — the server lets the
-    # agent re-state the parameters on the execution turn.
-    for prefix in ("yes", "go", "ok", "okay", "sure", "proceed"):
-        if t.startswith(prefix + " ") or t.startswith(prefix + ","):
-            return True
-    return False
-
-
-def last_user_messages(raw: str, n: int = 6) -> list[str]:
-    """Return the last `n` `[user]` lines in the prompt, most-recent last."""
-    out: list[str] = []
+def extract_last_user_message(raw: str) -> str:
+    """Pull out the most recent `[user] ...` line from the prompt."""
+    last = ""
     for line in raw.splitlines():
         stripped = line.lstrip()
         if stripped.startswith("[user]"):
-            out.append(stripped[len("[user]") :].strip())
-    return out[-n:]
+            last = stripped[len("[user]") :].strip()
+    return last
 
 
 def main() -> int:
     raw = sys.stdin.read() if not sys.stdin.isatty() else ""
-    users = last_user_messages(raw)
-    last_user = users[-1] if users else ""
-    prior_users = " ".join(users[:-1]).lower() if len(users) > 1 else ""
+    last_user = extract_last_user_message(raw)
+    # When there is no user message yet (e.g. the auto-trigger on desk
+    # creation), exit silently — no output means no analyst comment,
+    # which means no extra TurnCard cluttering the experiment page.
+    # The user drives the flow by typing a keyword.
+    if not last_user:
+        return 0
     prompt = last_user.lower()
 
     # Dataset state sniff — only match actual system comment lines so
-    # instruction prose in the mode blocks cannot trip this.
+    # instruction prose in the mode blocks cannot trip this. Used to
+    # break the data-fetch retrigger loop (the server retriggers the
+    # agent after running DATA_FETCH, and on that next turn the prompt
+    # has the "(mock) Downloaded …" comment in its [system] lines).
     system_lines = [
         line for line in raw.splitlines() if line.lstrip().startswith("[system]")
     ]
@@ -96,70 +65,50 @@ def main() -> int:
         or "dataset registered and linked to this desk" in system_text
     )
 
-    # ── affirmative path: execute what was asked in the previous turn ─────
-    if is_affirmative(last_user):
-        if "data" in prior_users or "fetch" in prior_users:
-            emit("Downloading the dataset now.")
-            emit("")
-            block(
-                "DATA_FETCH",
-                '{"exchange":"binance","pairs":["BTC/USDT"],"timeframe":"1h",'
-                '"days":180,"tradingMode":"spot",'
-                '"rationale":"Six months of hourly BTC/USDT for the baseline."}',
-            )
-            return 0
-        if "validate" in prior_users or "validation" in prior_users:
-            emit("Handing off to the Risk Manager.")
-            emit("[VALIDATION]")
-            return 0
-        if "new experiment" in prior_users or "new exp" in prior_users:
-            emit("Opening a new experiment.")
-            emit("[NEW_EXPERIMENT] Lower ADX threshold to 20")
-            return 0
-        if "complete" in prior_users or "close" in prior_users:
-            emit("Closing this experiment.")
-            emit("[COMPLETE_EXPERIMENT]")
-            return 0
-        if "paper" in prior_users:
-            emit("Promoting the validated run to paper trading.")
-            emit("[GO_PAPER] latest")
-            return 0
-        # Nothing to execute — fall through to default.
+    # ── direct keyword routes ────────────────────────────────────────────
+    # NOTE: more specific keywords must come BEFORE their substrings.
+    # "dataset" contains "data", so the DATASET route must be checked
+    # before the DATA_FETCH route. Same for "backtest" containing no
+    # ambiguous substring but still ordered early for clarity.
 
-    # ── ask path: user typed a keyword, we ask for confirmation ───────────
-    if ("data" in prompt or "fetch" in prompt) and not dataset_already_registered:
-        emit("I'd like to pull historical OHLCV before writing strategy code.")
+    if "dataset" in prompt:
+        emit("Recording the dataset I just downloaded.")
         emit("")
-        emit("Proposed dataset:")
-        emit("- exchange: binance")
-        emit("- pair: BTC/USDT")
-        emit("- timeframe: 1h")
-        emit("- range: last 180 days")
-        emit("- trading mode: spot")
-        emit("")
-        emit("Rationale: six months of hourly data for an ADX+FastD baseline.")
-        emit("")
-        emit("OK to proceed, or would you like to adjust any of these? Reply `yes` to start the download.")
-        return 0
-
-    if ("data" in prompt or "fetch" in prompt) and dataset_already_registered:
-        emit("Dataset is already registered for this desk.")
-        emit("Type `backtest` to run the baseline backtest, or `result` to see fake metrics.")
-        return 0
-
-    if "backtest" in prompt:
-        emit("Strategy code is ready. Running the baseline backtest now.")
-        emit("")
-        # Register a dataset first so rule #12 (no RUN_BACKTEST before a
-        # dataset is linked) does not block the backtest marker. In a
-        # real desk this would be a separate turn after DATA_FETCH.
         block(
             "DATASET",
             '{"name":"BTC/USDT 1h 180d",'
             '"exchange":"binance","pairs":["BTC/USDT"],"timeframe":"1h","days":180}',
         )
+        return 0
+
+    if "backtest" in prompt:
+        emit("Strategy code is ready. Running the baseline backtest now.")
         emit("")
+        # No DATASET marker here — rule #12 (desk has ≥1 desk_datasets
+        # link before RUN_BACKTEST) is satisfied by a prior successful
+        # DATA_FETCH, which already inserts the dataset row and links
+        # it to the desk. Typing `backtest` on a fresh desk without
+        # first typing `data` will correctly hit the rule #12 refusal.
         block("RUN_BACKTEST", '{"strategyName":"AdxFastdBaseline","entrypoint":"strategy.py"}')
+        return 0
+
+    if ("data" in prompt or "fetch" in prompt) and not dataset_already_registered:
+        emit("Downloading historical OHLCV for the baseline.")
+        emit("")
+        block(
+            "DATA_FETCH",
+            '{"exchange":"binance","pairs":["BTC/USDT"],"timeframe":"1h",'
+            '"days":180,"tradingMode":"spot",'
+            '"rationale":"Six months of hourly BTC/USDT for the baseline."}',
+        )
+        return 0
+
+    if ("data" in prompt or "fetch" in prompt) and dataset_already_registered:
+        # The retrigger after a successful DATA_FETCH lands here — the
+        # prompt already has "(mock) Downloaded …" and the dispatcher
+        # must NOT fire another DATA_FETCH. Emit a harmless
+        # acknowledgement and end the turn.
+        emit("Dataset is already registered. Type `backtest` to run the baseline.")
         return 0
 
     if "result" in prompt or "metric" in prompt:
@@ -176,35 +125,29 @@ def main() -> int:
         )
         return 0
 
-    if "dataset" in prompt:
-        emit("Recording the dataset I just downloaded.")
-        emit("")
-        block(
-            "DATASET",
-            '{"name":"BTC/USDT 1h 180d",'
-            '"exchange":"binance","pairs":["BTC/USDT"],"timeframe":"1h","days":180}',
-        )
-        return 0
-
     if "title" in prompt or "rename" in prompt:
         emit("Renaming this experiment.")
         emit("[EXPERIMENT_TITLE] ADX+FastD baseline on BTC/USDT 1h")
         return 0
 
     if "validate" in prompt or "validation" in prompt:
-        emit("Baseline metrics look promising. Should I hand this off to the Risk Manager for validation against the desk's risk budget? Reply `yes` to dispatch.")
+        emit("Handing off to the Risk Manager for validation.")
+        emit("[VALIDATION]")
         return 0
 
     if "new experiment" in prompt or "new exp" in prompt:
-        emit("This run shows ADX threshold may be too high. Would you like me to close this experiment and open a new one focused on a lower ADX threshold? Reply `yes` to proceed.")
+        emit("Opening a new experiment with a lower ADX threshold.")
+        emit("[NEW_EXPERIMENT] Lower ADX threshold to 20")
         return 0
 
     if "complete" in prompt or "close" in prompt:
-        emit("Three runs have converged on the same Sharpe band and further iteration looks unlikely to move the needle. OK to close this experiment? Reply `yes` to finalize.")
+        emit("Closing this experiment.")
+        emit("[COMPLETE_EXPERIMENT]")
         return 0
 
     if "paper" in prompt:
-        emit("The strategy has been validated by the Risk Manager. Would you like me to promote the latest run to paper trading for live observation? Reply `yes` to start the paper session.")
+        emit("Promoting the validated run to paper trading.")
+        emit("[GO_PAPER] latest")
         return 0
 
     # ── lifecycle scenarios ──────────────────────────────────────────────
@@ -225,18 +168,15 @@ def main() -> int:
     # ── default: brief help, no markers ──────────────────────────────────
     emit("Type a keyword to drive the mock dispatcher:")
     emit("")
-    emit("Ask-then-confirm flows (the agent asks; reply `yes` to execute):")
-    emit("  data / fetch         → propose a data fetch")
-    emit("  validate             → propose Risk Manager validation")
-    emit("  new experiment       → propose a new experiment")
-    emit("  complete / close     → propose completing the current experiment")
-    emit("  paper                → propose paper trading promotion")
-    emit("")
-    emit("Direct actions (execute immediately):")
-    emit("  backtest             → register a dataset and run the backtest")
+    emit("  data / fetch         → fire DATA_FETCH")
+    emit("  backtest             → register dataset + fire RUN_BACKTEST")
     emit("  result               → post fake BACKTEST_RESULT metrics")
     emit("  dataset              → register a dataset")
     emit("  title / rename       → rename the experiment")
+    emit("  validate             → fire VALIDATION")
+    emit("  new experiment       → fire NEW_EXPERIMENT")
+    emit("  complete / close     → fire COMPLETE_EXPERIMENT")
+    emit("  paper                → fire GO_PAPER")
     emit("")
     emit("Lifecycle tests:")
     emit("  slow                 → 15s silent stretch + resume")

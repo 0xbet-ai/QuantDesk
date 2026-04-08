@@ -230,6 +230,8 @@ export const deleteDataset = (deskId: string, datasetId: string) =>
 	api<Dataset>(`/desks/${deskId}/datasets/${datasetId}`, { method: "DELETE" });
 export const previewDataset = (deskId: string, datasetId: string, limit = 50) =>
 	api<DatasetPreview>(`/desks/${deskId}/datasets/${datasetId}/preview?limit=${limit}`);
+export const previewDatasetGlobal = (datasetId: string, limit = 50) =>
+	api<DatasetPreview>(`/datasets/${datasetId}/preview?limit=${limit}`);
 
 export interface CommitInfo {
 	hash: string;

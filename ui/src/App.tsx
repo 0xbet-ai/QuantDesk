@@ -61,11 +61,7 @@ function DeskRoute({
 	// recent experiment.
 	useEffect(() => {
 		if (deskId && !expId && deskPage === "experiments" && experiments.length > 0) {
-			const lastExpId = localStorage.getItem(`quantdesk.lastExpId.${deskId}`);
-			const remembered = lastExpId
-				? experiments.find((e) => e.id === lastExpId)
-				: undefined;
-			const target = remembered ?? experiments[experiments.length - 1]!;
+			const target = experiments[experiments.length - 1]!;
 			navigate(`/desks/${deskId}/experiments/${target.id}`, { replace: true });
 		}
 	}, [deskId, expId, deskPage, experiments, navigate]);

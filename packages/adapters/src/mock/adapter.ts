@@ -36,6 +36,15 @@ function resolveFixtureDir(): string {
 // `MOCK_FIXTURE_DIR` and image with `MOCK_IMAGE` if needed.
 const DEFAULT_IMAGE = "python:3.11-slim";
 
+// Stable fake session id — we reuse the same id for every mock turn on
+// the same desk so the agent-trigger persists it once (via the init
+// chunk below) and then every subsequent turn passes `--resume` and the
+// prompt builder uses its `isResume` branch. Without this the prompt
+// filters out system comments (the non-resume branch drops them) and
+// the dispatcher's "dataset already registered" sniff cannot see the
+// `(mock) Downloaded …` comment, so DATA_FETCH retriggers forever.
+const MOCK_SESSION_ID = "mock-session-fixed";
+
 export class MockAdapter implements AgentAdapter {
 	readonly name = "mock";
 
@@ -79,7 +88,7 @@ export class MockAdapter implements AgentAdapter {
 			.filter((l) => l.length > 0)
 			.join("\n");
 		return {
-			sessionId: "",
+			sessionId: MOCK_SESSION_ID,
 			resultText: text,
 			usage: { inputTokens: 0, outputTokens: 0 },
 		};

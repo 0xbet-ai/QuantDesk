@@ -1,7 +1,12 @@
 import { ChevronRight, Database, Eye, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { Dataset, DatasetPreview, Desk } from "../lib/api.js";
-import { deleteDataset, listDatasets, previewDataset } from "../lib/api.js";
+import {
+	deleteDataset,
+	listDatasets,
+	previewDataset,
+	previewDatasetGlobal,
+} from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { ScrollArea } from "./ui/scroll-area.js";
 
@@ -44,7 +49,8 @@ export function DatasetPreviewModal({
 	onClose,
 }: {
 	dataset: Dataset;
-	deskId: string;
+	/** Omit to fetch via the global datasets endpoint (no desk context). */
+	deskId?: string;
 	onClose: () => void;
 }) {
 	const [preview, setPreview] = useState<DatasetPreview | null>(null);
@@ -54,7 +60,10 @@ export function DatasetPreviewModal({
 	useEffect(() => {
 		setLoading(true);
 		setError(null);
-		previewDataset(deskId, dataset.id, 100)
+		const loader = deskId
+			? previewDataset(deskId, dataset.id, 100)
+			: previewDatasetGlobal(dataset.id, 100);
+		loader
 			.then(setPreview)
 			.catch((err) => setError(err.message))
 			.finally(() => setLoading(false));
