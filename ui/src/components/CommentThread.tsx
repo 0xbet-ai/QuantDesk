@@ -65,7 +65,7 @@ function CollapsibleCode({ lang, children }: { lang: string; children: ReactNode
 				<span>{lang || "code"}</span>
 			</button>
 			{open && (
-				<pre className="overflow-x-auto p-3 text-xs bg-zinc-950 text-zinc-200">
+				<pre className="overflow-x-auto p-3 text-xs bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-200">
 					<code>{children}</code>
 				</pre>
 			)}
@@ -451,7 +451,7 @@ function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
 				<span>View agent transcript</span>
 			</button>
 			{open && entries && entries.length > 0 && (
-				<div className="mt-2 max-h-[400px] overflow-y-auto rounded-md border border-border/50 bg-muted/20 p-3">
+				<div className="mt-1.5 max-h-[400px] overflow-y-auto rounded-md border border-border/50 bg-muted/20 px-2.5 py-1.5">
 					<RunTranscriptView entries={entries} density="compact" streaming={false} />
 				</div>
 			)}
@@ -498,7 +498,11 @@ export function CommentThread({
 	const refresh = useCallback(() => {
 		listComments(experiment.id)
 			.then((data) => {
-				setComments(data);
+				setComments(
+					data.filter(
+						(c) => !(c.metadata && (c.metadata as { hidden?: boolean }).hidden),
+					),
+				);
 				// Show thinking if agent response is expected:
 				// - only 1 comment (desk just created, agent trigger in progress)
 				// - last comment is from user (waiting for agent reply)
@@ -558,6 +562,17 @@ export function CommentThread({
 	useEffect(() => {
 		refresh();
 	}, [refresh]);
+
+	// Scroll to bottom whenever the message list grows. Covers two cases the
+	// inline `setTimeout` inside `refresh` cannot reliably cover:
+	// (1) hard page refresh — comments arrive after mount and the cards may
+	//     not be laid out yet when refresh's 50ms timer fires; this effect
+	//     waits for the actual DOM update.
+	// (2) live WS updates that mutate `comments` outside of refresh.
+	useEffect(() => {
+		if (comments.length === 0) return;
+		bottomRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
+	}, [comments.length]);
 
 	// Fade-out-and-clear on completed — BUT only when nothing else is still
 	// happening. A completed agent turn often kicks off a downstream server
@@ -714,8 +729,38 @@ export function CommentThread({
 			{/* Messages */}
 			<div className="flex-1 overflow-y-auto pl-4 pr-6 py-4 space-y-3">
 				{(() => {
+					// Resolve each comment's effective turnId: a comment's own
+					// turnId if set, otherwise its parent's (recursively).
+					// System comments posted during data-fetch / downstream
+					// work often have no turnId but link back via
+					// `parentCommentId`, and we want them to land in the same
+					// turn-card timeline as the agent comment that triggered
+					// them.
+					const commentById = new Map<string, Comment>();
+					for (const c of comments) commentById.set(c.id, c);
+					const resolveTurnId = (c: Comment): string | null => {
+						if (c.turnId) return c.turnId;
+						let cursor: Comment | undefined = c;
+						const seen = new Set<string>();
+						while (cursor) {
+							if (cursor.turnId) return cursor.turnId;
+							if (seen.has(cursor.id)) break;
+							seen.add(cursor.id);
+							const parentId = (
+								cursor.metadata as { parentCommentId?: string } | null
+							)?.parentCommentId;
+							if (!parentId) break;
+							cursor = commentById.get(parentId);
+						}
+						return null;
+					};
+					// Parent/child nesting is still honoured for legacy
+					// top-level comments (the ones that never make it into a
+					// turn group), so replies can remain threaded outside a
+					// turn card.
 					const childrenByParent = new Map<string, Comment[]>();
 					for (const c of comments) {
+						if (resolveTurnId(c)) continue; // will be flattened into its turn
 						const parentId = (c.metadata as { parentCommentId?: string } | null)?.parentCommentId;
 						if (parentId) {
 							const arr = childrenByParent.get(parentId) ?? [];
@@ -723,18 +768,208 @@ export function CommentThread({
 							childrenByParent.set(parentId, arr);
 						}
 					}
-					const topLevel = comments.filter(
-						(c) => !(c.metadata as { parentCommentId?: string } | null)?.parentCommentId,
-					);
-					const renderComment = (c: Comment, isChild = false): ReactNode => {
+					const usedAsChild = new Set<string>();
+					for (const arr of childrenByParent.values()) {
+						for (const c of arr) usedAsChild.add(c.id);
+					}
+					type TopItem =
+						| { kind: "comment"; comment: Comment }
+						| { kind: "turn"; turnId: string; comments: Comment[] };
+					const topItems: TopItem[] = [];
+					const turnIndex = new Map<string, number>();
+					for (const c of comments) {
+						if (usedAsChild.has(c.id)) continue;
+						const effectiveTurnId = resolveTurnId(c);
+						if (
+							!effectiveTurnId &&
+							(c.metadata as { parentCommentId?: string } | null)?.parentCommentId
+						) {
+							continue;
+						}
+						if (c.author === "user") {
+							topItems.push({ kind: "comment", comment: c });
+							continue;
+						}
+						if (effectiveTurnId) {
+							const idx = turnIndex.get(effectiveTurnId);
+							if (idx === undefined) {
+								turnIndex.set(effectiveTurnId, topItems.length);
+								topItems.push({
+									kind: "turn",
+									turnId: effectiveTurnId,
+									comments: [c],
+								});
+							} else {
+								(topItems[idx] as { comments: Comment[] }).comments.push(c);
+							}
+							continue;
+						}
+						// Legacy: no turnId. Render as a top-level comment.
+						topItems.push({ kind: "comment", comment: c });
+					}
+					// Choose a timeline icon for a nested comment based on author
+					// and content heuristics — analyst gets the bot, risk
+					// manager the shield, and system messages are categorized
+					// into success / failure / in-progress / info by keywords.
+					// This is purely cosmetic until we wire real tool_call /
+					// tool_result events from the server.
+					const pickTimelineIcon = (
+						c: Comment,
+					): { Icon: typeof User; tone: string; bg: string; spin?: boolean } => {
+						if (c.author === "analyst") {
+							return {
+								Icon: Bot,
+								tone: "text-purple-700 dark:text-purple-300",
+								bg: "bg-purple-100 dark:bg-purple-900/40",
+							};
+						}
+						if (c.author === "risk_manager") {
+							return {
+								Icon: Shield,
+								tone: "text-orange-700 dark:text-orange-300",
+								bg: "bg-orange-100 dark:bg-orange-900/40",
+							};
+						}
+						if (c.author === "user") {
+							return {
+								Icon: User,
+								tone: "text-blue-600 dark:text-blue-300",
+								bg: "bg-blue-100 dark:bg-blue-900/40",
+							};
+						}
+						// system
+						const text = c.content.toLowerCase();
+						if (/failed|error|exception|cannot/.test(text)) {
+							return {
+								Icon: XCircle,
+								tone: "text-red-700 dark:text-red-300",
+								bg: "bg-red-100 dark:bg-red-900/40",
+							};
+						}
+						if (/downloaded|successfully|completed|finished|approved/.test(text)) {
+							return {
+								Icon: CheckCircle2,
+								tone: "text-green-700 dark:text-green-300",
+								bg: "bg-green-100 dark:bg-green-900/40",
+							};
+						}
+						if (/downloading|loading|fetching|running|in progress/.test(text)) {
+							return {
+								Icon: Database,
+								tone: "text-cyan-700 dark:text-cyan-300",
+								bg: "bg-cyan-100 dark:bg-cyan-900/40",
+								spin: true,
+							};
+						}
+						return {
+							Icon: MessageSquare,
+							tone: "text-muted-foreground",
+							bg: "bg-muted",
+						};
+					};
+
+					const renderComment = (
+						c: Comment,
+						isChild = false,
+						inTurnCard = false,
+					): ReactNode => {
 						const config = authorConfig[c.author] ?? authorConfig.system!;
 						const Icon = config.icon;
 						const cleanContent = stripAuthorPrefixes(c.content).trim();
 						const legacyProposal = extractLegacyProposal(c.metadata);
 						const children = childrenByParent.get(c.id) ?? [];
+
+						// Timeline mode: render as a row in the turn card's
+						// vertical timeline (icon column + content). The icon
+						// sits on top of the parent container's left border so
+						// the rows look like nodes on a thread.
+						if (inTurnCard) {
+							const tl = pickTimelineIcon(c);
+							const TLIcon = tl.Icon;
+							const dfp = extractDataFetchProposal(c.metadata);
+							// "tool call" label — when an analyst comment carries
+							// a pendingProposal it's effectively a tool invocation
+							// in our domain. Show the marker name as a small
+							// chip above the proposal so the timeline reads as
+							// "analyst said X, then called tool Y".
+							const pendingType = (
+								c.metadata as { pendingProposal?: { type?: string } } | null
+							)?.pendingProposal?.type;
+							const toolLabel = pendingType
+								? pendingType === "data_fetch"
+									? "Tool · fetch_data"
+									: pendingType === "validation"
+										? "Tool · request_validation"
+										: pendingType === "new_experiment"
+											? "Tool · new_experiment"
+											: pendingType === "complete_experiment"
+												? "Tool · complete_experiment"
+												: pendingType === "go_paper"
+													? "Tool · go_paper"
+													: `Tool · ${pendingType}`
+								: null;
+							return (
+								<div key={c.id} className="relative pl-8 pb-5 last:pb-0">
+									<div
+										className={cn(
+											"absolute left-0 top-0 z-10 flex size-6 items-center justify-center rounded-full",
+											tl.bg,
+										)}
+									>
+										<TLIcon
+											className={cn("size-3", tl.tone, tl.spin && "animate-pulse")}
+										/>
+									</div>
+									{cleanContent && (
+										<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-strong:text-foreground prose-p:my-0 prose-ul:my-1 prose-li:my-0 prose-headings:my-1 prose-pre:my-1">
+											<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+												{formatAgentMarkersForDisplay(cleanContent)}
+											</Markdown>
+										</div>
+									)}
+									{toolLabel && (
+										<div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
+											{toolLabel}
+										</div>
+									)}
+									{legacyProposal && (
+										<ProposalCard
+											proposal={legacyProposal}
+											experimentId={experiment.id}
+											onAction={() => {
+												refresh();
+												setThinkingRole("analyst");
+												setStreamEntries([]);
+											}}
+											onNewExperiment={onNewExperiment}
+										/>
+									)}
+									{dfp && (
+										<DataFetchProposalCard
+											proposal={dfp}
+											commentId={c.id}
+											experimentId={experiment.id}
+											onAction={() => refresh()}
+										/>
+									)}
+									{(c.author === "analyst" || c.author === "risk_manager") && (
+										<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
+									)}
+									{/* In turn-card timeline mode, `children` is always
+									    empty (the builder flattens everything into the
+									    turn group as siblings), so we intentionally skip
+									    recursive child rendering here. */}
+								</div>
+							);
+						}
+
 						return (
-							<div key={c.id} className={cn(isChild && "ml-6 mt-2")}>
+							<div
+								key={c.id}
+								className={cn(isChild && "ml-6 mt-2")}
+							>
 								<div className="rounded-md border border-border p-3">
+									{/* Author header row */}
 									<div className="flex items-center gap-2 mb-1.5">
 										<div
 											className={cn(
@@ -744,7 +979,9 @@ export function CommentThread({
 										>
 											<Icon className={cn("size-3", config.color)} />
 										</div>
-										<span className={cn("text-xs font-medium", config.color)}>{config.label}</span>
+										<span className={cn("text-xs font-medium", config.color)}>
+											{config.label}
+										</span>
 										<span className="text-xs text-muted-foreground ml-auto">
 											{new Date(c.createdAt).toLocaleTimeString([], {
 												hour: "2-digit",
@@ -753,7 +990,7 @@ export function CommentThread({
 										</span>
 									</div>
 									{cleanContent && (
-										<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2 prose-strong:text-foreground">
+										<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-strong:text-foreground prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2">
 											<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
 												{formatAgentMarkersForDisplay(cleanContent)}
 											</Markdown>
@@ -801,27 +1038,70 @@ export function CommentThread({
 							</div>
 						);
 					};
-					return topLevel.map((c) => renderComment(c));
+					// Render. Live active turn (currentTurnId, status === running)
+					// is excluded here — it's drawn as the sticky bottom
+					// TurnCard with streaming entries. Past turns get a static
+					// TurnCard with their nested comments.
+					return topItems.map((item) => {
+						if (item.kind === "comment") {
+							return renderComment(item.comment);
+						}
+						// Skip the running turn here; the sticky bottom TurnCard
+						// owns it so streaming chunks land in one place. Once
+						// the turn finishes, the inline group takes over and
+						// the sticky bottom card unmounts.
+						if (item.turnId === currentTurnId && turnStatus === "running") {
+							return null;
+						}
+						// Also skip the persisted active turn if its status is
+						// still in React state but already terminal — the
+						// previous condition handled running, this handles a
+						// transient case where state hasn't cleared yet.
+						// Drop the bottom sticky for terminal states; inline
+						// owns them.
+						const first = item.comments[0]!;
+						const role =
+							item.comments.find((c) => c.author === "risk_manager")
+								? "risk_manager"
+								: "analyst";
+						// If any nested comment carries an unresolved
+						// pendingProposal, the turn is waiting on the user —
+						// surface that explicitly instead of "completed" so the
+						// header doesn't contradict the action buttons below.
+						const hasPending = item.comments.some(
+							(c) =>
+								!!(c.metadata as { pendingProposal?: unknown } | null | undefined)
+									?.pendingProposal,
+						);
+						const pastStatus: TurnLifecycleStatus = hasPending
+							? "awaiting_user"
+							: "completed";
+						return (
+							<TurnCard
+								key={item.turnId}
+								experimentNumber={experiment.number}
+								agentRole={role}
+								entries={[]}
+								status={pastStatus}
+								startedAt={new Date(first.createdAt)}
+								onStop={() => {}}
+								onOpen={onOpenTurn ? () => onOpenTurn(item.turnId) : undefined}
+								hasRun
+								failureReason={null}
+								nestedComments={item.comments.map((c) =>
+									renderComment(c, false, true),
+								)}
+								footer={<AgentTranscriptToggle experimentId={experiment.id} />}
+							/>
+						);
+					});
 				})()}
 				{comments.length === 0 && !thinkingRole && (
 					<div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
 						No comments yet
 					</div>
 				)}
-				{dataFetchProgress.length > 0 && (
-					<div className="mt-2 rounded-md border border-border bg-muted/40 px-3 py-2 animate-in fade-in slide-in-from-bottom-1 duration-300">
-						<div className="flex items-center gap-2 mb-1.5">
-							<div className="size-1.5 rounded-full bg-cyan-500 animate-pulse" />
-							<span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-								Data fetch · live
-							</span>
-						</div>
-						<pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap leading-tight max-h-48 overflow-y-auto">
-							{dataFetchProgress.slice(-30).join("\n")}
-						</pre>
-					</div>
-				)}
-				{turnStatus && (
+				{turnStatus === "running" && (
 					<div
 						className={cn(
 							"sticky bottom-0 z-10 -mx-4 px-4 pt-2 pb-2 bg-gradient-to-t from-background via-background to-background/80 backdrop-blur-sm transition-all duration-500 ease-out",
@@ -838,6 +1118,7 @@ export function CommentThread({
 							startedAt={runStartedAt ?? undefined}
 							failureReason={turnFailureReason}
 							runLogLines={runLogLines}
+							dataFetchProgress={dataFetchProgress}
 							onStop={async () => {
 								await fetch(`/api/experiments/${experiment.id}/agent/stop`, {
 									method: "POST",

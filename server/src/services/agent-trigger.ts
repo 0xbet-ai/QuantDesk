@@ -289,8 +289,12 @@ export async function triggerAgent(
 				payload: { agentRole: session.agentRole },
 			});
 
-			// 5. Get adapter and build streaming spawn
-			const adapter = getAgentAdapter(session.adapterType);
+			// 5. Get adapter and build streaming spawn.
+			// `MOCK_AGENT=1` swaps in a deterministic docker-based mock for UI
+			// lifecycle debugging. See packages/adapters/src/mock/adapter.ts.
+			const adapter = getAgentAdapter(
+				process.env.MOCK_AGENT === "1" ? "mock" : session.adapterType,
+			);
 
 			const streamingSpawn = (args: string[], stdin: string) =>
 				spawnCli(args, stdin, {
@@ -519,6 +523,11 @@ export async function triggerAgent(
 						experimentId,
 						nextAction: "retrigger",
 						content: `Backtest request failed: ${message}`,
+						// Hidden from the UI: the raw freqtrade stderr is noisy and the
+						// agent will retrigger and post a clean follow-up. The agent
+						// still sees this comment via listComments when building its
+						// next prompt.
+						metadata: { hidden: true },
 					});
 					// Re-trigger so the agent sees the failure message and can fix its
 					// config / pair naming / strategy and retry.
@@ -788,11 +797,17 @@ export async function triggerAgent(
 					!!extractDatasetBody(result.resultText) ||
 					detectProposals(result.resultText).length > 0);
 
-			const shouldRescue = await maybeRescueDeadEnd({
-				experimentId,
-				resultText: result.resultText,
-				hadMarker: hadActionMarker,
-			});
+			// MOCK_AGENT scenarios are deterministic and intentionally produce
+			// no markers, so the dead-end guard would loop forever rescuing
+			// them. Skip the guard entirely under MOCK_AGENT.
+			const shouldRescue =
+				process.env.MOCK_AGENT === "1"
+					? false
+					: await maybeRescueDeadEnd({
+							experimentId,
+							resultText: result.resultText,
+							hadMarker: hadActionMarker,
+						});
 			if (shouldRescue) {
 				publishExperimentEvent({ experimentId, type: "comment.new", payload: {} });
 				void triggerAgent(experimentId).catch((err) => {

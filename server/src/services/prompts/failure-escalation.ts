@@ -3,8 +3,6 @@
  * into the analyst prompt when the comment thread shows recent consecutive
  * failure system comments.
  *
- * Spec: `doc/agent/PROMPTS.md` § `analyst.failure-escalation`.
- *
  * Marker-agnostic: any system comment whose body matches the failure
  * pattern counts, no matter which lifecycle stage produced it (data-fetch,
  * backtest, validation, etc.).

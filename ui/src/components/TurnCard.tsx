@@ -1,11 +1,16 @@
-import { Bot, ExternalLink, Shield, Square } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Bot, Database, ExternalLink, Shield, Square, Terminal } from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/utils.js";
 import { StatusBadge } from "./StatusBadge.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
 import { RunTranscriptView } from "./transcript/RunTranscriptView.js";
 
-export type TurnLifecycleStatus = "running" | "completed" | "failed" | "stopped";
+export type TurnLifecycleStatus =
+	| "running"
+	| "completed"
+	| "failed"
+	| "stopped"
+	| "awaiting_user";
 
 interface TurnCardProps {
 	experimentNumber: number;
@@ -22,7 +27,23 @@ interface TurnCardProps {
 	failureReason?: string | null;
 	/** Phase 27 step 8 — live docker log tail from the engine container, if a backtest is running inside this turn. */
 	runLogLines?: string[];
+	/** Live data-fetch progress lines from the server, if a download is in flight inside this turn. */
+	dataFetchProgress?: string[];
 	mode?: "backtest" | "paper" | "turn";
+	/**
+	 * Pre-rendered system / analyst / risk_manager comments that belong to
+	 * this turn. The CommentThread no longer renders these at top level —
+	 * everything that happened inside a turn lives inside the turn card so
+	 * the user only sees two top-level entry types: their own comments and
+	 * agent turn cards.
+	 */
+	nestedComments?: ReactNode;
+	/**
+	 * Meta actions rendered below the timeline but still inside the card
+	 * body — e.g. "View agent transcript" toggle. Not part of the timeline
+	 * flow so it doesn't get a timeline icon.
+	 */
+	footer?: ReactNode;
 }
 
 function ElapsedTimer({ startedAt }: { startedAt: Date }) {
@@ -57,11 +78,15 @@ export function TurnCard({
 	hasRun,
 	failureReason,
 	runLogLines,
+	dataFetchProgress,
 	mode = "turn",
+	nestedComments,
+	footer,
 }: TurnCardProps) {
 	const streaming = status === "running";
 	const isTerminal = !streaming;
 	const isFailed = status === "failed" || status === "stopped";
+	const isAwaitingUser = status === "awaiting_user";
 	const modeLabel =
 		mode === "paper" ? "Paper Trading Run" : mode === "backtest" ? "Backtest Run" : "Agent Turn";
 	const terminalLabel =
@@ -69,7 +94,9 @@ export function TurnCard({
 			? `${modeLabel} Completed`
 			: status === "stopped"
 				? `${modeLabel} Stopped`
-				: `${modeLabel} Failed`;
+				: status === "awaiting_user"
+					? `${modeLabel} · Awaiting Your Response`
+					: `${modeLabel} Failed`;
 	const isAnalyst = agentRole !== "risk_manager";
 	const roleLabel = isAnalyst ? "Analyst" : "Risk Manager";
 	const RoleIcon = isAnalyst ? Bot : Shield;
@@ -90,6 +117,20 @@ export function TurnCard({
 				isFailed ? "border-red-500/30" : "border-cyan-500/25",
 			)}
 		>
+			{/* Agent identity — sits above the card header so the user sees
+			    "who is acting" before reading what state the turn is in. */}
+			<div className="flex items-center gap-2 px-4 pt-3">
+				<div
+					className={cn(
+						"flex size-5 items-center justify-center rounded-full shrink-0 ring-2 ring-background",
+						avatarBg,
+					)}
+				>
+					<RoleIcon className={cn("size-2.5", avatarIconColor)} />
+				</div>
+				<span className={cn("text-xs font-medium", roleTextColor)}>{roleLabel}</span>
+			</div>
+
 			{/* Header */}
 			<div
 				className={cn(
@@ -97,65 +138,57 @@ export function TurnCard({
 					isFailed ? "bg-red-500/[0.05]" : "bg-cyan-500/[0.04]",
 				)}
 			>
-				<div
-					className={cn(
-						"text-xs font-semibold uppercase tracking-[0.18em]",
-						isFailed
-							? "text-red-700 dark:text-red-300"
-							: "text-cyan-700 dark:text-cyan-300",
-					)}
-				>
-					{streaming ? modeLabel : terminalLabel}
-				</div>
-				<div className="mt-1 text-xs text-muted-foreground">
-					{streaming
-						? `Agent is working on Experiment #${experimentNumber}`
-						: status === "completed"
-							? `Agent finished Experiment #${experimentNumber}`
-							: `Agent did not finish cleanly — Experiment #${experimentNumber}`}
-				</div>
-				{isTerminal && isFailed && failureReason && (
-					<div className="mt-1 text-[11px] font-mono text-red-600 dark:text-red-400">
-						{failureReason}
-					</div>
-				)}
-			</div>
-
-			{/* Agent identity + controls */}
-			<section className="px-4 py-4">
-				<div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+				<div className="flex items-start justify-between gap-3">
 					<div className="min-w-0">
-						{/* Agent identity */}
-						<div className="flex items-center gap-2">
-							<div
-								className={cn(
-									"flex size-5 items-center justify-center rounded-full shrink-0 ring-2 ring-background",
-									avatarBg,
-								)}
-							>
-								<RoleIcon className={cn("size-2.5", avatarIconColor)} />
-							</div>
-							<span className={cn("text-xs font-medium", roleTextColor)}>{roleLabel}</span>
-						</div>
-
-						{/* Status row */}
-						<div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-							<StatusBadge status={streaming ? "running" : isFailed ? "failed" : "completed"} />
-							{streaming && startedAt && <ElapsedTimer startedAt={startedAt} />}
-							{streaming && (
-								<span className="flex items-center gap-1 text-xs text-cyan-400">
-									<span className="relative flex h-2 w-2">
-										<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
-										<span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
-									</span>
-									Live
-								</span>
+						<div
+							className={cn(
+								"text-xs font-semibold uppercase tracking-[0.18em]",
+								isFailed
+									? "text-red-700 dark:text-red-300"
+									: "text-cyan-700 dark:text-cyan-300",
 							)}
+						>
+							{streaming ? modeLabel : terminalLabel}
 						</div>
+						<div className="mt-1 text-xs text-muted-foreground">
+							{streaming
+								? `Agent is working on Experiment #${experimentNumber}`
+								: status === "completed"
+									? `Agent finished Experiment #${experimentNumber}`
+									: status === "awaiting_user"
+										? `Agent is waiting on you — Experiment #${experimentNumber}`
+										: `Agent did not finish cleanly — Experiment #${experimentNumber}`}
+						</div>
+						{isTerminal && isFailed && failureReason && (
+							<div className="mt-1 text-[11px] font-mono text-red-600 dark:text-red-400">
+								{failureReason}
+							</div>
+						)}
 					</div>
-
-					{/* Controls */}
-					<div className="flex items-center gap-2">
+					{/* Status badge + controls — moved into the header so the
+					    body section can be a flat list of nested comments. */}
+					<div className="flex items-center gap-2 shrink-0">
+						<StatusBadge
+							status={
+								streaming
+									? "running"
+									: isFailed
+										? "failed"
+										: isAwaitingUser
+											? "awaiting_user"
+											: "completed"
+							}
+						/>
+						{streaming && startedAt && <ElapsedTimer startedAt={startedAt} />}
+						{streaming && (
+							<span className="flex items-center gap-1 text-xs text-cyan-400">
+								<span className="relative flex h-2 w-2">
+									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+									<span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
+								</span>
+								Live
+							</span>
+						)}
 						{streaming && (
 							<button
 								type="button"
@@ -178,40 +211,81 @@ export function TurnCard({
 						)}
 					</div>
 				</div>
+			</div>
 
-				{/* Transcript */}
-				<div className="max-h-[320px] overflow-y-auto pr-4">
-					<RunTranscriptView
-						entries={entries}
-						density="compact"
-						limit={8}
-						streaming={streaming}
-						emptyMessage="Waiting for agent output..."
-					/>
-				</div>
+			{/* Body */}
+			<section className="px-4 py-3">
 
-				{/* Phase 27 step 8 — live engine container log tail. Only
-				    rendered while a backtest run is streaming logs into this
-				    turn; after the run completes the tail remains visible
-				    as a frozen last-30-lines record. */}
-				{runLogLines && runLogLines.length > 0 && (
-					<div className="mt-3 rounded-md border border-border bg-muted/40 px-3 py-2">
-						<div className="mb-1.5 flex items-center gap-2">
-							<div
-								className={cn(
-									"size-1.5 rounded-full",
-									streaming ? "bg-cyan-500 animate-pulse" : "bg-muted-foreground/50",
-								)}
-							/>
-							<span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-								Engine container {streaming ? "· live" : ""}
-							</span>
-						</div>
-						<pre className="max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] leading-tight text-muted-foreground">
-							{runLogLines.slice(-30).join("\n")}
-						</pre>
+				{/* Timeline of nested events — system/analyst/risk_manager
+				    messages, proposal cards, and live engine / data-fetch
+				    logs that belong to this turn. Each row is rendered with
+				    an icon overlapping a vertical line on the left so the
+				    turn looks like a thread of steps. */}
+				{(nestedComments ||
+					(dataFetchProgress && dataFetchProgress.length > 0) ||
+					(runLogLines && runLogLines.length > 0)) && (
+					<div className="relative">
+						{/* Timeline line — absolute positioned so icons can
+						    sit on top of it without border-l fighting the
+						    icon's background. */}
+						<div
+							aria-hidden
+							className="pointer-events-none absolute left-[11px] top-2 bottom-2 w-px bg-neutral-300 dark:bg-neutral-700"
+						/>
+						{nestedComments && <div className="text-[13px]">{nestedComments}</div>}
+						{dataFetchProgress && dataFetchProgress.length > 0 && (
+							<div className="relative pl-8 pb-3">
+								<div className="absolute left-0 top-0 z-10 flex size-6 items-center justify-center rounded-full bg-cyan-100 ring-4 ring-background dark:bg-cyan-900/40">
+									<Database className="size-3 text-cyan-700 dark:text-cyan-300 animate-pulse" />
+								</div>
+								<div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+									Data fetch · live
+								</div>
+								<pre className="max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] leading-tight text-muted-foreground">
+									{dataFetchProgress.slice(-30).join("\n")}
+								</pre>
+							</div>
+						)}
+						{runLogLines && runLogLines.length > 0 && (
+							<div className="relative pl-8 pb-3">
+								<div className="absolute left-0 top-0 z-10 flex size-6 items-center justify-center rounded-full bg-cyan-100 ring-4 ring-background dark:bg-cyan-900/40">
+									<Terminal
+										className={cn(
+											"size-3 text-cyan-700 dark:text-cyan-300",
+											streaming && "animate-pulse",
+										)}
+									/>
+								</div>
+								<div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+									Engine container {streaming ? "· live" : ""}
+								</div>
+								<pre className="max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] leading-tight text-muted-foreground">
+									{runLogLines.slice(-30).join("\n")}
+								</pre>
+							</div>
+						)}
 					</div>
 				)}
+
+				{/* Transcript — only useful while streaming or when there's no
+				    persisted comment yet. Once the turn has nested comments
+				    the transcript is redundant and we hide it to keep the card
+				    focused. */}
+				{(!nestedComments || streaming) && (
+					<div className="max-h-[320px] overflow-y-auto pr-4 mt-3">
+						<RunTranscriptView
+							entries={entries}
+							density="compact"
+							limit={8}
+							streaming={streaming}
+							emptyMessage="Waiting for agent output..."
+						/>
+					</div>
+				)}
+
+				{/* Meta actions (e.g. transcript toggle) — outside the timeline
+				    container so they don't get a timeline icon. */}
+				{footer && <div className="mt-3">{footer}</div>}
 			</section>
 		</div>
 	);

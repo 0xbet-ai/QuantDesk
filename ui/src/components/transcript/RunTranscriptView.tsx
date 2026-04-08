@@ -842,23 +842,19 @@ function StdoutRow({
 	const [open, setOpen] = useState(false);
 	return (
 		<div>
-			<div className="flex items-center gap-2">
-				<span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-					stdout
-				</span>
-				<button
-					type="button"
-					className="inline-flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-					onClick={() => setOpen((v) => !v)}
-				>
-					{open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-				</button>
-			</div>
+			<button
+				type="button"
+				onClick={() => setOpen((v) => !v)}
+				className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
+			>
+				{open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+				<span>stdout</span>
+			</button>
 			{open && (
 				<pre
 					className={cn(
-						"mt-2 overflow-x-auto whitespace-pre-wrap break-words font-mono text-foreground/80",
-						compact ? "text-[11px]" : "text-xs",
+						"mt-1 overflow-x-auto whitespace-pre-wrap break-words font-mono text-foreground/80",
+						compact ? "text-[10px] leading-snug" : "text-xs",
 					)}
 				>
 					{block.content}

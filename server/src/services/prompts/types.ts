@@ -1,9 +1,9 @@
 /**
  * Shared input types for the prompt builder blocks.
  *
- * Spec: `doc/agent/PROMPTS.md`. Each block file imports from here so the
- * orchestrator (`prompt-builder.ts`) can pass the same context object
- * through to every block.
+ * Each block file imports from here so the orchestrator
+ * (`prompt-builder.ts`) can pass the same context object through to every
+ * block.
  */
 
 export interface DeskContext {
