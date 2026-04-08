@@ -14,7 +14,7 @@ The whitelist above is **closed**. Managed adapters will only ever be added for 
 
 ## Data download tools (per engine)
 
-Each engine brings its own historical data download tool, invoked by the server during the Stage 1 data fetch (see `../agent/LIFECYCLE.md`):
+Each engine brings its own historical data download tool, invoked by the server during the agent-proposed data fetch (see `../agent/MARKERS.md` rows 1 / 1a):
 
 | Engine | Download mechanism |
 |---|---|

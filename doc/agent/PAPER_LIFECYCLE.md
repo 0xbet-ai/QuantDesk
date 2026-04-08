@@ -1,6 +1,6 @@
 # Paper Trading Lifecycle
 
-How a desk transitions from a validated backtest into a long-running paper trading session, how the agent participates while the session is alive, and how the server reconciles paper containers across restarts. For the turn-based backtest lifecycle see `./LIFECYCLE.md`.
+How a desk transitions from a validated backtest into a long-running paper trading session, how the agent participates while the session is alive, and how the server reconciles paper containers across restarts. For the turn-based backtest lifecycle see `./MARKERS.md`.
 
 ## Why this is a separate model
 
@@ -89,4 +89,4 @@ Docker is the source of truth. A `PaperSession` row that claims `running` but ha
 
 - **User stop** — server sends a graceful shutdown to the container, waits for it to flush, then `docker rm`. Session row → `stopped`. The agent is **not** retriggered; the user explicitly chose to end it.
 - **Container crash** — detected via the log/event stream or the next reconcile pass. Session row → `failed`, error posted as a system comment, agent retriggered so it can analyze the crash and propose a fix (which would land as a normal backtest turn against an updated strategy).
-- **No automatic restart, ever.** A crashed paper session stays `failed` until the user promotes a new run — same principle as the backtest failure flow in `./LIFECYCLE.md`.
+- **No automatic restart, ever.** A crashed paper session stays `failed` until the user promotes a new run — same principle as the backtest failure flow in `./MARKERS.md`.

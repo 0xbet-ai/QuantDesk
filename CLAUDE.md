@@ -17,14 +17,13 @@ Users research, backtest, and validate strategies through async interaction with
 
 - `doc/OVERVIEW.md` — tech stack, repo map
 - `doc/agent/TURN.md` — how a single agent turn is executed (CLI subprocess, prompt, session)
-- `doc/agent/LIFECYCLE.md` — turn-to-turn lifecycle, marker branching, fragile spots
 - `doc/agent/PAPER_LIFECYCLE.md` — long-running paper trading state machine, observer turns, reconcile
 - `doc/agent/MARKERS.md` — protocol glossary for the bracketed markers the agent emits
 - `doc/agent/ROLES.md` — Analyst, Risk Manager, interaction pattern
 - `doc/agent/MEMORY.md` — hipocampus-inspired long-term context
 - `doc/engine/README.md` — pluggable engine adapter interface (incl. per-engine workspace layout)
 - `doc/desk/STORAGE.md` — where a desk's state lives on disk and in the database
-- `doc/PLAN.md` — gaps between current code and spec (the only place hedging language is allowed)
+- `doc/plans/` — gaps between current code and spec (the only directory where hedging language is allowed)
 - `doc/REFERENCES.md` — upstream references (Paperclip, Hipocampus, engine projects, etc.)
 
 ## Dev Setup
@@ -73,8 +72,8 @@ To point at an external Postgres instead, set `DATABASE_URL` before running any 
 10. **One mode per desk, immutable.** Each desk pins `strategy_mode` (and therefore its engine) at creation time; both are immutable for the desk's lifetime, enforced in `services/desks.ts`. This guarantees backtest↔paper fidelity and prevents cross-engine comparison confusion.
 11. **Engines run in Docker with pinned images.** Never install any engine natively on the host; never use `:latest`. The server, UI, and agent CLI run on the host — only the engine layer is containerized. Image pinning and per-engine specifics: `doc/engine/README.md`.
 12. **Paper sessions must survive server restart.** Paper containers are tagged so they can be reconciled after a restart instead of being marked failed. Label set and reconcile mechanism: `doc/engine/README.md` and `doc/agent/PAPER_LIFECYCLE.md`.
-13. **First-run data fetch is agent-proposed, user-approved.** For a brand-new desk the agent's first response must be a `[PROPOSE_DATA_FETCH]` block and the agent must then stop and wait — no code, no `[RUN_BACKTEST]` — until the user approves and the server completes the download. The server never silently auto-downloads: the agent owns the decision, the user owns the approval. Full flow in `doc/agent/LIFECYCLE.md` Stage 1.
-14. **Docs are the spec, code follows.** `doc/` describes the intended system in the present tense as if it were fully implemented. Never write "TODO", "planned", "not yet implemented", "coming soon", "awaiting", or similar hedging language in any doc **except `doc/PLAN.md`**, which is the single place where gaps between spec and current code are tracked. If the code contradicts a doc, the default is to fix the code — not the doc — unless the user explicitly approves a spec change. When you discover an unimplemented spec item, add it to `doc/PLAN.md` rather than weakening the spec document.
+13. **First-run data fetch is agent-proposed, user-approved.** For a brand-new desk the agent's first response must be a `[PROPOSE_DATA_FETCH]` block and the agent must then stop and wait — no code, no `[RUN_BACKTEST]` — until the user approves and the server completes the download. The server never silently auto-downloads: the agent owns the decision, the user owns the approval. Full flow in `doc/agent/MARKERS.md` (rows 1 / 1a).
+14. **Docs are the spec, code follows.** `doc/` describes the intended system in the present tense as if it were fully implemented. Never write "TODO", "planned", "not yet implemented", "coming soon", "awaiting", or similar hedging language in any doc **except under `doc/plans/`**, which is the single directory where gaps between spec and current code are tracked. If the code contradicts a doc, the default is to fix the code — not the doc — unless the user explicitly approves a spec change. When you discover an unimplemented spec item, add a phase file under `doc/plans/` rather than weakening the spec document.
 
 ## Conventions
 
