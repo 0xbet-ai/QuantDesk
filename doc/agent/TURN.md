@@ -15,7 +15,7 @@ How a single agent turn is executed: from a new comment, through the CLI subproc
    # codex
    codex exec --json [resume <sessionId>] -
    ```
-4. The full prompt is built by `prompt-builder.ts` and piped via stdin. Context includes desk config, immutable `strategy_mode` / `engine`, mode-specific code-writing instructions, recent comments, run history, and registered datasets.
+4. The full prompt is built by `prompt-builder.ts` and piped via stdin. Context includes desk config, immutable `strategy_mode` / `engine`, mode-specific code-writing instructions, recent comments, run history, and registered datasets. On resume (every turn after the first), the prompt injects a `## New since your last turn` section containing **every** comment — user *and* system — posted after the agent's last analyst response. System comments such as `Downloaded …`, `Data-fetch failed …`, or `Backtest Run #N failed …` are server-side side effects the agent must see in order to react (e.g. pivot to a fallback data path); filtering them out would leave the agent resuming blind.
 5. The CLI subprocess streams JSONL events on stdout. The adapter parses them into `StreamChunk`s and the server forwards each chunk to the UI in real time:
    - claude: `system` / `assistant` / `result`
    - codex: `thread.started` / `item.completed` / `turn.completed`
