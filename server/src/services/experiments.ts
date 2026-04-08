@@ -95,19 +95,14 @@ async function generateMemorySummary(experimentId: string): Promise<string> {
 }
 
 /**
- * Complete current experiment and create a new one.
- * - Marks current as completed
- * - Generates memory summary (stored in memory_summaries)
- * - Creates new experiment with fresh agentSession (no session resume)
- * Used by both user-triggered (+ button) and agent-proposed (PROPOSE_NEW_EXPERIMENT) flows.
+ * Mark a single experiment as completed: persist memory summary, flip
+ * status, and reset the desk's agent session so the next turn starts a
+ * fresh CLI conversation. Used standalone by `PROPOSE_COMPLETE_EXPERIMENT`
+ * (phase 06) and as the first half of `completeAndCreateNewExperiment`.
  */
-export async function completeAndCreateNewExperiment(input: {
-	currentExperimentId: string;
-	newTitle: string;
-	newDescription?: string;
-}) {
-	const current = await getExperiment(input.currentExperimentId);
-	if (!current) throw new Error("Current experiment not found");
+export async function completeExperiment(experimentId: string): Promise<void> {
+	const current = await getExperiment(experimentId);
+	if (!current) throw new Error("Experiment not found");
 
 	// 1. Generate memory summary
 	const summary = await generateMemorySummary(current.id);
@@ -131,8 +126,22 @@ export async function completeAndCreateNewExperiment(input: {
 		.update(agentSessions)
 		.set({ sessionId: null, updatedAt: new Date() })
 		.where(eq(agentSessions.deskId, current.deskId));
+}
 
-	// 4. Create new experiment
+/**
+ * Complete current experiment and create a new one.
+ * Used by both user-triggered (+ button) and agent-proposed (PROPOSE_NEW_EXPERIMENT) flows.
+ */
+export async function completeAndCreateNewExperiment(input: {
+	currentExperimentId: string;
+	newTitle: string;
+	newDescription?: string;
+}) {
+	const current = await getExperiment(input.currentExperimentId);
+	if (!current) throw new Error("Current experiment not found");
+
+	await completeExperiment(current.id);
+
 	const newExperiment = await createExperiment({
 		deskId: current.deskId,
 		title: input.newTitle,
