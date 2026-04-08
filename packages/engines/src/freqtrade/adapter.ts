@@ -134,26 +134,36 @@ export class FreqtradeAdapter implements EngineAdapter {
 			}
 		}
 
-		const result = await runContainer({
-			image: ENGINE_IMAGES.freqtrade,
-			rm: true,
-			volumes: [`${workspaceAbs}:${USERDIR_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
-			cpus: "2",
-			memory: "2g",
-			command: [
-				"backtesting",
-				"--userdir",
-				USERDIR_IN_CONTAINER,
-				"--config",
-				`${USERDIR_IN_CONTAINER}/${configFile}`,
-				"--strategy",
-				strategyName,
-				"--export",
-				"trades",
-				"--export-filename",
-				`${USERDIR_IN_CONTAINER}/backtest_results/${exportFilename}`,
-			],
-		});
+		const result = await runContainer(
+			{
+				image: ENGINE_IMAGES.freqtrade,
+				rm: true,
+				volumes: [`${workspaceAbs}:${USERDIR_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
+				cpus: "2",
+				memory: "2g",
+				command: [
+					"backtesting",
+					"--userdir",
+					USERDIR_IN_CONTAINER,
+					"--config",
+					`${USERDIR_IN_CONTAINER}/${configFile}`,
+					"--strategy",
+					strategyName,
+					"--export",
+					"trades",
+					"--export-filename",
+					`${USERDIR_IN_CONTAINER}/backtest_results/${exportFilename}`,
+				],
+			},
+			{
+				onStdoutLine: config.onLogLine
+					? (line) => config.onLogLine!(line, "stdout")
+					: undefined,
+				onStderrLine: config.onLogLine
+					? (line) => config.onLogLine!(line, "stderr")
+					: undefined,
+			},
+		);
 
 		if (result.exitCode !== 0) {
 			throw new DockerError(

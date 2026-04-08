@@ -25,6 +25,13 @@ export interface BacktestConfig {
 	 * onto their own `volumes` array before calling `runContainer`.
 	 */
 	extraVolumes?: string[];
+	/**
+	 * Phase 27 step 8 — optional line-buffered log streamer. When provided,
+	 * the adapter forwards the engine container's stdout/stderr line-by-line
+	 * so the UI can live-tail the backtest run inside the TurnCard. Callers
+	 * that omit this keep the prior blocking-run behavior.
+	 */
+	onLogLine?: (line: string, stream: "stdout" | "stderr") => void;
 }
 
 export interface NormalizedResult {
