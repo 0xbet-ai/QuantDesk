@@ -222,7 +222,7 @@ There is no global state machine — only signatures lining up across turns. Add
 
 ## Failure handling
 
-There is **no automatic retry**. If a marker's effect fails, the run/turn is marked `failed` and the lifecycle stops — the server does not re-dispatch the same marker, and it does not advance to a downstream marker.
+There is **no automatic stage-level retry**. If a marker's effect fails, the run/turn is marked `failed` and the lifecycle stops — the server does not re-dispatch the same marker, and it does not advance to a downstream marker. (CLI plumbing — e.g. retrying with a fresh session id when the previous one expired — is handled at the subprocess layer in `./TURN.md` and is not a lifecycle retry.)
 
 - **`PROPOSE_DATA_FETCH` post-Approve download** — error posts a system comment describing the failure and retriggers the agent. The agent decides whether to propose a revised `[PROPOSE_DATA_FETCH]` (different pair naming, shorter window) or give up.
 - **`RUN_BACKTEST`** — engine/container error inserts the runs row with `status = failed` and posts the error as a system comment. No analysis turn is auto-dispatched. The next turn is a fresh `triggerAgent` triggered by the failure comment: the agent reads the failure, may edit `strategy.py`, and emits a *new* `[RUN_BACKTEST]` which becomes a new runs row. The failed run is preserved for history, never mutated in place.
