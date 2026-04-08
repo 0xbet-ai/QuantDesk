@@ -10,6 +10,7 @@ import experimentsRouter from "./routes/experiments.js";
 import fsRouter from "./routes/fs.js";
 import runsRouter from "./routes/runs.js";
 import strategiesRouter from "./routes/strategies.js";
+import turnsRouter from "./routes/turns.js";
 import { registerAllProposalHandlers } from "./services/proposal-handlers/index.js";
 import {
 	cleanupStaleAgentRuns,
@@ -38,6 +39,7 @@ app.use("/api/desks", desksRouter);
 app.use("/api/experiments", experimentsRouter);
 app.use("/api/comments", commentsRouter);
 app.use("/api/runs", runsRouter);
+app.use("/api/turns", turnsRouter);
 app.use("/api/strategies", strategiesRouter);
 app.use("/api/datasets", datasetsRouter);
 app.use("/api/fs", fsRouter);
