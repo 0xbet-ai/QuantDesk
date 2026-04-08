@@ -234,9 +234,7 @@ export function DatasetView({ desk }: Props) {
 					{loading ? (
 						<div className="text-[13px] text-muted-foreground">Loading...</div>
 					) : datasets.length === 0 ? (
-						<div className="text-[13px] text-muted-foreground">
-							No datasets yet. The agent will download market data when running backtests.
-						</div>
+						<div className="text-[13px] text-muted-foreground">No datasets yet.</div>
 					) : (
 						<div className="space-y-3">
 							{datasets.map((ds) => (
