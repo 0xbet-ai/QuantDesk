@@ -10,10 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@quantdesk/db": "workspace:*",
-    "@quantdesk/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@quantdesk/adapters": "workspace:*",
+    "@quantdesk/db": "workspace:*",
     "@quantdesk/engines": "workspace:*",
+    "@quantdesk/shared": "workspace:*",
     "drizzle-orm": "^0.39.3",
     "express": "^5.1.0",
     "ws": "^8.18.1",
