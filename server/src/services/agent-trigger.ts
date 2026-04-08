@@ -21,7 +21,7 @@ import { appendAgentLog, clearAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
 import { createComment, systemComment } from "./comments.js";
 import { autoIncrementRunNumber } from "./logic.js";
-import { extractDataFetchProposal } from "./triggers.js";
+import { detectProposals, extractDataFetchProposal, markerToProposalType } from "./triggers.js";
 import { commitCode, hasChanges } from "./workspace.js";
 
 /**
@@ -563,11 +563,25 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 		}
 	}
 
-	// 9. Post agent response as comment (strip all markers)
+	// 9. Post agent response as comment (strip all markers).
+	// Attach exactly one `pendingProposal` to the comment metadata so the UI
+	// can render Approve/Reject buttons. PROPOSE_DATA_FETCH (a block marker)
+	// takes priority because it gates rule #13. The four line-form PROPOSE_*
+	// markers are detected via `detectProposals` and the first match wins.
 	if (result.resultText) {
-		// Extract data-fetch proposal (if any) — attach to comment metadata so
-		// the UI can render an Approve/Reject button.
 		const dataFetchProposal = extractDataFetchProposal(result.resultText);
+		const lineProposals = detectProposals(result.resultText);
+		const firstLineProposal = lineProposals[0];
+
+		let pendingProposal: { type: string; data: unknown } | undefined;
+		if (dataFetchProposal) {
+			pendingProposal = { type: "data_fetch", data: dataFetchProposal };
+		} else if (firstLineProposal) {
+			pendingProposal = {
+				type: markerToProposalType(firstLineProposal.type),
+				data: { value: firstLineProposal.value },
+			};
+		}
 
 		const cleanText = stripAgentMarkers(result.resultText);
 		if (cleanText) {
@@ -575,9 +589,7 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 				experimentId,
 				author: session.agentRole,
 				content: cleanText,
-				metadata: dataFetchProposal
-					? { pendingProposal: { type: "data_fetch", data: dataFetchProposal } }
-					: undefined,
+				metadata: pendingProposal ? { pendingProposal } : undefined,
 			});
 		}
 	} else if (result.error) {
