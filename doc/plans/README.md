@@ -37,6 +37,15 @@ Four `PROPOSE_*` markers and `RUN_PAPER` are parsed today but have **no dispatch
 | 07 | [PROPOSE_VALIDATION → Risk Manager dispatch](07_risk_manager_dispatch.md) | TODO |
 | 08 | [Risk Manager verdict loop-back](08_risk_manager_verdict.md) | TODO |
 
+### Group B½ — Workspace bootstrap (priority over Group C)
+
+Lets users seed a desk from existing local code and bind-mount existing local datasets at container start. Quants almost always have something local already; the current "describe in natural language" loop is the largest onboarding friction. Slot before paper trading.
+
+| # | Title | Kind |
+|---|-------|------|
+| 25 | [Workspace bootstrap: seed code copy at desk creation](25_workspace_bootstrap_code.md) | TODO |
+| 26 | [External dataset bind mounts](26_external_dataset_mounts.md) | TODO |
+
 ### Group C — Paper trading lifecycle
 
 | # | Title | Kind |

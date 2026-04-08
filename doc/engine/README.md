@@ -105,8 +105,9 @@ Backtest containers (ephemeral) don't need labels.
 
 ### Volumes
 
-- `<workspacePath>` → `/workspace` (read-write, contains strategy code + config + data)
+- `<workspacePath>` → `/workspace` (read-write, contains strategy code + config + cached data symlinks)
 - Container logs redirected to `<workspacePath>/runs/<runId>/` so they survive container removal
+- For each user-imported dataset declared on the desk, an additional **read-only bind mount** at container start: `<hostPath>` → `/workspace/data/external/<label>` (`:ro`). The set of mounts is read from the desk row on every container spawn (backtest and paper) so reconcile after a server restart re-applies the same mappings. See `../desk/STORAGE.md` "Workspace bootstrap" for the bootstrap path.
 
 ### Network
 
