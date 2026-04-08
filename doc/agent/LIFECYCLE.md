@@ -37,10 +37,9 @@ flowchart TD
         direction TB
         B0{"dataset exists<br/>for desk?"}
         B1["refuse: post rule #13<br/>system comment · return"]
-        B2["engineAdapter.runBacktest()<br/>inside Docker (managed mode)"]
+        B2["engineAdapter.runBacktest()<br/>inside Docker<br/>(classic / realtime / generic)"]
         B3["insert Run row"]
-        B4["post #91;BACKTEST_RESULT#93;<br/>system comment"]
-        BG["#91;BACKTEST_RESULT#93; from agent<br/>(generic path) · insert Run row"]
+        B4["post backtest result<br/>system comment"]
         B0 -- no --> B1
         B0 -- yes --> B2 --> B3 --> B4
     end
@@ -57,8 +56,7 @@ flowchart TD
     end
 
     Parse -- "#91;PROPOSE_DATA_FETCH#93;" --> P1
-    Parse -- "#91;RUN_BACKTEST#93;<br/>managed" --> B0
-    Parse -- "#91;BACKTEST_RESULT#93;<br/>generic" --> BG
+    Parse -- "#91;RUN_BACKTEST#93;" --> B0
     Parse -- "#91;EXPERIMENT_TITLE#93;" --> A2
     Parse -- "#91;DATASET#93;" --> A3
     Parse -- "#91;PROPOSE_VALIDATION#93;" --> A4
@@ -70,7 +68,6 @@ flowchart TD
     P4 -. "retrigger" .-> Trigger
     B4 -. "retrigger" .-> Trigger
     A4 -. "retrigger after verdict" .-> Trigger
-    BG --> Strip
     A1 --> Strip
     A2 --> Strip
     A3 --> Strip
