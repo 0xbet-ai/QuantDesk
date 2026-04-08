@@ -2,6 +2,7 @@ import { Database, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Dataset } from "../lib/api.js";
 import { deleteDatasetGlobal, listAllDatasets } from "../lib/api.js";
+import { DatasetPreviewModal } from "./DatasetView.js";
 import { Button } from "./ui/button.js";
 
 export function GlobalDatasetsView() {
@@ -9,6 +10,7 @@ export function GlobalDatasetsView() {
 	const [loading, setLoading] = useState(true);
 	const [confirmingId, setConfirmingId] = useState<string | null>(null);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
+	const [previewing, setPreviewing] = useState<Dataset | null>(null);
 
 	const refresh = () => {
 		setLoading(true);
