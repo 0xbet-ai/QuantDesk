@@ -28,7 +28,7 @@ import {
 } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { DatasetPreviewModal } from "./DatasetView.js";
-import { RunWidget } from "./RunWidget.js";
+import { TurnCard, type TurnLifecycleStatus } from "./TurnCard.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
 import { RunTranscriptView } from "./transcript/RunTranscriptView.js";
 import { Button } from "./ui/button.js";
@@ -471,7 +471,12 @@ export function CommentThread({
 	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
 	const [streamEntries, setStreamEntries] = useState<TranscriptEntry[]>([]);
 	const [runStartedAt, setRunStartedAt] = useState<Date | null>(null);
-	const [fadingOut, setFadingOut] = useState(false);
+	// Phase 27 — the TurnCard stays mounted after the agent finishes so the
+	// user can always see the terminal state (completed / failed / stopped).
+	// Only a new turn (next `agent.thinking` / `turn.status=running`) or an
+	// explicit user send resets it.
+	const [turnStatus, setTurnStatus] = useState<TurnLifecycleStatus | null>(null);
+	const [turnFailureReason, setTurnFailureReason] = useState<string | null>(null);
 	// Live tail of `data_fetch.progress` events from the server. Cleared
 	// whenever the comment thread refreshes (the next system comment —
 	// "Downloaded …" or failure — supersedes the live tail).
@@ -527,7 +532,21 @@ export function CommentThread({
 			setThinkingRole(role);
 			setStreamEntries([]);
 			setRunStartedAt(new Date());
+			setTurnStatus("running");
+			setTurnFailureReason(null);
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
+		}
+		if (event.type === "turn.status") {
+			const payload = event.payload as {
+				status?: TurnLifecycleStatus;
+				failureReason?: string | null;
+			};
+			if (payload.status) {
+				setTurnStatus(payload.status);
+				if (payload.status !== "running") {
+					setTurnFailureReason(payload.failureReason ?? null);
+				}
+			}
 		}
 		if (event.type === "data_fetch.progress") {
 			const payload = event.payload as { line?: string };
@@ -558,15 +577,15 @@ export function CommentThread({
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
 		if (event.type === "agent.done") {
+			// Phase 27 — do NOT clear the card on done. The turn.status event
+			// (or this path when no explicit terminal came through) flips the
+			// card into a terminal visual state, but it stays mounted so the
+			// user can see "the agent finished" rather than watch the widget
+			// vanish and wonder if it died.
 			setThinkingRole(null);
 			setRunStartedAt(null);
+			setTurnStatus((prev) => (prev && prev !== "running" ? prev : "completed"));
 			refresh();
-			// Fade out the live widget — the completed transcript is now in the comment card
-			setFadingOut(true);
-			setTimeout(() => {
-				setStreamEntries([]);
-				setFadingOut(false);
-			}, 600);
 		}
 		if (event.type === "comment.new") {
 			// A new comment supersedes any in-flight data-fetch progress —
@@ -590,6 +609,8 @@ export function CommentThread({
 			setThinkingRole("analyst");
 			setStreamEntries([]);
 			setRunStartedAt(new Date());
+			setTurnStatus("running");
+			setTurnFailureReason(null);
 		} finally {
 			setSending(false);
 		}
@@ -714,30 +735,23 @@ export function CommentThread({
 						</pre>
 					</div>
 				)}
-				{(thinkingRole || streamEntries.length > 0) && (
-					<div
-						className={cn(
-							"sticky bottom-0 z-10 -mx-4 px-4 pt-2 pb-2 bg-gradient-to-t from-background via-background to-background/80 backdrop-blur-sm transition-all duration-500 ease-out",
-							fadingOut
-								? "opacity-0 -translate-y-2 max-h-0 overflow-hidden"
-								: "opacity-100 translate-y-0 animate-in fade-in slide-in-from-bottom-2 duration-300",
-						)}
-					>
-						<RunWidget
+				{turnStatus && (
+					<div className="sticky bottom-0 z-10 -mx-4 px-4 pt-2 pb-2 bg-gradient-to-t from-background via-background to-background/80 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+						<TurnCard
 							experimentNumber={experiment.number}
 							agentRole={thinkingRole ?? "analyst"}
 							entries={streamEntries}
-							streaming={!!thinkingRole}
+							status={turnStatus}
 							startedAt={runStartedAt ?? undefined}
+							failureReason={turnFailureReason}
 							onStop={async () => {
 								await fetch(`/api/experiments/${experiment.id}/agent/stop`, {
 									method: "POST",
 								});
 								setThinkingRole(null);
-								setStreamEntries([]);
-								setRunStartedAt(null);
+								setTurnStatus("stopped");
 							}}
-							onOpenRun={onOpenRun}
+							onOpen={onOpenRun}
 						/>
 					</div>
 				)}
