@@ -251,6 +251,12 @@ export function CommentThread({
 				// row so a mid-turn reload (or revisit after the turn finished)
 				// restores the same card the user saw before refresh instead
 				// of vanishing because turnStatus lived only in React state.
+				// This is ALSO the authoritative source for whether the agent
+				// is currently busy: if the latest turn is terminal, we must
+				// clear any thinkingRole left over by the comment-count
+				// heuristic above, otherwise the composer stays locked on
+				// "Agent is working..." forever (e.g. a silent mock turn that
+				// exited with no output and therefore no comment).
 				listExperimentTurns(experiment.id)
 					.then((turns) => {
 						const latest = turns[turns.length - 1];
@@ -258,6 +264,8 @@ export function CommentThread({
 							setTurnStatus(null);
 							setCurrentTurnId(null);
 							setTurnFailureReason(null);
+							setThinkingRole(null);
+							setRunStartedAt(null);
 							return;
 						}
 						setCurrentTurnId(latest.id);
@@ -266,6 +274,11 @@ export function CommentThread({
 						if (latest.status === "running") {
 							setThinkingRole(latest.agentRole);
 							setRunStartedAt((prev) => prev ?? new Date(latest.startedAt));
+						} else {
+							// Terminal — wipe anything the heuristic set so
+							// the composer re-enables.
+							setThinkingRole(null);
+							setRunStartedAt(null);
 						}
 					})
 					.catch(() => {});
@@ -734,7 +747,7 @@ export function CommentThread({
 				{turnStatus === "running" && (
 					<div
 						className={cn(
-							"sticky bottom-0 z-10 -mx-4 px-4 pt-2 pb-2 bg-gradient-to-t from-background via-background to-background/80 backdrop-blur-sm transition-all duration-500 ease-out",
+							"transition-all duration-500 ease-out",
 							fadingOut
 								? "opacity-0 translate-y-8 scale-90 max-h-0 overflow-hidden origin-top"
 								: "opacity-100 translate-y-0 scale-100 animate-in fade-in slide-in-from-bottom-2 duration-300",

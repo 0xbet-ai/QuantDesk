@@ -125,6 +125,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 	if (process.env.MOCK_AGENT === "1") {
 		// Write a tiny fake OHLCV file so the dataset preview endpoint
 		// has something to read instead of choking on an empty dir.
+		let firstFile: string | null = null;
 		for (const pair of sortedPairs) {
 			const safePair = pair.replace("/", "_");
 			const file = join(exchangeCachePath, `${safePair}-${proposal.timeframe}.csv`);
@@ -138,6 +139,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 				);
 			}
 			writeFileSync(file, rows.join("\n"));
+			if (!firstFile) firstFile = file;
 		}
 
 		const [dataset] = await db
@@ -147,7 +149,9 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 				pairs: sortedPairs,
 				timeframe: proposal.timeframe,
 				dateRange: { start: startDate, end: endDate },
-				path: exchangeCachePath,
+				// Point at a concrete CSV file (not the directory) so the
+				// preview endpoint can readFile it without hitting EISDIR.
+				path: firstFile ?? exchangeCachePath,
 			})
 			.returning();
 		if (dataset) {
