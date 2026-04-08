@@ -37,7 +37,7 @@ flowchart TD
         direction TB
         B0{"dataset exists<br/>for desk?"}
         B1["refuse: post rule #13<br/>system comment · return"]
-        B2["engineAdapter.runBacktest()<br/>inside Docker (classic / realtime)"]
+        B2["engineAdapter.runBacktest()<br/>inside Docker (managed mode)"]
         B3["insert Run row"]
         B4["post #91;BACKTEST_RESULT#93;<br/>system comment"]
         BG["#91;BACKTEST_RESULT#93; from agent<br/>(generic path) · insert Run row"]
@@ -57,7 +57,7 @@ flowchart TD
     end
 
     Parse -- "#91;PROPOSE_DATA_FETCH#93;" --> P1
-    Parse -- "#91;RUN_BACKTEST#93;<br/>classic / realtime" --> B0
+    Parse -- "#91;RUN_BACKTEST#93;<br/>managed" --> B0
     Parse -- "#91;BACKTEST_RESULT#93;<br/>generic" --> BG
     Parse -- "#91;EXPERIMENT_TITLE#93;" --> A2
     Parse -- "#91;DATASET#93;" --> A3

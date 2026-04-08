@@ -8,15 +8,17 @@ This file is the **glossary**. The authoritative definitions live in the prompt 
 - **Action markers** (parsed and acted on at the end of every turn) — `server/src/services/agent-trigger.ts`
 - **Proposal markers** (parsed into pending-proposal metadata on the comment) — `server/src/services/triggers.ts`
 
+Throughout this document, **managed mode** refers to desks whose `strategy_mode` is `classic` or `realtime` — both are handled identically at the marker level (the server maps them to Freqtrade or Nautilus internally). **Generic mode** is the fallback for venues without a managed engine. Marker semantics only ever distinguish managed vs generic, never classic vs realtime.
+
 ## Action markers
 
 These cause the server to do something during the same turn the marker appears in.
 
 | Marker | Form | What the server does |
 |---|---|---|
-| `[RUN_BACKTEST]` | <code>[RUN_BACKTEST]\n{...}\n[/RUN_BACKTEST]</code> with `{strategyName, configFile?}` | Spawn the engine adapter (`classic` / `realtime`) inside Docker, insert a `Run` row, then post `[BACKTEST_RESULT]` as a system comment and re-trigger the agent. Refused with a system comment if no dataset is registered for the desk (rule #13). |
-| `[RUN_PAPER]` | `[RUN_PAPER] <runId>` | Start a long-lived paper trading container labelled with `quantdesk.runId` / `quantdesk.engine` / `quantdesk.kind=paper`. Used by classic and realtime modes only. |
-| `[BACKTEST_RESULT]` | <code>[BACKTEST_RESULT]\n{metrics: [...]}\n[/BACKTEST_RESULT]</code> | **Generic mode only.** The agent runs the backtest itself (host execution) and emits the result. The server parses the JSON and inserts a `Run` row. Classic / realtime never use this — the server emits it instead. |
+| `[RUN_BACKTEST]` | <code>[RUN_BACKTEST]\n{...}\n[/RUN_BACKTEST]</code> with `{strategyName, configFile?}` | **Managed mode only.** Spawn the engine adapter inside Docker, insert a `Run` row, then post `[BACKTEST_RESULT]` as a system comment and re-trigger the agent. Refused with a system comment if no dataset is registered for the desk (rule #13). |
+| `[RUN_PAPER]` | `[RUN_PAPER] <runId>` | **Managed mode only.** Start a long-lived paper trading container labelled with `quantdesk.runId` / `quantdesk.engine` / `quantdesk.kind=paper`. |
+| `[BACKTEST_RESULT]` | <code>[BACKTEST_RESULT]\n{metrics: [...]}\n[/BACKTEST_RESULT]</code> | **Generic mode only.** The agent runs the backtest itself (host execution) and emits the result. The server parses the JSON and inserts a `Run` row. Managed mode never uses this — the server emits it instead. |
 | `[DATASET]` | <code>[DATASET]\n{exchange, pairs, timeframe, dateRange, path}\n[/DATASET]</code> | Insert a `datasets` row for data the agent has downloaded itself. (For the proposal-driven flow see `[PROPOSE_DATA_FETCH]` below.) |
 | `[EXPERIMENT_TITLE]` | `[EXPERIMENT_TITLE] <short title, max 8 words>` | Update `experiments.title`. **Ignored when `experiment.number === 1`** — the first experiment of every desk is permanently `Baseline`. |
 | `[PROPOSE_DATA_FETCH]` | <code>[PROPOSE_DATA_FETCH]\n{exchange, pairs, timeframe, days, tradingMode, rationale}\n[/PROPOSE_DATA_FETCH]</code> | Attach a `pendingProposal` to the agent's comment so the UI renders Approve / Reject buttons. The agent turn ends here — it does **not** block waiting for the user. The actual download runs in a **separate user-initiated request** when the user clicks Approve, and the agent is then re-triggered by the resulting "Downloaded..." system comment. If the user never approves, no further action happens. **Required first response on a brand-new desk** (rule #13). |
