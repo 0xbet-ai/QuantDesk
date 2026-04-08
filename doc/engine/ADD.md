@@ -1,6 +1,6 @@
 # Adding a New Engine
 
-An **engine** is a backtesting / paper-trading framework that QuantDesk delegates strategy execution to. Current engines: **Freqtrade**, **Nautilus**, and **Generic** (agent-scripted fallback running in a pinned Ubuntu+Python container). We do not ship a managed Hummingbot adapter — users who want Hummingbot run it inside a generic-mode script. Adding a new engine means implementing the `EngineAdapter` interface, registering it, and mapping it to a `strategy_mode`.
+An **engine** is a backtesting / paper-trading framework that QuantDesk delegates strategy execution to. The current set of engines and the scope of which adapters we ship live in `doc/engine/README.md`. Adding a new engine means implementing the `EngineAdapter` interface, registering it, and mapping it to a `strategy_mode`.
 
 This is a larger change than adding a venue. **Please open an issue first to discuss design and scope** before opening a PR.
 
@@ -27,7 +27,7 @@ The interface and all related config / result types are defined in `packages/eng
 **When adding a new engine, remember:**
 
 - Result normalization is critical — the UI assumes consistent metric names. See `NormalizedResult` in `types.ts`.
-- Engine names must **never leak to the user-facing UI**. The engine is derived from `desk.strategy_mode` at desk creation time and is immutable for the desk's lifetime. Users pick a mode (`classic` or `realtime`), never an engine.
+- CLAUDE.md rules #6 (engine names never leak to the UI) and #10 (mode/engine immutable per desk) apply to any new engine.
 
 ### 3. Register the adapter
 
@@ -124,4 +124,4 @@ Yes. Implement `startPaper` / `stopPaper` / `getPaperStatus` to throw a clear "n
 
 ### Can I add an engine that wraps an external API instead of a local binary?
 
-Yes. `ensureImage` can pull a generic runtime image (Python/Node base) instead of an engine-specific one. Validate any required API credentials at the start of `runBacktest` / `startPaper`. Network calls happen inside the container like any other engine — but be mindful of rate limits and idempotency. Note: QuantDesk is paper-trading-only, so trading API keys are out of scope; market data keys are acceptable.
+Yes. `ensureImage` can pull a generic runtime image (Python/Node base) instead of an engine-specific one. Validate any required API credentials at the start of `runBacktest` / `startPaper`. Network calls happen inside the container like any other engine — but be mindful of rate limits and idempotency. Trading API keys are out of scope per CLAUDE.md rule #5; market data keys are acceptable.
