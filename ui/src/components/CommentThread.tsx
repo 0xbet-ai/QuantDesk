@@ -448,6 +448,10 @@ export function CommentThread({
 	// Phase 27 step 8 — live docker log tail from the engine container for
 	// the run currently running inside the active turn. Capped at 200 lines.
 	const [runLogLines, setRunLogLines] = useState<string[]>([]);
+	// Phase 27 — when a turn reaches `completed` we fade the card out and
+	// then clear state. failed/stopped stay visible because the user must
+	// act on them. Any new turn (`running`) cancels the fade.
+	const [fadingOut, setFadingOut] = useState(false);
 	// Live tail of `data_fetch.progress` events from the server. Cleared
 	// whenever the comment thread refreshes (the next system comment —
 	// "Downloaded …" or failure — supersedes the live tail).
@@ -517,6 +521,28 @@ export function CommentThread({
 	useEffect(() => {
 		refresh();
 	}, [refresh]);
+
+	// Fade-out-and-clear on completed. 900ms hold lets the user see the
+	// "Completed" badge, then 500ms CSS transition fades the card away.
+	useEffect(() => {
+		if (turnStatus !== "completed") {
+			setFadingOut(false);
+			return;
+		}
+		const holdId = setTimeout(() => setFadingOut(true), 900);
+		const clearId = setTimeout(() => {
+			setTurnStatus(null);
+			setCurrentTurnId(null);
+			setStreamEntries([]);
+			setRunLogLines([]);
+			setRunStartedAt(null);
+			setFadingOut(false);
+		}, 1400);
+		return () => {
+			clearTimeout(holdId);
+			clearTimeout(clearId);
+		};
+	}, [turnStatus]);
 
 	// Auto-refresh on WebSocket events
 	useLiveUpdates(experiment.id, (event) => {
@@ -738,7 +764,14 @@ export function CommentThread({
 					</div>
 				)}
 				{turnStatus && (
-					<div className="sticky bottom-0 z-10 -mx-4 px-4 pt-2 pb-2 bg-gradient-to-t from-background via-background to-background/80 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+					<div
+						className={cn(
+							"sticky bottom-0 z-10 -mx-4 px-4 pt-2 pb-2 bg-gradient-to-t from-background via-background to-background/80 backdrop-blur-sm transition-all duration-500 ease-out",
+							fadingOut
+								? "opacity-0 -translate-y-2 max-h-0 overflow-hidden"
+								: "opacity-100 translate-y-0 animate-in fade-in slide-in-from-bottom-2 duration-300",
+						)}
+					>
 						<TurnCard
 							experimentNumber={experiment.number}
 							agentRole={thinkingRole ?? "analyst"}
