@@ -101,7 +101,18 @@ function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
 	const handleToggle = () => {
 		if (!open && entries === null) {
 			getAgentLogs(experimentId)
-				.then((logs) => setEntries(logs as unknown as TranscriptEntry[]))
+				.then((logs) => {
+					// Drop `text` entries — those are the assistant's final
+					// message, which is already rendered as the nested comment
+					// right above the transcript toggle. Keeping them shows the
+					// same paragraph twice. The transcript is most useful for
+					// tool calls / thinking / result blocks, which are NOT in
+					// the comment body.
+					const filtered = (logs as unknown as TranscriptEntry[]).filter(
+						(e) => (e as { type?: string }).type !== "text",
+					);
+					setEntries(filtered);
+				})
 				.catch(() => setEntries([]));
 		}
 		setOpen((v) => !v);
