@@ -38,6 +38,7 @@ import { Separator } from "./ui/separator.js";
 interface Props {
 	experiment: Experiment;
 	onOpenRun?: () => void;
+	onOpenTurn?: (turnId: string) => void;
 	onNewExperiment?: (newExperiment: Experiment) => void;
 	onExperimentUpdated?: () => void;
 }
@@ -462,6 +463,7 @@ function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
 export function CommentThread({
 	experiment,
 	onOpenRun,
+	onOpenTurn,
 	onNewExperiment,
 	onExperimentUpdated,
 }: Props) {
@@ -477,6 +479,7 @@ export function CommentThread({
 	// explicit user send resets it.
 	const [turnStatus, setTurnStatus] = useState<TurnLifecycleStatus | null>(null);
 	const [turnFailureReason, setTurnFailureReason] = useState<string | null>(null);
+	const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
 	// Live tail of `data_fetch.progress` events from the server. Cleared
 	// whenever the comment thread refreshes (the next system comment —
 	// "Downloaded …" or failure — supersedes the live tail).
@@ -538,9 +541,11 @@ export function CommentThread({
 		}
 		if (event.type === "turn.status") {
 			const payload = event.payload as {
+				turnId?: string;
 				status?: TurnLifecycleStatus;
 				failureReason?: string | null;
 			};
+			if (payload.turnId) setCurrentTurnId(payload.turnId);
 			if (payload.status) {
 				setTurnStatus(payload.status);
 				if (payload.status !== "running") {
@@ -751,7 +756,10 @@ export function CommentThread({
 								setThinkingRole(null);
 								setTurnStatus("stopped");
 							}}
-							onOpen={onOpenRun}
+							onOpen={
+								currentTurnId && onOpenTurn ? () => onOpenTurn(currentTurnId) : onOpenRun
+							}
+							hasRun={!!currentTurnId}
 						/>
 					</div>
 				)}
