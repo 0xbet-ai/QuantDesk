@@ -41,7 +41,7 @@ stateDiagram-v2
 
 A desk can only enter `starting` when:
 
-1. The desk's strategy mode supports paper trading (`classic` → Freqtrade `dry_run`, `realtime` → Nautilus `SandboxExecutionClient`). Generic engine is rejected — backtest only.
+1. The desk's strategy mode maps to a paper-capable engine configuration (`classic` → Freqtrade `dry_run`, `realtime` → Nautilus `SandboxExecutionClient`, `generic` → agent-authored paper loop script inside the generic Ubuntu container).
 2. The user explicitly approves a specific validated `runId` from the desk's history. There is no auto-promotion.
 3. No other paper session is active for the desk (one paper session per desk at a time).
 

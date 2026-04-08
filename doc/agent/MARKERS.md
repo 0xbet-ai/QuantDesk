@@ -8,7 +8,7 @@ This file is the **glossary**. The authoritative definitions live in the prompt 
 - **Action markers** (parsed and acted on at the end of every turn) — `server/src/services/agent-trigger.ts`
 - **Proposal markers** (parsed into pending-proposal metadata on the comment) — `server/src/services/triggers.ts`
 
-Throughout this document, **managed mode** refers to desks whose `strategy_mode` is `classic` or `realtime` — both are handled identically at the marker level (the server maps them to Freqtrade or Nautilus internally). **Generic mode** is the fallback for venues without a managed engine. Marker semantics only ever distinguish managed vs generic, never classic vs realtime.
+The agent does not distinguish engine modes at the marker level. Every `[RUN_BACKTEST]` / `[RUN_PAPER]` is handled by the server the same way: spawn a pinned Docker container for the desk's strategy mode (classic → Freqtrade, realtime → Nautilus, generic → pinned Ubuntu+Python), execute, emit results.
 
 ## Action markers
 
@@ -16,10 +16,9 @@ These cause the server to do something during the same turn the marker appears i
 
 | Marker | Form | What the server does |
 |---|---|---|
-| `[RUN_BACKTEST]` | <code>[RUN_BACKTEST]\n{...}\n[/RUN_BACKTEST]</code> with `{strategyName, configFile?}` | **Managed mode only.** Spawn the engine adapter inside Docker, insert a `Run` row, then post `[BACKTEST_RESULT]` as a system comment and re-trigger the agent. Refused with a system comment if no dataset is registered for the desk (rule #13). |
-| `[RUN_PAPER]` | `[RUN_PAPER] <runId>` | **Managed mode only.** Start a long-lived paper trading container labelled with `quantdesk.runId` / `quantdesk.engine` / `quantdesk.kind=paper`. |
-| `[BACKTEST_RESULT]` | <code>[BACKTEST_RESULT]\n{metrics: [...]}\n[/BACKTEST_RESULT]</code> | **Generic mode only.** The agent runs the backtest itself (host execution) and emits the result. The server parses the JSON and inserts a `Run` row. Managed mode never uses this — the server emits it instead. |
-| `[DATASET]` | <code>[DATASET]\n{exchange, pairs, timeframe, dateRange, path}\n[/DATASET]</code> | Insert a `datasets` row for data the agent has downloaded itself. (For the proposal-driven flow see `[PROPOSE_DATA_FETCH]` below.) |
+| `[RUN_BACKTEST]` | <code>[RUN_BACKTEST]\n{...}\n[/RUN_BACKTEST]</code> with `{strategyName, configFile?, entrypoint?}` | Spawn the engine adapter for the desk's pinned `strategy_mode` inside Docker, insert a `Run` row with the resulting metrics, post a system comment with the result summary, and re-trigger the agent. Refused with a system comment if no dataset is registered for the desk (rule #13). |
+| `[RUN_PAPER]` | `[RUN_PAPER] <runId>` | Start a long-lived paper trading container labelled with `quantdesk.runId` / `quantdesk.engine` / `quantdesk.kind=paper`. |
+| `[DATASET]` | <code>[DATASET]\n{exchange, pairs, timeframe, dateRange, path}\n[/DATASET]</code> | Insert a `datasets` row for data the agent has downloaded itself inside the engine container. (For the proposal-driven flow see `[PROPOSE_DATA_FETCH]` below.) |
 | `[EXPERIMENT_TITLE]` | `[EXPERIMENT_TITLE] <short title, max 8 words>` | Update `experiments.title`. **Ignored when `experiment.number === 1`** — the first experiment of every desk is permanently `Baseline`. |
 | `[PROPOSE_DATA_FETCH]` | <code>[PROPOSE_DATA_FETCH]\n{exchange, pairs, timeframe, days, tradingMode, rationale}\n[/PROPOSE_DATA_FETCH]</code> | Attach a `pendingProposal` to the agent's comment so the UI renders Approve / Reject buttons. The agent turn ends here — it does **not** block waiting for the user. The actual download runs in a **separate user-initiated request** when the user clicks Approve, and the agent is then re-triggered by the resulting "Downloaded..." system comment. If the user never approves, no further action happens. **Required first response on a brand-new desk** (rule #13). |
 
@@ -32,7 +31,7 @@ These don't trigger server-side actions. They are parsed into structured proposa
 | `[PROPOSE_VALIDATION]` | `[PROPOSE_VALIDATION]` | Suggest Risk Manager validation of the latest run. The server parses the marker and routes it into the Risk Manager turn flow described in `doc/agent/ROLES.md`. |
 | `[PROPOSE_NEW_EXPERIMENT]` | `[PROPOSE_NEW_EXPERIMENT] <title>` | Suggest splitting work into a new experiment. The agent is instructed to only propose this when the current hypothesis is settled or the direction has clearly changed — never for routine parameter tuning. |
 | `[PROPOSE_COMPLETE_EXPERIMENT]` | `[PROPOSE_COMPLETE_EXPERIMENT]` | Suggest marking the current experiment as completed. |
-| `[PROPOSE_GO_PAPER]` | `[PROPOSE_GO_PAPER] <runId>` | Suggest promoting a completed backtest run to paper trading. **Forbidden in generic mode** — the prompt instructs the agent not to emit it for generic desks. |
+| `[PROPOSE_GO_PAPER]` | `[PROPOSE_GO_PAPER] <runId>` | Suggest promoting a completed backtest run to paper trading. |
 
 ## Notes
 
