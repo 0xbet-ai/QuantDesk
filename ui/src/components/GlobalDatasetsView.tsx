@@ -59,7 +59,13 @@ export function GlobalDatasetsView() {
 						{datasets.map((d) => (
 							<div
 								key={d.id}
-								className="flex items-center justify-between px-4 py-3 hover:bg-muted/30"
+								className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 cursor-pointer"
+								onClick={() => setPreviewing(d)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" || e.key === " ") setPreviewing(d);
+								}}
+								role="button"
+								tabIndex={0}
 							>
 								<div className="flex-1 min-w-0">
 									<div className="text-sm font-medium">
@@ -73,7 +79,12 @@ export function GlobalDatasetsView() {
 									</div>
 								</div>
 								{confirmingId === d.id ? (
-									<div className="flex items-center gap-2 shrink-0">
+									<div
+										className="flex items-center gap-2 shrink-0"
+										onClick={(e) => e.stopPropagation()}
+										onKeyDown={(e) => e.stopPropagation()}
+										role="presentation"
+									>
 										<Button
 											variant="destructive"
 											size="sm"
@@ -96,7 +107,10 @@ export function GlobalDatasetsView() {
 										variant="ghost"
 										size="icon-sm"
 										className="text-muted-foreground hover:text-destructive"
-										onClick={() => setConfirmingId(d.id)}
+										onClick={(e) => {
+											e.stopPropagation();
+											setConfirmingId(d.id);
+										}}
 										title="Delete dataset"
 									>
 										<Trash2 className="size-4" />
@@ -107,6 +121,9 @@ export function GlobalDatasetsView() {
 					</div>
 				)}
 			</div>
+			{previewing && (
+				<DatasetPreviewModal dataset={previewing} onClose={() => setPreviewing(null)} />
+			)}
 		</div>
 	);
 }
