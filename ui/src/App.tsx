@@ -12,6 +12,7 @@ import { DeskSettings } from "./components/DeskSettings.js";
 import { Layout } from "./components/Layout.js";
 import { PropsPanel } from "./components/PropsPanel.js";
 import { RunDetailView } from "./components/RunDetailView.js";
+import { TurnDetailPage } from "./pages/TurnDetailPage.js";
 import type { Desk, Experiment } from "./lib/api.js";
 import { listDesks, listExperiments } from "./lib/api.js";
 
@@ -146,6 +147,7 @@ function DeskRoute({
 					<CommentThread
 						experiment={selectedExperiment}
 						onOpenRun={() => navigate(`/desks/${deskId}/experiments/${expId}/runs`)}
+					onOpenTurn={(turnId: string) => navigate(`/desks/${deskId}/turns/${turnId}`)}
 						onNewExperiment={handleNewExperiment}
 						onExperimentUpdated={refreshExperiments}
 					/>
@@ -281,6 +283,7 @@ export function App() {
 				<Route path="/desks/:deskId/datasets" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/activity" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/settings" element={<DeskRoute {...routeState} />} />
+				<Route path="/desks/:deskId/turns/:turnId" element={<TurnDetailPage />} />
 			</Routes>
 
 			{showWizard && (

@@ -163,6 +163,29 @@ export const completeAndCreateNewExperiment = (
 export const deleteExperiment = (experimentId: string) =>
 	api<void>(`/experiments/${experimentId}`, { method: "DELETE" });
 export const listRuns = (experimentId: string) => api<Run[]>(`/experiments/${experimentId}/runs`);
+
+export interface AgentTurnRow {
+	id: string;
+	experimentId: string;
+	deskId: string;
+	agentRole: string;
+	triggerKind: string;
+	status: "running" | "completed" | "failed" | "stopped";
+	startedAt: string;
+	endedAt: string | null;
+	lastHeartbeatAt: string;
+	failureReason: string | null;
+}
+
+export interface TurnDetail {
+	turn: AgentTurnRow;
+	comments: Comment[];
+	runs: Run[];
+}
+
+export const getTurn = (turnId: string) => api<TurnDetail>(`/turns/${turnId}`);
+export const listExperimentTurns = (experimentId: string) =>
+	api<AgentTurnRow[]>(`/experiments/${experimentId}/turns`);
 export const listComments = (experimentId: string) =>
 	api<Comment[]>(`/experiments/${experimentId}/comments`);
 export const postComment = (experimentId: string, content: string) =>
