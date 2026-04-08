@@ -14,12 +14,12 @@ The whitelist above is **closed**. Managed adapters will only ever be added for 
 
 ## Data download tools (per engine)
 
-Each managed engine brings its own historical data download tool, invoked by the server during the Stage 1 data fetch (see `../agent/LIFECYCLE.md`):
+Each engine brings its own historical data download tool, invoked by the server during the Stage 1 data fetch (see `../agent/LIFECYCLE.md`):
 
-| Mode | Download mechanism |
+| Engine | Download mechanism |
 |---|---|
-| `classic` | Freqtrade `download-data` command run inside an ephemeral container |
-| `realtime` | Nautilus `DataCatalog` ingest run inside an ephemeral container |
+| `freqtrade` | Freqtrade `download-data` command run inside an ephemeral container |
+| `nautilus` | Nautilus `DataCatalog` ingest run inside an ephemeral container |
 | `generic` | Agent-authored download script executed inside the generic Ubuntu+Python container |
 
 ## Strategy Mode
@@ -54,40 +54,32 @@ At a high level the adapter exposes the following methods:
 
 ## Engine Resolution
 
-Engine is derived from `strategy_mode`, not from a priority list:
+`strategy_mode` has exactly two values: `classic` and `realtime`. The engine is derived from the `(strategy_mode, venue)` pair, not from `strategy_mode` alone. When the venue exposes a managed engine for the chosen mode, that managed engine is used. Otherwise the **generic engine is selected as a fallback** — the desk's `strategy_mode` stays `classic` or `realtime`, and the agent writes scripts that follow that mode's philosophy (candle-based for `classic`, event-driven for `realtime`) inside the generic Ubuntu+Python container.
 
 ```ts
-const MODE_TO_ENGINE: Record<StrategyMode, EngineName> = {
+type StrategyMode = "classic" | "realtime";
+type EngineName = "freqtrade" | "nautilus" | "generic";
+
+const MANAGED_ENGINE_FOR_MODE: Record<StrategyMode, EngineName> = {
   classic: "freqtrade",
   realtime: "nautilus",
 };
 
 function resolveEngine(venue: Venue, mode: StrategyMode): EngineName {
-  const engine = MODE_TO_ENGINE[mode];
-  if (!venue.engines.includes(engine)) {
-    throw new Error(
-      `Venue ${venue.name} does not support ${mode} strategies. ` +
-      `Available modes for this venue: ${availableModes(venue).join(", ")}`
-    );
-  }
-  return engine;
-}
-
-function availableModes(venue: Venue): StrategyMode[] {
-  const modes: StrategyMode[] = [];
-  if (venue.engines.includes("freqtrade")) modes.push("classic");
-  if (venue.engines.includes("nautilus")) modes.push("realtime");
-  return modes;
+  const managed = MANAGED_ENGINE_FOR_MODE[mode];
+  if (venue.engines.includes(managed)) return managed;
+  return "generic"; // fallback — agent writes mode-flavoured scripts in the generic container
 }
 ```
 
+`generic` is therefore an **engine**, never a `strategy_mode`. It never appears in the wizard's mode picker; it is silently chosen by `resolveEngine` when no managed engine matches the venue.
+
 Wizard flow:
 1. User picks venue(s).
-2. Wizard computes `availableModes(venues)` (intersection across selected venues).
-3. User picks a strategy mode from the available set. If only one is available, it is pre-selected. If none are available, user is told to reselect venues.
-4. Engine is derived and written to `desks.engine` (immutable per CLAUDE.md rule #10).
+2. User picks a strategy mode (`classic` or `realtime`). Both modes are always available — there is no "no managed engine matches" dead end, because `generic` will catch it.
+3. Engine is derived via `resolveEngine` and written to `desks.engine` (immutable per CLAUDE.md rule #10).
 
-See `strategies/venues.json` for the full list of venues and which engines each one supports.
+See `strategies/venues.json` for the full list of venues and which managed engines each one supports.
 
 ## Docker Conventions
 
@@ -163,7 +155,7 @@ workspaces/desk-{id}/
   runs/<runId>/
 ```
 
-### Generic (fallback, agent-scripted)
+### Generic (fallback, agent-scripted — used when no managed engine matches the venue)
 
 ```
 workspaces/desk-{id}/
@@ -178,7 +170,7 @@ workspaces/desk-{id}/
 
 ## Generic Engine
 
-For strategies/venues that don't fit Freqtrade or Nautilus (e.g. Kalshi prediction markets, custom venues). The agent writes the strategy, the backtest script, and the paper loop script. All scripts run inside a pinned Ubuntu+Python container. Backtest scripts must output `NormalizedResult` JSON to stdout; paper scripts run long-lived with the same `quantdesk.kind=paper` labels managed engines use.
+For venues that don't fit Freqtrade or Nautilus (e.g. Kalshi prediction markets, custom venues). The desk's `strategy_mode` is still `classic` or `realtime` — the user picked one of those in the wizard — and the agent writes scripts that follow that mode's philosophy: candle-based polling for `classic`, event-driven for `realtime`. All scripts run inside a pinned Ubuntu+Python container. Backtest scripts must output `NormalizedResult` JSON to stdout; paper scripts run long-lived with the same `quantdesk.kind=paper` labels managed engines use.
 
 ```
 ensureImage()       → pulls the pinned Ubuntu+Python base image

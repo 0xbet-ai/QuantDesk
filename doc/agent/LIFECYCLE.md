@@ -28,7 +28,7 @@ flowchart TD
         direction TB
         B0{"dataset exists<br/>for desk?"}
         B1["refuse: post rule #13<br/>system comment · return"]
-        B2["engineAdapter.runBacktest()<br/>inside Docker<br/>(classic / realtime / generic)"]
+        B2["engineAdapter.runBacktest()<br/>inside Docker<br/>(engine resolved from mode + venue)"]
         B3["insert Run row"]
         B4["post backtest result<br/>system comment"]
         B0 -- no --> B1
@@ -123,7 +123,7 @@ sequenceDiagram
 
 ## Failure handling
 
-There is **no automatic retry** anywhere in the lifecycle. If a stage fails, the run/turn is marked `failed` and the lifecycle stops — the server does not re-dispatch the same work on its own, and it does **not** advance to the next stage. A failure in Stage 1 means Stage 2 never runs; a failure in Stage 2 means Stage 3 never runs.
+There is **no automatic stage-level retry** anywhere in the lifecycle. If a stage fails, the run/turn is marked `failed` and the lifecycle stops — the server does not re-dispatch the same stage on its own, and it does **not** advance to the next stage. A failure in Stage 1 means Stage 2 never runs; a failure in Stage 2 means Stage 3 never runs. (CLI plumbing — e.g. retrying with a fresh session id when the previous one expired — is handled at the subprocess layer in `./TURN.md` and is not a lifecycle retry.)
 
 - **Stage 1 (data fetch)** — a download error posts a system comment describing the failure and retriggers the agent. The agent decides whether to propose a revised `[PROPOSE_DATA_FETCH]` (e.g. different pair naming, shorter window) or give up. The user can also simply comment again to nudge it.
 - **Stage 2 (backtest)** — an engine/container error inserts the Run row with `status = failed` and posts the error as a system comment. No analysis turn is auto-dispatched. The next turn is a fresh `triggerAgent` triggered by the failure comment: the agent reads the failure, may edit `strategy.py`, and emits a **new** `[RUN_BACKTEST]` which becomes a new Run row. The failed run is preserved for history, never mutated in place.
