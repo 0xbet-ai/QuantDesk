@@ -2,7 +2,7 @@
 
 Spec: `doc/engine/README.md` Generic section — "Agent-authored download script executed **inside the generic Ubuntu+Python container**."
 
-Current code (`packages/engines/src/generic/adapter.ts`): `downloadData` runs `bash <workspacePath>/download-data.sh` directly on the host via `execAsync`. This contradicts the spec — host-native execution leaks the host's environment, breaks pinning, and gives the agent's downloader unrestricted host access. Per CLAUDE.md rule #14 this is a code BUG.
+Current code (`packages/engines/src/generic/adapter.ts`): `downloadData` runs `bash <workspacePath>/download-data.sh` directly on the host via `execAsync`. This contradicts the spec — host-native execution leaks the host's environment, breaks pinning, and gives the agent's downloader unrestricted host access. Per CLAUDE.md rule #11 this is a code BUG.
 
 ## Tests first
 

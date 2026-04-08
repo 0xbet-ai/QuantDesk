@@ -31,7 +31,7 @@ Users never pick an engine directly. During onboarding they choose a **strategy 
 | `classic` (recommended) | Freqtrade | Candle-based polling strategies, TA indicators, minute-to-hour timeframes. Best for trend following, mean reversion, momentum. |
 | `realtime` (advanced) | Nautilus | Event-driven strategies reacting to ticks and order book deltas, sub-second timeframes. Best for market making, arbitrage, HFT. |
 
-Each desk pins a `strategy_mode` at creation and the engine is derived from it — both immutable per CLAUDE.md rule #10.
+Each desk pins a `strategy_mode` at creation and the engine is derived from it — both immutable per CLAUDE.md rule #8.
 
 ## Interface
 
@@ -77,7 +77,7 @@ function resolveEngine(venue: Venue, mode: StrategyMode): EngineName {
 Wizard flow:
 1. User picks venue(s).
 2. User picks a strategy mode (`classic` or `realtime`). Both modes are always available — there is no "no managed engine matches" dead end, because `generic` will catch it.
-3. Engine is derived via `resolveEngine` and written to `desks.engine` (immutable per CLAUDE.md rule #10).
+3. Engine is derived via `resolveEngine` and written to `desks.engine` (immutable per CLAUDE.md rule #8).
 
 See `strategies/venues.json` for the full list of venues and which managed engines each one supports.
 

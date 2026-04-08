@@ -1,7 +1,7 @@
 # Plans
 
 The single place where gaps between `doc/` (the spec) and the current code are
-tracked. Per CLAUDE.md rule #14, `doc/plans/` is the **only** directory allowed
+tracked. Per CLAUDE.md rule #11, `doc/plans/` is the **only** directory allowed
 to use hedging language ("TODO", "not yet", "planned"). Everything else in
 `doc/` is written in the present tense.
 
@@ -61,12 +61,12 @@ Verified against the spec docs and the current tree.
 - `EXPERIMENT_TITLE` — parser + experiment row update, no retrigger (metadata-only). — `server/src/services/agent-trigger.ts`
 - `stripAgentMarkers` — every marker stripped before persistence. — `packages/shared/src/agent-markers.ts`
 - **Generic proposal approve/reject router** at `POST /api/comments/:commentId/{approve,reject}`, keyed off `comment.metadata.pendingProposal.type`. Handler registry in `server/src/services/proposal-handlers/registry.ts`. Phases 06-07 and 11 each register one handler behind the same router. UI calls `postProposalDecision(commentId, action)` — no per-type endpoints. — `server/src/routes/comments.ts`, `server/src/services/proposal-handlers/`
-- **`PROPOSE_NEW_EXPERIMENT`** — agent-trigger now attaches a `pendingProposal` for any line-form `PROPOSE_*` marker (data_fetch still takes priority). The `new_experiment` handler completes the current experiment via `completeAndCreateNewExperiment` (memory summary + status=completed) and triggers the analyst on the new experiment. Reject posts a rule #15 system comment and retriggers the analyst on the current experiment. — `server/src/services/{agent-trigger,triggers,proposal-handlers/new-experiment-handler}.ts`
-- **`PROPOSE_COMPLETE_EXPERIMENT`** — `complete_experiment` handler closes the current experiment via the new `completeExperiment` helper (memory summary + status=completed + agent session reset, no new experiment created), then posts a rule #15 system comment naming the next move. Reject continues the experiment with a retrigger. — `server/src/services/proposal-handlers/complete-experiment-handler.ts`
+- **`PROPOSE_NEW_EXPERIMENT`** — agent-trigger now attaches a `pendingProposal` for any line-form `PROPOSE_*` marker (data_fetch still takes priority). The `new_experiment` handler completes the current experiment via `completeAndCreateNewExperiment` (memory summary + status=completed) and triggers the analyst on the new experiment. Reject posts a rule #12 system comment and retriggers the analyst on the current experiment. — `server/src/services/{agent-trigger,triggers,proposal-handlers/new-experiment-handler}.ts`
+- **`PROPOSE_COMPLETE_EXPERIMENT`** — `complete_experiment` handler closes the current experiment via the new `completeExperiment` helper (memory summary + status=completed + agent session reset, no new experiment created), then posts a rule #12 system comment naming the next move. Reject continues the experiment with a retrigger. — `server/src/services/proposal-handlers/complete-experiment-handler.ts`
 
 ### Agent turns (phase 27)
 - **`agent_turns` table** — one row per `triggerAgent` invocation, `runs.turn_id` and `comments.turn_id` FKs stamp via AsyncLocalStorage so call sites stay untouched. `triggerAgent` opens the row, bumps `last_heartbeat_at` on every stream chunk, and finalizes `status` (`completed` / `failed` / `stopped`) + `failure_reason` in a try/catch/finally. — `packages/db/src/schema.ts`, `server/src/services/{agent-trigger,turn-context,comments}.ts`
-- **Boot reconcile + heartbeat watchdog** — orphan `running` rows left after a server restart are marked `failed` with `failure_reason='server_restart'` at boot; a 30s-tick watchdog catches silent subprocess deaths at runtime (90s heartbeat threshold) and posts a rule #15 system comment on the owning experiment. — `server/src/services/{startup-cleanup,turn-watchdog}.ts`
+- **Boot reconcile + heartbeat watchdog** — orphan `running` rows left after a server restart are marked `failed` with `failure_reason='server_restart'` at boot; a 30s-tick watchdog catches silent subprocess deaths at runtime (90s heartbeat threshold) and posts a rule #12 system comment on the owning experiment. — `server/src/services/{startup-cleanup,turn-watchdog}.ts`
 - **Read API + SSE** — `GET /api/turns/:id` returns the turn row + linked runs + comments; `GET /api/experiments/:id/turns` lists turns chronologically; `turn.status` events (running/completed/failed/stopped) publish on the existing experiment channel. — `server/src/{routes/turns,services/turns,realtime/live-events}.ts`
 - **TurnCard UI** — `RunWidget` renamed to `TurnCard` with a `status` lifecycle prop; `CommentThread` keeps the card mounted after agent finishes so the user sees a clear terminal state instead of a vanishing widget. `/desks/:deskId/turns/:turnId` detail page for the TurnCard's "Open" button. Engine container stdout/stderr forwards through `BacktestConfig.onLogLine` → `run.log_chunk` SSE → live tail block inside the card. — `ui/src/components/{TurnCard,CommentThread}.tsx`, `ui/src/pages/TurnDetailPage.tsx`, `packages/engines/src/{types,freqtrade/adapter}.ts`
 
@@ -81,7 +81,7 @@ Verified against the spec docs and the current tree.
 - `buildRiskManagerPrompt()` template. — `server/src/services/prompt-builder.ts`
 - `agent-runner.ts` branches its prompt by role.
 - `triggerAgent(experimentId, role)` accepts an optional role param (defaults to `"analyst"`); the new `getOrCreateAgentSession(deskId, role)` lazily creates the `risk_manager` row on first use, inheriting adapter config from the analyst session. — `server/src/services/agent-trigger.ts`
-- **`PROPOSE_VALIDATION` dispatch** — `validation-handler.ts` is the single sanctioned path that wakes the Risk Manager. On approve it calls `triggerAgent(experimentId, "risk_manager")`. On reject it posts a rule #15 system comment and retriggers the analyst. — `server/src/services/proposal-handlers/validation-handler.ts`
+- **`PROPOSE_VALIDATION` dispatch** — `validation-handler.ts` is the single sanctioned path that wakes the Risk Manager. On approve it calls `triggerAgent(experimentId, "risk_manager")`. On reject it posts a rule #12 system comment and retriggers the analyst. — `server/src/services/proposal-handlers/validation-handler.ts`
 - **RM verdict loop-back** — RM ends every turn with `[RM_APPROVE]` or `[RM_REJECT] <reason>`. After the RM comment is saved, `extractRmVerdict` parses the marker, writes `result.validation = { verdict, reason, at }` onto the latest `runs` row, and retriggers the analyst with the verdict in context. RM never retriggers itself. The `[RUN_PAPER]` precondition reads `result.validation.verdict === "approve"` to gate paper trading. — `server/src/services/{agent-trigger,prompt-builder}.ts`, `packages/shared/src/agent-markers.ts`
 
 ### Datasets and storage
@@ -105,7 +105,7 @@ Verified against the spec docs and the current tree.
 - `memory_summaries` table with `level` / `experimentId` / `content`. — `packages/db/src/schema.ts`
 - Prompt builder reads desk-level + experiment-level summaries. — `server/src/services/prompt-builder.ts`
 
-### Rule #15 enforcement
+### Rule #12 enforcement
 - `systemComment(...)` wrapper is the only sanctioned way to insert a system-authored comment; every caller must declare `nextAction: "action" | "retrigger" | "progress"`. — `server/src/services/comments.ts`
 - Static lint (`server/src/__tests__/no-dead-end-lint.test.ts`) rejects (a) any direct `createComment({ author: "system" })` outside the wrapper, and (b) any `nextAction: "action"` call whose literal content does not contain a phrase from `ACTION_PHRASE_PATTERNS`. Runs in `pnpm test`.
 - Pure `hasNextAction(snapshot)` invariant checker — `server/src/services/has-next-action.ts`. Returns `{ ok, reason }` over a `DeskInvariantSnapshot` (pendingProposal count, latest system-comment content, retrigger queue state). The DB-touching `assertNoDeadEnd(deskId)` afterEach helper at `server/src/__tests__/helpers/no-dead-end-after-each.ts` wraps it for integration tests when those land.

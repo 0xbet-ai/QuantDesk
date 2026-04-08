@@ -36,7 +36,7 @@ workspaces/desk-{id}/runs/<runId>/
 ```
 
 - Mounted into the engine container as the run's working directory.
-- Logs and any per-run files are written here so they **survive container removal**. This is what makes paper-session recovery possible after `docker rm`, host reboot, or image upgrade — the in-memory registry can be rebuilt from on-disk state plus `docker ps` labels (CLAUDE.md rule #12).
+- Logs and any per-run files are written here so they **survive container removal**. This is what makes paper-session recovery possible after `docker rm`, host reboot, or image upgrade — the in-memory registry can be rebuilt from on-disk state plus `docker ps` labels (CLAUDE.md rule #10).
 
 ### Shared data cache
 
@@ -51,7 +51,7 @@ workspaces/desk-{id}/runs/<runId>/
 
 #### Lookup and incremental fetch
 
-When the server processes an approved `[PROPOSE_DATA_FETCH]`, it does **not** unconditionally re-download. It first looks up the cache by `(exchange, pairs, timeframe)`:
+When the server processes a `[DATA_FETCH]` block (emitted by the agent after the user has agreed conversationally — see CLAUDE.md rules #13 and #12), it does **not** unconditionally re-download. It first looks up the cache by `(exchange, pairs, timeframe)`:
 
 | Cache state | Action |
 |---|---|
@@ -76,7 +76,7 @@ When the server processes an approved `[PROPOSE_DATA_FETCH]`, it does **not** un
 
 - The `datasets` table is keyed conceptually by `(exchange, pairs, timeframe)` — there is no `desk_id` column on it. The `dateRange` is a property of the row that grows as the cache expands (see "Lookup and incremental fetch" above).
 - The `desk_datasets` join table links a desk to the datasets it has been granted access to.
-- Approving a `[PROPOSE_DATA_FETCH]` (rule #13) downloads the missing data (or none, on a full hit), inserts or extends the `datasets` row, and inserts a `desk_datasets` link for the current desk.
+- Executing a `[DATA_FETCH]` block (rule #13 — the agent asked, the user agreed) downloads the missing data (or none, on a full hit), inserts or extends the `datasets` row, and inserts a `desk_datasets` link for the current desk.
 - Two desks can independently propose the same dataset; the cache and `datasets` row are shared, only the `desk_datasets` row is per-desk.
 - **User-imported (bind-mounted) datasets** are tracked separately on the desk row itself, not in `datasets`. They have no `(exchange, pairs, timeframe)` key, no incremental-fetch semantics, and no cross-desk sharing — each desk declares its own mounts, and the agent inspects the mounted directory at runtime to discover what's there. The `runs.dataset_id` column is only meaningful for cache-backed datasets; runs that consume external mounts are reproducible only as long as the host paths still exist.
 
