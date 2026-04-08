@@ -11,6 +11,7 @@ const statusColors: Record<string, string> = {
 	error: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
 	active: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300",
 	pending: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300",
+	awaiting_user: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
 	draft: "bg-muted text-muted-foreground",
 };
 

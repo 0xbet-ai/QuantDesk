@@ -62,6 +62,7 @@ export interface Comment {
 	author: string;
 	content: string;
 	runId: string | null;
+	turnId: string | null;
 	metadata: Record<string, unknown> | null;
 	createdAt: string;
 }

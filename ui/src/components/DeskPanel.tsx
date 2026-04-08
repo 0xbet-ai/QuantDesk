@@ -7,7 +7,6 @@ import {
 	Plus,
 	Settings,
 	Shield,
-	Trash2,
 	User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -15,7 +14,6 @@ import venues from "../../../strategies/venues.json";
 import type { Desk, Experiment, Run, Strategy } from "../lib/api.js";
 import {
 	completeAndCreateNewExperiment,
-	deleteExperiment,
 	listActiveExperiments,
 	listRuns,
 	listStrategies,
@@ -39,7 +37,6 @@ interface Props {
 	onSelectExperiment: (id: string) => void;
 	onPageChange: (page: DeskPage) => void;
 	onNewExperiment: (newExperiment: Experiment) => void;
-	onExperimentDeleted: (deletedId: string) => void;
 }
 
 function formatUSD(value: string | number): string {
@@ -63,7 +60,6 @@ export function DeskPanel({
 	onSelectExperiment,
 	onPageChange,
 	onNewExperiment,
-	onExperimentDeleted,
 }: Props) {
 	const [creating, setCreating] = useState(false);
 
@@ -91,24 +87,6 @@ export function DeskPanel({
 	const [runningExperiments, setRunningExperiments] = useState<Record<string, boolean>>({});
 	const [liveAgentExperiments, setLiveAgentExperiments] = useState<Set<string>>(() => new Set());
 
-	const handleDelete = async (exp: Experiment, e: React.MouseEvent) => {
-		e.stopPropagation();
-		if (experiments.length <= 1) {
-			window.alert("Cannot delete the last experiment on a desk.");
-			return;
-		}
-		const ok = window.confirm(
-			`Delete Experiment #${exp.number} "${exp.title}"?\n\nThis will permanently remove its runs, comments, and logs. This cannot be undone.`,
-		);
-		if (!ok) return;
-		try {
-			await deleteExperiment(exp.id);
-			onExperimentDeleted(exp.id);
-		} catch (err) {
-			console.error(err);
-			window.alert(err instanceof Error ? err.message : "Failed to delete experiment.");
-		}
-	};
 	const [strategy, setStrategy] = useState<Strategy | null>(null);
 
 	useEffect(() => {
@@ -303,15 +281,6 @@ export function DeskPanel({
 												<StatusDot status="active" />
 											</span>
 										)}
-									</button>
-									<button
-										type="button"
-										onClick={(e) => handleDelete(exp, e)}
-										className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 mr-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-										title="Delete experiment"
-										aria-label={`Delete experiment #${exp.number}`}
-									>
-										<Trash2 className="h-3.5 w-3.5" />
 									</button>
 								</div>
 							);

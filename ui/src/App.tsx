@@ -48,24 +48,39 @@ function DeskRoute({
 	const selectedDesk = desks.find((d) => d.id === deskId) ?? null;
 	const selectedExperiment = experiments.find((e) => e.id === expId) ?? null;
 
-	// Persist last desk
+	// Persist last desk + experiment so a hard refresh restores the same view.
 	useEffect(() => {
 		if (deskId) localStorage.setItem("quantdesk.lastDeskId", deskId);
 	}, [deskId]);
-
-	// Redirect home if desk no longer exists (e.g. deleted/archived)
 	useEffect(() => {
+		if (deskId && expId) {
+			localStorage.setItem(`quantdesk.lastExpId.${deskId}`, expId);
+		}
+	}, [deskId, expId]);
+
+	// Redirect home if desk no longer exists (e.g. deleted/archived).
+	// Guard against the initial empty `desks` array (still loading) — that
+	// would otherwise misfire on every hard refresh, redirect to `/`, and
+	// also wipe `lastDeskId` from localStorage, killing the restore path.
+	useEffect(() => {
+		if (desks.length === 0) return;
 		if (deskId && !desks.some((d) => d.id === deskId)) {
 			localStorage.removeItem("quantdesk.lastDeskId");
 			navigate("/", { replace: true });
 		}
 	}, [deskId, desks, navigate]);
 
-	// Auto-select latest experiment if none in URL but experiments exist
+	// Auto-select an experiment if none in URL but experiments exist. Prefer
+	// the last one the user viewed for this desk; fall back to the most
+	// recent experiment.
 	useEffect(() => {
 		if (deskId && !expId && deskPage === "experiments" && experiments.length > 0) {
-			const latest = experiments[experiments.length - 1]!;
-			navigate(`/desks/${deskId}/experiments/${latest.id}`, { replace: true });
+			const lastExpId = localStorage.getItem(`quantdesk.lastExpId.${deskId}`);
+			const remembered = lastExpId
+				? experiments.find((e) => e.id === lastExpId)
+				: undefined;
+			const target = remembered ?? experiments[experiments.length - 1]!;
+			navigate(`/desks/${deskId}/experiments/${target.id}`, { replace: true });
 		}
 	}, [deskId, expId, deskPage, experiments, navigate]);
 
@@ -86,20 +101,6 @@ function DeskRoute({
 			navigate(`/desks/${deskId}/experiments/${newExp.id}`);
 		});
 	};
-	const handleExperimentDeleted = (deletedId: string) => {
-		const remaining = experiments.filter((e) => e.id !== deletedId);
-		refreshExperiments().then(() => {
-			if (deletedId === expId) {
-				const next = remaining[remaining.length - 1];
-				if (next) {
-					navigate(`/desks/${deskId}/experiments/${next.id}`);
-				} else {
-					navigate(`/desks/${deskId}`);
-				}
-			}
-		});
-	};
-
 	return (
 		<Layout
 			desks={desks}
@@ -117,7 +118,6 @@ function DeskRoute({
 						onSelectExperiment={handleSelectExperiment}
 						onPageChange={handlePageChange}
 						onNewExperiment={handleNewExperiment}
-						onExperimentDeleted={handleExperimentDeleted}
 					/>
 				) : null
 			}
@@ -176,13 +176,18 @@ function HomeRoute({
 }: { desks: Desk[]; setShowWizard: (v: boolean) => void }) {
 	const navigate = useNavigate();
 
-	// Restore last desk from localStorage
+	// Restore last desk + experiment from localStorage in one navigation so
+	// the user doesn't see a flash of "no experiment" between the two-step
+	// restore (HomeRoute -> DeskRoute auto-select).
 	useEffect(() => {
 		if (desks.length === 0) return;
-		const savedId = localStorage.getItem("quantdesk.lastDeskId");
-		if (savedId && desks.some((d) => d.id === savedId)) {
-			navigate(`/desks/${savedId}`, { replace: true });
-		}
+		const savedDeskId = localStorage.getItem("quantdesk.lastDeskId");
+		if (!savedDeskId || !desks.some((d) => d.id === savedDeskId)) return;
+		const savedExpId = localStorage.getItem(`quantdesk.lastExpId.${savedDeskId}`);
+		const target = savedExpId
+			? `/desks/${savedDeskId}/experiments/${savedExpId}`
+			: `/desks/${savedDeskId}`;
+		navigate(target, { replace: true });
 	}, [desks, navigate]);
 
 	return (

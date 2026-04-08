@@ -1,11 +1,8 @@
 /**
  * Barrel for the prompt block modules.
  *
- * Spec: `doc/agent/PROMPTS.md`.
- *
  * The orchestrator (`server/src/services/prompt-builder.ts`) imports from
- * this barrel and assembles the final prompt by composing the blocks in
- * the order documented in PROMPTS.md § Composition.
+ * this barrel and assembles the final prompt by composing the blocks.
  */
 
 export { buildAnalystSystemBlock } from "./analyst-system.js";

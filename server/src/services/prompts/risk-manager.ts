@@ -2,8 +2,6 @@
  * `risk-manager.system` — Risk Manager identity, desk constraints, run
  * metrics to validate, and the mandatory verdict marker.
  *
- * Spec: `doc/agent/PROMPTS.md` § `risk-manager.system`.
- *
  * The verdict marker (`[RM_APPROVE]` / `[RM_REJECT] <reason>`) is
  * mandatory — the prompt explicitly demands "exactly one of the following
  * lines" at the end of the response. Without it the verdict is
