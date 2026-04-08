@@ -51,6 +51,12 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 |---|-------|------|
 | 26 | [Server-side P1 bootstrap for catalog desks](26_catalog_p1_bootstrap.md) | TODO |
 
+### Group H — Agent protocol
+
+| # | Title | Kind |
+|---|-------|------|
+| 27 | [Replace marker protocol with MCP tools](27_mcp_migration.md) | TODO |
+
 ## DONE (baseline — already in code)
 
 Verified against the spec docs and the current tree.

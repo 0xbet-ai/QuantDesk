@@ -958,6 +958,18 @@ export async function triggerAgent(
 			// row so the UI can surface it.
 			turnStatus = "failed";
 			turnFailureReason = err instanceof Error ? err.message.slice(0, 500) : "unknown_error";
+			try {
+				await systemComment({
+					experimentId,
+					nextAction: "action",
+					content:
+						`Agent turn failed: ${turnFailureReason}. ` +
+						"Reply with a new instruction to continue.",
+				});
+				publishExperimentEvent({ experimentId, type: "comment.new", payload: {} });
+			} catch (commentErr) {
+				console.error("Failed to post failure system comment:", commentErr);
+			}
 			throw err;
 		} finally {
 			await db
