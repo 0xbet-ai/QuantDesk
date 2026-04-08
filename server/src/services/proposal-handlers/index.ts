@@ -4,6 +4,7 @@
  */
 
 import { registerDataFetchHandler } from "./data-fetch-handler.js";
+import { registerNewExperimentHandler } from "./new-experiment-handler.js";
 
 let registered = false;
 
@@ -11,4 +12,5 @@ export function registerAllProposalHandlers(): void {
 	if (registered) return;
 	registered = true;
 	registerDataFetchHandler();
+	registerNewExperimentHandler();
 }

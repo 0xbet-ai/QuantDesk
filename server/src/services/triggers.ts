@@ -1,3 +1,5 @@
+import type { ProposalType } from "./proposal-handlers/registry.js";
+
 export interface Proposal {
 	type:
 		| "PROPOSE_VALIDATION"
@@ -5,6 +7,23 @@ export interface Proposal {
 		| "PROPOSE_COMPLETE_EXPERIMENT"
 		| "PROPOSE_GO_PAPER";
 	value: string;
+}
+
+/**
+ * Map a `[PROPOSE_*]` marker name to the lowercase `ProposalType` enum the
+ * approve router uses. Keep this in sync with `proposal-handlers/registry.ts`.
+ */
+export function markerToProposalType(marker: Proposal["type"]): ProposalType {
+	switch (marker) {
+		case "PROPOSE_VALIDATION":
+			return "validation";
+		case "PROPOSE_NEW_EXPERIMENT":
+			return "new_experiment";
+		case "PROPOSE_COMPLETE_EXPERIMENT":
+			return "complete_experiment";
+		case "PROPOSE_GO_PAPER":
+			return "go_paper";
+	}
 }
 
 const MARKER_PATTERN =

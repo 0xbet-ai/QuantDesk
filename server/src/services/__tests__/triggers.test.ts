@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectProposals } from "../triggers.js";
+import { detectProposals, markerToProposalType } from "../triggers.js";
 
 describe("proposal marker detection", () => {
 	it("detects [PROPOSE_VALIDATION]", () => {
@@ -49,5 +49,14 @@ describe("proposal marker detection", () => {
 		const text = "I think [PROPOSE_VALIDATION] might be needed";
 		const proposals = detectProposals(text);
 		expect(proposals).toHaveLength(0);
+	});
+});
+
+describe("markerToProposalType", () => {
+	it("maps every PROPOSE_* marker to its lowercase ProposalType", () => {
+		expect(markerToProposalType("PROPOSE_VALIDATION")).toBe("validation");
+		expect(markerToProposalType("PROPOSE_NEW_EXPERIMENT")).toBe("new_experiment");
+		expect(markerToProposalType("PROPOSE_COMPLETE_EXPERIMENT")).toBe("complete_experiment");
+		expect(markerToProposalType("PROPOSE_GO_PAPER")).toBe("go_paper");
 	});
 });
