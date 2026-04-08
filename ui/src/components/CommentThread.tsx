@@ -17,15 +17,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
-import type { Comment, Dataset, Experiment } from "../lib/api.js";
-import {
-	getAgentLogs,
-	listComments,
-	listDatasets,
-	postComment,
-} from "../lib/api.js";
+import type { Comment, Experiment } from "../lib/api.js";
+import { getAgentLogs, listComments, postComment } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
-import { DatasetPreviewModal } from "./DatasetView.js";
 import { listExperimentTurns } from "../lib/api.js";
 import { TurnCard, type TurnLifecycleStatus } from "./TurnCard.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
@@ -98,50 +92,6 @@ const AUTHOR_PREFIX_RE = /^\[(user|analyst|system|risk_manager)\]\s*/gm;
 function stripAuthorPrefixes(text: string): string {
 	return text.replace(AUTHOR_PREFIX_RE, "");
 }
-
-function DatasetChips({ deskId, after }: { deskId: string; after: string }) {
-	const [datasets, setDatasets] = useState<Dataset[]>([]);
-	const [selected, setSelected] = useState<Dataset | null>(null);
-
-	useEffect(() => {
-		listDatasets(deskId)
-			.then(setDatasets)
-			.catch(() => setDatasets([]));
-	}, [deskId]);
-
-	// Only show datasets created after this comment's timestamp
-	const recent = datasets.filter(
-		(d) => new Date(d.createdAt).getTime() <= new Date(after).getTime() + 60_000,
-	);
-	if (recent.length === 0) return null;
-
-	return (
-		<>
-			<div className="mt-2 flex flex-wrap items-center gap-1.5">
-				<Database className="size-3 text-muted-foreground" />
-				<span className="text-[11px] text-muted-foreground mr-1">Datasets:</span>
-				{recent.map((d) => (
-					<button
-						key={d.id}
-						type="button"
-						onClick={() => setSelected(d)}
-						className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-2 py-0.5 text-[10px] font-mono hover:border-cyan-500/30 hover:text-cyan-600 dark:hover:text-cyan-300 transition-colors"
-					>
-						<span>{d.exchange.toUpperCase()}</span>
-						<span className="text-muted-foreground">·</span>
-						<span>{d.pairs.join(",")}</span>
-						<span className="text-muted-foreground">·</span>
-						<span>{d.timeframe}</span>
-					</button>
-				))}
-			</div>
-			{selected && (
-				<DatasetPreviewModal dataset={selected} deskId={deskId} onClose={() => setSelected(null)} />
-			)}
-		</>
-	);
-}
-
 
 function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
 	const [open, setOpen] = useState(false);
@@ -614,6 +564,21 @@ export function CommentThread({
 						};
 					};
 
+					// Per-marker chip labels. Shows as a small inline chip
+					// under the comment body when the agent fired that marker
+					// in this turn. Informational only — no click behaviour.
+					const MARKER_CHIP_LABEL: Record<string, string> = {
+						DATA_FETCH: "Tool · data_fetch",
+						DATASET: "Tool · register_dataset",
+						RUN_BACKTEST: "Tool · run_backtest",
+						BACKTEST_RESULT: "Tool · backtest_result",
+						EXPERIMENT_TITLE: "Tool · experiment_title",
+						VALIDATION: "Tool · validation",
+						NEW_EXPERIMENT: "Tool · new_experiment",
+						COMPLETE_EXPERIMENT: "Tool · complete_experiment",
+						GO_PAPER: "Tool · go_paper",
+					};
+
 					const renderComment = (
 						c: Comment,
 						isChild = false,
@@ -623,6 +588,8 @@ export function CommentThread({
 						const Icon = config.icon;
 						const cleanContent = stripAuthorPrefixes(c.content).trim();
 						const children = childrenByParent.get(c.id) ?? [];
+						const firedMarkers = ((c.metadata as { firedMarkers?: unknown } | null)
+							?.firedMarkers ?? []) as string[];
 
 						// Timeline mode: render as a row in the turn card's
 						// vertical timeline (icon column + content). The icon
@@ -650,8 +617,17 @@ export function CommentThread({
 											</Markdown>
 										</div>
 									)}
-									{(c.author === "analyst" || c.author === "risk_manager") && (
-										<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
+									{firedMarkers.length > 0 && (
+										<div className="mt-1.5 flex flex-wrap gap-1">
+											{firedMarkers.map((m) => (
+												<span
+													key={m}
+													className="inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground"
+												>
+													{MARKER_CHIP_LABEL[m] ?? `Tool · ${m.toLowerCase()}`}
+												</span>
+											))}
+										</div>
 									)}
 									{/* In turn-card timeline mode, `children` is always
 									    empty (the builder flattens everything into the
@@ -695,10 +671,7 @@ export function CommentThread({
 										</div>
 									)}
 									{(c.author === "analyst" || c.author === "risk_manager") && (
-										<>
-											<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
-											<AgentTranscriptToggle experimentId={experiment.id} />
-										</>
+										<AgentTranscriptToggle experimentId={experiment.id} />
 									)}
 								</div>
 								{children.map((child) => renderComment(child, true))}

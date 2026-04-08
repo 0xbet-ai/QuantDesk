@@ -20,6 +20,7 @@ import {
 	extractDataFetchRequest,
 	extractDatasetBody,
 	extractExperimentTitle,
+	extractGoPaperRequest,
 	extractNewExperimentRequest,
 	extractRmVerdict,
 	extractRunBacktestRequest,
@@ -720,14 +721,34 @@ export async function triggerAgent(
 			// action marker (DATA_FETCH, VALIDATION, NEW_EXPERIMENT,
 			// COMPLETE_EXPERIMENT, GO_PAPER) and the server executes it
 			// directly — no approve/reject buttons, no metadata.
+			//
+			// We DO tag the comment with a `firedMarkers` array listing
+			// which action markers appeared in the agent's raw output so
+			// the UI can render a small chip next to the comment. The
+			// chip is informational only — no buttons, no pending
+			// proposal state.
 			let currentCommentId: string | undefined;
 			if (result.resultText) {
 				const cleanText = stripAgentMarkers(result.resultText);
+				const firedMarkers: string[] = [];
+				if (extractDataFetchRequest(result.resultText)) firedMarkers.push("DATA_FETCH");
+				if (extractDatasetBody(result.resultText)) firedMarkers.push("DATASET");
+				if (extractRunBacktestRequest(result.resultText)) firedMarkers.push("RUN_BACKTEST");
+				if (extractBacktestResultBody(result.resultText))
+					firedMarkers.push("BACKTEST_RESULT");
+				if (extractExperimentTitle(result.resultText)) firedMarkers.push("EXPERIMENT_TITLE");
+				if (extractValidationRequest(result.resultText)) firedMarkers.push("VALIDATION");
+				if (extractNewExperimentRequest(result.resultText))
+					firedMarkers.push("NEW_EXPERIMENT");
+				if (extractCompleteExperimentRequest(result.resultText))
+					firedMarkers.push("COMPLETE_EXPERIMENT");
+				if (extractGoPaperRequest(result.resultText)) firedMarkers.push("GO_PAPER");
 				if (cleanText) {
 					const created = await createComment({
 						experimentId,
 						author: session.agentRole,
 						content: cleanText,
+						metadata: firedMarkers.length > 0 ? { firedMarkers } : undefined,
 					});
 					currentCommentId = created.id;
 				}
