@@ -42,6 +42,10 @@ live in `pnpm test` and pass.
 | 17 | [Image whitelist: ensureImage guard](17_image_ensure_guard.md) | TODO |
 | 18 | [Image whitelist: registry guard](18_image_registry_guard.md) | TODO |
 | 19 | [Generic engine: downloadData via agent-authored fetcher](19_generic_download_data.md) | TODO |
+| 22 | [Dead-end audit + system comment copy](22_dead_end_audit.md) | TODO |
+| 23 | [Static lint: actionable system comments](23_dead_end_lint.md) | TODO |
+| 24 | [Dispatch invariant: hasNextAction afterEach](24_dispatch_invariant.md) | TODO |
+| 25 | [Spec-generated dispatch test matrix](25_spec_generated_matrix.md) | TODO |
 
 ## DONE (baseline — already in code)
 
