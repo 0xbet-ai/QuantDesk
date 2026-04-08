@@ -4,7 +4,7 @@ Pluggable interface for backtesting and paper trading engines. QuantDesk support
 
 - **Freqtrade** — for `classic` strategy mode (candle-based polling, TA indicators)
 - **Nautilus Trader** — for `realtime` strategy mode (event-driven, tick-level)
-- **Generic** — fallback for venues with no managed engine (backtest only, no paper trading)
+- **Generic** — fallback for venues with no managed engine; runs agent-authored scripts inside a pinned Ubuntu+Python container
 
 All engine processes run inside Docker containers using official engine images with **pinned version tags**. The server, UI, and agent CLI run on the host — only the engine layer is containerized. See `CLAUDE.md` rules 6–12 for the binding constraints.
 
@@ -149,7 +149,7 @@ workspaces/desk-{id}/
   runs/<runId>/
 ```
 
-### Generic (fallback, backtest only)
+### Generic (fallback, agent-scripted)
 
 ```
 workspaces/desk-{id}/
@@ -157,23 +157,20 @@ workspaces/desk-{id}/
   README.md            # describes the agent-written scripts
   backtest.{py,ts,js}  # agent-authored backtest script, emits NormalizedResult JSON to stdout
   download.{py,ts,js}  # agent-authored data download script
+  paper.{py,ts,js}     # agent-authored long-running paper loop script
   data/
   runs/<runId>/
 ```
 
-Generic desks **cannot run paper trading** — there is no paper entrypoint in the workspace and the UI disables the action.
-
 ## Generic Engine
 
-For strategies/venues that don't fit Freqtrade or Nautilus (e.g. Kalshi prediction markets, custom venues). The agent writes both the strategy and the backtest scripts. Scripts run inside an ephemeral Python/Node container and must output `NormalizedResult` JSON to stdout.
+For strategies/venues that don't fit Freqtrade or Nautilus (e.g. Kalshi prediction markets, custom venues). The agent writes the strategy, the backtest script, and the paper loop script. All scripts run inside a pinned Ubuntu+Python container. Backtest scripts must output `NormalizedResult` JSON to stdout; paper scripts run long-lived with the same `quantdesk.kind=paper` labels managed engines use.
 
 ```
-ensureImage()       → pulls a generic python+node base image
+ensureImage()       → pulls the pinned Ubuntu+Python base image
 downloadData()      → runs agent-written data download script in container
 runBacktest()       → runs agent-written backtest script, parses stdout JSON
-startPaper()        → throws "generic engine does not support paper trading"
-stopPaper()         → throws
-getPaperStatus()    → throws
+startPaper()        → spawns agent-written paper loop script as a long-lived labelled container
+stopPaper()         → graceful shutdown + docker rm
+getPaperStatus()    → reads container status and latest emitted state
 ```
-
-Desks resolved to `generic` engine cannot enter paper trading. The UI disables the [Start Paper Trading] button with a tooltip explaining why.

@@ -8,7 +8,7 @@ The Analyst's code-writing behavior branches on `desk.strategy_mode`:
 
 - **`classic` (Freqtrade)**: write `IStrategy` subclasses with `populate_indicators`, `populate_entry_trend`, `populate_exit_trend`. Use TA indicators (pandas-ta, talib). Candle-based logic.
 - **`realtime` (Nautilus)**: write `Strategy` subclasses with event handlers (`on_quote_tick`, `on_order_book_delta`, `on_order_filled`). Use Nautilus indicator objects and `order_factory`. Event-driven logic.
-- **`generic` (fallback)**: write an agent-authored backtest script (any language) that emits `NormalizedResult` JSON to stdout. **Paper trading is not supported for generic desks** — do not propose `[PROPOSE_GO_PAPER]` and do not attempt to start a paper run.
+- **`generic` (fallback)**: write agent-authored scripts (any language) executed inside a pinned Ubuntu+Python container. Backtest scripts emit `NormalizedResult` JSON to stdout; paper scripts run as long-lived processes emitting periodic state updates. Both follow the same marker flow as managed modes.
 
 See `../engine/README.md` for the engine resolution rules and per-engine workspace layout.
 
