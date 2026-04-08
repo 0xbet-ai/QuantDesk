@@ -17,6 +17,7 @@ import {
 	extractBacktestResultBody,
 	extractDatasetBody,
 	extractExperimentTitle,
+	extractProbePairs,
 	extractRmVerdict,
 	extractRunBacktestRequest,
 	stripAgentMarkers,
@@ -32,7 +33,9 @@ import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog, clearAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
 import { createComment, systemComment } from "./comments.js";
+import { maybeRescueDeadEnd } from "./dead-end-guard.js";
 import { autoIncrementRunNumber } from "./logic.js";
+import { executePairsProbe } from "./probe-handler.js";
 import { detectProposals, extractDataFetchProposal, markerToProposalType } from "./triggers.js";
 import { commitCode, hasChanges } from "./workspace.js";
 
@@ -639,7 +642,14 @@ export async function triggerAgent(
 		}
 
 		const cleanText = stripAgentMarkers(result.resultText);
-		if (cleanText) {
+		// Create the comment when EITHER the agent has visible prose OR a
+		// pendingProposal needs to be surfaced as Approve/Reject buttons.
+		// Skipping on empty cleanText would lose the proposal metadata and
+		// leave the user staring at a blank desk — a CLAUDE.md rule #15
+		// dead-end. The UI's comment renderer already handles empty body
+		// gracefully (the markdown block is omitted, the proposal card
+		// renders standalone).
+		if (cleanText || pendingProposal) {
 			await createComment({
 				experimentId,
 				author: session.agentRole,
@@ -696,6 +706,54 @@ export async function triggerAgent(
 				experimentId,
 				nextAction: "action",
 				content: "Something went wrong. Please try again.",
+			});
+		}
+	}
+
+	// 9c. Probe markers (phase 14). Read-only investigation requests like
+	// `[PROBE_PAIRS exchange=… mode=…]` — the server runs the probe and
+	// posts the result, then retriggers the agent so it can read the
+	// ground truth on its next turn. Probes count as a valid action marker
+	// for the dead-end guard below.
+	let hadProbeMarker = false;
+	if (result.resultText) {
+		const probePairsRequest = extractProbePairs(result.resultText);
+		if (probePairsRequest) {
+			hadProbeMarker = true;
+			await executePairsProbe(experimentId, probePairsRequest);
+			publishExperimentEvent({ experimentId, type: "comment.new", payload: {} });
+			void triggerAgent(experimentId).catch((err) => {
+				console.error("Probe retrigger failed:", err);
+			});
+		}
+	}
+
+	// 9d. Dead-end guard (CLAUDE.md rule #15, phase 14). If this turn
+	// produced no action marker AND the response is a bare acknowledgment,
+	// the user has nothing to click — the guard posts a forcing system
+	// comment and re-triggers the agent. Capped per-experiment so a
+	// permanently broken agent cannot loop forever.
+	const hadActionMarker =
+		hadProbeMarker ||
+		(!!result.resultText &&
+			(!!extractRunBacktestRequest(result.resultText) ||
+				!!extractDataFetchProposal(result.resultText) ||
+				!!extractExperimentTitle(result.resultText) ||
+				!!extractRmVerdict(result.resultText) ||
+				!!extractBacktestResultBody(result.resultText) ||
+				!!extractDatasetBody(result.resultText) ||
+				detectProposals(result.resultText).length > 0));
+
+	if (!hadProbeMarker) {
+		const shouldRescue = await maybeRescueDeadEnd({
+			experimentId,
+			resultText: result.resultText,
+			hadMarker: hadActionMarker,
+		});
+		if (shouldRescue) {
+			publishExperimentEvent({ experimentId, type: "comment.new", payload: {} });
+			void triggerAgent(experimentId).catch((err) => {
+				console.error("Dead-end rescue retrigger failed:", err);
 			});
 		}
 	}
