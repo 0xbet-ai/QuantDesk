@@ -1,5 +1,7 @@
 # Adding a New Engine
 
+> **Before following this guide**: read `CLAUDE.md` rule #7. Adding a managed adapter is **approval-gated** and should be the answer of last resort. The generic engine covers most "I want to use venue X / framework Y" cases without a new adapter — try that path first. This guide exists for the rare case where approval has been granted.
+
 An **engine** is a backtesting / paper-trading framework that QuantDesk delegates strategy execution to. The current set of engines and the scope of which adapters we ship live in `doc/engine/README.md`. Adding a new engine means implementing the `EngineAdapter` interface, registering it, and mapping it to a `strategy_mode`.
 
 This is a larger change than adding a venue. **Please open an issue first to discuss design and scope** before opening a PR.
