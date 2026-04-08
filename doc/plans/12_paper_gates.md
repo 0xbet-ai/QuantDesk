@@ -1,6 +1,6 @@
-# 10 — `paper-sessions` service: promotion gates (TODO)
+# 12 — `paper-sessions` service: promotion gates (TODO)
 
-Spec: `doc/agent/PAPER_LIFECYCLE.md`. Pure DB + invariant logic, no Docker calls (phase 11 owns that).
+Spec: `doc/agent/PAPER_LIFECYCLE.md`. Pure DB + invariant logic, no Docker calls (phase 13 owns that).
 
 ## Tests first
 

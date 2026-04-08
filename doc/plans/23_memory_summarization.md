@@ -1,4 +1,4 @@
-# 21 — LLM summarization into `memory_summaries` (TODO)
+# 23 — LLM summarization into `memory_summaries` (TODO)
 
 ## Tests first
 

@@ -1,4 +1,4 @@
-# 12 — Boot-time paper reconcile (TODO)
+# 14 — Boot-time paper reconcile (TODO)
 
 Spec: CLAUDE.md rule #12 ("Paper sessions must survive server restart").
 

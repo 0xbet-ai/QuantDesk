@@ -1,4 +1,4 @@
-# 19 — Image whitelist: registry constructor guard (TODO)
+# 21 — Image whitelist: registry constructor guard (TODO)
 
 Spec: CLAUDE.md rule #7 — the managed-engine whitelist is closed at three: Freqtrade, Nautilus, Generic. New managed adapters will never be added.
 

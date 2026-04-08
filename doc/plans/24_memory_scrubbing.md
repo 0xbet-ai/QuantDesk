@@ -1,4 +1,4 @@
-# 22 — Memory compaction: secret scrubbing (TODO)
+# 24 — Memory compaction: secret scrubbing (TODO)
 
 ## Tests first
 
@@ -9,4 +9,4 @@
 ## Then implement
 
 - Scrubber module reused by any future export path.
-- Wire into the summarization step from phase 21.
+- Wire into the summarization step from phase 23.

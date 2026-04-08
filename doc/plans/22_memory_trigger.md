@@ -1,4 +1,4 @@
-# 20 — Memory compaction trigger + token budget (TODO)
+# 22 — Memory compaction trigger + token budget (TODO)
 
 Spec: `doc/agent/MEMORY.md`. The `memory_summaries` table exists and is read by `prompt-builder.ts` but nothing writes to it.
 
@@ -12,4 +12,4 @@ Spec: `doc/agent/MEMORY.md`. The `memory_summaries` table exists and is read by 
 
 - Threshold check at the end of each turn write in `agent-trigger.ts`.
 - Shared budgeter module under `packages/shared/`.
-- No LLM call yet — phase 21 owns that.
+- No LLM call yet — phase 23 owns that.

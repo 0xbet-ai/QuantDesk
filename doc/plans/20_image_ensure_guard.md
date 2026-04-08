@@ -1,4 +1,4 @@
-# 18 — Image whitelist: `ensureImage` runtime guard (TODO)
+# 20 — Image whitelist: `ensureImage` runtime guard (TODO)
 
 Spec: CLAUDE.md rules #7 (closed managed-engine whitelist) and #11 (pinned images). Pinned tags live in `packages/engines/src/images.ts` but nothing rejects an off-list reference at runtime — adapters trust callers to pass only the pinned values.
 

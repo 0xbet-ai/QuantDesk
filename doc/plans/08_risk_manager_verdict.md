@@ -6,7 +6,7 @@ Spec: `doc/agent/{MARKERS,ROLES}.md`. After the Risk Manager runs (phase 07), it
 
 1. RM emits a verdict marker (e.g. `[RM_APPROVE]` / `[RM_REJECT] <reason>`). New marker(s) added to `agent-markers.ts`.
 2. **approve verdict** — server retriggers the analyst with the verdict embedded in the prompt. The next analyst turn can reference the validation as a fact.
-3. **reject verdict** — same retrigger, plus `[RUN_PAPER]` (phase 11) is gated: the runs row is *not* marked validated, so the `RUN_PAPER.requires` guard fails until a fresh validation passes.
+3. **reject verdict** — same retrigger, plus `[RUN_PAPER]` (phase 13) is gated: the runs row is *not* marked validated, so the `RUN_PAPER.requires` guard fails until a fresh validation passes.
 4. RM cannot retrigger itself — only analyst turns are retriggered after a verdict.
 5. Verdict markers stripped before persistence.
 
