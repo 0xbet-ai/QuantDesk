@@ -27,7 +27,7 @@ These don't trigger server-side actions. They are parsed into structured proposa
 
 | Marker | Form | Meaning |
 |---|---|---|
-| `[PROPOSE_VALIDATION]` | `[PROPOSE_VALIDATION]` | Suggest Risk Manager validation of the latest run. The Risk Manager role is planned but not yet wired up end-to-end — the marker is defined in the prompt and parsed by the server, awaiting the validation flow implementation. See `doc/agent/ROLES.md`. |
+| `[PROPOSE_VALIDATION]` | `[PROPOSE_VALIDATION]` | Suggest Risk Manager validation of the latest run. The server parses the marker and routes it into the Risk Manager turn flow described in `doc/agent/ROLES.md`. |
 | `[PROPOSE_NEW_EXPERIMENT]` | `[PROPOSE_NEW_EXPERIMENT] <title>` | Suggest splitting work into a new experiment. The agent is instructed to only propose this when the current hypothesis is settled or the direction has clearly changed — never for routine parameter tuning. |
 | `[PROPOSE_COMPLETE_EXPERIMENT]` | `[PROPOSE_COMPLETE_EXPERIMENT]` | Suggest marking the current experiment as completed. |
 | `[PROPOSE_GO_PAPER]` | `[PROPOSE_GO_PAPER] <runId>` | Suggest promoting a completed backtest run to paper trading. **Forbidden in generic mode** — the prompt instructs the agent not to emit it for generic desks. |
