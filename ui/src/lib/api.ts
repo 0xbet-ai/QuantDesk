@@ -110,8 +110,19 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const listDesks = () => api<Desk[]>("/desks");
 export const getDesk = (id: string) => api<Desk>(`/desks/${id}`);
+export interface ExternalMountInput {
+	label: string;
+	hostPath: string;
+	description?: string;
+}
+
 export const createDesk = (
-	data: Partial<Desk> & { adapterType?: string; adapterConfig?: Record<string, unknown> },
+	data: Partial<Desk> & {
+		adapterType?: string;
+		adapterConfig?: Record<string, unknown>;
+		seedCodePath?: string;
+		externalMounts?: ExternalMountInput[];
+	},
 ) =>
 	api<{ desk: Desk; experiment: Experiment }>("/desks", {
 		method: "POST",
