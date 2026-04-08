@@ -6,6 +6,7 @@ import {
 	ChevronRight,
 	Code2,
 	Database,
+	Loader2,
 	MessageSquare,
 	Send,
 	Shield,
@@ -251,6 +252,17 @@ export function CommentThread({
 		if (comments.length === 0) return;
 		bottomRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
 	}, [comments.length]);
+
+	// Also scroll when the live TurnCard appears/grows (streamed tokens,
+	// engine log tail, data-fetch progress, or turn status transitions).
+	useEffect(() => {
+		bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+	}, [
+		turnStatus,
+		streamEntries.length,
+		runLogLines.length,
+		dataFetchProgress.length,
+	]);
 
 	// Fade-out-and-clear on completed — BUT only when nothing else is still
 	// happening. A completed agent turn often kicks off a downstream server
@@ -755,6 +767,22 @@ export function CommentThread({
 						No comments yet
 					</div>
 				)}
+				{turnStatus === "running" &&
+					!(
+						streamEntries.length > 0 ||
+						runLogLines.length > 0 ||
+						dataFetchProgress.length > 0 ||
+						(!!currentTurnId && comments.some((c) => c.turnId === currentTurnId))
+					) && (
+						// Nothing to render yet — show a small pending shimmer so
+						// the user sees the agent is spinning up instead of an
+						// empty blank gap between desk creation and the first
+						// streamed token.
+						<div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground animate-in fade-in duration-300">
+							<Loader2 className="size-3.5 animate-spin text-cyan-500" />
+							<span>Agent is warming up…</span>
+						</div>
+					)}
 				{turnStatus === "running" &&
 					// Don't flash an empty card on brand-new desks: wait until
 					// the running turn has SOMETHING to show (streamed tokens,
