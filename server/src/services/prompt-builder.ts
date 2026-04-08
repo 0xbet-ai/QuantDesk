@@ -1,9 +1,7 @@
 /**
  * Prompt orchestrator. Each prompt block lives in its own file under
- * `./prompts/` and is documented in `doc/agent/PROMPTS.md`. This file
- * stays thin: it composes blocks in the order PROMPTS.md § Composition
- * defines, plus the per-turn helpers (`estimateTokens`,
- * `trimCommentsToTokenBudget`).
+ * `./prompts/`. This file stays thin: it composes blocks in order, plus
+ * the per-turn helpers (`estimateTokens`, `trimCommentsToTokenBudget`).
  */
 
 import {
@@ -68,9 +66,8 @@ function buildModeInstructions(desk: DeskContext): string {
 }
 
 /**
- * Compose the analyst prompt by concatenating blocks in the order spec'd
- * in `doc/agent/PROMPTS.md` § Composition. Each block knows its own
- * invariants; this function only knows the order.
+ * Compose the analyst prompt by concatenating blocks in order. Each block
+ * knows its own invariants; this function only knows the order.
  */
 export function buildAnalystPrompt(input: AnalystPromptInput): string {
 	const { desk, experiment, runs, comments, memorySummaries } = input;
@@ -130,14 +127,30 @@ ${desk.description ?? ""}
 		sections.push(`## Context Summary\n${summaryLines.join("\n\n")}`);
 	}
 
-	// 8. ## Conversation — full thread on first run, latest user msg on resume
-	const userComments = comments.filter((c) => c.author !== "system");
+	// 8. ## Conversation — full thread on first run, diff since last turn on resume
 	if (input.isResume) {
-		const lastUserComment = [...userComments].reverse().find((c) => c.author === "user");
-		if (lastUserComment) {
-			sections.push(`## Latest Message\n${lastUserComment.content}`);
+		// Everything after the last analyst comment is "new since your last
+		// turn" and MUST be injected. This includes system comments such as
+		// "Downloaded …", "Data-fetch failed …", "Backtest Run #N failed …" —
+		// they represent server-side side effects that happened while the
+		// agent was away. Previously this branch filtered out `system`
+		// authors and kept only the last user comment, which meant the agent
+		// resumed blind after every approval/failure and had no way to react
+		// (e.g. pivot to Path B on a data-fetch failure).
+		let lastAnalystIdx = -1;
+		for (let i = comments.length - 1; i >= 0; i--) {
+			if (comments[i]!.author === "analyst") {
+				lastAnalystIdx = i;
+				break;
+			}
+		}
+		const newSinceLastTurn = comments.slice(lastAnalystIdx + 1);
+		if (newSinceLastTurn.length > 0) {
+			const lines = newSinceLastTurn.map((c) => `[${c.author}] ${c.content}`);
+			sections.push(`## New since your last turn\n${lines.join("\n\n")}`);
 		}
 	} else {
+		const userComments = comments.filter((c) => c.author !== "system");
 		const trimmedComments = trimCommentsToTokenBudget(userComments, 4000);
 		if (trimmedComments.length > 0) {
 			const commentLines = trimmedComments.map((c) => `[${c.author}] ${c.content}`);
