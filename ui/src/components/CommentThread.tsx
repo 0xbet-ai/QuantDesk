@@ -2,6 +2,7 @@ import { formatAgentMarkersForDisplay } from "@quantdesk/shared";
 import {
 	Bot,
 	CheckCircle2,
+	ChevronDown,
 	ChevronRight,
 	Code2,
 	Database,
@@ -30,6 +31,7 @@ import { DatasetPreviewModal } from "./DatasetView.js";
 import { listExperimentTurns } from "../lib/api.js";
 import { TurnCard, type TurnLifecycleStatus } from "./TurnCard.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
+import { RunTranscriptView } from "./transcript/RunTranscriptView.js";
 import { Button } from "./ui/button.js";
 import { Input } from "./ui/input.js";
 import { Separator } from "./ui/separator.js";
@@ -425,6 +427,41 @@ function DatasetChips({ deskId, after }: { deskId: string; after: string }) {
 }
 
 
+function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
+	const [open, setOpen] = useState(false);
+	const [entries, setEntries] = useState<TranscriptEntry[] | null>(null);
+
+	const handleToggle = () => {
+		if (!open && entries === null) {
+			getAgentLogs(experimentId)
+				.then((logs) => setEntries(logs as unknown as TranscriptEntry[]))
+				.catch(() => setEntries([]));
+		}
+		setOpen((v) => !v);
+	};
+
+	return (
+		<div className="mt-2">
+			<button
+				type="button"
+				onClick={handleToggle}
+				className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+			>
+				{open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
+				<span>View agent transcript</span>
+			</button>
+			{open && entries && entries.length > 0 && (
+				<div className="mt-2 max-h-[400px] overflow-y-auto rounded-md border border-border/50 bg-muted/20 p-3">
+					<RunTranscriptView entries={entries} density="compact" streaming={false} />
+				</div>
+			)}
+			{open && entries && entries.length === 0 && (
+				<div className="mt-2 text-[11px] text-muted-foreground">No transcript available.</div>
+			)}
+		</div>
+	);
+}
+
 export function CommentThread({
 	experiment,
 	onOpenRun,
@@ -754,7 +791,10 @@ export function CommentThread({
 										) : null;
 									})()}
 									{(c.author === "analyst" || c.author === "risk_manager") && (
-										<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
+										<>
+											<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
+											<AgentTranscriptToggle experimentId={experiment.id} />
+										</>
 									)}
 								</div>
 								{children.map((child) => renderComment(child, true))}
@@ -786,8 +826,8 @@ export function CommentThread({
 						className={cn(
 							"sticky bottom-0 z-10 -mx-4 px-4 pt-2 pb-2 bg-gradient-to-t from-background via-background to-background/80 backdrop-blur-sm transition-all duration-500 ease-out",
 							fadingOut
-								? "opacity-0 -translate-y-2 max-h-0 overflow-hidden"
-								: "opacity-100 translate-y-0 animate-in fade-in slide-in-from-bottom-2 duration-300",
+								? "opacity-0 translate-y-8 scale-90 max-h-0 overflow-hidden origin-top"
+								: "opacity-100 translate-y-0 scale-100 animate-in fade-in slide-in-from-bottom-2 duration-300",
 						)}
 					>
 						<TurnCard
