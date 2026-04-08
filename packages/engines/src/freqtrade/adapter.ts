@@ -137,7 +137,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 		const result = await runContainer({
 			image: ENGINE_IMAGES.freqtrade,
 			rm: true,
-			volumes: [`${workspaceAbs}:${USERDIR_IN_CONTAINER}`],
+			volumes: [`${workspaceAbs}:${USERDIR_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
 			cpus: "2",
 			memory: "2g",
 			command: [
@@ -188,9 +188,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 		// Rewrite config.json with dry_run + api_server enabled, preserving
 		// everything else the agent wrote.
 		const configPath = join(workspaceAbs, "config.json");
-		const baseConfig = existsSync(configPath)
-			? JSON.parse(readFileSync(configPath, "utf-8"))
-			: {};
+		const baseConfig = existsSync(configPath) ? JSON.parse(readFileSync(configPath, "utf-8")) : {};
 		const patched = {
 			...baseConfig,
 			dry_run: true,
@@ -225,7 +223,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 				engine: "freqtrade",
 				kind: "paper",
 			}),
-			volumes: [`${workspaceAbs}:${USERDIR_IN_CONTAINER}`],
+			volumes: [`${workspaceAbs}:${USERDIR_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
 			ports: [`127.0.0.1:${hostApiPort}:${DEFAULT_PAPER_API_PORT}`],
 			cpus: "1",
 			memory: "1g",
@@ -290,10 +288,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 			}
 			const statusJson = (await statusRes.json()) as FreqtradeOpenTrade[];
 			const profitJson = (await profitRes.json()) as FreqtradeProfit;
-			const unrealizedPnl = statusJson.reduce(
-				(sum, t) => sum + (t.profit_abs ?? 0),
-				0,
-			);
+			const unrealizedPnl = statusJson.reduce((sum, t) => sum + (t.profit_abs ?? 0), 0);
 			return {
 				running: true,
 				unrealizedPnl,

@@ -1,0 +1,1 @@
+ALTER TABLE "desks" ADD COLUMN "external_mounts" jsonb DEFAULT '[]'::jsonb NOT NULL;

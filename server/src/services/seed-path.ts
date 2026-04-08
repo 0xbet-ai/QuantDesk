@@ -8,7 +8,9 @@
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
+import type { DeskExternalMount } from "@quantdesk/db/schema";
 import {
+	EXTERNAL_MOUNT_LABEL_PATTERN,
 	SEED_COPY_SKIP_NAMES,
 	SEED_PATH_ABSOLUTE_DENY,
 	SEED_PATH_HOME_DENY,
@@ -106,4 +108,66 @@ function computeDirSize(dir: string): number {
 		}
 	}
 	return total;
+}
+
+/**
+ * Phase 10 — validate one external bind-mount before persisting it on a
+ * desk. Reuses {@link validateSeedPath} for the path-deny logic; adds the
+ * label-format check on top so the label is safe to inject into a Docker
+ * `-v` arg later.
+ */
+export type ExternalMountValidation =
+	| { ok: true; mount: DeskExternalMount }
+	| { ok: false; reason: string };
+
+export function validateExternalMount(mount: {
+	label: string;
+	hostPath: string;
+	description?: string;
+}): ExternalMountValidation {
+	if (!mount.label || typeof mount.label !== "string") {
+		return { ok: false, reason: "external mount label is required" };
+	}
+	if (!EXTERNAL_MOUNT_LABEL_PATTERN.test(mount.label)) {
+		return {
+			ok: false,
+			reason: `external mount label "${mount.label}" must match ${EXTERNAL_MOUNT_LABEL_PATTERN.source}`,
+		};
+	}
+	const pathCheck = validateSeedPath(mount.hostPath);
+	if (!pathCheck.ok) {
+		return { ok: false, reason: `external mount "${mount.label}": ${pathCheck.reason}` };
+	}
+	return {
+		ok: true,
+		mount: {
+			label: mount.label,
+			hostPath: pathCheck.absolutePath,
+			description: mount.description,
+		},
+	};
+}
+
+/**
+ * Validate every mount in a list and reject duplicate labels within the
+ * same desk. Returns a normalized list (each `hostPath` resolved) on success.
+ */
+export function validateExternalMounts(
+	mounts: Array<{ label: string; hostPath: string; description?: string }>,
+): { ok: true; mounts: DeskExternalMount[] } | { ok: false; reason: string } {
+	const out: DeskExternalMount[] = [];
+	const seen = new Set<string>();
+	for (const m of mounts) {
+		const result = validateExternalMount(m);
+		if (!result.ok) return { ok: false, reason: result.reason };
+		if (seen.has(result.mount.label)) {
+			return {
+				ok: false,
+				reason: `external mount label "${result.mount.label}" is used twice in the same desk`,
+			};
+		}
+		seen.add(result.mount.label);
+		out.push(result.mount);
+	}
+	return { ok: true, mounts: out };
 }

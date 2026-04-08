@@ -49,3 +49,11 @@ export const SEED_COPY_SKIP_NAMES: readonly string[] = [
 	"build",
 	".DS_Store",
 ];
+
+/**
+ * Phase 10 — external dataset bind-mount label format. Becomes a path
+ * segment under `/workspace/data/external/<label>` so it must be safe for
+ * filesystems and shells alike: lowercase letters, digits, underscore,
+ * hyphen.
+ */
+export const EXTERNAL_MOUNT_LABEL_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;

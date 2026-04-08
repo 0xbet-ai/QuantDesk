@@ -15,14 +15,6 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 
 ## Phases (in execution order)
 
-### Group C — Workspace bootstrap
-
-Lets users seed a desk from existing local code and bind-mount existing local datasets at container start. Quants almost always have something local already; the current "describe in natural language" loop is the largest onboarding friction. Slot before paper trading.
-
-| # | Title | Kind |
-|---|-------|------|
-| 10 | [External dataset bind mounts](10_external_dataset_mounts.md) | TODO |
-
 ### Group D — Paper trading lifecycle
 
 | # | Title | Kind |
@@ -89,6 +81,7 @@ Verified against the spec docs and the current tree.
 - Global dataset cache at `~/.quantdesk/datacache/`, per-desk symlinks, incremental fetch (full hit / partial hit / miss). — `server/src/services/data-fetch.ts`
 - `datasets` ↔ `desk_datasets` M:N schema. — `packages/db/src/schema.ts`
 - **Workspace bootstrap (seed code)** — `createDesk` accepts an optional absolute `seedCodePath`. `validateSeedPath` rejects the home root, `/etc`, `/root`, `~/.ssh` / `~/.aws` / `~/.gnupg` / `~/.kube` / `~/.docker` / etc., and any directory whose recursive size (skipping `.git` / `node_modules` / build dirs) exceeds 50 MB. `bootstrapWorkspace` then copies the tree into `workspaces/desk-{id}/` (preserving structure) and the initial git commit message becomes `chore: seed from {basename}`. Wizard UI is a follow-up. — `server/src/services/{seed-path,workspace,desks}.ts`, `packages/shared/src/seed-path.ts`
+- **External dataset bind mounts** — `createDesk` accepts an optional `externalMounts: { label, hostPath, description? }[]`. Each mount is validated against the same path deny-list as `seedCodePath`, plus a `[a-z0-9_-]+` label format check, plus per-desk uniqueness. Persisted on `desks.externalMounts` (jsonb, default `[]`). `BacktestConfig.extraVolumes` and `PaperConfig.extraVolumes` carry the resolved `-v hostPath:/workspace/data/external/<label>:ro` strings, which the Freqtrade and Nautilus adapters concat onto their workspace mount before calling `runContainer` / `runDetached`. Wizard UI is a follow-up. Migration `0005_lyrical_gauntlet.sql`. — `packages/db/src/schema.ts`, `packages/{shared,engines}/src/...`, `server/src/services/{seed-path,desks,agent-trigger}.ts`
 
 ### Engines
 - Three adapters registered: Freqtrade, Nautilus, Generic. — `packages/engines/src/registry.ts`
