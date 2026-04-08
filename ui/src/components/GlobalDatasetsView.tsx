@@ -46,10 +46,7 @@ export function GlobalDatasetsView() {
 				{loading ? (
 					<div className="text-sm text-muted-foreground">Loading...</div>
 				) : datasets.length === 0 ? (
-					<div className="text-sm text-muted-foreground">
-						No datasets yet. Approve a [PROPOSE_DATA_FETCH] from an agent to populate the
-						shared cache.
-					</div>
+					<div className="text-sm text-muted-foreground">No datasets yet.</div>
 				) : (
 					<div className="border border-border rounded-md divide-y divide-border">
 						{datasets.map((d) => (
