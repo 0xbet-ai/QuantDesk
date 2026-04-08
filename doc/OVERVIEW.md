@@ -32,7 +32,7 @@ quantdesk/
 ├── packages/
 │   ├── db/                       # Drizzle ORM schema + migrations
 │   ├── adapters/                 # AI CLI subprocess adapters (claude, codex)
-│   ├── engines/                  # engine adapters (freqtrade, nautilus, generic)
+│   ├── engines/                  # engine adapters — see doc/engine/README.md
 │   ├── adapter-utils/            # child process, log parsing
 │   └── shared/                   # Zod schemas, cross-package types
 ├── strategies/                   # curated catalog JSON + venues.json + template code

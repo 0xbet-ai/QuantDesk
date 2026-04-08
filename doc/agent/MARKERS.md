@@ -8,7 +8,7 @@ This file is the **glossary**. The authoritative definitions live in the prompt 
 - **Action markers** (parsed and acted on at the end of every turn) — `server/src/services/agent-trigger.ts`
 - **Proposal markers** (parsed into pending-proposal metadata on the comment) — `server/src/services/triggers.ts`
 
-The agent does not distinguish engine modes at the marker level. Every `[RUN_BACKTEST]` / `[RUN_PAPER]` is handled by the server the same way: spawn a pinned Docker container for the desk's strategy mode (classic → Freqtrade, realtime → Nautilus, generic → pinned Ubuntu+Python), execute, emit results.
+The agent does not distinguish engine modes at the marker level. Every `[RUN_BACKTEST]` / `[RUN_PAPER]` is handled by the server the same way: spawn a pinned Docker container for the desk's `strategy_mode` (see `../engine/README.md` for the mode → engine mapping), execute, emit results.
 
 ## Action markers
 
