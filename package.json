@@ -2,6 +2,7 @@
   "name": "quantdesk",
   "private": true,
   "type": "module",
+  "license": "AGPL-3.0-or-later",
   "scripts": {
     "dev": "pnpm --filter server dev & pnpm --filter ui dev",
     "build": "pnpm -r build",
