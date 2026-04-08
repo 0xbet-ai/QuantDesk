@@ -1,7 +1,8 @@
 import { exec } from "node:child_process";
-import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { copyFile, mkdir, readdir, stat, writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
 import { promisify } from "node:util";
+import { SEED_COPY_SKIP_NAMES } from "@quantdesk/shared";
 
 const execAsync = promisify(exec);
 
@@ -65,10 +66,21 @@ async function git(cwd: string, ...args: string[]): Promise<string> {
 	return stdout.trim();
 }
 
+export interface InitWorkspaceOptions {
+	/**
+	 * Optional absolute host path to a directory of strategy/config files
+	 * to seed the workspace from instead of writing the engine's stock
+	 * template. Validated upstream by `validateSeedPath` — by the time
+	 * `initWorkspace` sees it, the path is trusted.
+	 */
+	seedCodePath?: string;
+}
+
 export async function initWorkspace(
 	deskId: string,
 	engine: string,
 	workspacesRoot: string,
+	options: InitWorkspaceOptions = {},
 ): Promise<string> {
 	const dir = join(workspacesRoot, deskId);
 	await mkdir(dir, { recursive: true });
@@ -77,15 +89,50 @@ export async function initWorkspace(
 	await git(dir, "config", "user.email", '"quantdesk@local"');
 	await git(dir, "config", "user.name", '"QuantDesk"');
 
-	const template = TEMPLATES[engine] ?? TEMPLATES.generic!;
-	for (const [filename, content] of Object.entries(template)) {
-		await writeFile(join(dir, filename), content);
+	if (options.seedCodePath) {
+		await bootstrapWorkspace(dir, options.seedCodePath);
+		await git(dir, "add", "-A");
+		const seedName = basename(options.seedCodePath);
+		await git(dir, "commit", "-m", `"chore: seed from ${seedName.replace(/"/g, '\\"')}"`);
+	} else {
+		const template = TEMPLATES[engine] ?? TEMPLATES.generic!;
+		for (const [filename, content] of Object.entries(template)) {
+			await writeFile(join(dir, filename), content);
+		}
+		await git(dir, "add", "-A");
+		await git(dir, "commit", "-m", '"Initial workspace setup"');
 	}
 
-	await git(dir, "add", "-A");
-	await git(dir, "commit", "-m", '"Initial workspace setup"');
-
 	return dir;
+}
+
+/**
+ * Recursively copy every regular file from `srcDir` into `destDir`,
+ * preserving directory structure. Skips files / directories whose name is
+ * in `SEED_COPY_SKIP_NAMES` (`.git`, `node_modules`, `__pycache__`, etc.).
+ *
+ * Idempotent: re-copying the same source onto the same destination is a
+ * no-op (file contents are identical) — used by tests + recovery flows.
+ */
+export async function bootstrapWorkspace(destDir: string, srcDir: string): Promise<void> {
+	await mkdir(destDir, { recursive: true });
+	await copyTree(srcDir, destDir);
+}
+
+async function copyTree(src: string, dest: string): Promise<void> {
+	const entries = await readdir(src);
+	for (const entry of entries) {
+		if (SEED_COPY_SKIP_NAMES.includes(entry)) continue;
+		const srcPath = join(src, entry);
+		const destPath = join(dest, entry);
+		const st = await stat(srcPath);
+		if (st.isDirectory()) {
+			await mkdir(destPath, { recursive: true });
+			await copyTree(srcPath, destPath);
+		} else if (st.isFile()) {
+			await copyFile(srcPath, destPath);
+		}
+	}
 }
 
 export async function commitCode(cwd: string, message: string): Promise<string> {

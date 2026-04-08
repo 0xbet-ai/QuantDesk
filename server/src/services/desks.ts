@@ -1,11 +1,12 @@
 import { join } from "node:path";
 import { db } from "@quantdesk/db";
 import { agentSessions, comments, desks, experiments, strategyCatalog } from "@quantdesk/db/schema";
-import { resolveEngine, type VenueEngines } from "@quantdesk/engines";
+import { type VenueEngines, resolveEngine } from "@quantdesk/engines";
 import type { StrategyMode } from "@quantdesk/shared";
 import { eq } from "drizzle-orm";
 import venuesCatalog from "../../../strategies/venues.json" with { type: "json" };
 import { autoIncrementExperimentNumber } from "./logic.js";
+import { validateSeedPath } from "./seed-path.js";
 import { initWorkspace } from "./workspace.js";
 
 const WORKSPACES_ROOT = process.env.WORKSPACES_ROOT ?? join(process.cwd(), "workspaces");
@@ -26,6 +27,12 @@ interface CreateDeskInput {
 	description?: string;
 	adapterType?: string;
 	adapterConfig?: Record<string, unknown>;
+	/**
+	 * Optional absolute host path to seed the workspace from. Validated by
+	 * `validateSeedPath` before any FS / DB write so a bad path fails the
+	 * desk creation cleanly. Phase 09.
+	 */
+	seedCodePath?: string;
 }
 
 function resolveEngineForVenues(venueIds: string[], mode: StrategyMode): string {
@@ -53,6 +60,15 @@ function resolveEngineForVenues(venueIds: string[], mode: StrategyMode): string 
 export async function createDesk(input: CreateDeskInput) {
 	const engine = resolveEngineForVenues(input.venues, input.strategyMode);
 
+	// Validate the optional seed code path BEFORE writing the desk row, so a
+	// bad path fails the request without leaving an orphan desk behind.
+	if (input.seedCodePath) {
+		const validation = validateSeedPath(input.seedCodePath);
+		if (!validation.ok) {
+			throw new Error(`seedCodePath rejected: ${validation.reason}`);
+		}
+	}
+
 	const [desk] = await db
 		.insert(desks)
 		.values({
@@ -69,8 +85,11 @@ export async function createDesk(input: CreateDeskInput) {
 		})
 		.returning();
 
-	// Initialize workspace for this desk
-	const workspacePath = await initWorkspace(desk!.id, engine, WORKSPACES_ROOT);
+	// Initialize workspace for this desk — seed from the validated host path
+	// if provided, otherwise write the engine's stock template.
+	const workspacePath = await initWorkspace(desk!.id, engine, WORKSPACES_ROOT, {
+		seedCodePath: input.seedCodePath,
+	});
 	await db.update(desks).set({ workspacePath }).where(eq(desks.id, desk!.id));
 
 	const existingCount = 0;

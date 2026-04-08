@@ -21,7 +21,6 @@ Lets users seed a desk from existing local code and bind-mount existing local da
 
 | # | Title | Kind |
 |---|-------|------|
-| 09 | [Workspace bootstrap: seed code copy at desk creation](09_workspace_bootstrap_code.md) | TODO |
 | 10 | [External dataset bind mounts](10_external_dataset_mounts.md) | TODO |
 
 ### Group D — Paper trading lifecycle
@@ -89,6 +88,7 @@ Verified against the spec docs and the current tree.
 ### Datasets and storage
 - Global dataset cache at `~/.quantdesk/datacache/`, per-desk symlinks, incremental fetch (full hit / partial hit / miss). — `server/src/services/data-fetch.ts`
 - `datasets` ↔ `desk_datasets` M:N schema. — `packages/db/src/schema.ts`
+- **Workspace bootstrap (seed code)** — `createDesk` accepts an optional absolute `seedCodePath`. `validateSeedPath` rejects the home root, `/etc`, `/root`, `~/.ssh` / `~/.aws` / `~/.gnupg` / `~/.kube` / `~/.docker` / etc., and any directory whose recursive size (skipping `.git` / `node_modules` / build dirs) exceeds 50 MB. `bootstrapWorkspace` then copies the tree into `workspaces/desk-{id}/` (preserving structure) and the initial git commit message becomes `chore: seed from {basename}`. Wizard UI is a follow-up. — `server/src/services/{seed-path,workspace,desks}.ts`, `packages/shared/src/seed-path.ts`
 
 ### Engines
 - Three adapters registered: Freqtrade, Nautilus, Generic. — `packages/engines/src/registry.ts`
