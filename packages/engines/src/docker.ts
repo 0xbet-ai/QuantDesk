@@ -62,19 +62,55 @@ export class DockerError extends Error {
 	}
 }
 
-async function exec(args: string[]): Promise<RunResult> {
+/** Optional callbacks for line-buffered stdout / stderr forwarding. */
+export interface ExecStreamOptions {
+	onStdoutLine?: (line: string) => void;
+	onStderrLine?: (line: string) => void;
+}
+
+async function exec(args: string[], stream: ExecStreamOptions = {}): Promise<RunResult> {
 	return new Promise((resolve, reject) => {
 		const child = spawn("docker", args, { stdio: ["ignore", "pipe", "pipe"] });
 		let stdout = "";
 		let stderr = "";
+		let stdoutBuffer = "";
+		let stderrBuffer = "";
+
+		const flushLines = (
+			buffer: string,
+			cb: ((line: string) => void) | undefined,
+		): string => {
+			if (!cb) return buffer;
+			let remainder = buffer;
+			let idx = remainder.indexOf("\n");
+			while (idx !== -1) {
+				const line = remainder.slice(0, idx).replace(/\r$/, "");
+				if (line) cb(line);
+				remainder = remainder.slice(idx + 1);
+				idx = remainder.indexOf("\n");
+			}
+			return remainder;
+		};
+
 		child.stdout.on("data", (chunk) => {
-			stdout += chunk.toString();
+			const text = chunk.toString();
+			stdout += text;
+			if (stream.onStdoutLine) {
+				stdoutBuffer = flushLines(stdoutBuffer + text, stream.onStdoutLine);
+			}
 		});
 		child.stderr.on("data", (chunk) => {
-			stderr += chunk.toString();
+			const text = chunk.toString();
+			stderr += text;
+			if (stream.onStderrLine) {
+				stderrBuffer = flushLines(stderrBuffer + text, stream.onStderrLine);
+			}
 		});
 		child.on("error", reject);
 		child.on("close", (code) => {
+			// Flush any trailing partial line on stream callbacks.
+			if (stream.onStdoutLine && stdoutBuffer) stream.onStdoutLine(stdoutBuffer.trimEnd());
+			if (stream.onStderrLine && stderrBuffer) stream.onStderrLine(stderrBuffer.trimEnd());
 			resolve({ stdout, stderr, exitCode: code ?? 0 });
 		});
 	});
@@ -106,10 +142,19 @@ export async function hasImage(image: string): Promise<boolean> {
 /**
  * Run a container and wait for it to exit. Use for ephemeral work
  * (backtest, data download). For long-lived containers use {@link runDetached}.
+ *
+ * Pass `stream` callbacks to forward stdout/stderr line-by-line in real
+ * time (used by `executeDataFetch` to push freqtrade download progress
+ * into the UI). The callbacks fire in addition to the buffered
+ * `stdout` / `stderr` strings on the resolved `RunResult` — no behaviour
+ * change for callers that omit the option.
  */
-export async function runContainer(opts: DockerRunOptions): Promise<RunResult> {
+export async function runContainer(
+	opts: DockerRunOptions,
+	stream: ExecStreamOptions = {},
+): Promise<RunResult> {
 	const args = buildRunArgs({ ...opts, detach: false });
-	return exec(args);
+	return exec(args, stream);
 }
 
 /**
