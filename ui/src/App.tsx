@@ -4,7 +4,6 @@ import { ActivityView } from "./components/ActivityView.js";
 import { CodeView } from "./components/CodeView.js";
 import { CommentThread } from "./components/CommentThread.js";
 import { CreateDeskWizard } from "./components/CreateDeskWizard.js";
-import { DatasetView } from "./components/DatasetView.js";
 import { GlobalDatasetsView } from "./components/GlobalDatasetsView.js";
 import type { DeskPage } from "./components/DeskPanel.js";
 import { DeskPanel } from "./components/DeskPanel.js";
@@ -26,7 +25,6 @@ interface RouteState {
 
 function pageFromPath(path: string): DeskPage {
 	if (path.includes("/code")) return "code";
-	if (path.includes("/datasets")) return "datasets";
 	if (path.includes("/activity")) return "activity";
 	if (path.includes("/settings")) return "settings";
 	if (path.includes("/runs")) return "runs";
@@ -125,8 +123,6 @@ function DeskRoute({
 					/>
 				) : selectedDesk && deskPage === "code" ? (
 					<CodeView desk={selectedDesk} />
-				) : selectedDesk && deskPage === "datasets" ? (
-					<DatasetView desk={selectedDesk} />
 				) : selectedDesk && deskPage === "activity" ? (
 					<ActivityView desk={selectedDesk} />
 				) : selectedExperiment && deskPage === "runs" ? (
@@ -277,7 +273,6 @@ export function App() {
 					element={<DeskRoute {...routeState} />}
 				/>
 				<Route path="/desks/:deskId/code" element={<DeskRoute {...routeState} />} />
-				<Route path="/desks/:deskId/datasets" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/activity" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/settings" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/turns/:turnId" element={<TurnDetailPage />} />

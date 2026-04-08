@@ -2,7 +2,6 @@ import {
 	Activity,
 	Bot,
 	Code,
-	Database,
 	FlaskConical,
 	Plus,
 	Settings,
@@ -27,7 +26,7 @@ import { ScrollArea } from "./ui/scroll-area.js";
 import { Separator } from "./ui/separator.js";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip.js";
 
-export type DeskPage = "experiments" | "runs" | "datasets" | "code" | "activity" | "settings";
+export type DeskPage = "experiments" | "runs" | "code" | "activity" | "settings";
 
 interface Props {
 	desk: Desk;
@@ -299,12 +298,6 @@ export function DeskPanel({
 
 			{/* Bottom nav — desk-scoped pages */}
 			<div className="shrink-0 border-t border-border px-2 py-2 flex flex-col gap-0.5">
-				<SidebarNavItem
-					label="Datasets"
-					icon={Database}
-					active={activePage === "datasets"}
-					onClick={() => onPageChange("datasets")}
-				/>
 				<SidebarNavItem
 					label="Code"
 					icon={Code}
