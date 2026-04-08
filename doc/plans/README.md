@@ -15,14 +15,6 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 
 ## Phases (in execution order)
 
-### Group B — Wire the remaining markers
-
-Four `PROPOSE_*` markers and `RUN_PAPER` are parsed today but have **no dispatcher branch**. The UI may render Approve buttons that go nowhere — direct rule #15 violation. Each phase here adds one dispatcher and is guarded by Group A.
-
-| # | Title | Kind |
-|---|-------|------|
-| 08 | [Risk Manager verdict loop-back](08_risk_manager_verdict.md) | TODO |
-
 ### Group C — Workspace bootstrap
 
 Lets users seed a desk from existing local code and bind-mount existing local datasets at container start. Quants almost always have something local already; the current "describe in natural language" loop is the largest onboarding friction. Slot before paper trading.
@@ -92,6 +84,7 @@ Verified against the spec docs and the current tree.
 - `agent-runner.ts` branches its prompt by role.
 - `triggerAgent(experimentId, role)` accepts an optional role param (defaults to `"analyst"`); the new `getOrCreateAgentSession(deskId, role)` lazily creates the `risk_manager` row on first use, inheriting adapter config from the analyst session. — `server/src/services/agent-trigger.ts`
 - **`PROPOSE_VALIDATION` dispatch** — `validation-handler.ts` is the single sanctioned path that wakes the Risk Manager. On approve it calls `triggerAgent(experimentId, "risk_manager")`. On reject it posts a rule #15 system comment and retriggers the analyst. — `server/src/services/proposal-handlers/validation-handler.ts`
+- **RM verdict loop-back** — RM ends every turn with `[RM_APPROVE]` or `[RM_REJECT] <reason>`. After the RM comment is saved, `extractRmVerdict` parses the marker, writes `result.validation = { verdict, reason, at }` onto the latest `runs` row, and retriggers the analyst with the verdict in context. RM never retriggers itself. The `[RUN_PAPER]` precondition reads `result.validation.verdict === "approve"` to gate paper trading. — `server/src/services/{agent-trigger,prompt-builder}.ts`, `packages/shared/src/agent-markers.ts`
 
 ### Datasets and storage
 - Global dataset cache at `~/.quantdesk/datacache/`, per-desk symlinks, incremental fetch (full hit / partial hit / miss). — `server/src/services/data-fetch.ts`

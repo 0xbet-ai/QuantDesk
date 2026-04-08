@@ -33,6 +33,9 @@ export const AGENT_MARKERS: readonly MarkerDef[] = [
 	{ name: "PROPOSE_NEW_EXPERIMENT", kind: "line", display: "strip" },
 	{ name: "PROPOSE_COMPLETE_EXPERIMENT", kind: "line", display: "strip" },
 	{ name: "PROPOSE_GO_PAPER", kind: "line", display: "strip" },
+	// Risk Manager verdict markers (phase 08)
+	{ name: "RM_APPROVE", kind: "line", display: "strip" },
+	{ name: "RM_REJECT", kind: "line", display: "strip" },
 ];
 
 function blockRegex(name: string): RegExp {
