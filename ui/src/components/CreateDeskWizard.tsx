@@ -232,6 +232,15 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [customStrategyPrompt, setCustomStrategyPrompt] = useState("");
+	// Workspace bootstrap (phase 09 / 10) — only meaningful for Custom Strategy.
+	// Both fields are optional. seedCodePath is an absolute host directory whose
+	// contents are copied into the desk workspace at creation; externalMounts
+	// are bind-mounted read-only into /workspace/data/external/<label> at every
+	// container spawn.
+	const [seedCodePath, setSeedCodePath] = useState("");
+	const [externalMounts, setExternalMounts] = useState<
+		Array<{ label: string; hostPath: string }>
+	>([]);
 	const [selectedAssetClass, setSelectedAssetClass] = useState<AssetClass>("crypto");
 	const [selectedVenues, setSelectedVenues] = useState<string[]>([]);
 	const [selectedMode, setSelectedMode] = useState<StrategyMode | null>(null);
@@ -358,6 +367,12 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 			if (!selectedMode) {
 				throw new Error("Strategy mode not selected");
 			}
+			// Workspace bootstrap fields are only sent for the Custom Strategy
+			// path. Server-side validation rejects bad paths fast.
+			const cleanedMounts = externalMounts
+				.map((m) => ({ label: m.label.trim(), hostPath: m.hostPath.trim() }))
+				.filter((m) => m.label.length > 0 && m.hostPath.length > 0);
+			const isCustom = selectedStrategyId === "custom";
 			const result = await createDesk({
 				name,
 				budget,
@@ -369,6 +384,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 				description: description || customStrategyPrompt || undefined,
 				adapterType,
 				adapterConfig: adapterModel !== "default" ? { model: adapterModel } : {},
+				seedCodePath: isCustom && seedCodePath.trim() ? seedCodePath.trim() : undefined,
+				externalMounts: isCustom && cleanedMounts.length > 0 ? cleanedMounts : undefined,
 			});
 			onCreated(result.desk.id, result.experiment.id);
 		} catch (err: unknown) {
@@ -388,6 +405,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 		customStrategyPrompt,
 		adapterType,
 		adapterModel,
+		seedCodePath,
+		externalMounts,
 		onCreated,
 	]);
 
@@ -1051,6 +1070,121 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 														placeholder="e.g. A momentum strategy that buys when RSI crosses above 30 and sells when it crosses below 70. Use a 14-period RSI on 1h candles. Add a stop-loss at 2% and take-profit at 5%. Trade only during high-volume hours..."
 														required
 													/>
+												</div>
+
+												{/* Workspace bootstrap (phase 09 / 10) — both fields are
+												    optional. Surface them only on the Custom Strategy
+												    path, where the user is most likely to start from
+												    something local. Server-side validation rejects bad
+												    paths before the desk row is written. */}
+												<div className="border-t border-border pt-4">
+													<div className="text-[10px] font-medium uppercase tracking-widest text-foreground/40 mb-2">
+														Bring your own (optional)
+													</div>
+													<div className="space-y-3">
+														<div>
+															<label
+																htmlFor="seed-code-path"
+																className="text-xs font-medium text-foreground/70 mb-1 block"
+															>
+																Seed code directory
+															</label>
+															<input
+																id="seed-code-path"
+																type="text"
+																value={seedCodePath}
+																onChange={(e) => setSeedCodePath(e.target.value)}
+																placeholder="/Users/you/strategies/my_mm"
+																className="w-full px-2.5 py-1.5 text-xs font-mono rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-foreground/30"
+															/>
+															<div className="text-[10px] text-foreground/40 mt-1">
+																Absolute path. Contents are copied into the desk
+																workspace at creation.
+															</div>
+														</div>
+
+														<div>
+															<div className="flex items-center justify-between mb-1">
+																<span className="text-xs font-medium text-foreground/70">
+																	External datasets
+																</span>
+																<button
+																	type="button"
+																	onClick={() =>
+																		setExternalMounts((prev) => [
+																			...prev,
+																			{ label: "", hostPath: "" },
+																		])
+																	}
+																	className="text-[11px] text-foreground/60 hover:text-foreground transition-colors"
+																>
+																	+ Add
+																</button>
+															</div>
+															{externalMounts.length === 0 ? (
+																<div className="text-[10px] text-foreground/40">
+																	Bind-mount existing local data into{" "}
+																	<code className="font-mono">
+																		/workspace/data/external/&lt;label&gt;
+																	</code>{" "}
+																	(read-only).
+																</div>
+															) : (
+																<div className="space-y-2">
+																	{externalMounts.map((m, i) => (
+																		<div
+																			// biome-ignore lint/suspicious/noArrayIndexKey: row identity is positional in this small editable list
+																			key={i}
+																			className="flex items-center gap-1.5"
+																		>
+																			<input
+																				type="text"
+																				value={m.label}
+																				onChange={(e) =>
+																					setExternalMounts((prev) =>
+																						prev.map((row, idx) =>
+																							idx === i
+																								? { ...row, label: e.target.value }
+																								: row,
+																						),
+																					)
+																				}
+																				placeholder="label"
+																				className="w-24 px-2 py-1 text-[11px] font-mono rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-foreground/30"
+																			/>
+																			<input
+																				type="text"
+																				value={m.hostPath}
+																				onChange={(e) =>
+																					setExternalMounts((prev) =>
+																						prev.map((row, idx) =>
+																							idx === i
+																								? { ...row, hostPath: e.target.value }
+																								: row,
+																						),
+																					)
+																				}
+																				placeholder="/abs/path/to/data"
+																				className="flex-1 px-2 py-1 text-[11px] font-mono rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-foreground/30"
+																			/>
+																			<button
+																				type="button"
+																				onClick={() =>
+																					setExternalMounts((prev) =>
+																						prev.filter((_, idx) => idx !== i),
+																					)
+																				}
+																				className="text-foreground/40 hover:text-foreground/80 transition-colors px-1"
+																				aria-label="remove mount"
+																			>
+																				×
+																			</button>
+																		</div>
+																	))}
+																</div>
+															)}
+														</div>
+													</div>
 												</div>
 											</div>
 										</div>
