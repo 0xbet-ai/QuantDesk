@@ -124,7 +124,7 @@ sequenceDiagram
     S->>E: engineAdapter.runBacktest
     E-->>S: NormalizedResult
     S->>S: insert Run row
-    S->>S: post [BACKTEST_RESULT] system comment
+    S->>S: post backtest result system comment
     S->>A: triggerAgent (turn 3, recursive)
     A-->>S: analysis comment (no markers)
     S-->>U: render results + analysis
