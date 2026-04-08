@@ -3,15 +3,22 @@ import { initDb } from "@quantdesk/db";
 import express from "express";
 import { errorHandler } from "./middleware/error.js";
 import { setupWebSocket } from "./realtime/websocket.js";
+import commentsRouter from "./routes/comments.js";
 import datasetsRouter from "./routes/datasets.js";
 import desksRouter from "./routes/desks.js";
 import experimentsRouter from "./routes/experiments.js";
 import runsRouter from "./routes/runs.js";
 import strategiesRouter from "./routes/strategies.js";
+import { registerAllProposalHandlers } from "./services/proposal-handlers/index.js";
 import { cleanupStaleAgentRuns } from "./services/startup-cleanup.js";
 
 // Initialise database (starts embedded Postgres on first run if DATABASE_URL is unset)
 await initDb();
+
+// Register every proposal handler at boot (data-fetch, and once phases
+// 05–07/11 land, the other four). The generic /api/comments/:id/approve
+// router dispatches via this registry.
+registerAllProposalHandlers();
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
@@ -24,6 +31,7 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/desks", desksRouter);
 app.use("/api/experiments", experimentsRouter);
+app.use("/api/comments", commentsRouter);
 app.use("/api/runs", runsRouter);
 app.use("/api/strategies", strategiesRouter);
 app.use("/api/datasets", datasetsRouter);

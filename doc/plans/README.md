@@ -30,7 +30,6 @@ Four `PROPOSE_*` markers and `RUN_PAPER` are parsed today but have **no dispatch
 
 | # | Title | Kind |
 |---|-------|------|
-| 04 | [Generic /comments/:id/approve dispatcher](04_approve_router.md) | TODO |
 | 05 | [PROPOSE_NEW_EXPERIMENT approve handler](05_propose_new_experiment.md) | TODO |
 | 06 | [PROPOSE_COMPLETE_EXPERIMENT approve handler](06_propose_complete_experiment.md) | TODO |
 | 07 | [PROPOSE_VALIDATION → Risk Manager dispatch](07_risk_manager_dispatch.md) | TODO |
@@ -87,9 +86,10 @@ Verified against the spec docs and the current tree.
 
 ### Marker dispatch
 - `RUN_BACKTEST` — full dispatch (parser, engine spawn, runs row insert, retrigger). Refusal branch posts a rule #13 system comment naming `[PROPOSE_DATA_FETCH]`. — `server/src/services/agent-trigger.ts`
-- `PROPOSE_DATA_FETCH` — full dispatch (parser, `pendingProposal` attach, `/data-fetch` approval route, cache lookup or `executeDataFetch` container, `desk_datasets` link, retrigger). — `server/src/services/{triggers,data-fetch}.ts`, `server/src/routes/experiments.ts`
+- `PROPOSE_DATA_FETCH` — full dispatch (parser, `pendingProposal` attach, generic `/api/comments/:id/approve` route dispatches to the data-fetch handler, cache lookup or `executeDataFetch` container, `desk_datasets` link, retrigger). — `server/src/services/{triggers,data-fetch,proposal-handlers/data-fetch-handler}.ts`, `server/src/routes/comments.ts`
 - `EXPERIMENT_TITLE` — parser + experiment row update, no retrigger (metadata-only). — `server/src/services/agent-trigger.ts`
 - `stripAgentMarkers` — every marker stripped before persistence. — `packages/shared/src/agent-markers.ts`
+- **Generic proposal approve/reject router** at `POST /api/comments/:commentId/{approve,reject}`, keyed off `comment.metadata.pendingProposal.type`. Handler registry in `server/src/services/proposal-handlers/registry.ts`. Phases 05-07 and 11 each register one handler behind the same router. UI calls `postProposalDecision(commentId, action)` — no per-type endpoints. — `server/src/routes/comments.ts`, `server/src/services/proposal-handlers/`
 
 ### Lifecycle infrastructure
 - `triggerAgent(experimentId)` single entry point, CLI subprocess (claude / codex adapters), session resume via persisted `sessionId`. — `server/src/services/agent-trigger.ts`, `packages/adapters/`

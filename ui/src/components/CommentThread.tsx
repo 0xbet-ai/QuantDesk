@@ -22,7 +22,7 @@ import {
 	listComments,
 	listDatasets,
 	postComment,
-	postDataFetchDecision,
+	postProposalDecision,
 } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { DatasetPreviewModal } from "./DatasetView.js";
@@ -237,11 +237,11 @@ function ProposalCard({
 
 function DataFetchProposalCard({
 	proposal,
-	experimentId,
+	commentId,
 	onAction,
 }: {
 	proposal: DataFetchProposal;
-	experimentId: string;
+	commentId: string;
 	onAction: () => void;
 }) {
 	const [status, setStatus] = useState<"pending" | "approved" | "rejected">("pending");
@@ -249,7 +249,7 @@ function DataFetchProposalCard({
 	const decide = async (action: "approve" | "reject") => {
 		setStatus(action === "approve" ? "approved" : "rejected");
 		try {
-			await postDataFetchDecision(experimentId, action, proposal);
+			await postProposalDecision(commentId, action);
 			onAction();
 		} catch (err) {
 			console.error("data-fetch decision failed:", err);
@@ -574,7 +574,7 @@ export function CommentThread({
 								return dfp ? (
 									<DataFetchProposalCard
 										proposal={dfp}
-										experimentId={experiment.id}
+										commentId={c.id}
 										onAction={() => {
 											refresh();
 											setThinkingRole("analyst");

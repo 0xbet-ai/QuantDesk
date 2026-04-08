@@ -4,10 +4,8 @@ import { publishExperimentEvent } from "../realtime/live-events.js";
 import { readAgentLog } from "../services/agent-log.js";
 import { stopAgent, triggerAgent } from "../services/agent-trigger.js";
 import { createComment, listComments, systemComment } from "../services/comments.js";
-import { executeDataFetch } from "../services/data-fetch.js";
 import { completeAndCreateNewExperiment, getExperiment } from "../services/experiments.js";
 import { listRuns } from "../services/runs.js";
-import type { DataFetchProposal } from "../services/triggers.js";
 
 const router = Router();
 
@@ -107,60 +105,6 @@ router.post("/:id/complete-and-new", async (req, res, next) => {
 		triggerAgent(newExperiment.id).catch((err) => {
 			console.error("Agent trigger failed on new experiment:", err);
 		});
-	} catch (err) {
-		next(err);
-	}
-});
-
-/**
- * Approve (and execute) or reject an agent-emitted data-fetch proposal.
- * Body: { action: "approve" | "reject", proposal: DataFetchProposal }
- */
-router.post("/:id/data-fetch", async (req, res, next) => {
-	try {
-		const { action, proposal } = req.body as {
-			action?: "approve" | "reject";
-			proposal?: DataFetchProposal;
-		};
-		if (action !== "approve" && action !== "reject") {
-			throw new HttpError(400, "action must be 'approve' or 'reject'");
-		}
-		if (!proposal) throw new HttpError(400, "proposal is required");
-
-		res.status(202).json({ ok: true });
-
-		if (action === "reject") {
-			await createComment({
-				experimentId: req.params.id,
-				author: "user",
-				content:
-					`Data-fetch proposal rejected: ${proposal.pairs.join(", ")} ${proposal.timeframe} ` +
-					`${proposal.days}d on ${proposal.exchange}. Propose a different dataset.`,
-			});
-			publishExperimentEvent({
-				experimentId: req.params.id,
-				type: "comment.new",
-				payload: {},
-			});
-			triggerAgent(req.params.id).catch((err) => {
-				console.error("Agent trigger after reject failed:", err);
-			});
-			return;
-		}
-
-		// Approve: run the fetcher in the background, then re-trigger the agent.
-		executeDataFetch({ experimentId: req.params.id, proposal })
-			.then(() => {
-				publishExperimentEvent({
-					experimentId: req.params.id,
-					type: "comment.new",
-					payload: {},
-				});
-				return triggerAgent(req.params.id);
-			})
-			.catch((err) => {
-				console.error("executeDataFetch failed:", err);
-			});
 	} catch (err) {
 		next(err);
 	}

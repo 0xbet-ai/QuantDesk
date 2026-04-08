@@ -150,14 +150,13 @@ export interface DataFetchProposal {
 	rationale?: string;
 }
 
-export const postDataFetchDecision = (
-	experimentId: string,
-	action: "approve" | "reject",
-	proposal: DataFetchProposal,
-) =>
-	api<{ ok: true }>(`/experiments/${experimentId}/data-fetch`, {
+/**
+ * Generic approve/reject for any comment carrying a `pendingProposal`.
+ * See `doc/agent/MARKERS.md` Proposal markers section.
+ */
+export const postProposalDecision = (commentId: string, action: "approve" | "reject") =>
+	api<{ ok: true }>(`/comments/${commentId}/${action}`, {
 		method: "POST",
-		body: JSON.stringify({ action, proposal }),
 	});
 
 export const listStrategies = (engine?: string) =>
