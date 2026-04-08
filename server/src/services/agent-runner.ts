@@ -33,6 +33,8 @@ interface RunInput {
 	sessionId: string | undefined;
 	agentRole: "analyst" | "risk_manager";
 	runResult?: { metrics: MetricEntry[] };
+	/** Phase 27b — optional MCP config path passed through to the adapter. */
+	mcpConfigPath?: string;
 }
 
 interface RunResult {
@@ -63,7 +65,7 @@ export class AgentRunner {
 						isResume: !!input.sessionId,
 					});
 
-		const args = this.adapter.buildSpawnArgs(prompt, input.sessionId);
+		const args = this.adapter.buildSpawnArgs(prompt, input.sessionId, input.mcpConfigPath);
 
 		try {
 			const outputLines = await this.spawn(args, prompt);

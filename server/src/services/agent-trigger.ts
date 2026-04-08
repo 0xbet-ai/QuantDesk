@@ -1,5 +1,8 @@
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve as pathResolve } from "node:path";
 import { getAgentAdapter } from "@quantdesk/adapters";
 import { db } from "@quantdesk/db";
 import {
@@ -125,6 +128,12 @@ function normalizedResultToMetrics(normalized: NormalizedResult) {
 // Track running agent processes per experiment
 const activeAgents = new Map<string, ChildProcess>();
 
+// Experiments the user has explicitly stopped. Any server-side auto-retrigger
+// (backtest-done, RM verdict, dead-end rescue, etc.) is suppressed while this
+// flag is set. The flag clears the moment the user posts a new comment —
+// sending a new instruction counts as "I want the agent running again".
+const stoppedExperiments = new Set<string>();
+
 /**
  * Read-only snapshot of experiment IDs that currently have an agent
  * subprocess running. Used by the sidebar to render a "live" indicator
@@ -134,10 +143,32 @@ export function getActiveAgentExperimentIds(): string[] {
 	return Array.from(activeAgents.keys());
 }
 
+/** True if the user has pressed Stop on this experiment and hasn't replied yet. */
+export function isExperimentStopped(experimentId: string): boolean {
+	return stoppedExperiments.has(experimentId);
+}
+
+/** Called by the comment route when the user posts a new comment. */
+export function clearStopFlag(experimentId: string): void {
+	stoppedExperiments.delete(experimentId);
+}
+
 export function stopAgent(experimentId: string): boolean {
+	stoppedExperiments.add(experimentId);
 	const child = activeAgents.get(experimentId);
 	if (child) {
+		// SIGTERM first, then escalate to SIGKILL a beat later if the
+		// process ignores the polite signal (docker clients, CLI wrappers
+		// spawning their own subprocesses, etc.).
 		child.kill("SIGTERM");
+		const killTimer = setTimeout(() => {
+			try {
+				child.kill("SIGKILL");
+			} catch {
+				/* already dead */
+			}
+		}, 1500);
+		killTimer.unref?.();
 		activeAgents.delete(experimentId);
 		publishExperimentEvent({
 			experimentId,
@@ -153,6 +184,8 @@ interface StreamingSpawnOptions {
 	onLine?: (line: string) => void;
 	cwd?: string;
 	experimentId?: string;
+	/** Extra env vars merged onto process.env for the subprocess. */
+	extraEnv?: Record<string, string>;
 }
 
 function spawnCli(
@@ -163,7 +196,7 @@ function spawnCli(
 	return new Promise((resolve, reject) => {
 		const cmd = args[0]!;
 		const child = spawn(cmd, args.slice(1), {
-			env: { ...process.env, TERM: "dumb" },
+			env: { ...process.env, TERM: "dumb", ...(options?.extraEnv ?? {}) },
 			cwd: options?.cwd,
 			stdio: ["pipe", "pipe", "pipe"],
 		});
@@ -217,6 +250,40 @@ function spawnCli(
 	});
 }
 
+/**
+ * Phase 27b — generate a temporary MCP config JSON file pointing at the
+ * stdio entry. Returns the absolute path (or null when AGENT_MCP is off).
+ * The claude CLI is passed this path via `--mcp-config` and spawns the
+ * stdio-entry subprocess itself. Per-turn context reaches the subprocess
+ * via environment variables we set on the outer spawnCli call.
+ */
+function buildMcpConfigForTurn(): string | null {
+	if (process.env.AGENT_MCP !== "1") return null;
+	// Resolve paths relative to this file's compiled location. In dev we
+	// run via tsx so __dirname is the ts source dir; the stdio entry is a
+	// sibling under src/mcp. In a prod build (tsc → dist/) it's the same
+	// relative layout.
+	const stdioEntry = pathResolve(
+		new URL("../mcp/stdio-entry.ts", import.meta.url).pathname,
+	);
+	// In prod we'd prefer dist/.js, but since the server itself runs via
+	// tsx in both dev and current prod config, always target the .ts
+	// source through tsx's bin.
+	const tsxBin = pathResolve(new URL("../../node_modules/.bin/tsx", import.meta.url).pathname);
+	const config = {
+		mcpServers: {
+			quantdesk: {
+				command: tsxBin,
+				args: [stdioEntry],
+			},
+		},
+	};
+	const dir = mkdtempSync(join(tmpdir(), "quantdesk-mcp-"));
+	const path = join(dir, "mcp-config.json");
+	writeFileSync(path, JSON.stringify(config, null, 2));
+	return path;
+}
+
 export type AgentRole = "analyst" | "risk_manager";
 
 /**
@@ -234,6 +301,14 @@ export async function triggerAgent(
 	experimentId: string,
 	role: AgentRole = "analyst",
 ): Promise<void> {
+	// 0. Honour an explicit Stop. stoppedExperiments gets cleared on the
+	// next user comment, so this blocks server-side auto-retriggers (dead-
+	// end rescue, backtest-done retrigger, RM verdict retrigger, etc.)
+	// without requiring every caller to remember the check.
+	if (stoppedExperiments.has(experimentId)) {
+		return;
+	}
+
 	// 1. Load experiment + desk
 	const [experiment] = await db.select().from(experiments).where(eq(experiments.id, experimentId));
 	if (!experiment) return;
@@ -302,10 +377,19 @@ export async function triggerAgent(
 				process.env.MOCK_AGENT === "1" ? "mock" : session.adapterType,
 			);
 
+			const mcpConfigPath = buildMcpConfigForTurn();
+			const mcpEnv: Record<string, string> = mcpConfigPath
+				? {
+						QUANTDESK_MCP_EXPERIMENT_ID: experimentId,
+						QUANTDESK_MCP_DESK_ID: desk.id,
+					}
+				: {};
+
 			const streamingSpawn = (args: string[], stdin: string) =>
 				spawnCli(args, stdin, {
 					cwd: desk.workspacePath ?? undefined,
 					experimentId,
+					extraEnv: mcpEnv,
 					onLine: (line) => {
 						const chunk = adapter.parseStreamLine(line);
 						if (chunk) {
@@ -376,6 +460,7 @@ export async function triggerAgent(
 				memorySummaries: memories.map((m) => ({ level: m.level, content: m.content })),
 				sessionId: session.sessionId ?? undefined,
 				agentRole: session.agentRole as "analyst" | "risk_manager",
+				mcpConfigPath: mcpConfigPath ?? undefined,
 			});
 
 			// 6. Update session ID for resume
@@ -760,12 +845,10 @@ export async function triggerAgent(
 				if (extractDataFetchRequest(result.resultText)) firedMarkers.push("DATA_FETCH");
 				if (extractDatasetBody(result.resultText)) firedMarkers.push("DATASET");
 				if (extractRunBacktestRequest(result.resultText)) firedMarkers.push("RUN_BACKTEST");
-				if (extractBacktestResultBody(result.resultText))
-					firedMarkers.push("BACKTEST_RESULT");
+				if (extractBacktestResultBody(result.resultText)) firedMarkers.push("BACKTEST_RESULT");
 				if (extractExperimentTitle(result.resultText)) firedMarkers.push("EXPERIMENT_TITLE");
 				if (extractValidationRequest(result.resultText)) firedMarkers.push("VALIDATION");
-				if (extractNewExperimentRequest(result.resultText))
-					firedMarkers.push("NEW_EXPERIMENT");
+				if (extractNewExperimentRequest(result.resultText)) firedMarkers.push("NEW_EXPERIMENT");
 				if (extractCompleteExperimentRequest(result.resultText))
 					firedMarkers.push("COMPLETE_EXPERIMENT");
 				if (extractGoPaperRequest(result.resultText)) firedMarkers.push("GO_PAPER");
@@ -803,9 +886,7 @@ export async function triggerAgent(
 							content: `Data fetch failed: ${
 								err instanceof Error ? err.message : String(err)
 							}. Reply with different parameters and try again.`,
-							metadata: currentCommentId
-								? { parentCommentId: currentCommentId }
-								: undefined,
+							metadata: currentCommentId ? { parentCommentId: currentCommentId } : undefined,
 						});
 					}
 				}
@@ -848,7 +929,6 @@ export async function triggerAgent(
 			}
 
 			if (result.resultText) {
-
 				// 9b. Risk Manager verdict loop-back (phase 08).
 				// If this turn was the RM, parse the verdict marker and:
 				//   - record the verdict on the latest run's `result.validation`

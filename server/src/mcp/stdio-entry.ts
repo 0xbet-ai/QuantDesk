@@ -18,9 +18,7 @@ async function main(): Promise<void> {
 	const experimentId = process.env.QUANTDESK_MCP_EXPERIMENT_ID;
 	const deskId = process.env.QUANTDESK_MCP_DESK_ID;
 	if (!experimentId || !deskId) {
-		console.error(
-			"stdio-entry: QUANTDESK_MCP_EXPERIMENT_ID and QUANTDESK_MCP_DESK_ID must be set",
-		);
+		console.error("stdio-entry: QUANTDESK_MCP_EXPERIMENT_ID and QUANTDESK_MCP_DESK_ID must be set");
 		process.exit(1);
 	}
 	const server = createQuantdeskMcpServer({ experimentId, deskId });
