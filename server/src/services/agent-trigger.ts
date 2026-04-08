@@ -19,7 +19,7 @@ import { desc, eq } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog, clearAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
-import { createComment } from "./comments.js";
+import { createComment, systemComment } from "./comments.js";
 import { autoIncrementRunNumber } from "./logic.js";
 import { extractDataFetchProposal } from "./triggers.js";
 import { commitCode, hasChanges } from "./workspace.js";
@@ -317,9 +317,9 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 			.where(eq(deskDatasets.deskId, desk.id))
 			.orderBy(desc(deskDatasets.createdAt));
 		if (linkedDatasets.length === 0) {
-			await createComment({
+			await systemComment({
 				experimentId,
-				author: "system",
+				nextAction: "action",
 				content:
 					"Cannot run backtest: no dataset has been registered for this desk. " +
 					"Per rule #13, you must emit [PROPOSE_DATA_FETCH] first and wait for the " +
@@ -381,9 +381,9 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 			// Post a system comment with the result and re-trigger the agent
 			// so it can analyse. We embed the result as [BACKTEST_RESULT] so any
 			// downstream tools that scan for that marker still see the data.
-			await createComment({
+			await systemComment({
 				experimentId,
-				author: "system",
+				nextAction: "retrigger",
 				content:
 					`Backtest Run #${run!.runNumber} completed.\n\n` +
 					"[BACKTEST_RESULT]\n" +
@@ -397,9 +397,9 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 			});
 		} catch (err) {
 			const message = err instanceof Error ? err.message : "Unknown error";
-			await createComment({
+			await systemComment({
 				experimentId,
-				author: "system",
+				nextAction: "retrigger",
 				content: `Backtest request failed: ${message}`,
 			});
 			// Re-trigger so the agent sees the failure message and can fix its
@@ -582,14 +582,19 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 		}
 	} else if (result.error) {
 		const isStopped = result.error.includes("code 143") || result.error.includes("SIGTERM");
-		const message = isStopped
-			? "Agent was stopped by user."
-			: "Something went wrong. Please try again.";
-		await createComment({
-			experimentId,
-			author: "system",
-			content: message,
-		});
+		if (isStopped) {
+			await systemComment({
+				experimentId,
+				nextAction: "action",
+				content: "Agent was stopped by user. Reply with a new instruction to continue.",
+			});
+		} else {
+			await systemComment({
+				experimentId,
+				nextAction: "action",
+				content: "Something went wrong. Please try again.",
+			});
+		}
 	}
 
 	// 10. Notify UI that agent is done

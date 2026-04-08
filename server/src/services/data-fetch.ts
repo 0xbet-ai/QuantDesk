@@ -5,7 +5,7 @@ import { db } from "@quantdesk/db";
 import { datasets, deskDatasets, desks, experiments } from "@quantdesk/db/schema";
 import { ENGINE_IMAGES, runContainer } from "@quantdesk/engines";
 import { and, eq, sql } from "drizzle-orm";
-import { createComment } from "./comments.js";
+import { systemComment } from "./comments.js";
 import type { DataFetchProposal } from "./triggers.js";
 
 const DATA_CACHE_ROOT =
@@ -45,9 +45,9 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 
 	if (desk.strategyMode !== "classic") {
 		// realtime / generic: no server-side fetcher — the agent handles it.
-		await createComment({
+		await systemComment({
 			experimentId,
-			author: "system",
+			nextAction: "action",
 			content:
 				`Data-fetch proposal approved, but strategy_mode=${desk.strategyMode} does not have a ` +
 				"server-side fetcher yet. Proceed to fetch the data yourself from within your " +
@@ -90,9 +90,9 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 		const dataset = existing[0]!;
 		await linkDatasetToDesk(desk.id, dataset.id);
 		ensureSymlink(exchangeCachePath, workspaceDataLink);
-		await createComment({
+		await systemComment({
 			experimentId,
-			author: "system",
+			nextAction: "action",
 			content:
 				`Reusing existing dataset for ${proposal.pairs.join(", ")} ${proposal.timeframe} ` +
 				`from ${proposal.exchange} (${startDate} → ${endDate}). No download needed. ` +
@@ -110,9 +110,9 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 	const cacheUserDir = DATA_CACHE_ROOT;
 	mkdirSync(join(cacheUserDir, "data"), { recursive: true });
 
-	await createComment({
+	await systemComment({
 		experimentId,
-		author: "system",
+		nextAction: "progress",
 		content:
 			`Downloading ${proposal.pairs.join(", ")} ${proposal.timeframe} from ${proposal.exchange} ` +
 			`(${proposal.days}d, ${timerange}) into shared data cache...`,
@@ -153,9 +153,9 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 			.split("\n")
 			.slice(-8)
 			.join("\n");
-		await createComment({
+		await systemComment({
 			experimentId,
-			author: "system",
+			nextAction: "action",
 			content:
 				`Data-fetch failed for ${proposal.pairs.join(", ")} on ${proposal.exchange}. ` +
 				"Check the pair naming and trade mode, then emit a corrected [PROPOSE_DATA_FETCH]. " +
@@ -182,9 +182,9 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 		ensureSymlink(exchangeCachePath, workspaceDataLink);
 	}
 
-	await createComment({
+	await systemComment({
 		experimentId,
-		author: "system",
+		nextAction: "action",
 		content:
 			`Downloaded ${fileCount} file(s) for ${proposal.pairs.join(", ")} ` +
 			`${proposal.timeframe} from ${proposal.exchange} into shared cache. Dataset registered ` +
