@@ -1,4 +1,4 @@
-# 23 — Memory: prompt injection ordering + budget guard (TODO)
+# 25 — Memory: prompt injection ordering + budget guard (TODO)
 
 ## Tests first
 
@@ -8,4 +8,4 @@
 
 ## Then implement
 
-- Update `prompt-builder.ts` ordering and add the budget guard using the shared budgeter from phase 20.
+- Update `prompt-builder.ts` ordering and add the budget guard using the shared budgeter from phase 22.

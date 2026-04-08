@@ -1,4 +1,4 @@
-# 09 — `paperSessions` table schema (TODO)
+# 11 — `paperSessions` table schema (TODO)
 
 Spec: `doc/agent/PAPER_LIFECYCLE.md`, `doc/desk/STORAGE.md`. Today there is no first-class paper session entity — the only persisted record of a paper run is the `runs` row, which is insufficient for tracking long-lived state.
 
@@ -13,4 +13,4 @@ Spec: `doc/agent/PAPER_LIFECYCLE.md`, `doc/desk/STORAGE.md`. Today there is no f
 
 - Add the table to `packages/db/src/schema.ts`.
 - `pnpm db:generate` and commit the migration under `packages/db/drizzle/`.
-- No service code yet — phase 10 owns that.
+- No service code yet — phase 12 owns that.

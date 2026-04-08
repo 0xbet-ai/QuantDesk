@@ -37,50 +37,50 @@ Four `PROPOSE_*` markers and `RUN_PAPER` are parsed today but have **no dispatch
 | 07 | [PROPOSE_VALIDATION → Risk Manager dispatch](07_risk_manager_dispatch.md) | TODO |
 | 08 | [Risk Manager verdict loop-back](08_risk_manager_verdict.md) | TODO |
 
-### Group B½ — Workspace bootstrap (priority over Group C)
+### Group C — Workspace bootstrap
 
 Lets users seed a desk from existing local code and bind-mount existing local datasets at container start. Quants almost always have something local already; the current "describe in natural language" loop is the largest onboarding friction. Slot before paper trading.
 
 | # | Title | Kind |
 |---|-------|------|
-| 25 | [Workspace bootstrap: seed code copy at desk creation](25_workspace_bootstrap_code.md) | TODO |
-| 26 | [External dataset bind mounts](26_external_dataset_mounts.md) | TODO |
+| 09 | [Workspace bootstrap: seed code copy at desk creation](09_workspace_bootstrap_code.md) | TODO |
+| 10 | [External dataset bind mounts](10_external_dataset_mounts.md) | TODO |
 
-### Group C — Paper trading lifecycle
-
-| # | Title | Kind |
-|---|-------|------|
-| 09 | [paperSessions table schema](09_paper_schema.md) | TODO |
-| 10 | [paper-sessions service: promotion gates](10_paper_gates.md) | TODO |
-| 11 | [RUN_PAPER + PROPOSE_GO_PAPER dispatch](11_paper_dispatch.md) | TODO |
-| 12 | [Boot-time paper reconcile](12_paper_reconcile.md) | TODO |
-| 13 | [Paper status polling](13_paper_status_polling.md) | TODO |
-| 14 | [Observer turns while paper runs](14_paper_observer_turns.md) | TODO |
-| 15 | [Paper UI wiring + desk header widget](15_paper_ui.md) | TODO |
-
-### Group D — BUG fixes (code violates spec)
+### Group D — Paper trading lifecycle
 
 | # | Title | Kind |
 |---|-------|------|
-| 16 | [Generic downloadData must run inside container](16_generic_download_in_container.md) | BUG |
-| 17 | [Generic startPaper / stopPaper / getPaperStatus](17_generic_paper.md) | BUG |
-| 18 | [Image whitelist: ensureImage runtime guard](18_image_ensure_guard.md) | TODO |
-| 19 | [Image whitelist: registry constructor guard](19_image_registry_guard.md) | TODO |
+| 11 | [paperSessions table schema](11_paper_schema.md) | TODO |
+| 12 | [paper-sessions service: promotion gates](12_paper_gates.md) | TODO |
+| 13 | [RUN_PAPER + PROPOSE_GO_PAPER dispatch](13_paper_dispatch.md) | TODO |
+| 14 | [Boot-time paper reconcile](14_paper_reconcile.md) | TODO |
+| 15 | [Paper status polling](15_paper_status_polling.md) | TODO |
+| 16 | [Observer turns while paper runs](16_paper_observer_turns.md) | TODO |
+| 17 | [Paper UI wiring + desk header widget](17_paper_ui.md) | TODO |
 
-### Group E — Memory compaction
-
-| # | Title | Kind |
-|---|-------|------|
-| 20 | [Memory compaction trigger + token budget](20_memory_trigger.md) | TODO |
-| 21 | [LLM summarization into memory_summaries](21_memory_summarization.md) | TODO |
-| 22 | [Secret scrubbing on the way in](22_memory_scrubbing.md) | TODO |
-| 23 | [Prompt injection ordering + budget guard](23_memory_injection.md) | TODO |
-
-### Group F — UX
+### Group E — BUG fixes (code violates spec)
 
 | # | Title | Kind |
 |---|-------|------|
-| 24 | [Server-side P1 bootstrap for catalog desks](24_catalog_p1_bootstrap.md) | TODO |
+| 18 | [Generic downloadData must run inside container](18_generic_download_in_container.md) | BUG |
+| 19 | [Generic startPaper / stopPaper / getPaperStatus](19_generic_paper.md) | BUG |
+| 20 | [Image whitelist: ensureImage runtime guard](20_image_ensure_guard.md) | TODO |
+| 21 | [Image whitelist: registry constructor guard](21_image_registry_guard.md) | TODO |
+
+### Group F — Memory compaction
+
+| # | Title | Kind |
+|---|-------|------|
+| 22 | [Memory compaction trigger + token budget](22_memory_trigger.md) | TODO |
+| 23 | [LLM summarization into memory_summaries](23_memory_summarization.md) | TODO |
+| 24 | [Secret scrubbing on the way in](24_memory_scrubbing.md) | TODO |
+| 25 | [Prompt injection ordering + budget guard](25_memory_injection.md) | TODO |
+
+### Group G — UX
+
+| # | Title | Kind |
+|---|-------|------|
+| 26 | [Server-side P1 bootstrap for catalog desks](26_catalog_p1_bootstrap.md) | TODO |
 
 ## DONE (baseline — already in code)
 
@@ -117,12 +117,12 @@ Verified against the spec docs and the current tree.
 - `strategy_mode` + `engine` are immutable per desk, enforced on update. — `server/src/routes/desks.ts`
 - `(strategy_mode, venue) → engine` resolved via `resolveEngine()`; `generic` is the fallback engine, never a `strategy_mode`. — `packages/engines/src/registry.ts`
 
-### Memory infrastructure (population still missing — see phase 21)
+### Memory infrastructure (population still missing — see phase 23)
 - `memory_summaries` table with `level` / `experimentId` / `content`. — `packages/db/src/schema.ts`
 - Prompt builder reads desk-level + experiment-level summaries. — `server/src/services/prompt-builder.ts`
 
 ## Open questions
 
-- Observer-turn cadence in phase 14 (fixed interval vs. event-driven only).
+- Observer-turn cadence in phase 16 (fixed interval vs. event-driven only).
 - Whether the risk-manager session in phase 07 reuses the analyst's CLI subprocess or spawns a fresh one with its own `sessionId`.
 - Whether Group A (test harness) lands in this order or interleaves with Group B as the second path it can lint.

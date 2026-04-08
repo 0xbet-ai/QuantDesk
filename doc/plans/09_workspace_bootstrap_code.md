@@ -1,4 +1,4 @@
-# 25 — Workspace bootstrap: seed code copy at desk creation (TODO)
+# 09 — Workspace bootstrap: seed code copy at desk creation (TODO)
 
 Spec: `doc/desk/STORAGE.md` "Workspace bootstrap". The wizard accepts an optional `seedCodePath` (absolute host path to a directory of strategy/config files). At desk creation the server validates the path, copies the contents into the new workspace, and makes the initial git commit. After that, the host path is never read again — the desk is self-contained. If `seedCodePath` is omitted, the desk is created empty (today's behaviour).
 

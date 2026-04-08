@@ -1,4 +1,4 @@
-# 15 — Paper UI wiring + desk header widget (TODO)
+# 17 — Paper UI wiring + desk header widget (TODO)
 
 ## Tests first
 
@@ -9,7 +9,7 @@
 
 ## Then implement
 
-- Approval handler is already wired in phase 11. This phase is the UI side.
+- Approval handler is already wired in phase 13. This phase is the UI side.
 - React component for the paper widget.
 - WebSocket / SSE subscription for live `PaperStatus` updates.
 - Stop button → `POST /api/paper-sessions/:id/stop`.

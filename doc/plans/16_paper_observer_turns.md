@@ -1,4 +1,4 @@
-# 14 — Observer turns while paper runs (TODO)
+# 16 — Observer turns while paper runs (TODO)
 
 Spec: `doc/agent/PAPER_LIFECYCLE.md` — the agent wakes for observer turns while a paper session is running.
 

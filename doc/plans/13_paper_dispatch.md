@@ -1,11 +1,11 @@
-# 11 — `RUN_PAPER` + `PROPOSE_GO_PAPER` dispatch (TODO)
+# 13 — `RUN_PAPER` + `PROPOSE_GO_PAPER` dispatch (TODO)
 
 Spec: `doc/agent/MARKERS.md` `RUN_PAPER` and `PROPOSE_GO_PAPER` blocks. Both markers are parsed today but neither is dispatched.
 
 ## Tests first
 
 1. `[RUN_PAPER] <runId>` in agent output:
-   - calls `startPaperSession(runId)` (phase 10 gates)
+   - calls `startPaperSession(runId)` (phase 12 gates)
    - on success → invokes `engineAdapter.startPaper()` and stores the returned `containerId` on the `paperSessions` row
    - on rejection (no validation / active session) → posts a rule #15 system comment naming the next step
 2. The launched container carries `quantdesk.runId`, `quantdesk.deskId`, `quantdesk.engine`, `quantdesk.kind=paper` labels — verify Freqtrade (already true) and add for any other adapter that lacks them.

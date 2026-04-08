@@ -1,4 +1,4 @@
-# 13 — Paper status polling (TODO)
+# 15 — Paper status polling (TODO)
 
 ## Tests first
 
@@ -10,4 +10,4 @@
 ## Then implement
 
 - `paperStatuses` table (or reuse an observability table if one exists in the schema).
-- Background poller scoped to active sessions only — kicked off from the boot reconcile in phase 12 and from `startPaperSession` in phase 11.
+- Background poller scoped to active sessions only — kicked off from the boot reconcile in phase 14 and from `startPaperSession` in phase 13.

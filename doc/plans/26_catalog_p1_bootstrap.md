@@ -1,4 +1,4 @@
-# 24 — Server-side `[PROPOSE_DATA_FETCH]` bootstrap for catalog desks (TODO)
+# 26 — Server-side `[PROPOSE_DATA_FETCH]` bootstrap for catalog desks (TODO)
 
 Spec: CLAUDE.md rule #13. Today, when a desk is created from a catalog strategy entry, the server fires `triggerAgent` and the agent's first turn must reason about the appropriate dataset and emit `[PROPOSE_DATA_FETCH]`. The reasoning is fake — exchange comes from the chosen venue, timeframe is in the catalog entry, days/pairs are sensible defaults. This wastes an LLM round-trip and adds latency before the user sees the Approve button.
 
