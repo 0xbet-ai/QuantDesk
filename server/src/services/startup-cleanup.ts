@@ -1,6 +1,6 @@
 import { db } from "@quantdesk/db";
-import { comments, experiments } from "@quantdesk/db/schema";
-import { eq } from "drizzle-orm";
+import { agentTurns, comments, experiments } from "@quantdesk/db/schema";
+import { and, eq, isNull } from "drizzle-orm";
 import { systemComment } from "./comments.js";
 
 /**
@@ -52,5 +52,31 @@ export async function cleanupStaleAgentRuns(): Promise<void> {
 		}
 	} catch (err) {
 		console.error("[startup] Failed to clean up stale agent runs:", err);
+	}
+}
+
+/**
+ * Phase 27 — Boot reconcile for `agent_turns`. Any row left in `running` at
+ * startup belongs to a CLI subprocess that died with the server. Mark them
+ * `failed` with `failure_reason='server_restart'` so the UI can render the
+ * TurnCard in a terminal state. The rule #15 system comment for the owning
+ * experiment is already handled by `cleanupStaleAgentRuns` above.
+ */
+export async function reconcileOrphanAgentTurns(): Promise<void> {
+	try {
+		const updated = await db
+			.update(agentTurns)
+			.set({
+				status: "failed",
+				endedAt: new Date(),
+				failureReason: "server_restart",
+			})
+			.where(and(eq(agentTurns.status, "running"), isNull(agentTurns.endedAt)))
+			.returning({ id: agentTurns.id });
+		if (updated.length > 0) {
+			console.log(`[startup] Reconciled ${updated.length} orphan agent_turns row(s)`);
+		}
+	} catch (err) {
+		console.error("[startup] Failed to reconcile orphan agent_turns:", err);
 	}
 }

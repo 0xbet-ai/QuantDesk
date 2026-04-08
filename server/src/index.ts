@@ -11,7 +11,11 @@ import fsRouter from "./routes/fs.js";
 import runsRouter from "./routes/runs.js";
 import strategiesRouter from "./routes/strategies.js";
 import { registerAllProposalHandlers } from "./services/proposal-handlers/index.js";
-import { cleanupStaleAgentRuns } from "./services/startup-cleanup.js";
+import {
+	cleanupStaleAgentRuns,
+	reconcileOrphanAgentTurns,
+} from "./services/startup-cleanup.js";
+import { startTurnWatchdog } from "./services/turn-watchdog.js";
 
 // Initialise database (starts embedded Postgres on first run if DATABASE_URL is unset)
 await initDb();
@@ -64,6 +68,12 @@ server.listen(port, () => {
 	cleanupStaleAgentRuns().catch((err) => {
 		console.error("Startup cleanup failed:", err);
 	});
+	// Phase 27 — mark orphan agent_turns rows as failed and start the
+	// heartbeat watchdog that catches silent subprocess deaths at runtime.
+	reconcileOrphanAgentTurns().catch((err) => {
+		console.error("Turn reconcile failed:", err);
+	});
+	startTurnWatchdog();
 });
 
 export { app };
