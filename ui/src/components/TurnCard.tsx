@@ -20,6 +20,8 @@ interface TurnCardProps {
 	hasRun?: boolean;
 	/** Populated when `status` is `failed` or `stopped` — shown in the header as a red reason line. */
 	failureReason?: string | null;
+	/** Phase 27 step 8 — live docker log tail from the engine container, if a backtest is running inside this turn. */
+	runLogLines?: string[];
 	mode?: "backtest" | "paper" | "turn";
 }
 
@@ -54,6 +56,7 @@ export function TurnCard({
 	onOpen,
 	hasRun,
 	failureReason,
+	runLogLines,
 	mode = "turn",
 }: TurnCardProps) {
 	const streaming = status === "running";
@@ -186,6 +189,29 @@ export function TurnCard({
 						emptyMessage="Waiting for agent output..."
 					/>
 				</div>
+
+				{/* Phase 27 step 8 — live engine container log tail. Only
+				    rendered while a backtest run is streaming logs into this
+				    turn; after the run completes the tail remains visible
+				    as a frozen last-30-lines record. */}
+				{runLogLines && runLogLines.length > 0 && (
+					<div className="mt-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+						<div className="mb-1.5 flex items-center gap-2">
+							<div
+								className={cn(
+									"size-1.5 rounded-full",
+									streaming ? "bg-cyan-500 animate-pulse" : "bg-muted-foreground/50",
+								)}
+							/>
+							<span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+								Engine container {streaming ? "· live" : ""}
+							</span>
+						</div>
+						<pre className="max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] leading-tight text-muted-foreground">
+							{runLogLines.slice(-30).join("\n")}
+						</pre>
+					</div>
+				)}
 			</section>
 		</div>
 	);

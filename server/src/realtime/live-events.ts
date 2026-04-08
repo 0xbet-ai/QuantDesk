@@ -12,7 +12,8 @@ export interface LiveEvent {
 		| "agent.done"
 		| "experiment.updated"
 		| "data_fetch.progress"
-		| "turn.status";
+		| "turn.status"
+		| "run.log_chunk";
 	payload: Record<string, unknown>;
 	createdAt: string;
 }

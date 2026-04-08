@@ -459,6 +459,13 @@ export async function triggerAgent(
 							configFile: runBacktestRequest.configFile ?? "config.json",
 						},
 						extraVolumes: externalMountVolumes,
+						onLogLine: (line, stream) => {
+							publishExperimentEvent({
+								experimentId,
+								type: "run.log_chunk",
+								payload: { runId, stream, line },
+							});
+						},
 					});
 
 					const resultPayload = normalizedResultToMetrics(backtestResult.normalized);

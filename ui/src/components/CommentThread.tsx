@@ -480,6 +480,9 @@ export function CommentThread({
 	const [turnStatus, setTurnStatus] = useState<TurnLifecycleStatus | null>(null);
 	const [turnFailureReason, setTurnFailureReason] = useState<string | null>(null);
 	const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
+	// Phase 27 step 8 — live docker log tail from the engine container for
+	// the run currently running inside the active turn. Capped at 200 lines.
+	const [runLogLines, setRunLogLines] = useState<string[]>([]);
 	// Live tail of `data_fetch.progress` events from the server. Cleared
 	// whenever the comment thread refreshes (the next system comment —
 	// "Downloaded …" or failure — supersedes the live tail).
@@ -538,6 +541,15 @@ export function CommentThread({
 			setTurnStatus("running");
 			setTurnFailureReason(null);
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
+		}
+		if (event.type === "run.log_chunk") {
+			const payload = event.payload as { line?: string };
+			if (payload.line) {
+				setRunLogLines((prev) => {
+					const next = [...prev, payload.line as string];
+					return next.length > 200 ? next.slice(-200) : next;
+				});
+			}
 		}
 		if (event.type === "turn.status") {
 			const payload = event.payload as {
@@ -616,6 +628,7 @@ export function CommentThread({
 			setRunStartedAt(new Date());
 			setTurnStatus("running");
 			setTurnFailureReason(null);
+			setRunLogLines([]);
 		} finally {
 			setSending(false);
 		}
@@ -749,6 +762,7 @@ export function CommentThread({
 							status={turnStatus}
 							startedAt={runStartedAt ?? undefined}
 							failureReason={turnFailureReason}
+							runLogLines={runLogLines}
 							onStop={async () => {
 								await fetch(`/api/experiments/${experiment.id}/agent/stop`, {
 									method: "POST",
