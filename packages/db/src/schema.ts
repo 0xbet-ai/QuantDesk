@@ -58,6 +58,7 @@ export const runs = pgTable("runs", {
 	experimentId: uuid("experiment_id")
 		.notNull()
 		.references(() => experiments.id),
+	turnId: uuid("turn_id").references(() => agentTurns.id),
 	runNumber: integer("run_number").notNull(),
 	isBaseline: boolean("is_baseline").notNull().default(false),
 	mode: text("mode").notNull(),
@@ -117,8 +118,36 @@ export const comments = pgTable("comments", {
 	author: text("author").notNull(),
 	content: text("content").notNull(),
 	runId: uuid("run_id").references(() => runs.id),
+	turnId: uuid("turn_id").references(() => agentTurns.id),
 	metadata: jsonb("metadata").$type<Record<string, unknown>>(),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * One row per agent CLI invocation cycle (phase 27). Owns the backtest run,
+ * data-fetch progress, and agent stdout chunks that happened inside this turn.
+ * Heartbeat-driven: `last_heartbeat_at` is updated on every SSE chunk so a
+ * watchdog / boot reconcile can mark dead subprocesses as failed without
+ * leaving the UI wondering "did the agent die?".
+ */
+export const agentTurns = pgTable("agent_turns", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	experimentId: uuid("experiment_id")
+		.notNull()
+		.references(() => experiments.id),
+	deskId: uuid("desk_id")
+		.notNull()
+		.references(() => desks.id),
+	agentRole: text("agent_role").notNull(),
+	triggerKind: text("trigger_kind").notNull(),
+	status: text("status").notNull().default("running"),
+	startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+	endedAt: timestamp("ended_at", { withTimezone: true }),
+	lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	failureReason: text("failure_reason"),
+	agentSessionId: uuid("agent_session_id").references(() => agentSessions.id),
 });
 
 export const agentSessions = pgTable("agent_sessions", {

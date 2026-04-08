@@ -1,6 +1,7 @@
 import { db } from "@quantdesk/db";
 import { comments } from "@quantdesk/db/schema";
 import { eq } from "drizzle-orm";
+import { getCurrentTurnId } from "./turn-context.js";
 
 interface CreateCommentInput {
 	experimentId: string;
@@ -18,6 +19,7 @@ export async function createComment(input: CreateCommentInput) {
 			author: input.author,
 			content: input.content,
 			runId: input.runId ?? null,
+			turnId: getCurrentTurnId() ?? null,
 			metadata: input.metadata ?? null,
 		})
 		.returning();

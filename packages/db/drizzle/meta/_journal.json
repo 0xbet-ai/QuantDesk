@@ -43,6 +43,13 @@
       "when": 1775636118812,
       "tag": "0005_lyrical_gauntlet",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775645647879,
+      "tag": "0006_bizarre_natasha_romanoff",
+      "breakpoints": true
     }
   ]
 }
