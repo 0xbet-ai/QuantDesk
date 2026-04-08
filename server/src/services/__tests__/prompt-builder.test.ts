@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
 	buildAnalystPrompt,
+	buildFailureEscalationBlock,
 	buildRiskManagerPrompt,
+	countRecentFailureStreak,
 	estimateTokens,
 	trimCommentsToTokenBudget,
 } from "../prompt-builder.js";
@@ -180,5 +182,68 @@ describe("estimateTokens", () => {
 		const tokens = estimateTokens("hello world"); // 11 chars ~ 3 tokens
 		expect(tokens).toBeGreaterThan(1);
 		expect(tokens).toBeLessThan(10);
+	});
+});
+
+describe("countRecentFailureStreak", () => {
+	it("returns 0 when there are no comments", () => {
+		expect(countRecentFailureStreak([])).toBe(0);
+	});
+
+	it("returns 0 when the tail is not a failure system comment", () => {
+		expect(
+			countRecentFailureStreak([
+				{ author: "system", content: "Data-fetch failed for ..." },
+				{ author: "analyst", content: "Got it, let me try again." },
+			]),
+		).toBe(0);
+	});
+
+	it("counts consecutive failure system comments at the tail", () => {
+		expect(
+			countRecentFailureStreak([
+				{ author: "user", content: "go" },
+				{ author: "system", content: "Data-fetch failed for BTC on hyperliquid" },
+				{ author: "system", content: "Backtest request failed: timeout" },
+			]),
+		).toBe(2);
+	});
+
+	it("stops counting at the first non-failure system comment", () => {
+		expect(
+			countRecentFailureStreak([
+				{ author: "system", content: "Data-fetch failed once" },
+				{ author: "system", content: "Downloaded BTC/USDT 5m" },
+				{ author: "system", content: "Backtest request failed" },
+			]),
+		).toBe(1);
+	});
+
+	it("ignores failures buried before non-system comments", () => {
+		expect(
+			countRecentFailureStreak([
+				{ author: "system", content: "Data-fetch failed once" },
+				{ author: "user", content: "what now?" },
+			]),
+		).toBe(0);
+	});
+
+	it("matches both 'failed' and 'error' tokens", () => {
+		expect(
+			countRecentFailureStreak([{ author: "system", content: "Container error: missing image" }]),
+		).toBe(1);
+	});
+});
+
+describe("buildFailureEscalationBlock", () => {
+	it("returns empty string when streak is 0", () => {
+		expect(buildFailureEscalationBlock(0)).toBe("");
+	});
+
+	it("includes the streak count and persistence pressure when > 0", () => {
+		const block = buildFailureEscalationBlock(3);
+		expect(block).toContain("RECENT FAILURE STREAK: 3");
+		expect(block).toContain("fundamentally");
+		expect(block).toContain("Persist until");
 	});
 });

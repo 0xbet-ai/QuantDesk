@@ -105,6 +105,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 		const body = await res.json().catch(() => ({ error: "Request failed" }));
 		throw new Error(body.error ?? `HTTP ${res.status}`);
 	}
+	if (res.status === 204) return undefined as T;
 	return res.json() as Promise<T>;
 }
 
@@ -157,6 +158,8 @@ export const completeAndCreateNewExperiment = (
 		method: "POST",
 		body: JSON.stringify(data),
 	});
+export const deleteExperiment = (experimentId: string) =>
+	api<void>(`/experiments/${experimentId}`, { method: "DELETE" });
 export const listRuns = (experimentId: string) => api<Run[]>(`/experiments/${experimentId}/runs`);
 export const listComments = (experimentId: string) =>
 	api<Comment[]>(`/experiments/${experimentId}/comments`);

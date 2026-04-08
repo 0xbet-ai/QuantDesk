@@ -56,6 +56,64 @@ export function estimateTokens(text: string): number {
 	return Math.ceil(text.length / 4);
 }
 
+/**
+ * Count consecutive failure system comments at the *tail* of the comment
+ * thread. Used by `buildAnalystPrompt` to inject persistence pressure into
+ * the next prompt — the more failures in a row, the more emphatic the
+ * escalation. Stops counting at the first non-failure comment so a single
+ * old failure doesn't poison every future turn.
+ *
+ * Marker-agnostic: any system comment whose body matches the failure
+ * pattern counts, no matter which lifecycle stage it came from
+ * (data-fetch, backtest, validation, etc.).
+ */
+export function countRecentFailureStreak(comments: CommentContext[]): number {
+	let n = 0;
+	for (let i = comments.length - 1; i >= 0; i--) {
+		const c = comments[i]!;
+		if (c.author !== "system") return n;
+		if (/\b(?:fail(?:ed|ure)?|error)\b/i.test(c.content)) {
+			n++;
+			continue;
+		}
+		return n;
+	}
+	return n;
+}
+
+/**
+ * Build the persistence-pressure block injected at the top of the analyst
+ * prompt when there is a recent failure streak. Returns an empty string if
+ * `streak === 0` so the normal prompt is unchanged.
+ */
+export function buildFailureEscalationBlock(streak: number): string {
+	if (streak === 0) return "";
+	return `## RECENT FAILURE STREAK: ${streak}
+
+The previous attempt(s) failed. You are in a retry loop and you must NOT:
+- repeat the exact same parameters that just failed
+- give up with a plain-text apology
+- ask the user a vague "what should I do?" question
+
+You MUST:
+- read the failure message above carefully — the upstream tool already told
+  you what is wrong
+- if the failure mentions a tool/library limitation (e.g. "exchange does not
+  support ohlcv", "strategy class not found"), look up the upstream project
+  if you have web/file access (e.g. github.com/freqtrade/freqtrade, the
+  Nautilus docs) before guessing
+- try a *fundamentally* different approach: different exchange, different
+  trading mode, different timeframe, different strategy class, fall back to
+  generic engine, etc. — not a one-character tweak
+- if you have ruled out every plausible path, ask the user a SPECIFIC
+  multiple-choice question with concrete options (not "what now?")
+
+Persist until the task is solved or every plausible path has been ruled out.
+This block is injected by the server whenever it detects consecutive
+failure system comments — it disappears the moment a turn produces no
+failure.`;
+}
+
 export function trimCommentsToTokenBudget(
 	comments: CommentContext[],
 	tokenBudget: number,
@@ -298,6 +356,15 @@ Do NOT propose a new experiment for routine parameter tuning, indicator threshol
 	// The mode is pinned at desk creation and immutable — the agent never
 	// switches modes or picks an engine; it follows the contract below.
 	sections.push(buildModeInstructions(desk));
+
+	// Persistence pressure (rule #15 + ralph-loop pattern). When the tail of
+	// the comment thread shows consecutive failure system comments, prepend
+	// an escalation block so the agent does not give up after one bad
+	// attempt. Marker-agnostic — applies to any failure (data-fetch,
+	// backtest, etc.).
+	const failureStreak = countRecentFailureStreak(comments);
+	const escalation = buildFailureEscalationBlock(failureStreak);
+	if (escalation) sections.push(escalation);
 
 	// Desk context
 	sections.push(`## Desk: ${desk.name}
