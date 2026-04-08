@@ -663,20 +663,32 @@ export async function triggerAgent(
 				if (datasetBody) {
 					try {
 						const parsed = JSON.parse(datasetBody) as {
-							exchange: string;
-							pairs: string[];
-							timeframe: string;
-							dateRange: { start: string; end: string };
-							path: string;
+							exchange?: string;
+							pairs?: string[];
+							timeframe?: string;
+							dateRange?: { start: string; end: string };
+							path?: string;
 						};
+						const missing: string[] = [];
+						if (!parsed.exchange) missing.push("exchange");
+						if (!parsed.pairs || parsed.pairs.length === 0) missing.push("pairs");
+						if (!parsed.timeframe) missing.push("timeframe");
+						if (!parsed.dateRange?.start || !parsed.dateRange?.end)
+							missing.push("dateRange.{start,end}");
+						if (!parsed.path) missing.push("path");
+						if (missing.length > 0) {
+							throw new Error(
+								`[DATASET] block is missing required field(s): ${missing.join(", ")}`,
+							);
+						}
 						const [inserted] = await db
 							.insert(datasets)
 							.values({
-								exchange: parsed.exchange,
-								pairs: parsed.pairs,
-								timeframe: parsed.timeframe,
-								dateRange: parsed.dateRange,
-								path: parsed.path,
+								exchange: parsed.exchange!,
+								pairs: parsed.pairs!,
+								timeframe: parsed.timeframe!,
+								dateRange: parsed.dateRange!,
+								path: parsed.path!,
 							})
 							.returning();
 						if (inserted) {
@@ -685,8 +697,19 @@ export async function triggerAgent(
 								datasetId: inserted.id,
 							});
 						}
-					} catch {
-						/* dataset parse failed, non-fatal */
+					} catch (err) {
+						const msg = err instanceof Error ? err.message : String(err);
+						console.error("DATASET registration failed:", msg, {
+							body: datasetBody,
+						});
+						await systemComment({
+							experimentId,
+							nextAction: "action",
+							content:
+								`Dataset registration failed: ${msg}. ` +
+								"Re-emit a valid [DATASET] block with all required fields " +
+								"(exchange, pairs, timeframe, dateRange.start, dateRange.end, path).",
+						});
 					}
 				}
 			}

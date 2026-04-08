@@ -714,7 +714,7 @@ export function CommentThread({
 					// is excluded here — it's drawn as the sticky bottom
 					// TurnCard with streaming entries. Past turns get a static
 					// TurnCard with their nested comments.
-					return mergedTopItems.map((item) => {
+					return mergedTopItems.map((item, idx) => {
 						if (item.kind === "comment") {
 							return renderComment(item.comment);
 						}
@@ -725,6 +725,16 @@ export function CommentThread({
 						if (item.turnId === currentTurnId && turnStatus === "running") {
 							return null;
 						}
+						// If the previous rendered item is ALSO an agent turn
+						// (no user comment between them) we draw a small
+						// connector showing the second turn is a direct
+						// continuation. Without this, two back-to-back agent
+						// cards look like they belong to separate conversations.
+						const prev = idx > 0 ? mergedTopItems[idx - 1] : null;
+						const showContinuationConnector =
+							!!prev &&
+							prev.kind === "turn" &&
+							!(prev.turnId === currentTurnId && turnStatus === "running");
 						// Also skip the persisted active turn if its status is
 						// still in React state but already terminal — the
 						// previous condition handled running, this handles a
@@ -743,22 +753,30 @@ export function CommentThread({
 						// replies in the composer.
 						const pastStatus: TurnLifecycleStatus = "completed";
 						return (
-							<TurnCard
-								key={item.turnId}
-								experimentNumber={experiment.number}
-								agentRole={role}
-								entries={[]}
-								status={pastStatus}
-								startedAt={new Date(first.createdAt)}
-								onStop={() => {}}
-								onOpen={onOpenTurn ? () => onOpenTurn(item.turnId) : undefined}
-								hasRun
-								failureReason={null}
-								nestedComments={item.comments.map((c) =>
-									renderComment(c, false, true),
+							<div key={item.turnId}>
+								{showContinuationConnector && (
+									<div className="flex items-center gap-2 px-4 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+										<div className="h-px flex-1 bg-border" />
+										<span>continued (no user reply)</span>
+										<div className="h-px flex-1 bg-border" />
+									</div>
 								)}
-								footer={<AgentTranscriptToggle experimentId={experiment.id} />}
-							/>
+								<TurnCard
+									experimentNumber={experiment.number}
+									agentRole={role}
+									entries={[]}
+									status={pastStatus}
+									startedAt={new Date(first.createdAt)}
+									onStop={() => {}}
+									onOpen={onOpenTurn ? () => onOpenTurn(item.turnId) : undefined}
+									hasRun
+									failureReason={null}
+									nestedComments={item.comments.map((c) =>
+										renderComment(c, false, true),
+									)}
+									footer={<AgentTranscriptToggle experimentId={experiment.id} />}
+								/>
+							</div>
 						);
 					});
 				})()}
