@@ -1,6 +1,6 @@
 # 19 — Generic `startPaper` / `stopPaper` / `getPaperStatus` (BUG)
 
-Spec: `doc/engine/README.md` Generic section — "paper scripts run long-lived with the same `quantdesk.kind=paper` labels managed engines use." Current code in `packages/engines/src/generic/adapter.ts` throws `"does not support paper trading"` from all three methods. Per CLAUDE.md rule #14 this is a code BUG.
+Spec: `doc/engine/README.md` Generic section — "paper scripts run long-lived with the same `quantdesk.kind=paper` labels managed engines use." Current code in `packages/engines/src/generic/adapter.ts` throws `"does not support paper trading"` from all three methods. Per CLAUDE.md rule #11 this is a code BUG.
 
 ## Tests first
 
