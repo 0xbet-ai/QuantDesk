@@ -16,11 +16,11 @@ These cause the server to do something during the same turn the marker appears i
 
 | Marker | Form | What the server does |
 |---|---|---|
-| `[RUN_BACKTEST]` | <code>[RUN_BACKTEST]\n{...}\n[/RUN_BACKTEST]</code> with `{strategyName, configFile?, entrypoint?}` | Spawn the engine adapter for the desk's pinned `strategy_mode` inside Docker, insert a `Run` row with the resulting metrics, post a system comment with the result summary, and re-trigger the agent. Refused with a system comment if no dataset is registered for the desk (rule #13). |
-| `[RUN_PAPER]` | `[RUN_PAPER] <runId>` | Start a long-lived paper trading container labelled with `quantdesk.runId` / `quantdesk.engine` / `quantdesk.kind=paper`. |
-| `[DATASET]` | <code>[DATASET]\n{exchange, pairs, timeframe, dateRange, path}\n[/DATASET]</code> | Insert a `datasets` row for data the agent has downloaded itself inside the engine container. (For the proposal-driven flow see `[PROPOSE_DATA_FETCH]` below.) |
+| `[RUN_BACKTEST]` | <code>[RUN_BACKTEST]\n{...}\n[/RUN_BACKTEST]</code> with `{strategyName, configFile?, entrypoint?}` | Triggers Stage 2 of the turn lifecycle — see `./LIFECYCLE.md`. |
+| `[RUN_PAPER]` | `[RUN_PAPER] <runId>` | Promotes the given run into a long-lived paper session — see `./PAPER_LIFECYCLE.md`. |
+| `[DATASET]` | <code>[DATASET]\n{exchange, pairs, timeframe, dateRange, path}\n[/DATASET]</code> | Registers a dataset the agent downloaded itself inside the engine container. For the global dataset model see `../desk/STORAGE.md`; for the proposal-driven flow see `[PROPOSE_DATA_FETCH]` below. |
 | `[EXPERIMENT_TITLE]` | `[EXPERIMENT_TITLE] <short title, max 8 words>` | Update `experiments.title`. **Ignored when `experiment.number === 1`** — the first experiment of every desk is permanently `Baseline`. |
-| `[PROPOSE_DATA_FETCH]` | <code>[PROPOSE_DATA_FETCH]\n{exchange, pairs, timeframe, days, tradingMode, rationale}\n[/PROPOSE_DATA_FETCH]</code> | Attach a `pendingProposal` to the agent's comment so the UI renders Approve / Reject buttons. The agent turn ends here — it does **not** block waiting for the user. The actual download runs in a **separate user-initiated request** when the user clicks Approve, and the agent is then re-triggered by the resulting "Downloaded..." system comment. If the user never approves, no further action happens. **Required first response on a brand-new desk** (rule #13). |
+| `[PROPOSE_DATA_FETCH]` | <code>[PROPOSE_DATA_FETCH]\n{exchange, pairs, timeframe, days, tradingMode, rationale}\n[/PROPOSE_DATA_FETCH]</code> | Triggers Stage 1 of the turn lifecycle (the agent-proposed, user-approved data fetch). See `./LIFECYCLE.md` Stage 1 and CLAUDE.md rule #13. |
 
 ## Proposal markers
 
