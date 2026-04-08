@@ -7,12 +7,18 @@ import {
 	Plus,
 	Settings,
 	Shield,
+	Trash2,
 	User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import venues from "../../../strategies/venues.json";
 import type { Desk, Experiment, Run, Strategy } from "../lib/api.js";
-import { completeAndCreateNewExperiment, listRuns, listStrategies } from "../lib/api.js";
+import {
+	completeAndCreateNewExperiment,
+	deleteExperiment,
+	listRuns,
+	listStrategies,
+} from "../lib/api.js";
 import { SidebarNavItem } from "./SidebarNavItem.js";
 import { SidebarSection } from "./SidebarSection.js";
 import { StatusDot } from "./StatusDot.js";
@@ -32,6 +38,7 @@ interface Props {
 	onSelectExperiment: (id: string) => void;
 	onPageChange: (page: DeskPage) => void;
 	onNewExperiment: (newExperiment: Experiment) => void;
+	onExperimentDeleted: (deletedId: string) => void;
 }
 
 function formatUSD(value: string | number): string {
@@ -55,6 +62,7 @@ export function DeskPanel({
 	onSelectExperiment,
 	onPageChange,
 	onNewExperiment,
+	onExperimentDeleted,
 }: Props) {
 	const [creating, setCreating] = useState(false);
 
@@ -79,6 +87,26 @@ export function DeskPanel({
 		}
 	};
 	const [bestReturns, setBestReturns] = useState<Record<string, number | null>>({});
+	const [runningExperiments, setRunningExperiments] = useState<Record<string, boolean>>({});
+
+	const handleDelete = async (exp: Experiment, e: React.MouseEvent) => {
+		e.stopPropagation();
+		if (experiments.length <= 1) {
+			window.alert("Cannot delete the last experiment on a desk.");
+			return;
+		}
+		const ok = window.confirm(
+			`Delete Experiment #${exp.number} "${exp.title}"?\n\nThis will permanently remove its runs, comments, and logs. This cannot be undone.`,
+		);
+		if (!ok) return;
+		try {
+			await deleteExperiment(exp.id);
+			onExperimentDeleted(exp.id);
+		} catch (err) {
+			console.error(err);
+			window.alert(err instanceof Error ? err.message : "Failed to delete experiment.");
+		}
+	};
 	const [strategy, setStrategy] = useState<Strategy | null>(null);
 
 	useEffect(() => {
@@ -99,6 +127,10 @@ export function DeskPanel({
 			listRuns(exp.id)
 				.then((runs) => {
 					setBestReturns((prev) => ({ ...prev, [exp.id]: bestReturn(runs) }));
+					setRunningExperiments((prev) => ({
+						...prev,
+						[exp.id]: runs.some((r) => r.status === "running" || r.status === "pending"),
+					}));
 				})
 				.catch(() => {
 					setBestReturns((prev) => ({ ...prev, [exp.id]: null }));
@@ -209,35 +241,54 @@ export function DeskPanel({
 					<SidebarSection label="Experiments">
 						{experiments.map((exp) => {
 							const best = bestReturns[exp.id];
+							const isRunning = runningExperiments[exp.id] === true;
 							return (
-								<button
+								<div
 									key={exp.id}
-									type="button"
-									onClick={() => onSelectExperiment(exp.id)}
-									className={`w-full min-w-0 text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2.5 ${
+									className={`group relative w-full min-w-0 flex items-center ${
 										exp.id === selectedExperimentId
 											? "bg-accent text-accent-foreground"
 											: "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
 									}`}
 								>
-									<FlaskConical className="h-4 w-4 shrink-0 text-muted-foreground" />
-									<span className="flex-1 min-w-0 truncate" title={`#${exp.number} ${exp.title}`}>
-										#{exp.number} {exp.title}
-									</span>
-									{best != null && (
+									<button
+										type="button"
+										onClick={() => onSelectExperiment(exp.id)}
+										className="flex-1 min-w-0 text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2.5"
+									>
+										<FlaskConical className="h-4 w-4 shrink-0 text-muted-foreground" />
 										<span
-											className={`text-[11px] font-medium shrink-0 ${
-												best >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"
-											}`}
+											className="flex-1 min-w-0 truncate"
+											title={`#${exp.number} ${exp.title}`}
 										>
-											{best >= 0 ? "+" : ""}
-											{best.toFixed(1)}%
+											#{exp.number} {exp.title}
 										</span>
-									)}
-									<span className="flex items-center gap-1.5 shrink-0">
-										<StatusDot status={exp.status} />
-									</span>
-								</button>
+										{best != null && (
+											<span
+												className={`text-[11px] font-medium shrink-0 ${
+													best >= 0 ? "text-green-600 dark:text-green-400" : "text-destructive"
+												}`}
+											>
+												{best >= 0 ? "+" : ""}
+												{best.toFixed(1)}%
+											</span>
+										)}
+										{isRunning && (
+											<span className="flex items-center gap-1.5 shrink-0">
+												<StatusDot status="running" />
+											</span>
+										)}
+									</button>
+									<button
+										type="button"
+										onClick={(e) => handleDelete(exp, e)}
+										className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 mr-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+										title="Delete experiment"
+										aria-label={`Delete experiment #${exp.number}`}
+									>
+										<Trash2 className="h-3.5 w-3.5" />
+									</button>
+								</div>
 							);
 						})}
 						{experiments.length === 0 && (

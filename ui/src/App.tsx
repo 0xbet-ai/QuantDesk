@@ -85,6 +85,19 @@ function DeskRoute({
 			navigate(`/desks/${deskId}/experiments/${newExp.id}`);
 		});
 	};
+	const handleExperimentDeleted = (deletedId: string) => {
+		const remaining = experiments.filter((e) => e.id !== deletedId);
+		refreshExperiments().then(() => {
+			if (deletedId === expId) {
+				const next = remaining[remaining.length - 1];
+				if (next) {
+					navigate(`/desks/${deskId}/experiments/${next.id}`);
+				} else {
+					navigate(`/desks/${deskId}`);
+				}
+			}
+		});
+	};
 
 	return (
 		<Layout
@@ -103,6 +116,7 @@ function DeskRoute({
 						onSelectExperiment={handleSelectExperiment}
 						onPageChange={handlePageChange}
 						onNewExperiment={handleNewExperiment}
+						onExperimentDeleted={handleExperimentDeleted}
 					/>
 				) : null
 			}
