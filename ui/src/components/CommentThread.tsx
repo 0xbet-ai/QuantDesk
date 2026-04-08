@@ -725,7 +725,9 @@ export function CommentThread({
 									{(c.author === "analyst" || c.author === "risk_manager") && (
 										<>
 											<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
-											<AgentTranscriptToggle experimentId={experiment.id} />
+											{turnStatus !== "running" && (
+												<AgentTranscriptToggle experimentId={experiment.id} />
+											)}
 										</>
 									)}
 								</div>

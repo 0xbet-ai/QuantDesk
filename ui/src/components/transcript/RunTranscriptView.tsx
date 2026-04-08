@@ -73,12 +73,6 @@ function truncate(value: string, max: number): string {
 	return value.length > max ? `${value.slice(0, Math.max(0, max - 1))}…` : value;
 }
 
-function formatTokens(n: number): string {
-	if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-	if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-	return String(n);
-}
-
 function summarizeToolInput(name: string, input: unknown, maxLen: number): string {
 	if (typeof input === "string") return truncate(input, maxLen);
 	if (typeof input !== "object" || input === null) return `${name} input`;
@@ -930,10 +924,6 @@ function ResultRow({
 									{formatAgentMarkers(block.content || "Completed")}
 								</Markdown>
 							</div>
-							<pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-foreground/75">
-								{formatTokens(block.inputTokens)} / {formatTokens(block.outputTokens)} / $
-								{block.costUsd.toFixed(6)}
-							</pre>
 						</>
 					)}
 				</div>
