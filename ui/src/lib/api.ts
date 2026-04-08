@@ -116,6 +116,20 @@ export interface ExternalMountInput {
 	description?: string;
 }
 
+export interface FsBrowseEntry {
+	name: string;
+	path: string;
+}
+
+export interface FsBrowseResponse {
+	path: string;
+	parent: string | null;
+	entries: FsBrowseEntry[];
+}
+
+export const browseFs = (path?: string) =>
+	api<FsBrowseResponse>(`/fs/browse${path ? `?path=${encodeURIComponent(path)}` : ""}`);
+
 export const createDesk = (
 	data: Partial<Desk> & {
 		adapterType?: string;

@@ -7,6 +7,7 @@ import commentsRouter from "./routes/comments.js";
 import datasetsRouter from "./routes/datasets.js";
 import desksRouter from "./routes/desks.js";
 import experimentsRouter from "./routes/experiments.js";
+import fsRouter from "./routes/fs.js";
 import runsRouter from "./routes/runs.js";
 import strategiesRouter from "./routes/strategies.js";
 import { registerAllProposalHandlers } from "./services/proposal-handlers/index.js";
@@ -35,6 +36,7 @@ app.use("/api/comments", commentsRouter);
 app.use("/api/runs", runsRouter);
 app.use("/api/strategies", strategiesRouter);
 app.use("/api/datasets", datasetsRouter);
+app.use("/api/fs", fsRouter);
 
 // Agent adapter test — checks if CLI is available
 app.get("/api/agent/test", async (req, res) => {
