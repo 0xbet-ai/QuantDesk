@@ -6,6 +6,7 @@
 import { registerCompleteExperimentHandler } from "./complete-experiment-handler.js";
 import { registerDataFetchHandler } from "./data-fetch-handler.js";
 import { registerNewExperimentHandler } from "./new-experiment-handler.js";
+import { registerValidationHandler } from "./validation-handler.js";
 
 let registered = false;
 
@@ -15,4 +16,5 @@ export function registerAllProposalHandlers(): void {
 	registerDataFetchHandler();
 	registerNewExperimentHandler();
 	registerCompleteExperimentHandler();
+	registerValidationHandler();
 }

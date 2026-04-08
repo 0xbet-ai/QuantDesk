@@ -21,7 +21,6 @@ Four `PROPOSE_*` markers and `RUN_PAPER` are parsed today but have **no dispatch
 
 | # | Title | Kind |
 |---|-------|------|
-| 07 | [PROPOSE_VALIDATION → Risk Manager dispatch](07_risk_manager_dispatch.md) | TODO |
 | 08 | [Risk Manager verdict loop-back](08_risk_manager_verdict.md) | TODO |
 
 ### Group C — Workspace bootstrap
@@ -87,10 +86,12 @@ Verified against the spec docs and the current tree.
 - Stage 1 first-run gate: agent prompted to emit `[PROPOSE_DATA_FETCH]` first when no dataset; `RUN_BACKTEST` early-returns with rule #13 refusal otherwise. — `server/src/services/{prompt-builder,agent-trigger}.ts`
 - Per-desk git workspace, commit-per-turn, `commit_hash` on `runs` rows. — `server/src/services/workspace.ts`
 
-### Risk Manager *infrastructure* (dispatch still missing — see phase 07)
+### Risk Manager
 - `agent_sessions.agentRole` column (`analyst | risk_manager`). — `packages/db/src/schema.ts`
 - `buildRiskManagerPrompt()` template. — `server/src/services/prompt-builder.ts`
 - `agent-runner.ts` branches its prompt by role.
+- `triggerAgent(experimentId, role)` accepts an optional role param (defaults to `"analyst"`); the new `getOrCreateAgentSession(deskId, role)` lazily creates the `risk_manager` row on first use, inheriting adapter config from the analyst session. — `server/src/services/agent-trigger.ts`
+- **`PROPOSE_VALIDATION` dispatch** — `validation-handler.ts` is the single sanctioned path that wakes the Risk Manager. On approve it calls `triggerAgent(experimentId, "risk_manager")`. On reject it posts a rule #15 system comment and retriggers the analyst. — `server/src/services/proposal-handlers/validation-handler.ts`
 
 ### Datasets and storage
 - Global dataset cache at `~/.quantdesk/datacache/`, per-desk symlinks, incremental fetch (full hit / partial hit / miss). — `server/src/services/data-fetch.ts`
