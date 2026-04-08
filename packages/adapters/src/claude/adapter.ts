@@ -28,7 +28,7 @@ interface ClaudeResultEvent {
 export class ClaudeAdapter implements AgentAdapter {
 	readonly name = "claude";
 
-	buildSpawnArgs(_prompt: string, sessionId?: string): string[] {
+	buildSpawnArgs(_prompt: string, sessionId?: string, mcpConfigPath?: string): string[] {
 		const args = [
 			"claude",
 			"-p",
@@ -40,6 +40,9 @@ export class ClaudeAdapter implements AgentAdapter {
 		];
 		if (sessionId) {
 			args.push("--resume", sessionId);
+		}
+		if (mcpConfigPath) {
+			args.push("--mcp-config", mcpConfigPath);
 		}
 		return args;
 	}

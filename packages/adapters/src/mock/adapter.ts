@@ -48,7 +48,7 @@ const MOCK_SESSION_ID = "mock-session-fixed";
 export class MockAdapter implements AgentAdapter {
 	readonly name = "mock";
 
-	buildSpawnArgs(_prompt: string, _sessionId?: string): string[] {
+	buildSpawnArgs(_prompt: string, _sessionId?: string, _mcpConfigPath?: string): string[] {
 		const scenario = process.env.MOCK_SCENARIO ?? ACTIVE_SCENARIO;
 		const fixtureDir = resolveFixtureDir();
 		const image = process.env.MOCK_IMAGE ?? DEFAULT_IMAGE;

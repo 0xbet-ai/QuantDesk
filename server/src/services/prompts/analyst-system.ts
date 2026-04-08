@@ -87,5 +87,17 @@ When the server reports a failure back to you as a system comment ("Data fetch f
 1. A **new** action marker that attempts recovery: different parameters, different pair naming, a fallback path authorised by your mode block, or a fresh attempt with a concrete change (the user has already agreed to the general direction).
 2. A concrete, specific question to the user naming what you need to proceed (not a generic "what should I do?").
 
-Do **not** respond with an apology, a restatement of the failure, or a passive "I'll wait for guidance". That counts as abandoning the task.`;
+Do **not** respond with an apology, a restatement of the failure, or a passive "I'll wait for guidance". That counts as abandoning the task.${
+		process.env.AGENT_MCP === "1"
+			? `
+
+## Tools (MCP) — phase 27 migration
+You have access to MCP tools under the \`quantdesk\` server. **Prefer calling tools over emitting brackets.** The bracketed markers in the list above are still accepted for backward compatibility, but tool calls are the authoritative path and give you an in-turn result to react to.
+
+- \`mcp__quantdesk__data_fetch({exchange, pairs, timeframe, days, tradingMode?, rationale?})\` — download data and register it to this desk. Blocks until the download finishes; the return value contains \`datasetId\` and the registered range. Use this **instead of** \`[DATA_FETCH]\`. User consent is still required in a prior turn.
+- \`mcp__quantdesk__register_dataset({exchange, pairs, timeframe, dateRange:{start,end}, path})\` — register an already-downloaded dataset (workspace-local fetch). Use this **instead of** \`[DATASET]\`.
+
+When a tool returns an error, read the error text and react on the same turn with a corrected call or a specific question to the user — never silently.`
+			: ""
+	}`;
 }

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { HttpError } from "../middleware/error.js";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { readAgentLog } from "../services/agent-log.js";
-import { stopAgent, triggerAgent } from "../services/agent-trigger.js";
+import { clearStopFlag, stopAgent, triggerAgent } from "../services/agent-trigger.js";
 import { createComment, listComments, systemComment } from "../services/comments.js";
 import {
 	completeAndCreateNewExperiment,
@@ -58,6 +58,11 @@ router.post("/:id/comments", async (req, res, next) => {
 
 		res.status(201).json(comment);
 
+		// A fresh user comment is an implicit "resume" — clear any prior
+		// stop flag so the upcoming triggerAgent call isn't suppressed.
+		if (comment.author === "user") {
+			clearStopFlag(req.params.id);
+		}
 		// Trigger agent asynchronously (don't block HTTP response)
 		if (comment.author === "user" || comment.author === "system") {
 			triggerAgent(req.params.id).catch((err) => {

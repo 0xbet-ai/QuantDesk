@@ -37,7 +37,7 @@ export type StreamChunk =
 
 export interface AgentAdapter {
 	readonly name: string;
-	buildSpawnArgs(prompt: string, sessionId?: string): string[];
+	buildSpawnArgs(prompt: string, sessionId?: string, mcpConfigPath?: string): string[];
 	parseOutputStream(lines: string[]): SpawnResult;
 	/** Extract structured chunk from a streaming JSON line, or null if not relevant. */
 	parseStreamLine(line: string): StreamChunk | null;

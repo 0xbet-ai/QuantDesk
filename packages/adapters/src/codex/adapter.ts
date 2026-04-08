@@ -20,7 +20,7 @@ type CodexEvent = CodexThreadStarted | CodexItemCompleted | CodexTurnCompleted;
 export class CodexAdapter implements AgentAdapter {
 	readonly name = "codex";
 
-	buildSpawnArgs(prompt: string, sessionId?: string): string[] {
+	buildSpawnArgs(prompt: string, sessionId?: string, _mcpConfigPath?: string): string[] {
 		if (sessionId) {
 			return ["codex", "exec", "--json", "resume", sessionId, "-"];
 		}

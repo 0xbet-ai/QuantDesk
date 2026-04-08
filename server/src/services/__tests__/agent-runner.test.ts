@@ -76,7 +76,11 @@ describe("AgentRunner", () => {
 			agentRole: "analyst",
 		});
 
-		expect(mockAdapter.buildSpawnArgs).toHaveBeenCalledWith(expect.any(String), "session-prev");
+		expect(mockAdapter.buildSpawnArgs).toHaveBeenCalledWith(
+			expect.any(String),
+			"session-prev",
+			undefined,
+		);
 		const args = mockAdapter.buildSpawnArgs.mock.results[0]!.value;
 		expect(args).toContain("--resume");
 		expect(args).toContain("session-prev");

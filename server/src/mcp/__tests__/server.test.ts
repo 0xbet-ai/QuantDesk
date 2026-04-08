@@ -1,26 +1,22 @@
 /**
- * Phase 27a scaffold smoke test.
+ * Phase 27b — MCP server tool registration smoke test.
  *
- * Asserts that the MCP server factory produces a server with zero tools
- * registered. Later slices will extend this to exercise each tool
- * handler via the SDK's in-memory client/server pair.
+ * Verifies the factory registers the expected tool names. Handler
+ * round-trip tests live closer to the real services (integration tests
+ * that spin up the DB); this file only checks wiring.
  */
 import { describe, expect, it } from "vitest";
 import { createQuantdeskMcpServer } from "../server.js";
 
-describe("createQuantdeskMcpServer (27a scaffold)", () => {
-	it("constructs a server with zero tools", () => {
+describe("createQuantdeskMcpServer (27b)", () => {
+	it("registers data_fetch and register_dataset", () => {
 		const server = createQuantdeskMcpServer({
 			experimentId: "exp-test",
 			deskId: "desk-test",
 		});
-		// The `server` field is the low-level Server; the high-level
-		// McpServer's _registeredTools is a private map. We access it via
-		// the documented `.server` escape hatch and count entries on the
-		// private registry via a cast — this is a scaffold assertion that
-		// will be replaced in 27b with a real list_tools round-trip.
 		const tools = (server as unknown as { _registeredTools: Record<string, unknown> })
 			._registeredTools;
-		expect(Object.keys(tools)).toHaveLength(0);
+		const names = Object.keys(tools).sort();
+		expect(names).toEqual(["data_fetch", "register_dataset"]);
 	});
 });
