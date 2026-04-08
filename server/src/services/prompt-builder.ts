@@ -99,9 +99,9 @@ You MUST:
 - read the failure message above carefully — the upstream tool already told
   you what is wrong
 - if the failure mentions a tool/library limitation (e.g. "exchange does not
-  support ohlcv", "strategy class not found"), look up the upstream project
-  if you have web/file access (e.g. github.com/freqtrade/freqtrade, the
-  Nautilus docs) before guessing
+  support ohlcv", "strategy class not found"), use whatever file/web access
+  you have to consult the upstream tool's source or docs before guessing —
+  the error message names the tool, search from there
 - try a *fundamentally* different approach: different exchange, different
   trading mode, different timeframe, different strategy class, fall back to
   generic engine, etc. — not a one-character tweak
