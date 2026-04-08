@@ -165,19 +165,23 @@ Also maintain a \`config.json\` at workspace root with at minimum:
 - \`exchange.name\`, \`exchange.pair_whitelist\`
 - \`pairlists\`: \`[{"method": "StaticPairList"}]\` (required by freqtrade 2026.x)
 
-### Data acquisition — two paths, in priority order
+### Data acquisition — two paths
 
-**Path A — server-side downloader (preferred for major CEXs):**
+**Path A — server-side downloader (always try first):**
 \`[PROPOSE_DATA_FETCH]\` asks the user to approve a dataset; on approve the
 server runs the engine's bundled \`download-data\` tool inside a container.
-This is the easy path for venues the engine knows (Binance, Bybit, OKX,
-Kraken, etc.).
+This is the cheap path: zero code, the user gets a button. **Always start
+here unless you have empirical evidence from the current session that
+Path A will fail for this exact venue + mode** (e.g. an earlier failure
+comment in this experiment's history).
 
-**Path B — agent-side fetcher (use whenever Path A fails or the venue is
-not supported):** if \`[PROPOSE_DATA_FETCH]\` fails with a "exchange does
-not support ohlcv", "pair not found", "historic data not available", or
-similar engine-side limitation, **do not keep retrying Path A**. Switch
-to Path B:
+Do **not** infer Path A unsupportedness from your training data — engine
+support evolves. Try first, fail empirically, then switch.
+
+**Path B — agent-side fetcher (fallback after a real Path A failure):**
+if Path A fails with "exchange does not support ohlcv", "pair not found",
+"historic data not available", or similar engine-side limitation, **do
+not keep retrying Path A**. Switch to Path B:
 
   1. Probe first if you are unsure of pair naming, supported markets, or
      trade modes — see the failure escalation block when one is injected.
@@ -377,9 +381,7 @@ The title should clearly describe the hypothesis or approach being tested (e.g. 
 ## First-run data fetch (MANDATORY for new desks)
 If the workspace contains no strategy code yet AND no dataset has been registered for this desk, your FIRST response must produce a registered dataset by EITHER Path A (\`[PROPOSE_DATA_FETCH]\`) OR Path B (agent-side fetcher → \`[DATASET]\`) — see the "Data acquisition — two paths" section in your mode-specific instructions. Do NOT write strategy code or emit [RUN_BACKTEST] before a dataset is registered.
 
-**Decision rule:**
-- Major CEXs (Binance / Bybit / OKX / Kraken / Coinbase / etc.) → start with Path A.
-- DEXes / on-chain venues / niche exchanges where the engine's bundled downloader is known to fail (Hyperliquid OHLCV, GMX, Uniswap pools, prediction markets, etc.) → skip directly to Path B. Do not waste a turn on a Path A you already expect to fail.
+**Always start with Path A.** Do not pre-judge whether the engine will support the venue based on what you "know" from training data — engine and CCXT support evolves, and your job is to verify reality empirically. Emit \`[PROPOSE_DATA_FETCH]\` first, let the server actually try, and only switch to Path B if a real failure system comment appears in this experiment's history.
 
 **Path A — \`[PROPOSE_DATA_FETCH]\` flow:** decide the venue, pair naming (honouring the venue's trade mode — e.g. Hyperliquid perps use \`BTC/USDC:USDC\`), timeframe, and history window, then emit:
 
@@ -395,7 +397,7 @@ registered.
 
 After you emit this marker, STOP and wait. The user will approve or reject. On approval, the server will download the data and post a system comment ("Downloaded ..."). Only THEN should you proceed to author the strategy code and emit [RUN_BACKTEST].
 
-**If Path A fails** (engine error, "exchange does not support ohlcv", "historic data not available", pair not found, etc.) — do NOT keep retrying Path A with tweaked parameters. Switch to Path B immediately: write a fetcher script using the venue's REST API or \`ccxt\` directly, save the data to the workspace, and emit \`[DATASET]\` to register it.
+**Only after Path A produces a real failure system comment in this experiment's history** ("Data-fetch failed for ... exchange does not support ohlcv", "historic data not available", "pair not found", etc.) — switch to Path B. Do not skip Path A on guess; do not retry Path A with tweaked parameters once it has empirically failed for this venue+mode. Path B = write a fetcher script using the venue's REST API or \`ccxt\` directly, save the data to the workspace, and emit \`[DATASET]\` to register it.
 
 ## Proposals
 When you want to propose actions, use these markers at the start of a line:
