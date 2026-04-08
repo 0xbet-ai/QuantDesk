@@ -69,6 +69,12 @@ export function estimateTokens(text: string): number {
  */
 export function countRecentFailureStreak(comments: CommentContext[]): number {
 	let n = 0;
+	// Walk from the tail. Failure system comments increment the streak.
+	// Other system comments (progress like "Downloading..." or success like
+	// "Downloaded ...") are *transparent* — they neither break nor add to
+	// the streak. Only a non-system comment (user / analyst / risk_manager)
+	// or an explicit success marker terminates the count, because that is
+	// the moment a real "fresh start" happened.
 	for (let i = comments.length - 1; i >= 0; i--) {
 		const c = comments[i]!;
 		if (c.author !== "system") return n;
@@ -76,7 +82,13 @@ export function countRecentFailureStreak(comments: CommentContext[]): number {
 			n++;
 			continue;
 		}
-		return n;
+		// "Downloaded N file(s)" / "Reusing existing dataset" = success → reset.
+		if (
+			/\b(?:downloaded|reusing existing dataset|backtest run #\d+ completed)\b/i.test(c.content)
+		) {
+			return n;
+		}
+		// Neutral progress comment → skip without affecting the streak.
 	}
 	return n;
 }
@@ -90,28 +102,29 @@ export function buildFailureEscalationBlock(streak: number): string {
 	if (streak === 0) return "";
 	return `## RECENT FAILURE STREAK: ${streak}
 
-The previous attempt(s) failed. You are in a retry loop and you must NOT:
-- repeat the exact same parameters that just failed
-- give up with a plain-text apology
-- ask the user a vague "what should I do?" question
+GIVING UP IS NOT AN OPTION. The previous ${streak} attempt(s) failed. You
+are in a retry loop and the server WILL re-trigger you until you produce a
+valid action marker. Bare acknowledgments in ANY language — "OK", "Sure",
+"Sorry", "I'll stop here", "Understood", or any plain-text wrap-up without
+a marker — are SPEC VIOLATIONS (CLAUDE.md rule #15) and will be
+auto-rejected by the server's dead-end guard, which will then re-prompt
+you with the same situation.
 
-You MUST:
-- read the failure message above carefully — the upstream tool already told
-  you what is wrong
-- if the failure mentions a tool/library limitation (e.g. "exchange does not
-  support ohlcv", "strategy class not found"), use whatever file/web access
-  you have to consult the upstream tool's source or docs before guessing —
-  the error message names the tool, search from there
-- try a *fundamentally* different approach: different exchange, different
-  trading mode, different timeframe, different strategy class, fall back to
-  generic engine, etc. — not a one-character tweak
-- if you have ruled out every plausible path, ask the user a SPECIFIC
-  multiple-choice question with concrete options (not "what now?")
+You must NOT:
+- repeat parameters that just failed
+- end the turn with a plain-text apology and no marker
+- ask the user a vague open-ended question
 
-Persist until the task is solved or every plausible path has been ruled out.
-This block is injected by the server whenever it detects consecutive
-failure system comments — it disappears the moment a turn produces no
-failure.`;
+You MUST end this turn with one of the following, in priority order:
+
+1. A corrected proposal marker with a fundamentally different approach,
+   not a one-character tweak.
+
+2. Only if every plausible path is ruled out: a multiple-choice question
+   to the user with concrete labelled options.
+
+Persist. Try every fundamental variant and every workaround before
+escalating. The server will keep waking you up until something works.`;
 }
 
 export function trimCommentsToTokenBudget(
@@ -152,10 +165,47 @@ Also maintain a \`config.json\` at workspace root with at minimum:
 - \`exchange.name\`, \`exchange.pair_whitelist\`
 - \`pairlists\`: \`[{"method": "StaticPairList"}]\` (required by freqtrade 2026.x)
 
-Data acquisition is driven by the \`[PROPOSE_DATA_FETCH]\` flow (see the
-"First-run data fetch" section above). You propose the dataset, the user
-approves, and the server runs \`freqtrade download-data\` inside a container.
-Do **not** try to run download-data or write downloaded files yourself.
+### Data acquisition — two paths, in priority order
+
+**Path A — server-side downloader (preferred for major CEXs):**
+\`[PROPOSE_DATA_FETCH]\` asks the user to approve a dataset; on approve the
+server runs the engine's bundled \`download-data\` tool inside a container.
+This is the easy path for venues the engine knows (Binance, Bybit, OKX,
+Kraken, etc.).
+
+**Path B — agent-side fetcher (use whenever Path A fails or the venue is
+not supported):** if \`[PROPOSE_DATA_FETCH]\` fails with a "exchange does
+not support ohlcv", "pair not found", "historic data not available", or
+similar engine-side limitation, **do not keep retrying Path A**. Switch
+to Path B:
+
+  1. Probe first if you are unsure of pair naming, supported markets, or
+     trade modes — see the failure escalation block when one is injected.
+  2. Write a small fetcher script in the workspace (e.g.
+     \`fetch_data.py\`) using whatever tool actually works for the venue:
+     \`ccxt\` directly (which often supports more endpoints than the
+     engine's wrapper), the venue's REST API via \`requests\`, the venue's
+     SDK, The Graph for on-chain DEXes, etc.
+  3. Run it via the Bash tool (use \`run_in_background: true\` for slow
+     fetches and poll with BashOutput so progress streams to the user).
+  4. Save the result to \`./data/<exchange>/<pair>-<timeframe>.csv\` or
+     \`.json\`. Path is up to you; just be consistent.
+  5. Emit a \`[DATASET]\` marker so the server registers the dataset and
+     the desk can run backtests against it:
+
+\`\`\`
+[DATASET]
+{"exchange": "<id>", "pairs": ["BTC/USDC:USDC"], "timeframe": "5m", "dateRange": {"start": "2025-10-08", "end": "2026-04-08"}, "path": "<absolute or workspace-relative path>"}
+[/DATASET]
+\`\`\`
+
+After \`[DATASET]\` is registered the desk satisfies the data requirement
+and you may proceed straight to writing strategy code and emitting
+\`[RUN_BACKTEST]\`.
+
+**Never** sit silent or apologise when Path A fails. Path B is always
+available — the only requirement is that the resulting CSV/JSON has
+columns the engine can read (timestamp + OHLCV for classic mode).
 
 Use pandas-ta or talib for indicators. Think in minutes to hours — not ticks.
 
@@ -325,17 +375,27 @@ If the current experiment has no meaningful title yet (e.g. placeholder "New Exp
 The title should clearly describe the hypothesis or approach being tested (e.g. "EMA 7/26 crossover with RSI filter").
 
 ## First-run data fetch (MANDATORY for new desks)
-If the workspace contains no strategy code yet AND no dataset has been registered for this desk, your FIRST response must be a data-fetch proposal — do NOT write any strategy code, config, or emit [RUN_BACKTEST] before the user approves the fetch.
+If the workspace contains no strategy code yet AND no dataset has been registered for this desk, your FIRST response must produce a registered dataset by EITHER Path A (\`[PROPOSE_DATA_FETCH]\`) OR Path B (agent-side fetcher → \`[DATASET]\`) — see the "Data acquisition — two paths" section in your mode-specific instructions. Do NOT write strategy code or emit [RUN_BACKTEST] before a dataset is registered.
 
-Decide the venue, pair naming (honouring the venue's trade mode — e.g. Hyperliquid perps use \`BTC/USDC:USDC\`), timeframe, and history window based on the desk's strategy goal, then emit:
+**Decision rule:**
+- Major CEXs (Binance / Bybit / OKX / Kraken / Coinbase / etc.) → start with Path A.
+- DEXes / on-chain venues / niche exchanges where the engine's bundled downloader is known to fail (Hyperliquid OHLCV, GMX, Uniswap pools, prediction markets, etc.) → skip directly to Path B. Do not waste a turn on a Path A you already expect to fail.
+
+**Path A — \`[PROPOSE_DATA_FETCH]\` flow:** decide the venue, pair naming (honouring the venue's trade mode — e.g. Hyperliquid perps use \`BTC/USDC:USDC\`), timeframe, and history window, then emit:
 
 [PROPOSE_DATA_FETCH]
 {"exchange": "<venue id>", "pairs": ["<pair>"], "timeframe": "<5m|1h|...>", "days": <integer>, "tradingMode": "spot|futures|margin", "rationale": "<why this dataset>"}
 [/PROPOSE_DATA_FETCH]
 
+**Tone for the first turn**: you do NOT have data yet, so do NOT announce
+"I will backtest …" or any equivalent commitment in any language. Frame the prose strictly as a *proposal*: describe the
+strategy idea you want to try and state that you first need the following
+data to test it. The actual backtest only happens after a dataset is
+registered.
+
 After you emit this marker, STOP and wait. The user will approve or reject. On approval, the server will download the data and post a system comment ("Downloaded ..."). Only THEN should you proceed to author the strategy code and emit [RUN_BACKTEST].
 
-If the user rejects or asks for a different dataset, emit a revised [PROPOSE_DATA_FETCH] with updated parameters.
+**If Path A fails** (engine error, "exchange does not support ohlcv", "historic data not available", pair not found, etc.) — do NOT keep retrying Path A with tweaked parameters. Switch to Path B immediately: write a fetcher script using the venue's REST API or \`ccxt\` directly, save the data to the workspace, and emit \`[DATASET]\` to register it.
 
 ## Proposals
 When you want to propose actions, use these markers at the start of a line:
