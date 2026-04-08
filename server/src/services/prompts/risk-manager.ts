@@ -41,7 +41,7 @@ Provide a validation report. Look for signs of overfitting, unrealistic performa
 
 End your response with **exactly one** of the following lines:
 
-- \`[RM_APPROVE]\` — the run is sound. The analyst may now propose paper trading via [PROPOSE_GO_PAPER].
+- \`[RM_APPROVE]\` — the run is sound. The analyst may now ask the user about paper trading and, once agreed, emit [GO_PAPER].
 - \`[RM_REJECT] <short reason>\` — the run looks unsafe (overfit, suspicious metrics, constraint violation, etc.). Paper trading is gated until a fresh validation passes.
 
 The marker is what wires your verdict back into the analyst's next turn — without it the verdict is informational only and \`[RUN_PAPER]\` will refuse.`;

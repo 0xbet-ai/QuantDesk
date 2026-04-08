@@ -1,5 +1,5 @@
 /**
- * CLAUDE.md rule #15 — `hasNextAction` is the invariant every dispatch must
+ * CLAUDE.md rule #12 — `hasNextAction` is the invariant every dispatch must
  * satisfy on completion. Phase 02 ships it as a **pure function** so any
  * future integration test (or runtime guard) can call it without spinning up
  * a DB harness.

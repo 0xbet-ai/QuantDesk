@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { hasNextAction } from "../has-next-action.js";
 
-describe("hasNextAction (rule #15 invariant)", () => {
+describe("hasNextAction (rule #12 invariant)", () => {
 	it("passes when the agent is still in the retrigger queue", () => {
 		const result = hasNextAction({
 			pendingProposalCount: 0,

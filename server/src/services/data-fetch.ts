@@ -1,4 +1,11 @@
-import { existsSync, mkdirSync, readdirSync, symlinkSync, unlinkSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	symlinkSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { db } from "@quantdesk/db";
@@ -7,7 +14,7 @@ import { ENGINE_IMAGES, runContainer } from "@quantdesk/engines";
 import { and, eq, sql } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { systemComment } from "./comments.js";
-import type { DataFetchProposal } from "./triggers.js";
+import type { DataFetchRequest as DataFetchProposal } from "@quantdesk/shared";
 
 const DATA_CACHE_ROOT =
 	process.env.QUANTDESK_DATA_CACHE ?? join(homedir(), ".quantdesk", "datacache");
@@ -109,6 +116,55 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 	// 2. No match — download into the shared cache.
 	mkdirSync(DATA_CACHE_ROOT, { recursive: true });
 	mkdirSync(exchangeCachePath, { recursive: true });
+
+	// Mock mode: skip the real freqtrade download and register a fake
+	// dataset row so UI flows that depend on "data fetch approved" work
+	// deterministically. Real binance has no data for the simulated
+	// future date range (2026-04-08 system clock), so the normal path
+	// would always fail with "length 0".
+	if (process.env.MOCK_AGENT === "1") {
+		// Write a tiny fake OHLCV file so the dataset preview endpoint
+		// has something to read instead of choking on an empty dir.
+		for (const pair of sortedPairs) {
+			const safePair = pair.replace("/", "_");
+			const file = join(exchangeCachePath, `${safePair}-${proposal.timeframe}.csv`);
+			const rows: string[] = ["timestamp,open,high,low,close,volume"];
+			const startMs = start.getTime();
+			for (let i = 0; i < 50; i++) {
+				const ts = startMs + i * 60 * 60 * 1000;
+				const p = 60000 + Math.sin(i / 3) * 500;
+				rows.push(
+					`${ts},${p.toFixed(2)},${(p * 1.01).toFixed(2)},${(p * 0.99).toFixed(2)},${(p * 1.002).toFixed(2)},${(100 + i * 3).toFixed(2)}`,
+				);
+			}
+			writeFileSync(file, rows.join("\n"));
+		}
+
+		const [dataset] = await db
+			.insert(datasets)
+			.values({
+				exchange: proposal.exchange,
+				pairs: sortedPairs,
+				timeframe: proposal.timeframe,
+				dateRange: { start: startDate, end: endDate },
+				path: exchangeCachePath,
+			})
+			.returning();
+		if (dataset) {
+			await linkDatasetToDesk(desk.id, dataset.id);
+			ensureSymlink(exchangeCachePath, workspaceDataLink);
+		}
+		await systemComment({
+			experimentId,
+			nextAction: "action",
+			content:
+				`(mock) Downloaded ${proposal.pairs.join(", ")} ${proposal.timeframe} from ` +
+				`${proposal.exchange} into shared cache. Dataset registered and linked to this ` +
+				"desk. You may now write the strategy and emit [RUN_BACKTEST].",
+			metadata: threadMeta,
+		});
+		return dataset ?? null;
+	}
 	// freqtrade wants a user_data-shaped directory. We give it a temp
 	// workspace rooted at DATA_CACHE_ROOT with the target `data/<exchange>`
 	// being the real cache path — freqtrade writes there directly.

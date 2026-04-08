@@ -56,7 +56,7 @@ export function trimCommentsToTokenBudget(
 
 /**
  * Pick the mode-specific block for a desk's pinned `strategy_mode`. The
- * mode is immutable per desk (CLAUDE.md rule #10) so this resolution is
+ * mode is immutable per desk (CLAUDE.md rule #8) so this resolution is
  * stable for the desk's lifetime.
  */
 function buildModeInstructions(desk: DeskContext): string {

@@ -16,10 +16,14 @@ import {
 import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
 import {
 	extractBacktestResultBody,
+	extractCompleteExperimentRequest,
+	extractDataFetchRequest,
 	extractDatasetBody,
 	extractExperimentTitle,
+	extractNewExperimentRequest,
 	extractRmVerdict,
 	extractRunBacktestRequest,
+	extractValidationRequest,
 	stripAgentMarkers,
 } from "@quantdesk/shared";
 import type { NormalizedResult, RmVerdict } from "@quantdesk/shared";
@@ -33,9 +37,10 @@ import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog, clearAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
 import { createComment, systemComment } from "./comments.js";
+import { executeDataFetch } from "./data-fetch.js";
 import { maybeRescueDeadEnd } from "./dead-end-guard.js";
+import { completeAndCreateNewExperiment, completeExperiment } from "./experiments.js";
 import { autoIncrementRunNumber } from "./logic.js";
-import { detectProposals, extractDataFetchProposal, markerToProposalType } from "./triggers.js";
 import { getCurrentTurnId, runWithTurn } from "./turn-context.js";
 import { commitCode, hasChanges } from "./workspace.js";
 
@@ -453,24 +458,42 @@ export async function triggerAgent(
 					const externalMountVolumes = (desk.externalMounts ?? []).map(
 						(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
 					);
-					const backtestResult = await engineAdapter.runBacktest({
-						strategyPath: "strategy.py",
-						workspacePath: desk.workspacePath!,
-						runId,
-						dataRef: { datasetId: "", path: `${desk.workspacePath}/data` },
-						extraParams: {
-							strategy: runBacktestRequest.strategyName ?? "QuantDeskStrategy",
-							configFile: runBacktestRequest.configFile ?? "config.json",
-						},
-						extraVolumes: externalMountVolumes,
-						onLogLine: (line, stream) => {
-							publishExperimentEvent({
-								experimentId,
-								type: "run.log_chunk",
-								payload: { runId, stream, line },
-							});
-						},
-					});
+					// Mock mode: skip the real engine container and return
+					// synthetic metrics so UI flows can exercise the full
+					// backtest -> run card path without a valid strategy.py in
+					// the workspace.
+					const backtestResult =
+						process.env.MOCK_AGENT === "1"
+							? {
+									normalized: {
+										returnPct: 18.2,
+										drawdownPct: -8.7,
+										winRate: 0.61,
+										totalTrades: 47,
+										trades: [],
+									},
+								}
+							: await engineAdapter.runBacktest({
+									strategyPath: "strategy.py",
+									workspacePath: desk.workspacePath!,
+									runId,
+									dataRef: {
+										datasetId: "",
+										path: `${desk.workspacePath}/data`,
+									},
+									extraParams: {
+										strategy: runBacktestRequest.strategyName ?? "QuantDeskStrategy",
+										configFile: runBacktestRequest.configFile ?? "config.json",
+									},
+									extraVolumes: externalMountVolumes,
+									onLogLine: (line, stream) => {
+										publishExperimentEvent({
+											experimentId,
+											type: "run.log_chunk",
+											payload: { runId, stream, line },
+										});
+									},
+								});
 
 					const resultPayload = normalizedResultToMetrics(backtestResult.normalized);
 
@@ -690,41 +713,94 @@ export async function triggerAgent(
 			}
 
 			// 9. Post agent response as comment (strip all markers).
-			// Attach exactly one `pendingProposal` to the comment metadata so the UI
-			// can render Approve/Reject buttons. PROPOSE_DATA_FETCH (a block marker)
-			// takes priority because it gates rule #13. The four line-form PROPOSE_*
-			// markers are detected via `detectProposals` and the first match wins.
+			// Approval is conversational (CLAUDE.md rule #15): the agent
+			// never creates "pending proposal" objects. When the agent needs
+			// user consent it asks in plain text and waits. When the user
+			// has agreed, the agent's next turn emits the corresponding
+			// action marker (DATA_FETCH, VALIDATION, NEW_EXPERIMENT,
+			// COMPLETE_EXPERIMENT, GO_PAPER) and the server executes it
+			// directly — no approve/reject buttons, no metadata.
+			let currentCommentId: string | undefined;
 			if (result.resultText) {
-				const dataFetchProposal = extractDataFetchProposal(result.resultText);
-				const lineProposals = detectProposals(result.resultText);
-				const firstLineProposal = lineProposals[0];
-
-				let pendingProposal: { type: string; data: unknown } | undefined;
-				if (dataFetchProposal) {
-					pendingProposal = { type: "data_fetch", data: dataFetchProposal };
-				} else if (firstLineProposal) {
-					pendingProposal = {
-						type: markerToProposalType(firstLineProposal.type),
-						data: { value: firstLineProposal.value },
-					};
-				}
-
 				const cleanText = stripAgentMarkers(result.resultText);
-				// Create the comment when EITHER the agent has visible prose OR a
-				// pendingProposal needs to be surfaced as Approve/Reject buttons.
-				// Skipping on empty cleanText would lose the proposal metadata and
-				// leave the user staring at a blank desk — a CLAUDE.md rule #15
-				// dead-end. The UI's comment renderer already handles empty body
-				// gracefully (the markdown block is omitted, the proposal card
-				// renders standalone).
-				if (cleanText || pendingProposal) {
-					await createComment({
+				if (cleanText) {
+					const created = await createComment({
 						experimentId,
 						author: session.agentRole,
 						content: cleanText,
-						metadata: pendingProposal ? { pendingProposal } : undefined,
+					});
+					currentCommentId = created.id;
+				}
+			}
+
+			// 9a. Direct action markers that run NOW — the agent asked the
+			// user in a previous turn, the user agreed, and this turn is
+			// the execution step.
+			if (result.resultText) {
+				const dataFetchRequest = extractDataFetchRequest(result.resultText);
+				if (dataFetchRequest) {
+					try {
+						await executeDataFetch({
+							experimentId,
+							proposal: dataFetchRequest,
+							parentCommentId: currentCommentId,
+						});
+						void triggerAgent(experimentId).catch((err) => {
+							console.error("Retrigger after DATA_FETCH failed:", err);
+						});
+					} catch (err) {
+						console.error("DATA_FETCH execution failed:", err);
+						await systemComment({
+							experimentId,
+							nextAction: "action",
+							content: `Data fetch failed: ${
+								err instanceof Error ? err.message : String(err)
+							}. Reply with different parameters and try again.`,
+							metadata: currentCommentId
+								? { parentCommentId: currentCommentId }
+								: undefined,
+						});
+					}
+				}
+
+				if (extractValidationRequest(result.resultText)) {
+					void triggerAgent(experimentId, "risk_manager").catch((err) => {
+						console.error("Risk-manager dispatch after VALIDATION failed:", err);
 					});
 				}
+
+				const newExperimentRequest = extractNewExperimentRequest(result.resultText);
+				if (newExperimentRequest) {
+					try {
+						const newExperiment = await completeAndCreateNewExperiment({
+							currentExperimentId: experimentId,
+							newTitle: newExperimentRequest.title,
+						});
+						void triggerAgent(newExperiment.id).catch((err) => {
+							console.error("Retrigger after NEW_EXPERIMENT failed:", err);
+						});
+					} catch (err) {
+						console.error("NEW_EXPERIMENT execution failed:", err);
+					}
+				}
+
+				if (extractCompleteExperimentRequest(result.resultText)) {
+					try {
+						await completeExperiment(experimentId);
+						await systemComment({
+							experimentId,
+							nextAction: "action",
+							content:
+								"Experiment closed. Reply with the next direction to start a new " +
+								"experiment, or close the desk to finish.",
+						});
+					} catch (err) {
+						console.error("COMPLETE_EXPERIMENT execution failed:", err);
+					}
+				}
+			}
+
+			if (result.resultText) {
 
 				// 9b. Risk Manager verdict loop-back (phase 08).
 				// If this turn was the RM, parse the verdict marker and:
@@ -782,7 +858,7 @@ export async function triggerAgent(
 				}
 			}
 
-			// 9c. Dead-end guard (CLAUDE.md rule #15, phase 14). If this turn
+			// 9c. Dead-end guard (CLAUDE.md rule #14, phase 14). If this turn
 			// produced no action marker AND the response is a bare acknowledgment,
 			// the user has nothing to click — the guard posts a forcing system
 			// comment and re-triggers the agent. Capped per-experiment so a
@@ -790,12 +866,14 @@ export async function triggerAgent(
 			const hadActionMarker =
 				!!result.resultText &&
 				(!!extractRunBacktestRequest(result.resultText) ||
-					!!extractDataFetchProposal(result.resultText) ||
+					!!extractDataFetchRequest(result.resultText) ||
 					!!extractExperimentTitle(result.resultText) ||
 					!!extractRmVerdict(result.resultText) ||
 					!!extractBacktestResultBody(result.resultText) ||
 					!!extractDatasetBody(result.resultText) ||
-					detectProposals(result.resultText).length > 0);
+					extractValidationRequest(result.resultText) ||
+					!!extractNewExperimentRequest(result.resultText) ||
+					extractCompleteExperimentRequest(result.resultText));
 
 			// MOCK_AGENT scenarios are deterministic and intentionally produce
 			// no markers, so the dead-end guard would loop forever rescuing

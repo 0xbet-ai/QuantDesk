@@ -1,5 +1,5 @@
 /**
- * CLAUDE.md rule #15 — no user dead-ends.
+ * CLAUDE.md rule #12 — no user dead-ends.
  *
  * This file is the phase 01 static lint: it walks every TypeScript source
  * file in `server/src` and enforces two rules:
@@ -7,7 +7,7 @@
  * 1. **No direct `createComment({ author: "system", ... })`.** Outside of
  *    `server/src/services/comments.ts` (which defines the wrapper), every
  *    system-authored comment must go through `systemComment(...)` so the
- *    caller is forced to declare how rule #15 is satisfied.
+ *    caller is forced to declare how rule #12 is satisfied.
  *
  * 2. **`systemComment({ nextAction: "action", content: <literal> })` must
  *    contain an action phrase.** Dynamic content with `nextAction: "action"`
@@ -292,7 +292,7 @@ function extractNextAction(block: string): string | null {
 	return m?.[1] ?? null;
 }
 
-describe("rule #15 — no user dead-ends (static lint)", () => {
+describe("rule #12 — no user dead-ends (static lint)", () => {
 	const files = walkTsFiles(SERVER_SRC);
 
 	it("there is at least one .ts file scanned (sanity)", () => {

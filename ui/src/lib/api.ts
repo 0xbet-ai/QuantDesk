@@ -195,24 +195,6 @@ export const postComment = (experimentId: string, content: string) =>
 		body: JSON.stringify({ author: "user", content }),
 	});
 
-export interface DataFetchProposal {
-	exchange: string;
-	pairs: string[];
-	timeframe: string;
-	days: number;
-	tradingMode?: "spot" | "futures" | "margin";
-	rationale?: string;
-}
-
-/**
- * Generic approve/reject for any comment carrying a `pendingProposal`.
- * See `doc/agent/MARKERS.md` Proposal markers section.
- */
-export const postProposalDecision = (commentId: string, action: "approve" | "reject") =>
-	api<{ ok: true }>(`/comments/${commentId}/${action}`, {
-		method: "POST",
-	});
-
 export const listStrategies = (engine?: string) =>
 	api<Strategy[]>(`/strategies${engine ? `?engine=${engine}` : ""}`);
 

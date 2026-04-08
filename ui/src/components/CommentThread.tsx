@@ -17,14 +17,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
-import type { Comment, DataFetchProposal, Dataset, Experiment } from "../lib/api.js";
+import type { Comment, Dataset, Experiment } from "../lib/api.js";
 import {
-	completeAndCreateNewExperiment,
 	getAgentLogs,
 	listComments,
 	listDatasets,
 	postComment,
-	postProposalDecision,
 } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { DatasetPreviewModal } from "./DatasetView.js";
@@ -94,293 +92,11 @@ const markdownComponents = {
 	},
 };
 
-interface Proposal {
-	type: "VALIDATION" | "NEW_EXPERIMENT" | "COMPLETE_EXPERIMENT" | "GO_PAPER";
-	value: string;
-}
-
-const proposalLabels: Record<Proposal["type"], string> = {
-	VALIDATION: "Run Risk Manager validation",
-	NEW_EXPERIMENT: "Create new experiment",
-	COMPLETE_EXPERIMENT: "Mark experiment as completed",
-	GO_PAPER: "Start paper trading with this run",
-};
-
-// Server-side ProposalType (lowercase) → legacy ProposalCard type (uppercase).
-// data_fetch is intentionally excluded — that gets its own card.
-const METADATA_TO_PROPOSAL_TYPE: Record<string, Proposal["type"]> = {
-	validation: "VALIDATION",
-	new_experiment: "NEW_EXPERIMENT",
-	complete_experiment: "COMPLETE_EXPERIMENT",
-	go_paper: "GO_PAPER",
-};
-
-/**
- * Read a `Proposal` (the four legacy PROPOSE_* types) from the server-set
- * `pendingProposal` metadata. Returns null for data_fetch (handled by
- * `extractDataFetchProposal` below) and for any other shape.
- *
- * The server is the single owner of marker parsing — phase 04 wired the
- * `pendingProposal` shape onto every comment, and the UI must NEVER regex
- * the raw content for marker discovery.
- */
-function extractLegacyProposal(metadata: Record<string, unknown> | null): Proposal | null {
-	if (!metadata) return null;
-	const pending = (metadata as { pendingProposal?: { type?: string; data?: { value?: string } } })
-		.pendingProposal;
-	if (!pending?.type) return null;
-	const mapped = METADATA_TO_PROPOSAL_TYPE[pending.type];
-	if (!mapped) return null;
-	return { type: mapped, value: pending.data?.value ?? "" };
-}
-
 // Strip [user]/[analyst]/[system]/[risk_manager] prefixes the agent may echo.
 // This is post-processing of agent output, not marker handling — kept here.
 const AUTHOR_PREFIX_RE = /^\[(user|analyst|system|risk_manager)\]\s*/gm;
 function stripAuthorPrefixes(text: string): string {
 	return text.replace(AUTHOR_PREFIX_RE, "");
-}
-
-function ProposalCard({
-	proposal,
-	experimentId,
-	onAction,
-	onNewExperiment,
-}: {
-	proposal: Proposal;
-	experimentId: string;
-	onAction: () => void;
-	onNewExperiment?: (newExp: Experiment) => void;
-}) {
-	const [status, setStatus] = useState<"pending" | "approved" | "declined">("pending");
-
-	const handleApprove = async () => {
-		setStatus("approved");
-
-		// Special handling for NEW_EXPERIMENT — actually create the experiment
-		if (proposal.type === "NEW_EXPERIMENT" && onNewExperiment) {
-			try {
-				const title = proposal.value || "New Experiment";
-				const newExp = await completeAndCreateNewExperiment(experimentId, { title });
-				onNewExperiment(newExp);
-				return;
-			} catch (err) {
-				console.error("Failed to create new experiment:", err);
-				setStatus("pending");
-				return;
-			}
-		}
-
-		const message = `Approved: ${proposalLabels[proposal.type]}${proposal.value ? ` — ${proposal.value}` : ""}`;
-		await postComment(experimentId, message);
-		onAction();
-	};
-
-	const handleDecline = async () => {
-		setStatus("declined");
-		const message = `Declined: ${proposalLabels[proposal.type]}`;
-		await postComment(experimentId, message);
-		onAction();
-	};
-
-	return (
-		<div className="mt-2 rounded-md border border-border bg-muted/50 px-3 py-2">
-			<span className="text-xs text-foreground">
-				{proposalLabels[proposal.type]}
-				{proposal.value && <span className="text-muted-foreground ml-1">— {proposal.value}</span>}
-			</span>
-			{status === "pending" ? (
-				<div className="flex gap-2 mt-2">
-					<Button
-						size="sm"
-						variant="outline"
-						className="h-7 px-3 text-xs gap-1"
-						onClick={handleApprove}
-					>
-						<CheckCircle2 className="size-3" />
-						Approve
-					</Button>
-					<Button
-						size="sm"
-						variant="ghost"
-						className="h-7 px-3 text-xs gap-1 text-muted-foreground"
-						onClick={handleDecline}
-					>
-						<XCircle className="size-3" />
-						Decline
-					</Button>
-				</div>
-			) : (
-				<div className="mt-1">
-					<span
-						className={cn(
-							"text-xs font-medium",
-							status === "approved" ? "text-green-500" : "text-muted-foreground",
-						)}
-					>
-						{status === "approved" ? "Approved" : "Declined"}
-					</span>
-				</div>
-			)}
-		</div>
-	);
-}
-
-function DataFetchProposalCard({
-	proposal,
-	commentId,
-	experimentId,
-	onAction,
-}: {
-	proposal: DataFetchProposal;
-	commentId: string;
-	experimentId: string;
-	onAction: () => void;
-}) {
-	const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "replied">(
-		"pending",
-	);
-	const [replyOpen, setReplyOpen] = useState(false);
-	const [replyText, setReplyText] = useState("");
-	const [sending, setSending] = useState(false);
-
-	const decide = async (action: "approve" | "reject") => {
-		setStatus(action === "approve" ? "approved" : "rejected");
-		try {
-			await postProposalDecision(commentId, action);
-			onAction();
-		} catch (err) {
-			console.error("data-fetch decision failed:", err);
-			setStatus("pending");
-		}
-	};
-
-	const sendReply = async () => {
-		if (!replyText.trim() || sending) return;
-		setSending(true);
-		try {
-			await postComment(experimentId, replyText.trim());
-			setStatus("replied");
-			setReplyOpen(false);
-			setReplyText("");
-			onAction();
-		} catch (err) {
-			console.error("data-fetch reply failed:", err);
-		} finally {
-			setSending(false);
-		}
-	};
-
-	return (
-		<div className="mt-2 rounded-md border border-border bg-muted/50 px-3 py-2">
-			<div className="text-xs font-medium text-foreground">Fetch historical data for backtest?</div>
-			<div className="mt-1 text-[11px] text-muted-foreground space-y-0.5">
-				<div>
-					<span className="font-medium text-foreground">{proposal.pairs.join(", ")}</span> ·{" "}
-					{proposal.timeframe} · last {proposal.days} days · {proposal.exchange}
-					{proposal.tradingMode ? ` (${proposal.tradingMode})` : ""}
-				</div>
-				{proposal.rationale && <div className="italic">{proposal.rationale}</div>}
-			</div>
-			{status === "pending" ? (
-				<>
-					<div className="flex gap-2 mt-2">
-						<Button
-							size="sm"
-							variant="outline"
-							className="h-7 px-3 text-xs gap-1"
-							onClick={() => decide("approve")}
-						>
-							<CheckCircle2 className="size-3" />
-							Approve & download
-						</Button>
-						<Button
-							size="sm"
-							variant="ghost"
-							className="h-7 px-3 text-xs gap-1 text-muted-foreground"
-							onClick={() => decide("reject")}
-						>
-							<XCircle className="size-3" />
-							Reject
-						</Button>
-						<Button
-							size="sm"
-							variant="ghost"
-							className="h-7 px-3 text-xs gap-1 text-muted-foreground"
-							onClick={() => setReplyOpen((v) => !v)}
-						>
-							<MessageSquare className="size-3" />
-							Reply
-						</Button>
-					</div>
-					{replyOpen && (
-						<div className="mt-2 flex gap-2">
-							<Input
-								autoFocus
-								value={replyText}
-								onChange={(e) => setReplyText(e.target.value)}
-								onKeyDown={(e) => {
-									if (e.key === "Enter" && !e.shiftKey) {
-										e.preventDefault();
-										sendReply();
-									}
-								}}
-								placeholder="Ask the agent to adjust the proposal..."
-								disabled={sending}
-								className="h-7 text-xs"
-							/>
-							<Button
-								size="sm"
-								className="h-7 px-3 text-xs"
-								onClick={sendReply}
-								disabled={sending || !replyText.trim()}
-							>
-								Send
-							</Button>
-						</div>
-					)}
-				</>
-			) : (
-				<div className="mt-1 text-xs font-medium">
-					<span
-						className={
-							status === "approved"
-								? "text-green-500"
-								: status === "replied"
-									? "text-blue-500"
-									: "text-muted-foreground"
-						}
-					>
-						{status === "approved"
-							? "Approved — downloading..."
-							: status === "replied"
-								? "Reply sent"
-								: "Rejected"}
-					</span>
-				</div>
-			)}
-		</div>
-	);
-}
-
-function extractDataFetchProposal(
-	metadata: Record<string, unknown> | null,
-): DataFetchProposal | null {
-	if (!metadata) return null;
-	const pending = (metadata as { pendingProposal?: { type?: string; data?: unknown } })
-		.pendingProposal;
-	if (!pending || pending.type !== "data_fetch") return null;
-	const data = pending.data as Partial<DataFetchProposal> | undefined;
-	if (
-		!data ||
-		typeof data.exchange !== "string" ||
-		!Array.isArray(data.pairs) ||
-		typeof data.timeframe !== "string" ||
-		typeof data.days !== "number"
-	) {
-		return null;
-	}
-	return data as DataFetchProposal;
 }
 
 function DatasetChips({ deskId, after }: { deskId: string; after: string }) {
@@ -466,7 +182,6 @@ export function CommentThread({
 	experiment,
 	onOpenRun,
 	onOpenTurn,
-	onNewExperiment,
 	onExperimentUpdated,
 }: Props) {
 	const [comments, setComments] = useState<Comment[]>([]);
@@ -580,21 +295,14 @@ export function CommentThread({
 	// We consider the work "truly done" when:
 	//   - turnStatus === "completed", AND
 	//   - no live data-fetch tail, AND
-	//   - no live engine log tail, AND
-	//   - the last comment does NOT carry a pendingProposal (user hasn't
-	//     been asked to act on anything yet).
+	//   - no live engine log tail.
 	// failed / stopped stay visible regardless so the user can react.
 	useEffect(() => {
 		if (turnStatus !== "completed") {
 			setFadingOut(false);
 			return;
 		}
-		const last = comments[comments.length - 1];
-		const hasPendingProposal = !!(
-			last?.metadata as { pendingProposal?: unknown } | null | undefined
-		)?.pendingProposal;
-		const workStillHappening =
-			dataFetchProgress.length > 0 || runLogLines.length > 0 || hasPendingProposal;
+		const workStillHappening = dataFetchProgress.length > 0 || runLogLines.length > 0;
 		if (workStillHappening) {
 			setFadingOut(false);
 			return;
@@ -645,6 +353,13 @@ export function CommentThread({
 				setTurnStatus(payload.status);
 				if (payload.status !== "running") {
 					setTurnFailureReason(payload.failureReason ?? null);
+					// Clear the thinking flag so the comment input re-enables.
+					// `agent.done` is supposed to do this too, but the two
+					// events race and if turn.status arrives first the input
+					// stays locked on "Agent is working..." even though the
+					// card is already showing "completed".
+					setThinkingRole(null);
+					setRunStartedAt(null);
 				}
 			}
 		}
@@ -876,7 +591,6 @@ export function CommentThread({
 						const config = authorConfig[c.author] ?? authorConfig.system!;
 						const Icon = config.icon;
 						const cleanContent = stripAuthorPrefixes(c.content).trim();
-						const legacyProposal = extractLegacyProposal(c.metadata);
 						const children = childrenByParent.get(c.id) ?? [];
 
 						// Timeline mode: render as a row in the turn card's
@@ -886,28 +600,6 @@ export function CommentThread({
 						if (inTurnCard) {
 							const tl = pickTimelineIcon(c);
 							const TLIcon = tl.Icon;
-							const dfp = extractDataFetchProposal(c.metadata);
-							// "tool call" label — when an analyst comment carries
-							// a pendingProposal it's effectively a tool invocation
-							// in our domain. Show the marker name as a small
-							// chip above the proposal so the timeline reads as
-							// "analyst said X, then called tool Y".
-							const pendingType = (
-								c.metadata as { pendingProposal?: { type?: string } } | null
-							)?.pendingProposal?.type;
-							const toolLabel = pendingType
-								? pendingType === "data_fetch"
-									? "Tool · fetch_data"
-									: pendingType === "validation"
-										? "Tool · request_validation"
-										: pendingType === "new_experiment"
-											? "Tool · new_experiment"
-											: pendingType === "complete_experiment"
-												? "Tool · complete_experiment"
-												: pendingType === "go_paper"
-													? "Tool · go_paper"
-													: `Tool · ${pendingType}`
-								: null;
 							return (
 								<div key={c.id} className="relative pl-8 pb-5 last:pb-0">
 									<div
@@ -926,31 +618,6 @@ export function CommentThread({
 												{formatAgentMarkersForDisplay(cleanContent)}
 											</Markdown>
 										</div>
-									)}
-									{toolLabel && (
-										<div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground">
-											{toolLabel}
-										</div>
-									)}
-									{legacyProposal && (
-										<ProposalCard
-											proposal={legacyProposal}
-											experimentId={experiment.id}
-											onAction={() => {
-												refresh();
-												setThinkingRole("analyst");
-												setStreamEntries([]);
-											}}
-											onNewExperiment={onNewExperiment}
-										/>
-									)}
-									{dfp && (
-										<DataFetchProposalCard
-											proposal={dfp}
-											commentId={c.id}
-											experimentId={experiment.id}
-											onAction={() => refresh()}
-										/>
 									)}
 									{(c.author === "analyst" || c.author === "risk_manager") && (
 										<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
@@ -996,37 +663,6 @@ export function CommentThread({
 											</Markdown>
 										</div>
 									)}
-									{legacyProposal && (
-										<ProposalCard
-											proposal={legacyProposal}
-											experimentId={experiment.id}
-											onAction={() => {
-												refresh();
-												setThinkingRole("analyst");
-												setStreamEntries([]);
-											}}
-											onNewExperiment={onNewExperiment}
-										/>
-									)}
-									{(() => {
-										const dfp = extractDataFetchProposal(c.metadata);
-										return dfp ? (
-											<DataFetchProposalCard
-												proposal={dfp}
-												commentId={c.id}
-												experimentId={experiment.id}
-												onAction={() => {
-													// Don't preemptively show the AGENT TURN widget here.
-													// The download runs first; the real `agent.thinking`
-													// WebSocket event will arrive after it finishes and the
-													// server retriggers the agent. Showing the empty widget
-													// during the download stacks an "Agent is working" panel
-													// under the live data-fetch tail, which is misleading.
-													refresh();
-												}}
-											/>
-										) : null;
-									})()}
 									{(c.author === "analyst" || c.author === "risk_manager") && (
 										<>
 											<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
@@ -1064,18 +700,12 @@ export function CommentThread({
 							item.comments.find((c) => c.author === "risk_manager")
 								? "risk_manager"
 								: "analyst";
-						// If any nested comment carries an unresolved
-						// pendingProposal, the turn is waiting on the user —
-						// surface that explicitly instead of "completed" so the
-						// header doesn't contradict the action buttons below.
-						const hasPending = item.comments.some(
-							(c) =>
-								!!(c.metadata as { pendingProposal?: unknown } | null | undefined)
-									?.pendingProposal,
-						);
-						const pastStatus: TurnLifecycleStatus = hasPending
-							? "awaiting_user"
-							: "completed";
+						// Past-turn cards are always "completed" — approval is
+						// conversational now (CLAUDE.md rule #15), so there's
+						// no "awaiting_user" state encoded in the comments. If
+						// the agent ended with a question, the user just
+						// replies in the composer.
+						const pastStatus: TurnLifecycleStatus = "completed";
 						return (
 							<TurnCard
 								key={item.turnId}

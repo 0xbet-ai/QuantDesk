@@ -25,14 +25,14 @@ interface MarkerDef {
 export const AGENT_MARKERS: readonly MarkerDef[] = [
 	{ name: "BACKTEST_RESULT", kind: "block", display: "json-code-block" },
 	{ name: "DATASET", kind: "block", display: "json-code-block" },
+	{ name: "DATA_FETCH", kind: "block", display: "strip" },
 	{ name: "RUN_BACKTEST", kind: "block", display: "strip" },
-	{ name: "PROPOSE_DATA_FETCH", kind: "block", display: "strip" },
 	{ name: "EXPERIMENT_TITLE", kind: "line", display: "strip" },
+	{ name: "VALIDATION", kind: "line", display: "strip" },
+	{ name: "NEW_EXPERIMENT", kind: "line", display: "strip" },
+	{ name: "COMPLETE_EXPERIMENT", kind: "line", display: "strip" },
+	{ name: "GO_PAPER", kind: "line", display: "strip" },
 	{ name: "RUN_PAPER", kind: "line", display: "strip" },
-	{ name: "PROPOSE_VALIDATION", kind: "line", display: "strip" },
-	{ name: "PROPOSE_NEW_EXPERIMENT", kind: "line", display: "strip" },
-	{ name: "PROPOSE_COMPLETE_EXPERIMENT", kind: "line", display: "strip" },
-	{ name: "PROPOSE_GO_PAPER", kind: "line", display: "strip" },
 	// Risk Manager verdict markers (phase 08)
 	{ name: "RM_APPROVE", kind: "line", display: "strip" },
 	{ name: "RM_REJECT", kind: "line", display: "strip" },
@@ -52,7 +52,7 @@ function lineRegex(name: string): RegExp {
 // One canonical home for every "find a marker in text" function. Adding a
 // new marker means: append to AGENT_MARKERS above, then add an extractor
 // here. Server services and UI components must NOT inline their own marker
-// regexes (caught by the SRP audit and the rule #14 phase lifecycle).
+// regexes (caught by the SRP audit and the rule #11 phase lifecycle).
 // ──────────────────────────────────────────────────────────────────────────
 
 /**
@@ -101,12 +101,76 @@ export function extractDatasetBody(text: string): string | null {
 }
 
 /**
+ * `[DATA_FETCH]\n{...json...}\n[/DATA_FETCH]` — server executes the download
+ * immediately. The agent must have asked and received user agreement in the
+ * previous turn (CLAUDE.md rules #12 / #15). The server does not check this
+ * socially; the agent is trusted to follow the conversational approval
+ * pattern.
+ */
+export interface DataFetchRequest {
+	exchange: string;
+	pairs: string[];
+	timeframe: string;
+	days: number;
+	tradingMode?: "spot" | "futures" | "margin";
+	rationale?: string;
+}
+export function extractDataFetchRequest(text: string): DataFetchRequest | null {
+	const body = extractFirstBlockBody(text, "DATA_FETCH");
+	if (body === null) return null;
+	try {
+		const parsed = JSON.parse(body) as Partial<DataFetchRequest>;
+		if (
+			typeof parsed.exchange !== "string" ||
+			!Array.isArray(parsed.pairs) ||
+			typeof parsed.timeframe !== "string" ||
+			typeof parsed.days !== "number"
+		) {
+			return null;
+		}
+		return {
+			exchange: parsed.exchange,
+			pairs: parsed.pairs,
+			timeframe: parsed.timeframe,
+			days: parsed.days,
+			tradingMode: parsed.tradingMode,
+			rationale: parsed.rationale,
+		};
+	} catch {
+		return null;
+	}
+}
+
+/**
  * `[EXPERIMENT_TITLE] <short title>` — line marker. Returns the trimmed
  * title or null if absent.
  */
 export function extractExperimentTitle(text: string): string | null {
 	const m = text.match(/\[EXPERIMENT_TITLE\]\s*(.+?)(?:\n|$)/);
 	return m?.[1]?.trim() || null;
+}
+
+/**
+ * Line-form action markers the agent emits after the user has agreed in
+ * the preceding exchange (CLAUDE.md rule #13 — conversational approval).
+ *
+ * Each extractor returns a typed result for present markers, or null.
+ */
+export function extractValidationRequest(text: string): boolean {
+	return /^\[VALIDATION\]/m.test(text);
+}
+export function extractNewExperimentRequest(text: string): { title: string } | null {
+	const m = text.match(/^\[NEW_EXPERIMENT\]\s*(.+?)(?:\n|$)/m);
+	const title = m?.[1]?.trim();
+	return title ? { title } : null;
+}
+export function extractCompleteExperimentRequest(text: string): boolean {
+	return /^\[COMPLETE_EXPERIMENT\]/m.test(text);
+}
+export function extractGoPaperRequest(text: string): { runId: string } | null {
+	const m = text.match(/^\[GO_PAPER\]\s*(\S+)/m);
+	const runId = m?.[1]?.trim();
+	return runId ? { runId } : null;
 }
 
 /**

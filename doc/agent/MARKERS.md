@@ -230,6 +230,11 @@ RUN_PAPER(runId: string)
              - rejected_no_validation  → refusal comment asks the user
                                           about validation
              - rejected_active_session → refusal comment names the existing session
+  user_next_action (per rule #14):
+             launched                  → desk header surfaces the live paper widget
+             rejected_no_validation    → agent asks the user about validation
+             rejected_active_session   → agent asks the user about stopping
+                                          the existing session
   notes:     use RUN_PAPER when the agent has already cleared the decision
              with the user earlier in the conversation and is now executing
              it as part of a larger multi-step plan. Use GO_PAPER when the

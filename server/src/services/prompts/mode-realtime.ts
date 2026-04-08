@@ -29,8 +29,8 @@ the TradingNode.
 
 ### Data acquisition
 There is **no server-side data fetcher** for realtime desks yet — the
-generic \`[PROPOSE_DATA_FETCH]\` path only runs for classic mode. Do **not**
-emit \`[PROPOSE_DATA_FETCH]\`; the server will post a system comment telling
+generic \`[DATA_FETCH]\` path only runs for classic mode. Do **not**
+emit \`[DATA_FETCH]\`; the server will post a system comment telling
 you it is unsupported and nothing will happen. Fetch the data yourself:
 
 1. Write a fetcher script in the workspace (e.g. \`fetch_data.py\`) using

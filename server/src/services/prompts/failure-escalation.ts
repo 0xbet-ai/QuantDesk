@@ -56,7 +56,7 @@ GIVING UP IS NOT AN OPTION. The previous ${streak} attempt(s) failed. You
 are in a retry loop and the server WILL re-trigger you until you produce a
 valid action marker. Bare acknowledgments in ANY language — "OK", "Sure",
 "Sorry", "I'll stop here", "Understood", or any plain-text wrap-up without
-a marker — are SPEC VIOLATIONS (CLAUDE.md rule #15) and will be
+a marker — are SPEC VIOLATIONS (CLAUDE.md rule #12) and will be
 auto-rejected by the server's dead-end guard, which will then re-prompt
 you with the same situation.
 

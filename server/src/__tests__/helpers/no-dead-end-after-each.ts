@@ -37,7 +37,7 @@ export async function assertNoDeadEnd(deskId: string, opts: AssertOptions = {}):
 	const result = hasNextAction(snapshot);
 	if (!result.ok) {
 		throw new Error(
-			`rule #15 violation on desk ${deskId}: ${result.reason}\n` +
+			`rule #12 violation on desk ${deskId}: ${result.reason}\n` +
 				`snapshot=${JSON.stringify(snapshot, null, 2)}`,
 		);
 	}
