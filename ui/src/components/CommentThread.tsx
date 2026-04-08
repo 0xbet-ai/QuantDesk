@@ -717,7 +717,7 @@ export function CommentThread({
 				{(thinkingRole || streamEntries.length > 0) && (
 					<div
 						className={cn(
-							"transition-all duration-500 ease-out",
+							"sticky bottom-0 z-10 -mx-4 px-4 pt-2 pb-2 bg-gradient-to-t from-background via-background to-background/80 backdrop-blur-sm transition-all duration-500 ease-out",
 							fadingOut
 								? "opacity-0 -translate-y-2 max-h-0 overflow-hidden"
 								: "opacity-100 translate-y-0 animate-in fade-in slide-in-from-bottom-2 duration-300",
