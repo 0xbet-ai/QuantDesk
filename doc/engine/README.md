@@ -10,7 +10,7 @@ All engine processes run inside Docker containers using images with **pinned ver
 
 ## Scope
 
-The whitelist above is **closed**. Managed adapters will only ever be added for Freqtrade and Nautilus Trader; no third managed engine will be introduced. Notably, no managed Hummingbot adapter is provided — users who need Hummingbot install it inside a generic-mode script (`pip install hummingbot` in the generic container). This is a product-scope decision, not a technical one: the generic engine exists precisely so any unsupported framework can be used via agent-authored scripts without us maintaining a dedicated adapter.
+The whitelist above is **approval-gated**: the default answer to "can we add engine X?" is no, and any addition requires explicit user approval per CLAUDE.md rule #7. In practice the generic engine covers most "I want to use venue X / framework Y" cases without requiring a new managed adapter — try that path first. Notably, no managed Hummingbot adapter is provided — users who need Hummingbot install it inside a generic-mode script (`pip install hummingbot` in the generic container). The generic engine exists precisely so unsupported frameworks can be used via agent-authored scripts without us maintaining dedicated adapters.
 
 ## Data download tools (per engine)
 
