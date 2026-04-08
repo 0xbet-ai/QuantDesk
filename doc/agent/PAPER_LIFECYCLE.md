@@ -41,7 +41,7 @@ stateDiagram-v2
 
 A desk can only enter `starting` when:
 
-1. The desk's strategy mode maps to a paper-capable engine configuration (`classic` → Freqtrade `dry_run`, `realtime` → Nautilus `SandboxExecutionClient`, `generic` → agent-authored paper loop script inside the generic Ubuntu container).
+1. The desk's strategy mode maps to a paper-capable engine configuration (see `../engine/README.md` for the per-mode paper setup).
 2. The user explicitly approves a specific validated `runId` from the desk's history. There is no auto-promotion.
 3. No other paper session is active for the desk (one paper session per desk at a time).
 
@@ -49,7 +49,7 @@ The promotion is recorded as a `PaperSession` row linked to the source `runId` a
 
 ## Container spawn
 
-The server calls the engine adapter's `startPaper()` on the resolved engine for the desk's `strategy_mode`. Per-engine paper configuration (Freqtrade `dry_run`, Nautilus `SandboxExecutionClient`, generic paper script) and the `quantdesk.*` label set live in `../engine/README.md` — this document only cares that the container comes up labelled `kind=paper` so reconcile can find it.
+The server calls the engine adapter's `startPaper()` on the resolved engine for the desk's `strategy_mode`. Per-engine paper configuration and the `quantdesk.*` label set live in `../engine/README.md` — this document only cares that the container comes up labelled `kind=paper` so reconcile can find it.
 
 If spawn fails, the `PaperSession` row is marked `failed`, the error is posted as a system comment, and the agent is retriggered (entering the backtest-style failure flow so it can suggest a fix).
 

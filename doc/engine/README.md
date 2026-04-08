@@ -6,7 +6,21 @@ Pluggable interface for backtesting and paper trading engines. QuantDesk support
 - **Nautilus Trader** — for `realtime` strategy mode (event-driven, tick-level)
 - **Generic** — fallback for venues with no managed engine; runs agent-authored scripts inside a pinned Ubuntu+Python container
 
-No managed Hummingbot adapter is provided; users who need Hummingbot can install it inside a generic-mode script. All engine processes run inside Docker containers using images with **pinned version tags**. The server, UI, and agent CLI run on the host — only the engine layer is containerized. See `CLAUDE.md` rules 6–12 for the binding constraints.
+All engine processes run inside Docker containers using images with **pinned version tags**. The server, UI, and agent CLI run on the host — only the engine layer is containerized. See `CLAUDE.md` rules 6–12 for the binding constraints.
+
+## Scope
+
+The whitelist above is **closed**. Managed adapters will only ever be added for Freqtrade and Nautilus Trader; no third managed engine will be introduced. Notably, no managed Hummingbot adapter is provided — users who need Hummingbot install it inside a generic-mode script (`pip install hummingbot` in the generic container). This is a product-scope decision, not a technical one: the generic engine exists precisely so any unsupported framework can be used via agent-authored scripts without us maintaining a dedicated adapter.
+
+## Data download tools (per engine)
+
+Each managed engine brings its own historical data download tool, invoked by the server during the Stage 1 data fetch (see `../agent/LIFECYCLE.md`):
+
+| Mode | Download mechanism |
+|---|---|
+| `classic` | Freqtrade `download-data` command run inside an ephemeral container |
+| `realtime` | Nautilus `DataCatalog` ingest run inside an ephemeral container |
+| `generic` | Agent-authored download script executed inside the generic Ubuntu+Python container |
 
 ## Strategy Mode
 

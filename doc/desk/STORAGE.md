@@ -13,7 +13,7 @@ workspaces/desk-{id}/
 ```
 
 - The directory is created at desk creation and git-initialized.
-- The exact file layout depends on the desk's pinned engine — see `doc/engine/README.md` for the per-engine tree (Freqtrade / Nautilus / Generic).
+- The exact file layout depends on the desk's pinned engine — see `doc/engine/README.md` for the per-engine workspace tree.
 - The agent writes strategy code, configs, and download/backtest scripts here.
 - The server commits the workspace at the end of each agent turn if it is dirty (`server/src/services/agent-trigger.ts:285-297`). The resulting commit hash is stored on the `Run` row that the turn produces, so every run is traceable to the exact code version that produced it.
 
