@@ -36,7 +36,7 @@ export async function listComments(experimentId: string) {
 }
 
 /**
- * CLAUDE.md rule #15 — every lifecycle branch must surface a clear next action
+ * CLAUDE.md rule #12 — every lifecycle branch must surface a clear next action
  * to the user. Silent pauses are spec violations. `systemComment` is the only
  * sanctioned way to insert a system-authored comment, and it forces the
  * caller to declare why the invariant holds:
@@ -72,7 +72,7 @@ export async function systemComment(input: SystemCommentInput) {
 }
 
 /**
- * Action phrases that satisfy rule #15 for `nextAction: "action"`. Kept
+ * Action phrases that satisfy rule #12 for `nextAction: "action"`. Kept
  * deliberately small. Add one only when a new branch needs it and cannot
  * reuse an existing phrase.
  */

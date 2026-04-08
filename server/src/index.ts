@@ -11,7 +11,6 @@ import fsRouter from "./routes/fs.js";
 import runsRouter from "./routes/runs.js";
 import strategiesRouter from "./routes/strategies.js";
 import turnsRouter from "./routes/turns.js";
-import { registerAllProposalHandlers } from "./services/proposal-handlers/index.js";
 import {
 	cleanupStaleAgentRuns,
 	reconcileOrphanAgentTurns,
@@ -20,11 +19,6 @@ import { startTurnWatchdog } from "./services/turn-watchdog.js";
 
 // Initialise database (starts embedded Postgres on first run if DATABASE_URL is unset)
 await initDb();
-
-// Register every proposal handler at boot (data-fetch, and once phases
-// 05–07/11 land, the other four). The generic /api/comments/:id/approve
-// router dispatches via this registry.
-registerAllProposalHandlers();
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);

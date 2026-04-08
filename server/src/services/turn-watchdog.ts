@@ -8,7 +8,7 @@ import { systemComment } from "./comments.js";
  * Phase 27 — Heartbeat watchdog for `agent_turns`. Any row still in `running`
  * whose `last_heartbeat_at` is older than the threshold belongs to a CLI
  * subprocess that has gone silent (crashed, hung, or lost its pipe). Mark
- * them `failed` with `failure_reason='heartbeat_timeout'` and post a rule #15
+ * them `failed` with `failure_reason='heartbeat_timeout'` and post a rule #12
  * system comment on the owning experiment so the user has a clear next move.
  */
 const HEARTBEAT_TIMEOUT_MS = 90_000; // 90s of silence = dead

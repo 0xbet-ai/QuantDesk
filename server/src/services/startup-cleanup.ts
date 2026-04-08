@@ -59,7 +59,7 @@ export async function cleanupStaleAgentRuns(): Promise<void> {
  * Phase 27 — Boot reconcile for `agent_turns`. Any row left in `running` at
  * startup belongs to a CLI subprocess that died with the server. Mark them
  * `failed` with `failure_reason='server_restart'` so the UI can render the
- * TurnCard in a terminal state. The rule #15 system comment for the owning
+ * TurnCard in a terminal state. The rule #12 system comment for the owning
  * experiment is already handled by `cleanupStaleAgentRuns` above.
  */
 export async function reconcileOrphanAgentTurns(): Promise<void> {

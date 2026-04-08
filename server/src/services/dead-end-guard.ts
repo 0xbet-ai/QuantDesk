@@ -1,11 +1,11 @@
 /**
- * Dead-end guard (CLAUDE.md rule #15 enforcement, phase 14).
+ * Dead-end guard (CLAUDE.md rule #12 enforcement, phase 14).
  *
  * If an agent turn ends without emitting any action marker AND its
  * resultText is a bare acknowledgment ("OK", "Sure", "Understood", "Sorry,
  * I cannot proceed", or any short plain-text wrap-up), the user is left
  * staring at the desk with nothing to click. That is the exact dead-end
- * rule #15 forbids.
+ * rule #12 forbids.
  *
  * This module owns one job: detect that situation and force the agent to
  * try again. It posts a system comment naming the violation and returns
@@ -119,7 +119,7 @@ export async function maybeRescueDeadEnd({
 		nextAction: "retrigger",
 		content:
 			`Dead-end guard (rescue ${current + 1}/${MAX_RESCUES}): your previous ` +
-			"turn ended without an action marker. This is a CLAUDE.md rule #15 " +
+			"turn ended without an action marker. This is a CLAUDE.md rule #12" +
 			"violation. You MUST end your next turn with a valid action marker " +
 			"(a proposal with new parameters, a backtest request, etc.) or a " +
 			"specific multiple-choice question to the user with concrete " +

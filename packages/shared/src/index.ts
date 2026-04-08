@@ -1,14 +1,19 @@
 export {
 	AGENT_MARKERS,
 	extractBacktestResultBody,
+	extractCompleteExperimentRequest,
+	extractDataFetchRequest,
 	extractDatasetBody,
 	extractExperimentTitle,
+	extractGoPaperRequest,
+	extractNewExperimentRequest,
 	extractRmVerdict,
 	extractRunBacktestRequest,
+	extractValidationRequest,
 	formatAgentMarkersForDisplay,
 	stripAgentMarkers,
 } from "./agent-markers.js";
-export type { RmVerdict, RunBacktestRequest } from "./agent-markers.js";
+export type { DataFetchRequest, RmVerdict, RunBacktestRequest } from "./agent-markers.js";
 
 export {
 	adapterConfigSchema,

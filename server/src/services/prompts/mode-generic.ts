@@ -3,7 +3,8 @@
  * scripts, host execution).
  *
  * Paper trading is **explicitly disallowed** for generic desks — the
- * prompt must tell the agent to never emit `[PROPOSE_GO_PAPER]` here.
+ * prompt must tell the agent to never emit `[GO_PAPER]` or `[RUN_PAPER]`
+ * here.
  */
 
 export function buildGenericModeBlock(): string {
@@ -15,7 +16,7 @@ isolation — the script runs on the host Node/Python.
 
 ### Data acquisition
 There is **no server-side data fetcher** for generic desks. Do **not** emit
-\`[PROPOSE_DATA_FETCH]\` — the server has no pre-packaged downloader to run
+\`[DATA_FETCH]\` — the server has no pre-packaged downloader to run
 for this mode. Fetch data yourself:
 
 1. Write a fetcher script in the workspace (\`fetch_data.py\`, \`fetch.ts\`,
@@ -83,6 +84,6 @@ Field reference:
 
 ### Paper trading
 **Paper trading is not supported** for generic desks. Do **not** emit
-\`[RUN_PAPER]\` or propose \`[PROPOSE_GO_PAPER]\`. Only backtest workflows
-are allowed here.`;
+\`[RUN_PAPER]\` or \`[GO_PAPER]\`, and do not ask the user about paper
+trading. Only backtest workflows are allowed here.`;
 }

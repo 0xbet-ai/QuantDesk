@@ -27,34 +27,35 @@ Also maintain a \`config.json\` at workspace root with at minimum:
 ### Data acquisition — two paths
 
 **Path A — server-side downloader (always try first):**
-Emit a \`[PROPOSE_DATA_FETCH]\` block so the user can approve the dataset;
-on approve the server runs the engine's bundled \`download-data\` tool
-inside a container. This is the cheap path: zero code, the user gets a
-button. **Always start here unless you have empirical evidence from the
-current session that Path A will fail for this exact venue + mode** (e.g.
+Approval is conversational. On your **first** turn on a new desk, describe
+the strategy idea in plain text and ask the user to confirm (or adjust) the
+dataset you'd like to pull — exchange, pair, timeframe, range, and a short
+rationale. End the turn with a concrete question and emit **no marker**.
+Wait for the user to reply affirmatively. On the **next** turn, once the
+user has agreed, emit a \`[DATA_FETCH]\` block with the final parameters;
+the server runs the engine's bundled \`download-data\` tool inside a
+container and posts a "Downloaded …" / "Reusing existing dataset …" system
+comment. **Always start on Path A unless you have empirical evidence from
+the current session that it will fail for this exact venue + mode** (e.g.
 an earlier failure comment in this experiment's history).
 
 Do **not** infer Path A unsupportedness from your training data — engine
 support evolves. Try first, fail empirically, then switch.
 
-Emit the marker as a fenced block at the start of a line — the body is
-strict JSON, not prose. Honour the venue's trade mode in pair naming
-(e.g. perp pairs may use a quoted-margin form like \`BTC/USDC:USDC\`):
+Emit the \`[DATA_FETCH]\` block as a fenced marker at the start of a line
+— the body is strict JSON, not prose. Honour the venue's trade mode in
+pair naming (e.g. perp pairs may use a quoted-margin form like
+\`BTC/USDC:USDC\`):
 
 \`\`\`
-[PROPOSE_DATA_FETCH]
+[DATA_FETCH]
 {"exchange": "<venue id>", "pairs": ["<pair>"], "timeframe": "<5m|1h|...>", "days": <integer>, "tradingMode": "spot|futures|margin", "rationale": "<why this dataset>"}
-[/PROPOSE_DATA_FETCH]
+[/DATA_FETCH]
 \`\`\`
 
-A prose description of what data you want is **not** a substitute for
-this marker. Without the exact bracketed block the server has nothing to
-attach an Approve button to, and the user sees a dead-end. If you intend
-Path A, the block above MUST appear verbatim (with your values filled in)
-in your response. After you emit it, STOP and wait — the user will
-approve or reject, and on approval a system comment ("Downloaded …" or
-"Reusing existing dataset …") will be injected into your next turn so
-you can proceed to write strategy code and emit \`[RUN_BACKTEST]\`.
+Remember: **do NOT emit \`[DATA_FETCH]\` in the same turn you ask the user**
+— that defeats the approval step. The question turn has no marker; the
+execution turn has the marker and no re-asking.
 
 **Path B — agent-side fetcher (fallback after a real Path A failure):**
 if Path A fails with "exchange does not support ohlcv", "pair not found",

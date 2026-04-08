@@ -17,7 +17,7 @@
  *       branches:
  *                  - success            → retrigger handles next turn
  *                  - engine_failure     → user must reply to retry
- *       user_next_action (per rule #15):
+ *       user_next_action (per rule #12):
  *                  success         → none — retrigger continues automatically
  *                  engine_failure  → ...
  *
