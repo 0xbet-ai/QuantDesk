@@ -4,7 +4,7 @@ How a single agent turn is executed: from a new comment, through the CLI subproc
 
 ## Flow
 
-1. A new comment is posted on an experiment — by the user, by the system on desk creation, or by the server itself as a follow-up to a marker action (e.g. the `[BACKTEST_RESULT]` system comment that follows a server-run backtest).
+1. A new comment is posted on an experiment — by the user, by the system on desk creation, or by the server itself as a follow-up to a marker action (e.g. the backtest-result system comment that follows a server-run backtest).
 2. `triggerAgent(experimentId)` loads the desk's `agentSessions` row and resolves the adapter from `adapter_type`. Two adapters are registered: `claude` and `codex` (`packages/adapters/src/registry.ts`).
 3. The adapter builds the spawn args:
    ```bash
@@ -19,7 +19,7 @@ How a single agent turn is executed: from a new comment, through the CLI subproc
 5. The CLI subprocess streams JSONL events on stdout. The adapter parses them into `StreamChunk`s and the server forwards each chunk to the UI in real time:
    - claude: `system` / `assistant` / `result`
    - codex: `thread.started` / `item.completed` / `turn.completed`
-6. After the subprocess exits, the server processes the final `result.resultText` and dispatches on the markers it contains — see `./LIFECYCLE.md` for the full branching. **Run records, dataset rows, and re-triggers are all created by the server, not by the agent.** For classic/realtime modes the agent only emits a `[RUN_BACKTEST]` marker; the server runs the engine container in response. Generic mode is the only path where the agent runs scripts itself and emits a `[BACKTEST_RESULT]` marker for the server to parse.
+6. After the subprocess exits, the server processes the final `result.resultText` and dispatches on the markers it contains — see `./LIFECYCLE.md` for the full branching.
 7. The session id (or codex thread id) is persisted on `agent_sessions.session_id` so the next turn can resume the same conversation.
 
 ## Session Management

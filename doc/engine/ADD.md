@@ -22,26 +22,10 @@ Use an existing adapter as a starting point — `freqtrade/adapter.ts` is the mo
 
 ### 2. Implement the `EngineAdapter` interface
 
-The interface and all related config / result types are defined in `packages/engines/src/types.ts` — read that file for the exact, up-to-date signatures. The summary below covers the method-level responsibilities only.
+The interface and all related config / result types are defined in `packages/engines/src/types.ts` — read that file for the exact, up-to-date signatures. The per-method responsibilities (`name`, `ensureImage`, `downloadData`, `runBacktest`, `startPaper`, `stopPaper`, `getPaperStatus`, `parseResult`), the Docker image pinning rule, workspace mount conventions, and the container label set all live in `doc/engine/README.md`. Implement against that contract.
 
-Method responsibilities:
+**When adding a new engine, remember:**
 
-| Method | What it does |
-|---|---|
-| `name` | Stable engine ID. Must match the key used in `registry.ts` and `venues.json`. |
-| `ensureImage` | Pull the pinned Docker image for this engine (e.g. `docker pull freqtradeorg/freqtrade:2025.3`). Throw a clear error if Docker is unavailable. Native host installs are not supported. |
-| `downloadData` | Fetch historical OHLCV (or tick) data into the desk workspace via an ephemeral container. Return a `DataRef`. |
-| `runBacktest` | Run a backtest in an ephemeral container mounting the workspace. Return raw output + normalized result. |
-| `startPaper` | Spawn a long-lived paper trading container labeled `quantdesk.runId`, `quantdesk.engine`, `quantdesk.kind=paper`. Return a handle containing the container name. |
-| `stopPaper` | Cleanly stop the paper container by handle (graceful → SIGTERM fallback). |
-| `getPaperStatus` | Query a running paper container for health + PnL (via engine-specific mechanism: REST for Freqtrade, stdout JSONL for Nautilus). |
-| `parseResult` | Convert the engine's raw output JSON into `NormalizedResult`. Pure function — should be unit-testable without spawning processes. |
-
-**Important conventions:**
-
-- All engine processes run **inside Docker containers** using **pinned** official images (never `:latest`). See `CLAUDE.md` rule 11 and `doc/engine/README.md`.
-- The container mounts the desk workspace (`config.workspacePath`) as a volume. Never write outside it.
-- QuantDesk supports **paper trading only** — live trading is a forever non-goal. No API keys for trading.
 - Result normalization is critical — the UI assumes consistent metric names. See `NormalizedResult` in `types.ts`.
 - Engine names must **never leak to the user-facing UI**. The engine is derived from `desk.strategy_mode` at desk creation time and is immutable for the desk's lifetime. Users pick a mode (`classic` or `realtime`), never an engine.
 

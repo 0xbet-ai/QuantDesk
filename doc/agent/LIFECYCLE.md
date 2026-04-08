@@ -18,18 +18,9 @@ flowchart TD
         direction TB
         P1["#91;PROPOSE_DATA_FETCH#93;<br/>attach pendingProposal<br/>to agent comment"]
         P2(["wait for user Approve"])
-        PL{"cache lookup<br/>(exchange, pairs, timeframe)"}
-        PFH["full hit:<br/>no download"]
-        PPH["partial hit:<br/>download missing range"]
-        PMS["miss:<br/>full download"]
-        PV["validate downloaded data"]
-        P3a["insert or extend datasets row<br/>+ desk_datasets link"]
+        PL["resolve dataset<br/>(cache lookup, incremental fetch, validate)<br/>see desk/STORAGE.md"]
         P4["post 'Downloaded...' /<br/>'Already cached...' system comment"]
-        P1 --> P2 --> PL
-        PL -- full hit --> PFH --> P3a
-        PL -- partial --> PPH --> PV
-        PL -- miss --> PMS --> PV
-        PV --> P3a --> P4
+        P1 --> P2 --> PL --> P4
     end
 
     %% ── STAGE 2: backtest lifecycle ──
@@ -48,8 +39,8 @@ flowchart TD
     subgraph S3["Stage 3 — Analysis &amp; metadata"]
         direction TB
         A1["agent: plain-text analysis<br/>(no markers)"]
-        A2["#91;EXPERIMENT_TITLE#93;<br/>(only if exp.num != 1)"]
-        A3["#91;DATASET#93;<br/>insert datasets row<br/>+ desk_datasets link"]
+        A2["#91;EXPERIMENT_TITLE#93;<br/>update experiments.title<br/>(see MARKERS.md)"]
+        A3["#91;DATASET#93;<br/>register dataset<br/>(see desk/STORAGE.md)"]
         A4["#91;PROPOSE_VALIDATION#93;<br/>dispatch Risk Manager turn<br/>against latest run"]
         A5["#91;PROPOSE_NEW_EXPERIMENT#93;<br/>render Accept / Decline<br/>on agent comment"]
         A6["#91;PROPOSE_COMPLETE_EXPERIMENT#93;<br/>render Accept / Decline<br/>on agent comment"]

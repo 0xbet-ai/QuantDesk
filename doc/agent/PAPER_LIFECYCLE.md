@@ -49,16 +49,13 @@ The promotion is recorded as a `PaperSession` row linked to the source `runId` a
 
 ## Container spawn
 
-The server spawns the engine's native paper mode inside Docker, using the same pinned image tag as backtest containers. The container is tagged with three labels so it can be reconciled later:
+The server spawns the engine's paper mode inside Docker, using the same pinned image and `quantdesk.*` label set defined in `../engine/README.md` Docker Conventions — the `kind=paper` value is what distinguishes the container from backtest containers and what reconcile filters on.
 
-- `quantdesk.runId` — the source backtest run that this paper session was promoted from
-- `quantdesk.engine` — `freqtrade` or `nautilus`
-- `quantdesk.kind=paper` — distinguishes from `kind=backtest` containers
-
-Engine-specific config:
+Engine-specific paper config:
 
 - **Freqtrade** — `dry_run: true` in the generated config. Same strategy code path as live, which gives the highest paper fidelity.
 - **Nautilus** — `SandboxExecutionClient` wired into the trading node.
+- **Generic** — the agent's paper loop script runs inside the generic Ubuntu+Python container; it IS the engine.
 
 If spawn fails, the `PaperSession` row is marked `failed`, the error is posted as a system comment, and the agent is retriggered (entering the backtest-style failure flow so it can suggest a fix).
 
