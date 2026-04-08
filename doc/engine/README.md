@@ -6,7 +6,7 @@ Pluggable interface for backtesting and paper trading engines. QuantDesk support
 - **Nautilus Trader** — for `realtime` strategy mode (event-driven, tick-level)
 - **Generic** — fallback for venues with no managed engine; runs agent-authored scripts inside a pinned Ubuntu+Python container
 
-All engine processes run inside Docker containers using official engine images with **pinned version tags**. The server, UI, and agent CLI run on the host — only the engine layer is containerized. See `CLAUDE.md` rules 6–12 for the binding constraints.
+No managed Hummingbot adapter is provided; users who need Hummingbot can install it inside a generic-mode script. All engine processes run inside Docker containers using images with **pinned version tags**. The server, UI, and agent CLI run on the host — only the engine layer is containerized. See `CLAUDE.md` rules 6–12 for the binding constraints.
 
 ## Strategy Mode
 
