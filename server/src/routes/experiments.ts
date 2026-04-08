@@ -17,6 +17,7 @@ import {
 	resolvePendingProposal,
 } from "../services/proposal-handlers/registry.js";
 import { listRuns } from "../services/runs.js";
+import { listTurnsForExperiment } from "../services/turns.js";
 
 const router = Router();
 
@@ -33,6 +34,15 @@ router.get("/:id", async (req, res, next) => {
 router.get("/:id/runs", async (req, res, next) => {
 	try {
 		const result = await listRuns(req.params.id);
+		res.json(result);
+	} catch (err) {
+		next(err);
+	}
+});
+
+router.get("/:id/turns", async (req, res, next) => {
+	try {
+		const result = await listTurnsForExperiment(req.params.id);
 		res.json(result);
 	} catch (err) {
 		next(err);

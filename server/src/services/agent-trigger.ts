@@ -259,6 +259,12 @@ export async function triggerAgent(
 	let turnStatus: "completed" | "failed" | "stopped" = "completed";
 	let turnFailureReason: string | null = null;
 
+	publishExperimentEvent({
+		experimentId,
+		type: "turn.status",
+		payload: { turnId, status: "running", agentRole: session.agentRole },
+	});
+
 	await runWithTurn(turnId, async () => {
 		try {
 			// 3. Load context: runs, comments, memory
@@ -818,6 +824,15 @@ export async function triggerAgent(
 				.catch((e) => {
 					console.error("Failed to finalize agent_turns row:", e);
 				});
+			publishExperimentEvent({
+				experimentId,
+				type: "turn.status",
+				payload: {
+					turnId,
+					status: turnStatus,
+					failureReason: turnFailureReason,
+				},
+			});
 		}
 	});
 }

@@ -1,6 +1,7 @@
 import { db } from "@quantdesk/db";
 import { agentTurns } from "@quantdesk/db/schema";
 import { and, eq, lt } from "drizzle-orm";
+import { publishExperimentEvent } from "../realtime/live-events.js";
 import { systemComment } from "./comments.js";
 
 /**
@@ -32,6 +33,15 @@ export async function scanStaleTurns(now: Date = new Date()): Promise<number> {
 				nextAction: "action",
 				content:
 					"Agent stopped responding (heartbeat timeout). Please try again — reply with a new instruction.",
+			});
+			publishExperimentEvent({
+				experimentId: row.experimentId,
+				type: "turn.status",
+				payload: {
+					turnId: row.id,
+					status: "failed",
+					failureReason: "heartbeat_timeout",
+				},
 			});
 		} catch (err) {
 			console.error(`[watchdog] Failed to post stale-turn comment for turn ${row.id}:`, err);
