@@ -228,6 +228,21 @@ describe("countRecentFailureStreak", () => {
 		).toBe(0);
 	});
 
+	it("treats neutral progress system comments as transparent so the streak is not broken by them", () => {
+		// Phase 14 fix: progress comments like "Downloading..." used to reset
+		// the streak counter to 0 between two real failures, which made the
+		// escalation block silently undercount.
+		expect(
+			countRecentFailureStreak([
+				{ author: "user", content: "go" },
+				{ author: "system", content: "Downloading BTC/USDC 5m..." },
+				{ author: "system", content: "Data-fetch failed for BTC/USDC" },
+				{ author: "system", content: "Downloading BTC/USDC 1h..." },
+				{ author: "system", content: "Data-fetch failed for BTC/USDC" },
+			]),
+		).toBe(2);
+	});
+
 	it("matches both 'failed' and 'error' tokens", () => {
 		expect(
 			countRecentFailureStreak([{ author: "system", content: "Container error: missing image" }]),
@@ -244,6 +259,6 @@ describe("buildFailureEscalationBlock", () => {
 		const block = buildFailureEscalationBlock(3);
 		expect(block).toContain("RECENT FAILURE STREAK: 3");
 		expect(block).toContain("fundamentally");
-		expect(block).toContain("Persist until");
+		expect(block).toContain("Persist.");
 	});
 });

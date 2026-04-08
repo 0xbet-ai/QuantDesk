@@ -672,8 +672,13 @@ export function CommentThread({
 												commentId={c.id}
 												experimentId={experiment.id}
 												onAction={() => {
+													// Don't preemptively show the AGENT TURN widget here.
+													// The download runs first; the real `agent.thinking`
+													// WebSocket event will arrive after it finishes and the
+													// server retriggers the agent. Showing the empty widget
+													// during the download stacks an "Agent is working" panel
+													// under the live data-fetch tail, which is misleading.
 													refresh();
-													setThinkingRole("analyst");
 												}}
 											/>
 										) : null;
