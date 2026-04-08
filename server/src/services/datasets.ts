@@ -1,7 +1,7 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { isAbsolute, resolve } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { isAbsolute, join, resolve } from "node:path";
 import { db } from "@quantdesk/db";
-import { datasets, deskDatasets } from "@quantdesk/db/schema";
+import { datasets, deskDatasets, runs } from "@quantdesk/db/schema";
 import { desc, eq } from "drizzle-orm";
 
 interface CreateDatasetInput {
@@ -39,8 +39,12 @@ export async function getDataset(id: string) {
 }
 
 export async function deleteDataset(id: string) {
-	// Remove join rows first to satisfy the FK.
+	// Break FK references before the delete.
+	// - `desk_datasets` is a join row, safe to remove.
+	// - `runs.dataset_id` is nullable — null it out so historical run rows
+	//   survive the delete (we only lose the link back to the dataset).
 	await db.delete(deskDatasets).where(eq(deskDatasets.datasetId, id));
+	await db.update(runs).set({ datasetId: null }).where(eq(runs.datasetId, id));
 	const [deleted] = await db.delete(datasets).where(eq(datasets.id, id)).returning();
 	return deleted ?? null;
 }
@@ -58,10 +62,21 @@ export async function previewDataset(id: string, limit = 50): Promise<PreviewRes
 
 	// Dataset.path is an absolute cache path. For legacy rows that stored a
 	// workspace-relative path we fall back to trying it as-is.
-	const absPath = isAbsolute(dataset.path) ? dataset.path : resolve(dataset.path);
+	let absPath = isAbsolute(dataset.path) ? dataset.path : resolve(dataset.path);
 	if (!existsSync(absPath)) return null;
 
-	const stats = statSync(absPath);
+	let stats = statSync(absPath);
+	// Legacy rows (and real freqtrade downloads) store the directory path
+	// instead of a single file. Pick the first CSV/JSON inside so the
+	// preview endpoint can render something instead of EISDIR.
+	if (stats.isDirectory()) {
+		const candidates = readdirSync(absPath).filter(
+			(f) => f.endsWith(".csv") || f.endsWith(".json"),
+		);
+		if (candidates.length === 0) return null;
+		absPath = join(absPath, candidates[0]!);
+		stats = statSync(absPath);
+	}
 	const content = readFileSync(absPath, "utf-8");
 	const allLines = content.split("\n").filter((l) => l.length > 0);
 	if (allLines.length === 0) {
