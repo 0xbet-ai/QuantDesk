@@ -81,8 +81,8 @@ export const ACTION_PHRASE_PATTERNS: readonly RegExp[] = [
 	/please try again/i,
 	/you may now/i,
 	/proceed to/i,
-	/propose (?:a |the |an )/i,
-	/\[(?:RUN|PROPOSE)_[A-Z_]+\]/, // instructs the agent to emit a marker
+	/\b(?:emit|send) /i,
+	/\[[A-Z][A-Z_]+\]/, // instructs the agent to emit a bracketed marker
 	/start your response with/i,
 	/click approve/i,
 	/click retry/i,

@@ -238,7 +238,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 			nextAction: "action",
 			content:
 				`Data-fetch failed for ${proposal.pairs.join(", ")} on ${proposal.exchange}. ` +
-				"Check the pair naming and trade mode, then emit a corrected [PROPOSE_DATA_FETCH]. " +
+				"Check the pair naming and trade mode, then ask the user about a corrected fetch and emit [DATA_FETCH] once they agree. " +
 				`Last log lines:\n\`\`\`log\n${tail || "(no output)"}\n\`\`\``,
 			metadata: threadMeta,
 		});

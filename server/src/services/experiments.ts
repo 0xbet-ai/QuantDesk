@@ -105,8 +105,8 @@ async function generateMemorySummary(experimentId: string): Promise<string> {
 /**
  * Mark a single experiment as completed: persist memory summary, flip
  * status, and reset the desk's agent session so the next turn starts a
- * fresh CLI conversation. Used standalone by `PROPOSE_COMPLETE_EXPERIMENT`
- * (phase 06) and as the first half of `completeAndCreateNewExperiment`.
+ * fresh CLI conversation. Used standalone by the `[COMPLETE_EXPERIMENT]`
+ * marker path and as the first half of `completeAndCreateNewExperiment`.
  */
 export async function completeExperiment(experimentId: string): Promise<void> {
 	const current = await getExperiment(experimentId);
@@ -138,7 +138,7 @@ export async function completeExperiment(experimentId: string): Promise<void> {
 
 /**
  * Complete current experiment and create a new one.
- * Used by both user-triggered (+ button) and agent-proposed (PROPOSE_NEW_EXPERIMENT) flows.
+ * Used by both user-triggered (+ button) and agent-driven (`[NEW_EXPERIMENT]`) flows.
  */
 export async function completeAndCreateNewExperiment(input: {
 	currentExperimentId: string;

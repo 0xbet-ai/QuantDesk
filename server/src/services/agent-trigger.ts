@@ -49,7 +49,7 @@ import { commitCode, hasChanges } from "./workspace.js";
  * Find the existing `agent_sessions` row for a (desk, role) pair, or create
  * a fresh one. The analyst session is created at desk creation
  * (`services/desks.ts`); risk_manager sessions are created lazily here on
- * the first `[PROPOSE_VALIDATION]` approval (phase 07).
+ * the first `[VALIDATION]` turn.
  */
 async function getOrCreateAgentSession(
 	deskId: string,
@@ -223,8 +223,8 @@ export type AgentRole = "analyst" | "risk_manager";
  * Trigger the agent for a given experiment, optionally as a non-default
  * role. Defaults to `"analyst"` for backward compatibility — every existing
  * caller (user comments, system retrigger after backtest, etc.) wakes the
- * analyst. Phase 07 introduces the `"risk_manager"` path via the
- * `[PROPOSE_VALIDATION]` proposal handler.
+ * analyst. The `"risk_manager"` role is activated by a `[VALIDATION]`
+ * marker from the analyst.
  *
  * Each role has its own row in `agent_sessions` so the two CLI subprocesses
  * keep independent `sessionId`s and prompt templates. The row is created
@@ -416,9 +416,9 @@ export async function triggerAgent(
 				? extractRunBacktestRequest(result.resultText)
 				: null;
 			if (runBacktestRequest && desk.strategyMode !== "generic") {
-				// Hard gate: a backtest cannot run without an approved dataset
-				// (CLAUDE.md rule #13). Lookup via the desk_datasets join — datasets
-				// are global and shared across desks.
+				// Hard gate: a backtest cannot run without a registered dataset.
+				// Lookup via the desk_datasets join — datasets are global and
+				// shared across desks.
 				const linkedDatasets = await db
 					.select({ dataset: datasets, linkedAt: deskDatasets.createdAt })
 					.from(deskDatasets)
@@ -430,10 +430,13 @@ export async function triggerAgent(
 						experimentId,
 						nextAction: "action",
 						content:
-							"Cannot run backtest: no dataset has been registered for this desk. " +
-							"Per rule #13, you must emit [PROPOSE_DATA_FETCH] first and wait for the " +
-							"user to approve. Do not write strategy code or emit [RUN_BACKTEST] until " +
-							"a 'Downloaded ...' system comment has appeared.",
+							"Cannot run backtest: no dataset is registered for this desk. " +
+							"If you have already downloaded the data yourself (e.g. via a " +
+							"`fetch_data.py` script in the workspace), emit a [DATASET] block " +
+							"pointing at it so the server can register the row. Otherwise " +
+							"ask the user in plain text which data to download and, once " +
+							"they agree, emit [DATA_FETCH]. Do not emit [RUN_BACKTEST] until " +
+							"one of those two paths has registered a dataset.",
 					});
 					publishExperimentEvent({ experimentId, type: "comment.new", payload: {} });
 					// Do NOT re-trigger here — the user input or next explicit action
