@@ -361,6 +361,24 @@ export function CommentThread({
 				status?: TurnLifecycleStatus;
 				failureReason?: string | null;
 			};
+			// Out-of-order protection: ignore late events targeting a
+			// turn that is NOT the one we are currently tracking. The
+			// retrigger chain can produce interleaved events from
+			// Turn A (terminal) and Turn B (starting) and a stale
+			// "running" or "completed" event from the wrong turn will
+			// leave the UI stuck. If a NEW turn starts we accept that
+			// as a legitimate new current turn — but only when the
+			// previous turn is already terminal, which means the new
+			// turn is genuinely live work and not a late echo.
+			if (
+				payload.turnId &&
+				currentTurnId &&
+				payload.turnId !== currentTurnId &&
+				payload.status !== "running"
+			) {
+				// Stale terminal event for a past turn — ignore.
+				return;
+			}
 			if (payload.turnId) setCurrentTurnId(payload.turnId);
 			if (payload.status) {
 				setTurnStatus(payload.status);
@@ -744,7 +762,18 @@ export function CommentThread({
 						No comments yet
 					</div>
 				)}
-				{turnStatus === "running" && (
+				{turnStatus === "running" &&
+					// Don't flash an empty card on brand-new desks: wait until
+					// the running turn has SOMETHING to show (streamed tokens,
+					// engine/data-fetch progress, or a nested comment attached
+					// to this turn). Prevents a phantom TurnCard from briefly
+					// appearing between desk creation and the first agent
+					// output.
+					(streamEntries.length > 0 ||
+						runLogLines.length > 0 ||
+						dataFetchProgress.length > 0 ||
+						(!!currentTurnId &&
+							comments.some((c) => c.turnId === currentTurnId))) && (
 					<div
 						className={cn(
 							"transition-all duration-500 ease-out",
