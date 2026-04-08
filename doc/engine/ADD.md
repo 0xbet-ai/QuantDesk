@@ -1,6 +1,6 @@
 # Adding a New Engine
 
-An **engine** is a backtesting / paper-trading framework that QuantDesk delegates strategy execution to. Current engines: **Freqtrade**, **Nautilus**, and **Generic** (backtest-only fallback). Hummingbot is explicitly out of scope. Adding a new engine means implementing the `EngineAdapter` interface, registering it, and mapping it to a `strategy_mode`.
+An **engine** is a backtesting / paper-trading framework that QuantDesk delegates strategy execution to. Current engines: **Freqtrade**, **Nautilus**, and **Generic** (agent-scripted fallback running in a pinned Ubuntu+Python container). Hummingbot is explicitly out of scope. Adding a new engine means implementing the `EngineAdapter` interface, registering it, and mapping it to a `strategy_mode`.
 
 This is a larger change than adding a venue. **Please open an issue first to discuss design and scope** before opening a PR.
 
