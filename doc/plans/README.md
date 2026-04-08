@@ -15,14 +15,6 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 
 ## Phases (in execution order)
 
-### Group A — Test harness foundation
-
-The harness verifies CLAUDE.md rule #15 (no user dead-ends) for every existing and future code path. Build it first against the one path that already works (`PROPOSE_DATA_FETCH`), then expand as later phases land.
-
-| # | Title | Kind |
-|---|-------|------|
-| 03 | [Spec-generated test matrix from MARKERS.md](03_spec_generated_matrix.md) | TODO |
-
 ### Group B — Wire the remaining markers
 
 Four `PROPOSE_*` markers and `RUN_PAPER` are parsed today but have **no dispatcher branch**. The UI may render Approve buttons that go nowhere — direct rule #15 violation. Each phase here adds one dispatcher and is guarded by Group A.
@@ -123,6 +115,7 @@ Verified against the spec docs and the current tree.
 - `systemComment(...)` wrapper is the only sanctioned way to insert a system-authored comment; every caller must declare `nextAction: "action" | "retrigger" | "progress"`. — `server/src/services/comments.ts`
 - Static lint (`server/src/__tests__/no-dead-end-lint.test.ts`) rejects (a) any direct `createComment({ author: "system" })` outside the wrapper, and (b) any `nextAction: "action"` call whose literal content does not contain a phrase from `ACTION_PHRASE_PATTERNS`. Runs in `pnpm test`.
 - Pure `hasNextAction(snapshot)` invariant checker — `server/src/services/has-next-action.ts`. Returns `{ ok, reason }` over a `DeskInvariantSnapshot` (pendingProposal count, latest system-comment content, retrigger queue state). The DB-touching `assertNoDeadEnd(deskId)` afterEach helper at `server/src/__tests__/helpers/no-dead-end-after-each.ts` wraps it for integration tests when those land.
+- `MARKERS.md` is the executable source of truth for dispatch coverage — `server/src/services/markers-spec.ts` parses every fenced function-signature block, and `markers-spec.test.ts` asserts: (a) parser finds every expected marker, (b) every marker is referenced from `agent-trigger.ts` / `triggers.ts` / `agent-markers.ts`, (c) every branch listed has a matching `user_next_action` entry. Adding a marker / branch in MARKERS.md without wiring it (or vice versa) breaks CI.
 
 ## Open questions
 
