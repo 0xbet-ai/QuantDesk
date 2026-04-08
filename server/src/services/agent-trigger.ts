@@ -117,6 +117,15 @@ function normalizedResultToMetrics(normalized: NormalizedResult) {
 // Track running agent processes per experiment
 const activeAgents = new Map<string, ChildProcess>();
 
+/**
+ * Read-only snapshot of experiment IDs that currently have an agent
+ * subprocess running. Used by the sidebar to render a "live" indicator
+ * without having to subscribe to per-experiment WebSockets for every row.
+ */
+export function getActiveAgentExperimentIds(): string[] {
+	return Array.from(activeAgents.keys());
+}
+
 export function stopAgent(experimentId: string): boolean {
 	const child = activeAgents.get(experimentId);
 	if (child) {

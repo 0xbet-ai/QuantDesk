@@ -16,6 +16,7 @@ import type { Desk, Experiment, Run, Strategy } from "../lib/api.js";
 import {
 	completeAndCreateNewExperiment,
 	deleteExperiment,
+	listActiveExperiments,
 	listRuns,
 	listStrategies,
 } from "../lib/api.js";
@@ -88,6 +89,7 @@ export function DeskPanel({
 	};
 	const [bestReturns, setBestReturns] = useState<Record<string, number | null>>({});
 	const [runningExperiments, setRunningExperiments] = useState<Record<string, boolean>>({});
+	const [liveAgentExperiments, setLiveAgentExperiments] = useState<Set<string>>(() => new Set());
 
 	const handleDelete = async (exp: Experiment, e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -120,6 +122,28 @@ export function DeskPanel({
 			})
 			.catch(() => {});
 	}, [desk.strategyId]);
+
+	// Poll the desk's active-agent set so the sidebar can show a live dot on
+	// the experiment row whose agent is currently thinking. Lightweight
+	// polling beats opening a WebSocket per row.
+	useEffect(() => {
+		let cancelled = false;
+		const tick = () => {
+			listActiveExperiments(desk.id)
+				.then((ids) => {
+					if (!cancelled) setLiveAgentExperiments(new Set(ids));
+				})
+				.catch(() => {
+					/* ignore — keep last known set */
+				});
+		};
+		tick();
+		const id = setInterval(tick, 1500);
+		return () => {
+			cancelled = true;
+			clearInterval(id);
+		};
+	}, [desk.id]);
 
 	useEffect(() => {
 		for (const exp of experiments) {
@@ -241,7 +265,8 @@ export function DeskPanel({
 					<SidebarSection label="Experiments">
 						{experiments.map((exp) => {
 							const best = bestReturns[exp.id];
-							const isRunning = runningExperiments[exp.id] === true;
+							const isRunning =
+								runningExperiments[exp.id] === true || liveAgentExperiments.has(exp.id);
 							return (
 								<div
 									key={exp.id}
@@ -275,7 +300,7 @@ export function DeskPanel({
 										)}
 										{isRunning && (
 											<span className="flex items-center gap-1.5 shrink-0">
-												<StatusDot status="running" />
+												<StatusDot status="active" />
 											</span>
 										)}
 									</button>

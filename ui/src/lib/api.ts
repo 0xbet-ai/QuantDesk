@@ -150,6 +150,8 @@ export const archiveDesk = (id: string) => api<Desk>(`/desks/${id}/archive`, { m
 
 export const listExperiments = (deskId: string) =>
 	api<Experiment[]>(`/desks/${deskId}/experiments`);
+export const listActiveExperiments = (deskId: string) =>
+	api<string[]>(`/desks/${deskId}/active-experiments`);
 export const completeAndCreateNewExperiment = (
 	experimentId: string,
 	data: { title: string; description?: string },

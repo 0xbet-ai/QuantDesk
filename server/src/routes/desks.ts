@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { HttpError } from "../middleware/error.js";
 import { listActivity } from "../services/activity.js";
-import { triggerAgent } from "../services/agent-trigger.js";
+import { getActiveAgentExperimentIds, triggerAgent } from "../services/agent-trigger.js";
 import {
 	createDataset,
 	deleteDataset,
@@ -64,6 +64,23 @@ router.get("/:id/experiments", async (req, res, next) => {
 	try {
 		const result = await listExperiments(req.params.id);
 		res.json(result);
+	} catch (err) {
+		next(err);
+	}
+});
+
+/**
+ * Sidebar live indicator: which experiments in this desk currently have an
+ * agent subprocess running. Read from the in-memory `activeAgents` map in
+ * agent-trigger — no DB hit. The sidebar polls this every couple seconds
+ * instead of opening a WebSocket per experiment row.
+ */
+router.get("/:id/active-experiments", async (req, res, next) => {
+	try {
+		const all = await listExperiments(req.params.id);
+		const allIds = new Set(all.map((e) => e.id));
+		const active = getActiveAgentExperimentIds().filter((id) => allIds.has(id));
+		res.json(active);
 	} catch (err) {
 		next(err);
 	}
