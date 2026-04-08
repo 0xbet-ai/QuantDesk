@@ -416,6 +416,13 @@ export async function triggerAgent(
 
 			// Engine images are expected to be pre-pulled via `npx quantdesk onboard`.
 			// If the image is missing here, runBacktest will surface a clear error.
+			// Phase 10 — desk.externalMounts becomes a list of read-only docker
+			// `-v hostPath:/workspace/data/external/<label>:ro` flags appended on
+			// top of the workspace mount, so the agent's strategy code can read
+			// the user's local datasets without copying.
+			const externalMountVolumes = (desk.externalMounts ?? []).map(
+				(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
+			);
 			const backtestResult = await engineAdapter.runBacktest({
 				strategyPath: "strategy.py",
 				workspacePath: desk.workspacePath!,
@@ -425,6 +432,7 @@ export async function triggerAgent(
 					strategy: runBacktestRequest.strategyName ?? "QuantDeskStrategy",
 					configFile: runBacktestRequest.configFile ?? "config.json",
 				},
+				extraVolumes: externalMountVolumes,
 			});
 
 			const resultPayload = normalizedResultToMetrics(backtestResult.normalized);

@@ -27,6 +27,7 @@ export type {
 } from "./schemas.js";
 
 export {
+	EXTERNAL_MOUNT_LABEL_PATTERN,
 	SEED_COPY_SKIP_NAMES,
 	SEED_PATH_ABSOLUTE_DENY,
 	SEED_PATH_HOME_DENY,

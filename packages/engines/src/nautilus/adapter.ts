@@ -112,7 +112,7 @@ export class NautilusAdapter implements EngineAdapter {
 		const result = await runContainer({
 			image: ENGINE_IMAGES.nautilus,
 			rm: true,
-			volumes: [`${workspaceAbs}:${WORKSPACE_IN_CONTAINER}`],
+			volumes: [`${workspaceAbs}:${WORKSPACE_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
 			workdir: WORKSPACE_IN_CONTAINER,
 			cpus: "2",
 			memory: "2g",
@@ -131,9 +131,7 @@ export class NautilusAdapter implements EngineAdapter {
 		// `backtest_result` event and parse it.
 		const event = extractLastEvent<NautilusBacktestEvent>(result.stdout, "backtest_result");
 		if (!event) {
-			throw new Error(
-				"nautilus backtest completed but no backtest_result event on stdout",
-			);
+			throw new Error("nautilus backtest completed but no backtest_result event on stdout");
 		}
 		return { raw: result.stdout, normalized: this.parseResult(JSON.stringify(event)) };
 	}
@@ -167,7 +165,7 @@ export class NautilusAdapter implements EngineAdapter {
 				engine: "nautilus",
 				kind: "paper",
 			}),
-			volumes: [`${workspaceAbs}:${WORKSPACE_IN_CONTAINER}`],
+			volumes: [`${workspaceAbs}:${WORKSPACE_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
 			workdir: WORKSPACE_IN_CONTAINER,
 			cpus: "1",
 			memory: "1g",

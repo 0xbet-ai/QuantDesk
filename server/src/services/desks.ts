@@ -1,12 +1,13 @@
 import { join } from "node:path";
 import { db } from "@quantdesk/db";
 import { agentSessions, comments, desks, experiments, strategyCatalog } from "@quantdesk/db/schema";
+import type { DeskExternalMount } from "@quantdesk/db/schema";
 import { type VenueEngines, resolveEngine } from "@quantdesk/engines";
 import type { StrategyMode } from "@quantdesk/shared";
 import { eq } from "drizzle-orm";
 import venuesCatalog from "../../../strategies/venues.json" with { type: "json" };
 import { autoIncrementExperimentNumber } from "./logic.js";
-import { validateSeedPath } from "./seed-path.js";
+import { validateExternalMounts, validateSeedPath } from "./seed-path.js";
 import { initWorkspace } from "./workspace.js";
 
 const WORKSPACES_ROOT = process.env.WORKSPACES_ROOT ?? join(process.cwd(), "workspaces");
@@ -33,6 +34,13 @@ interface CreateDeskInput {
 	 * desk creation cleanly. Phase 09.
 	 */
 	seedCodePath?: string;
+	/**
+	 * Optional list of bind-mount external datasets. Each entry's host path
+	 * is validated against the same deny-list as `seedCodePath`. Persisted
+	 * on the desk row so engine adapters can re-apply the mount set on
+	 * every container spawn (and reconcile after server restart). Phase 10.
+	 */
+	externalMounts?: Array<{ label: string; hostPath: string; description?: string }>;
 }
 
 function resolveEngineForVenues(venueIds: string[], mode: StrategyMode): string {
@@ -69,6 +77,18 @@ export async function createDesk(input: CreateDeskInput) {
 		}
 	}
 
+	// Validate every external mount before insert. Same fail-fast principle
+	// as seedCodePath: a bad mount fails the desk creation cleanly with no
+	// orphan row.
+	let normalizedMounts: DeskExternalMount[] = [];
+	if (input.externalMounts && input.externalMounts.length > 0) {
+		const validation = validateExternalMounts(input.externalMounts);
+		if (!validation.ok) {
+			throw new Error(`externalMounts rejected: ${validation.reason}`);
+		}
+		normalizedMounts = validation.mounts;
+	}
+
 	const [desk] = await db
 		.insert(desks)
 		.values({
@@ -82,6 +102,7 @@ export async function createDesk(input: CreateDeskInput) {
 			engine,
 			config: input.config ?? {},
 			description: input.description ?? null,
+			externalMounts: normalizedMounts,
 		})
 		.returning();
 

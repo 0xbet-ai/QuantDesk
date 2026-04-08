@@ -18,6 +18,13 @@ export interface BacktestConfig {
 	workspacePath: string;
 	runId: string;
 	extraParams?: Record<string, unknown>;
+	/**
+	 * Extra Docker bind mounts to apply on top of the workspace mount.
+	 * Format: `hostPath:containerPath[:ro]`. Phase 10 — populated by the
+	 * server from the desk's `externalMounts` array. Adapters concat these
+	 * onto their own `volumes` array before calling `runContainer`.
+	 */
+	extraVolumes?: string[];
 }
 
 export interface NormalizedResult {
@@ -55,6 +62,11 @@ export interface PaperConfig {
 	exchange: string;
 	/** Candle timeframe (classic engines). */
 	timeframe?: string;
+	/**
+	 * Extra Docker bind mounts to apply on top of the workspace mount.
+	 * Same shape as {@link BacktestConfig.extraVolumes} — phase 10.
+	 */
+	extraVolumes?: string[];
 }
 
 export interface PaperHandle {

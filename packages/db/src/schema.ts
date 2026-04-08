@@ -9,6 +9,18 @@ import {
 	uuid,
 } from "drizzle-orm/pg-core";
 
+/**
+ * Bind-mounted external dataset (phase 10). The host path is read-only,
+ * mounted into `/workspace/data/external/<label>` at every container spawn.
+ * Persisted on the desk row so reconcile can re-apply the same set after a
+ * server restart.
+ */
+export interface DeskExternalMount {
+	label: string;
+	hostPath: string;
+	description?: string;
+}
+
 export const desks = pgTable("desks", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	name: text("name").notNull(),
@@ -22,6 +34,7 @@ export const desks = pgTable("desks", {
 	config: jsonb("config").notNull().$type<Record<string, unknown>>().default({}),
 	description: text("description"),
 	workspacePath: text("workspace_path"),
+	externalMounts: jsonb("external_mounts").notNull().$type<DeskExternalMount[]>().default([]),
 	status: text("status").notNull().default("active"),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
