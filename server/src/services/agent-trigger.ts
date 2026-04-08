@@ -15,7 +15,7 @@ import {
 import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
 import { stripAgentMarkers } from "@quantdesk/shared";
 import type { NormalizedResult } from "@quantdesk/shared";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog, clearAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
@@ -23,6 +23,50 @@ import { createComment, systemComment } from "./comments.js";
 import { autoIncrementRunNumber } from "./logic.js";
 import { detectProposals, extractDataFetchProposal, markerToProposalType } from "./triggers.js";
 import { commitCode, hasChanges } from "./workspace.js";
+
+/**
+ * Find the existing `agent_sessions` row for a (desk, role) pair, or create
+ * a fresh one. The analyst session is created at desk creation
+ * (`services/desks.ts`); risk_manager sessions are created lazily here on
+ * the first `[PROPOSE_VALIDATION]` approval (phase 07).
+ */
+async function getOrCreateAgentSession(
+	deskId: string,
+	role: "analyst" | "risk_manager",
+): Promise<typeof agentSessions.$inferSelect | null> {
+	const existing = await db
+		.select()
+		.from(agentSessions)
+		.where(and(eq(agentSessions.deskId, deskId), eq(agentSessions.agentRole, role)));
+	if (existing[0]) return existing[0];
+
+	if (role === "analyst") {
+		// Analyst is supposed to be seeded at desk creation. If it is missing
+		// the desk is in a broken state — surface that loudly rather than
+		// papering over it with a default config.
+		return null;
+	}
+
+	// Risk-manager sessions inherit the analyst's adapter config so the user
+	// only configures Claude/Codex once per desk.
+	const [analyst] = await db
+		.select()
+		.from(agentSessions)
+		.where(and(eq(agentSessions.deskId, deskId), eq(agentSessions.agentRole, "analyst")));
+	if (!analyst) return null;
+
+	const [created] = await db
+		.insert(agentSessions)
+		.values({
+			deskId,
+			agentRole: role,
+			adapterType: analyst.adapterType,
+			adapterConfig: analyst.adapterConfig,
+			sessionId: null,
+		})
+		.returning();
+	return created ?? null;
+}
 
 /**
  * Parse the `[RUN_BACKTEST]...[/RUN_BACKTEST]` marker emitted by the agent.
@@ -161,12 +205,23 @@ function spawnCli(
 	});
 }
 
+export type AgentRole = "analyst" | "risk_manager";
+
 /**
- * Trigger the agent for a given experiment.
- * Called after a comment is created (user or system).
- * Runs asynchronously — does not block the HTTP response.
+ * Trigger the agent for a given experiment, optionally as a non-default
+ * role. Defaults to `"analyst"` for backward compatibility — every existing
+ * caller (user comments, system retrigger after backtest, etc.) wakes the
+ * analyst. Phase 07 introduces the `"risk_manager"` path via the
+ * `[PROPOSE_VALIDATION]` proposal handler.
+ *
+ * Each role has its own row in `agent_sessions` so the two CLI subprocesses
+ * keep independent `sessionId`s and prompt templates. The row is created
+ * lazily on first use via `getOrCreateAgentSession`.
  */
-export async function triggerAgent(experimentId: string): Promise<void> {
+export async function triggerAgent(
+	experimentId: string,
+	role: AgentRole = "analyst",
+): Promise<void> {
 	// 1. Load experiment + desk
 	const [experiment] = await db.select().from(experiments).where(eq(experiments.id, experimentId));
 	if (!experiment) return;
@@ -174,8 +229,8 @@ export async function triggerAgent(experimentId: string): Promise<void> {
 	const [desk] = await db.select().from(desks).where(eq(desks.id, experiment.deskId));
 	if (!desk) return;
 
-	// 2. Load agent session for this desk
-	const [session] = await db.select().from(agentSessions).where(eq(agentSessions.deskId, desk.id));
+	// 2. Load agent session for this desk + role (create lazily for non-analyst roles)
+	const session = await getOrCreateAgentSession(desk.id, role);
 	if (!session) return;
 
 	// 3. Load context: runs, comments, memory
