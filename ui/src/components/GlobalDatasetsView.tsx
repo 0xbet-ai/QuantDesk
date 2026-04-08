@@ -7,6 +7,8 @@ import { Button } from "./ui/button.js";
 export function GlobalDatasetsView() {
 	const [datasets, setDatasets] = useState<Dataset[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [confirmingId, setConfirmingId] = useState<string | null>(null);
+	const [deletingId, setDeletingId] = useState<string | null>(null);
 
 	const refresh = () => {
 		setLoading(true);
@@ -21,12 +23,15 @@ export function GlobalDatasetsView() {
 	}, []);
 
 	const handleDelete = async (id: string) => {
-		if (!window.confirm("Delete this dataset? All desks linked to it will lose access.")) return;
+		setDeletingId(id);
 		try {
 			await deleteDatasetGlobal(id);
+			setConfirmingId(null);
 			refresh();
 		} catch (err) {
 			console.error("Failed to delete dataset:", err);
+		} finally {
+			setDeletingId(null);
 		}
 	};
 
@@ -65,15 +70,36 @@ export function GlobalDatasetsView() {
 										{d.path}
 									</div>
 								</div>
-								<Button
-									variant="ghost"
-									size="icon-sm"
-									className="text-muted-foreground hover:text-destructive"
-									onClick={() => handleDelete(d.id)}
-									title="Delete dataset"
-								>
-									<Trash2 className="size-4" />
-								</Button>
+								{confirmingId === d.id ? (
+									<div className="flex items-center gap-2 shrink-0">
+										<Button
+											variant="destructive"
+											size="sm"
+											onClick={() => handleDelete(d.id)}
+											disabled={deletingId === d.id}
+										>
+											{deletingId === d.id ? "Deleting..." : "Confirm delete"}
+										</Button>
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() => setConfirmingId(null)}
+											disabled={deletingId === d.id}
+										>
+											Cancel
+										</Button>
+									</div>
+								) : (
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										className="text-muted-foreground hover:text-destructive"
+										onClick={() => setConfirmingId(d.id)}
+										title="Delete dataset"
+									>
+										<Trash2 className="size-4" />
+									</Button>
+								)}
 							</div>
 						))}
 					</div>
