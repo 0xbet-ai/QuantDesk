@@ -843,6 +843,25 @@ export function CommentThread({
 								: "opacity-100 translate-y-0 scale-100 animate-in fade-in slide-in-from-bottom-2 duration-300",
 						)}
 					>
+						{(() => {
+							// Show the "continued (no user reply)" separator above
+							// the live running card when the most recent comment
+							// before it is not from the user — i.e. an agent turn
+							// just finished and another one started without the
+							// user saying anything in between.
+							const nonCurrent = comments.filter(
+								(c) => !currentTurnId || c.turnId !== currentTurnId,
+							);
+							const lastPrior = nonCurrent[nonCurrent.length - 1];
+							const showConnector = !!lastPrior && lastPrior.author !== "user";
+							return showConnector ? (
+								<div className="flex items-center gap-2 px-4 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+									<div className="h-px flex-1 bg-border" />
+									<span>continued (no user reply)</span>
+									<div className="h-px flex-1 bg-border" />
+								</div>
+							) : null;
+						})()}
 						<TurnCard
 							experimentNumber={experiment.number}
 							agentRole={thinkingRole ?? "analyst"}
