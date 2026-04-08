@@ -34,6 +34,14 @@ RUN_BACKTEST(config: { strategyName, configFile?, entrypoint? })
   postcond:  runs row exists with metrics + commit_hash
   refusal:   if no desk_datasets link → post rule #13 refusal system comment, early return.
              Lifecycle bounces back to a PROPOSE_DATA_FETCH proposal.
+  branches:
+             - success            → retrigger handles next turn
+             - engine_failure     → user must reply to retry
+             - refusal_no_data    → agent will re-propose; user can also nudge
+  user_next_action (per rule #15):
+             success         → none — retrigger continues automatically
+             engine_failure  → system comment ends with "Reply with guidance to retry."
+             refusal_no_data → system comment names PROPOSE_DATA_FETCH as the required next step
   notes:     engine is resolved from desk.strategy_mode + venue (see ../engine/README.md);
              the marker itself is engine-agnostic.
 ```
@@ -47,6 +55,14 @@ RUN_PAPER(runId: string)
   effect:    promote the run into a long-lived paper session
              (see ./PAPER_LIFECYCLE.md for the state machine)
   postcond:  paperSessions row exists in `pending`
+  branches:
+             - launched           → paper widget visible on desk header
+             - rejected_no_validation → refusal comment names PROPOSE_VALIDATION
+             - rejected_active_session → refusal comment names the existing session
+  user_next_action (per rule #15):
+             launched                  → desk header surfaces the live paper widget
+             rejected_no_validation    → "Validate this run first via [PROPOSE_VALIDATION] before promoting to paper."
+             rejected_active_session   → "Stop the existing paper session before starting a new one."
   notes:     paper sessions leave the turn-based lifecycle entirely;
              observer turns and reconciliation are owned by PAPER_LIFECYCLE.md.
 ```
@@ -58,18 +74,28 @@ EXPERIMENT_TITLE(title: string)  // ≤ 8 words
   requires:  experiment.number ≠ 1   // first experiment is permanently `Baseline`
   effect:    update experiments.title
   postcond:  experiment has a human title
+  branches:  - applied / - ignored_baseline
+  user_next_action: none — metadata-only marker, never a turn boundary
   notes:     rides along on whatever turn it appears in; no retrigger of its own.
 ```
 
 ### No-marker turn (terminal)
 
-A turn that emits no markers is the **terminal state** of the turn cycle. The server saves the comment, emits `agent.done`, and stops. No system comment, no retrigger. The desk pauses until the user comments again.
+A turn that emits no markers is the **terminal state** of the turn cycle. The server saves the comment, emits `agent.done`, and stops. No system comment, no retrigger.
 
 This is intentional: a turn that emits markers wants the server to advance the lifecycle; a turn that emits none wants the user back in the loop. There is no "default action" the server invents on the agent's behalf.
 
+**Per rule #15 (no user dead-ends)**, the UI must make the "your turn" state visible — e.g. an empty composer focus, an explicit "awaiting your reply" affordance on the desk header, or a quiescent indicator. The terminal turn never silently pauses without telling the user it is their move.
+
 ## Proposal markers
 
-Every proposal marker has the same shape: parse → attach `pendingProposal` → end the turn. The differences are in the `on approve` step. If the user never decides, the lifecycle simply pauses on that comment forever.
+Every proposal marker has the same shape: parse → attach `pendingProposal` → end the turn. The differences are in the `on approve` step.
+
+**Per rule #15 (no user dead-ends)**, every proposal marker must satisfy two UI invariants:
+1. The Approve/Reject buttons on the comment must explain what each choice does (e.g. cache-hit copy on `PROPOSE_DATA_FETCH`).
+2. While any `pendingProposal` is unresolved, the desk header surfaces a persistent "1 pending decision" indicator so the user cannot scroll past the buttons unaware.
+
+If the user never decides, the lifecycle pauses, but the indicator from (2) keeps the next move visible — silence is never a dead-end.
 
 ```
 PROPOSE_DATA_FETCH(proposal: {
@@ -87,6 +113,18 @@ PROPOSE_DATA_FETCH(proposal: {
              retrigger
   postcond:  desk has ≥1 desk_datasets link covering the requested range
              // matches RUN_BACKTEST.requires
+  branches:
+             - approve+cache_hit  → instant link, no download
+             - approve+cache_miss → download container, then link
+             - reject             → recovery comment, agent re-proposes or stops
+             - ignore             → header indicator persists
+  user_next_action (per rule #15):
+             approve+cache_hit  → "Already cached — instant link" copy on the button itself
+             approve+cache_miss → progress indicator + "Downloaded …" comment afterwards
+             reject             → system comment "Data is required to backtest. The agent
+                                  will propose again, or you can request a different
+                                  dataset by replying."
+             ignore             → desk header shows "1 pending decision" badge
   notes:     prompt-level rule #13 forces this to be the agent's *first* response on a
              brand-new desk (no code, no RUN_BACKTEST). If the agent skips it, the next
              turn is caught by RUN_BACKTEST.refusal. Mid-lifecycle top-ups have no guard
@@ -107,6 +145,14 @@ PROPOSE_VALIDATION()
              (see ./ROLES.md)
              retrigger analyst with the verdict embedded
   postcond:  RM verdict comment exists
+  branches:
+             - approve → RM turn dispatched, verdict appears, analyst retriggered
+             - reject  → recovery comment ("validation skipped, you can re-request anytime")
+             - ignore  → header indicator persists
+  user_next_action (per rule #15):
+             approve → progress indicator while RM thinks
+             reject  → system comment "Validation skipped. Reply 'validate' to re-request."
+             ignore  → desk header "1 pending decision" badge
   notes:     this is the only path that wakes the Risk Manager.
              Whether the proposal originated from the analyst's own anomaly detection
              or from a user comment asking for validation is upstream context — at the
@@ -124,6 +170,11 @@ PROPOSE_NEW_EXPERIMENT(title: string)
              create new experiments row, switch context
              retrigger
   postcond:  new experiment is current
+  branches:  - approve → new experiment switched in / - reject → noop / - ignore → badge
+  user_next_action (per rule #15):
+             approve → header shows the new experiment as current
+             reject  → system comment "Staying in the current experiment."
+             ignore  → desk header "1 pending decision" badge
 ```
 
 ```
@@ -136,6 +187,11 @@ PROPOSE_COMPLETE_EXPERIMENT()
              mark the experiment complete
              (no retrigger)
   postcond:  experiment is closed
+  branches:  - approve → experiment closed / - reject → noop / - ignore → badge
+  user_next_action (per rule #15):
+             approve → system comment names next move ("Start a new experiment or close the desk.")
+             reject  → system comment "Continuing this experiment."
+             ignore  → desk header "1 pending decision" badge
 ```
 
 ```
@@ -147,6 +203,11 @@ PROPOSE_GO_PAPER(runId: string)
   on approve:
              same effect as RUN_PAPER(runId)
   postcond:  paperSessions row exists in `pending`
+  branches:  - approve → paper widget visible / - reject → noop / - ignore → badge
+  user_next_action (per rule #15):
+             approve → header surfaces live paper widget (same as RUN_PAPER.launched)
+             reject  → system comment "Paper trading not started. Approve later when ready."
+             ignore  → desk header "1 pending decision" badge
 ```
 
 ## Reading the chain
