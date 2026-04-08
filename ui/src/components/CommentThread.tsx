@@ -6,6 +6,7 @@ import {
 	ChevronRight,
 	Code2,
 	Database,
+	MessageSquare,
 	Send,
 	Shield,
 	User,
@@ -226,13 +227,20 @@ function ProposalCard({
 function DataFetchProposalCard({
 	proposal,
 	commentId,
+	experimentId,
 	onAction,
 }: {
 	proposal: DataFetchProposal;
 	commentId: string;
+	experimentId: string;
 	onAction: () => void;
 }) {
-	const [status, setStatus] = useState<"pending" | "approved" | "rejected">("pending");
+	const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "replied">(
+		"pending",
+	);
+	const [replyOpen, setReplyOpen] = useState(false);
+	const [replyText, setReplyText] = useState("");
+	const [sending, setSending] = useState(false);
 
 	const decide = async (action: "approve" | "reject") => {
 		setStatus(action === "approve" ? "approved" : "rejected");
@@ -242,6 +250,22 @@ function DataFetchProposalCard({
 		} catch (err) {
 			console.error("data-fetch decision failed:", err);
 			setStatus("pending");
+		}
+	};
+
+	const sendReply = async () => {
+		if (!replyText.trim() || sending) return;
+		setSending(true);
+		try {
+			await postComment(experimentId, replyText.trim());
+			setStatus("replied");
+			setReplyOpen(false);
+			setReplyText("");
+			onAction();
+		} catch (err) {
+			console.error("data-fetch reply failed:", err);
+		} finally {
+			setSending(false);
 		}
 	};
 
@@ -257,30 +281,79 @@ function DataFetchProposalCard({
 				{proposal.rationale && <div className="italic">{proposal.rationale}</div>}
 			</div>
 			{status === "pending" ? (
-				<div className="flex gap-2 mt-2">
-					<Button
-						size="sm"
-						variant="outline"
-						className="h-7 px-3 text-xs gap-1"
-						onClick={() => decide("approve")}
-					>
-						<CheckCircle2 className="size-3" />
-						Approve & download
-					</Button>
-					<Button
-						size="sm"
-						variant="ghost"
-						className="h-7 px-3 text-xs gap-1 text-muted-foreground"
-						onClick={() => decide("reject")}
-					>
-						<XCircle className="size-3" />
-						Reject
-					</Button>
-				</div>
+				<>
+					<div className="flex gap-2 mt-2">
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-7 px-3 text-xs gap-1"
+							onClick={() => decide("approve")}
+						>
+							<CheckCircle2 className="size-3" />
+							Approve & download
+						</Button>
+						<Button
+							size="sm"
+							variant="ghost"
+							className="h-7 px-3 text-xs gap-1 text-muted-foreground"
+							onClick={() => decide("reject")}
+						>
+							<XCircle className="size-3" />
+							Reject
+						</Button>
+						<Button
+							size="sm"
+							variant="ghost"
+							className="h-7 px-3 text-xs gap-1 text-muted-foreground"
+							onClick={() => setReplyOpen((v) => !v)}
+						>
+							<MessageSquare className="size-3" />
+							Reply
+						</Button>
+					</div>
+					{replyOpen && (
+						<div className="mt-2 flex gap-2">
+							<Input
+								autoFocus
+								value={replyText}
+								onChange={(e) => setReplyText(e.target.value)}
+								onKeyDown={(e) => {
+									if (e.key === "Enter" && !e.shiftKey) {
+										e.preventDefault();
+										sendReply();
+									}
+								}}
+								placeholder="Ask the agent to adjust the proposal..."
+								disabled={sending}
+								className="h-7 text-xs"
+							/>
+							<Button
+								size="sm"
+								className="h-7 px-3 text-xs"
+								onClick={sendReply}
+								disabled={sending || !replyText.trim()}
+							>
+								Send
+							</Button>
+						</div>
+					)}
+				</>
 			) : (
 				<div className="mt-1 text-xs font-medium">
-					<span className={status === "approved" ? "text-green-500" : "text-muted-foreground"}>
-						{status === "approved" ? "Approved — downloading..." : "Rejected"}
+					<span
+						className={
+							status === "approved"
+								? "text-green-500"
+								: status === "replied"
+									? "text-blue-500"
+									: "text-muted-foreground"
+						}
+					>
+						{status === "approved"
+							? "Approved — downloading..."
+							: status === "replied"
+								? "Reply sent"
+								: "Rejected"}
 					</span>
 				</div>
 			)}
@@ -399,6 +472,10 @@ export function CommentThread({
 	const [streamEntries, setStreamEntries] = useState<TranscriptEntry[]>([]);
 	const [runStartedAt, setRunStartedAt] = useState<Date | null>(null);
 	const [fadingOut, setFadingOut] = useState(false);
+	// Live tail of `data_fetch.progress` events from the server. Cleared
+	// whenever the comment thread refreshes (the next system comment —
+	// "Downloaded …" or failure — supersedes the live tail).
+	const [dataFetchProgress, setDataFetchProgress] = useState<string[]>([]);
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	const refresh = useCallback(() => {
@@ -452,6 +529,17 @@ export function CommentThread({
 			setRunStartedAt(new Date());
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
+		if (event.type === "data_fetch.progress") {
+			const payload = event.payload as { line?: string };
+			if (payload.line) {
+				setDataFetchProgress((prev) => {
+					// Cap at 200 lines so a chatty downloader doesn't OOM the UI.
+					const next = [...prev, payload.line as string];
+					return next.length > 200 ? next.slice(-200) : next;
+				});
+			}
+			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
+		}
 		if (event.type === "agent.streaming") {
 			const payload = event.payload as { chunk?: TranscriptEntry };
 			const chunk = payload.chunk;
@@ -481,6 +569,10 @@ export function CommentThread({
 			}, 600);
 		}
 		if (event.type === "comment.new") {
+			// A new comment supersedes any in-flight data-fetch progress —
+			// the success / failure system comment that follows the download
+			// is what the user should see now.
+			setDataFetchProgress([]);
 			refresh();
 		}
 		if (event.type === "experiment.updated") {
@@ -578,6 +670,7 @@ export function CommentThread({
 											<DataFetchProposalCard
 												proposal={dfp}
 												commentId={c.id}
+												experimentId={experiment.id}
 												onAction={() => {
 													refresh();
 													setThinkingRole("analyst");
@@ -601,6 +694,19 @@ export function CommentThread({
 				{comments.length === 0 && !thinkingRole && (
 					<div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
 						No comments yet
+					</div>
+				)}
+				{dataFetchProgress.length > 0 && (
+					<div className="mt-2 rounded-md border border-border bg-muted/40 px-3 py-2 animate-in fade-in slide-in-from-bottom-1 duration-300">
+						<div className="flex items-center gap-2 mb-1.5">
+							<div className="size-1.5 rounded-full bg-cyan-500 animate-pulse" />
+							<span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+								Data fetch · live
+							</span>
+						</div>
+						<pre className="text-[10px] font-mono text-muted-foreground whitespace-pre-wrap leading-tight max-h-48 overflow-y-auto">
+							{dataFetchProgress.slice(-30).join("\n")}
+						</pre>
 					</div>
 				)}
 				{(thinkingRole || streamEntries.length > 0) && (

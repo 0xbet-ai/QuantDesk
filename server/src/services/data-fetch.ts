@@ -5,6 +5,7 @@ import { db } from "@quantdesk/db";
 import { datasets, deskDatasets, desks, experiments } from "@quantdesk/db/schema";
 import { ENGINE_IMAGES, runContainer } from "@quantdesk/engines";
 import { and, eq, sql } from "drizzle-orm";
+import { publishExperimentEvent } from "../realtime/live-events.js";
 import { systemComment } from "./comments.js";
 import type { DataFetchProposal } from "./triggers.js";
 
@@ -140,12 +141,26 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 		cmd.push("--trading-mode", proposal.tradingMode);
 	}
 
-	const result = await runContainer({
-		image: ENGINE_IMAGES.freqtrade,
-		rm: true,
-		volumes: [`${cacheUserDir}:/datacache`],
-		command: cmd,
-	});
+	// Forward freqtrade's stdout/stderr line-by-line via WebSocket so the UI
+	// can show a live tail under the "Downloading…" comment instead of
+	// waiting silently for the container to exit. Lines are not persisted
+	// to the DB — they exist only as transient WS events.
+	const onProgressLine = (line: string) => {
+		publishExperimentEvent({
+			experimentId,
+			type: "data_fetch.progress",
+			payload: { line },
+		});
+	};
+	const result = await runContainer(
+		{
+			image: ENGINE_IMAGES.freqtrade,
+			rm: true,
+			volumes: [`${cacheUserDir}:/datacache`],
+			command: cmd,
+		},
+		{ onStdoutLine: onProgressLine, onStderrLine: onProgressLine },
+	);
 
 	const files =
 		existsSync(exchangeCachePath) &&

@@ -11,7 +11,8 @@ interface LiveEvent {
 		| "agent.thinking"
 		| "agent.streaming"
 		| "agent.done"
-		| "experiment.updated";
+		| "experiment.updated"
+		| "data_fetch.progress";
 	payload: Record<string, unknown>;
 	createdAt: string;
 }
