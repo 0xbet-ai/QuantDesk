@@ -1,8 +1,14 @@
 export {
 	AGENT_MARKERS,
+	extractBacktestResultBody,
+	extractDatasetBody,
+	extractExperimentTitle,
+	extractRmVerdict,
+	extractRunBacktestRequest,
 	formatAgentMarkersForDisplay,
 	stripAgentMarkers,
 } from "./agent-markers.js";
+export type { RmVerdict, RunBacktestRequest } from "./agent-markers.js";
 
 export {
 	adapterConfigSchema,
@@ -33,3 +39,11 @@ export {
 	SEED_PATH_HOME_DENY,
 	SEED_PATH_MAX_BYTES,
 } from "./seed-path.js";
+
+export {
+	availableModes,
+	availableModesForVenues,
+	engineForMode,
+	resolveEngine,
+	type VenueEngines,
+} from "./venue-modes.js";

@@ -37,6 +37,7 @@ export function registerDataFetchHandler(): void {
 			await executeDataFetch({
 				experimentId: comment.experimentId,
 				proposal: proposal.data,
+				parentCommentId: comment.id,
 			});
 			await triggerAgent(comment.experimentId);
 		},

@@ -14,6 +14,7 @@ const DATA_CACHE_ROOT =
 interface ExecuteArgs {
 	experimentId: string;
 	proposal: DataFetchProposal;
+	parentCommentId?: string;
 }
 
 /**
@@ -29,7 +30,8 @@ interface ExecuteArgs {
  * dataset identity; the `desk_datasets` join table records which desks
  * have linked which datasets.
  */
-export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) {
+export async function executeDataFetch({ experimentId, proposal, parentCommentId }: ExecuteArgs) {
+	const threadMeta = parentCommentId ? { parentCommentId } : undefined;
 	const [experiment] = await db
 		.select()
 		.from(experiments)
@@ -52,6 +54,7 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 				`Data-fetch proposal approved, but strategy_mode=${desk.strategyMode} does not have a ` +
 				"server-side fetcher yet. Proceed to fetch the data yourself from within your " +
 				"strategy workspace.",
+			metadata: threadMeta,
 		});
 		return null;
 	}
@@ -97,6 +100,7 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 				`Reusing existing dataset for ${proposal.pairs.join(", ")} ${proposal.timeframe} ` +
 				`from ${proposal.exchange} (${startDate} → ${endDate}). No download needed. ` +
 				"You may now write the strategy and emit [RUN_BACKTEST].",
+			metadata: threadMeta,
 		});
 		return dataset;
 	}
@@ -116,6 +120,7 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 		content:
 			`Downloading ${proposal.pairs.join(", ")} ${proposal.timeframe} from ${proposal.exchange} ` +
 			`(${proposal.days}d, ${timerange}) into shared data cache...`,
+		metadata: threadMeta,
 	});
 
 	const cmd = [
@@ -159,7 +164,8 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 			content:
 				`Data-fetch failed for ${proposal.pairs.join(", ")} on ${proposal.exchange}. ` +
 				"Check the pair naming and trade mode, then emit a corrected [PROPOSE_DATA_FETCH]. " +
-				`Last log lines:\n\`\`\`\n${tail || "(no output)"}\n\`\`\``,
+				`Last log lines:\n\`\`\`log\n${tail || "(no output)"}\n\`\`\``,
+			metadata: threadMeta,
 		});
 		return null;
 	}
@@ -189,6 +195,7 @@ export async function executeDataFetch({ experimentId, proposal }: ExecuteArgs) 
 			`Downloaded ${fileCount} file(s) for ${proposal.pairs.join(", ")} ` +
 			`${proposal.timeframe} from ${proposal.exchange} into shared cache. Dataset registered ` +
 			"and linked to this desk. You may now write the strategy and emit [RUN_BACKTEST].",
+		metadata: threadMeta,
 	});
 
 	return dataset ?? null;
