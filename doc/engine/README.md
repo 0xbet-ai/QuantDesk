@@ -31,7 +31,7 @@ Users never pick an engine directly. During onboarding they choose a **strategy 
 | `classic` (recommended) | Freqtrade | Candle-based polling strategies, TA indicators, minute-to-hour timeframes. Best for trend following, mean reversion, momentum. |
 | `realtime` (advanced) | Nautilus | Event-driven strategies reacting to ticks and order book deltas, sub-second timeframes. Best for market making, arbitrage, HFT. |
 
-Each desk pins a `strategy_mode` at creation. The corresponding engine is derived from the mode and stored in `desks.engine`. Both are immutable for the desk's lifetime.
+Each desk pins a `strategy_mode` at creation and the engine is derived from it — both immutable per CLAUDE.md rule #10.
 
 ## Interface
 
@@ -85,7 +85,7 @@ Wizard flow:
 1. User picks venue(s).
 2. Wizard computes `availableModes(venues)` (intersection across selected venues).
 3. User picks a strategy mode from the available set. If only one is available, it is pre-selected. If none are available, user is told to reselect venues.
-4. Engine is derived and written to `desks.engine`, immutable thereafter.
+4. Engine is derived and written to `desks.engine` (immutable per CLAUDE.md rule #10).
 
 See `strategies/venues.json` for the full list of venues and which engines each one supports.
 
