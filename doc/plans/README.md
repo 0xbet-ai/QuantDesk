@@ -50,6 +50,7 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 | # | Title | Kind |
 |---|-------|------|
 | 26 | [Server-side P1 bootstrap for catalog desks](26_catalog_p1_bootstrap.md) | TODO |
+| 27 | [`agent_turns` table + turn-scoped UI card](27_agent_turns_card.md) | TODO |
 
 ## DONE (baseline — already in code)
 
