@@ -38,6 +38,14 @@ Code today: the marker is defined in `packages/shared/src/agent-markers.ts` and 
 
 Done when: server parses `[PROPOSE_VALIDATION]`, dispatches a Risk Manager turn against the latest run, and posts the validation verdict as a system comment that re-triggers the Analyst.
 
+### Experiment flow — `[PROPOSE_NEW_EXPERIMENT]` / `[PROPOSE_COMPLETE_EXPERIMENT]` handlers
+
+Spec: `doc/agent/MARKERS.md`, `doc/agent/LIFECYCLE.md` Stage 3.
+
+Code today: both markers are defined in `packages/shared/src/agent-markers.ts` and taught to the agent, but `agent-trigger.ts` does not extract them — emitted markers are silently stripped. The UI has no Accept/Decline controls for them.
+
+Done when: server parses both markers, attaches a pendingProposal payload to the agent comment, UI renders Accept/Decline, and Accept either creates a new experiment row or marks the current one `completed`.
+
 ### Paper trading — `[RUN_PAPER]` marker handler
 
 Spec: `doc/agent/MARKERS.md` lists `[RUN_PAPER] <runId>` as an action marker that starts a long-lived paper container.

@@ -50,7 +50,10 @@ flowchart TD
         direction TB
         A1["agent: plain-text analysis<br/>(no markers)"]
         A2["#91;EXPERIMENT_TITLE#93;<br/>(only if exp.num != 1)"]
-        A3["#91;DATASET#93;<br/>insert datasets row"]
+        A3["#91;DATASET#93;<br/>insert datasets row<br/>+ desk_datasets link"]
+        A4["#91;PROPOSE_VALIDATION#93;<br/>dispatch Risk Manager turn<br/>against latest run"]
+        A5["#91;PROPOSE_NEW_EXPERIMENT#93;<br/>render Accept / Decline<br/>on agent comment"]
+        A6["#91;PROPOSE_COMPLETE_EXPERIMENT#93;<br/>render Accept / Decline<br/>on agent comment"]
     end
 
     Parse -- "#91;PROPOSE_DATA_FETCH#93;" --> P1
@@ -58,15 +61,22 @@ flowchart TD
     Parse -- "#91;BACKTEST_RESULT#93;<br/>generic" --> BG
     Parse -- "#91;EXPERIMENT_TITLE#93;" --> A2
     Parse -- "#91;DATASET#93;" --> A3
+    Parse -- "#91;PROPOSE_VALIDATION#93;" --> A4
+    Parse -- "#91;PROPOSE_NEW_EXPERIMENT#93;" --> A5
+    Parse -- "#91;PROPOSE_COMPLETE_EXPERIMENT#93;" --> A6
     Parse -- "no markers" --> A1
 
     %% retrigger edges showing the stage cycle
     P4 -. "retrigger" .-> Trigger
     B4 -. "retrigger" .-> Trigger
+    A4 -. "retrigger after verdict" .-> Trigger
     BG --> Strip
     A1 --> Strip
     A2 --> Strip
     A3 --> Strip
+    A4 --> Strip
+    A5 --> Strip
+    A6 --> Strip
     B1 --> Strip
     Strip["stripAgentMarkers<br/>save agent comment"] --> Done(["agent.done event"])
 ```
@@ -75,7 +85,7 @@ flowchart TD
 
 - **Stage 1 (data fetch)** is the gate. A brand-new desk must traverse this before anything else — the agent proposes, the user approves, the server downloads, and only then does a `datasets` row exist.
 - **Stage 2 (backtest)** can only succeed once Stage 1 has produced a dataset. The `dataset exists?` check at `B0` enforces this; without a dataset the server posts a refusal and returns, kicking the agent back to Stage 1.
-- **Stage 3 (analysis)** is the terminal stage of any turn. After a backtest result comment is posted, the recursive `triggerAgent` lands here: the agent reads the result and replies with plain text. `[EXPERIMENT_TITLE]` and `[DATASET]` are side-channel metadata markers that can ride along on any turn.
+- **Stage 3 (analysis)** is the terminal stage of any turn. After a backtest result comment is posted, the recursive `triggerAgent` lands here: the agent reads the result and replies with plain text. `[EXPERIMENT_TITLE]` and `[DATASET]` are side-channel metadata markers that can ride along on any turn. `[PROPOSE_VALIDATION]` dispatches a Risk Manager turn against the latest run and retriggers the Analyst with the verdict. `[PROPOSE_NEW_EXPERIMENT]` and `[PROPOSE_COMPLETE_EXPERIMENT]` attach Accept/Decline controls to the agent comment and wait for the user — they do not mutate state until the user acts.
 - **Recursion** (`P4 → Trigger`, `B4 → Trigger`) is what stitches the stages together across turns. Each retrigger is a fresh `triggerAgent` invocation with the new system comment as input.
 - **Stage 1 spans more than one HTTP request.** The agent turn that emits `[PROPOSE_DATA_FETCH]` ends as soon as the `pendingProposal` is saved on the comment; the server does not block on user approval. Approval (or rejection) arrives later as a separate user-initiated request, and that is what actually triggers the download → validate → datasets row → re-trigger chain. If the user closes the tab and never decides, the lifecycle simply pauses forever in `P2`.
 
