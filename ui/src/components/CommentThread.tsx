@@ -1,3 +1,4 @@
+import { formatAgentMarkersForDisplay } from "@quantdesk/shared";
 import {
 	Bot,
 	CheckCircle2,
@@ -15,7 +16,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
-import type { Comment, Dataset, DataFetchProposal, Experiment } from "../lib/api.js";
+import type { Comment, DataFetchProposal, Dataset, Experiment } from "../lib/api.js";
 import {
 	completeAndCreateNewExperiment,
 	getAgentLogs,
@@ -102,52 +103,39 @@ const proposalLabels: Record<Proposal["type"], string> = {
 	GO_PAPER: "Start paper trading with this run",
 };
 
-const PROPOSAL_RE =
-	/^\[PROPOSE_(VALIDATION|NEW_EXPERIMENT|COMPLETE_EXPERIMENT|GO_PAPER)\]\s*(?:—\s*)?(.*)$/gm;
+// Server-side ProposalType (lowercase) → legacy ProposalCard type (uppercase).
+// data_fetch is intentionally excluded — that gets its own card.
+const METADATA_TO_PROPOSAL_TYPE: Record<string, Proposal["type"]> = {
+	validation: "VALIDATION",
+	new_experiment: "NEW_EXPERIMENT",
+	complete_experiment: "COMPLETE_EXPERIMENT",
+	go_paper: "GO_PAPER",
+};
 
-// Strip [user]/[analyst]/[system]/[risk_manager] prefixes that the agent may echo
-const AUTHOR_PREFIX_RE = /^\[(user|analyst|system|risk_manager)\]\s*/gm;
-
-/** Convert [BACKTEST_RESULT] and [DATASET] markers to fenced JSON code blocks,
- *  and strip internal markers like [EXPERIMENT_TITLE]. */
-function formatAgentMarkers(text: string): string {
-	return text
-		.replace(
-			/\[BACKTEST_RESULT\]\s*([\s\S]*?)\s*\[\/BACKTEST_RESULT\]/g,
-			(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
-		)
-		.replace(
-			/\[DATASET\]\s*([\s\S]*?)\s*\[\/DATASET\]/g,
-			(_match, json: string) => `\n\`\`\`json\n${json.trim()}\n\`\`\`\n`,
-		)
-		.replace(/^\[EXPERIMENT_TITLE\].*$/gm, "")
-		.replace(/\n{3,}/g, "\n\n");
+/**
+ * Read a `Proposal` (the four legacy PROPOSE_* types) from the server-set
+ * `pendingProposal` metadata. Returns null for data_fetch (handled by
+ * `extractDataFetchProposal` below) and for any other shape.
+ *
+ * The server is the single owner of marker parsing — phase 04 wired the
+ * `pendingProposal` shape onto every comment, and the UI must NEVER regex
+ * the raw content for marker discovery.
+ */
+function extractLegacyProposal(metadata: Record<string, unknown> | null): Proposal | null {
+	if (!metadata) return null;
+	const pending = (metadata as { pendingProposal?: { type?: string; data?: { value?: string } } })
+		.pendingProposal;
+	if (!pending?.type) return null;
+	const mapped = METADATA_TO_PROPOSAL_TYPE[pending.type];
+	if (!mapped) return null;
+	return { type: mapped, value: pending.data?.value ?? "" };
 }
 
-function parseProposals(content: string): { cleanContent: string; proposals: Proposal[] } {
-	const proposals: Proposal[] = [];
-	let cleanContent = content.replace(PROPOSAL_RE, (_, type: Proposal["type"], value: string) => {
-		// Strip nested [PROPOSE_*] markers from value
-		const cleanValue = value
-			.trim()
-			.replace(/\[PROPOSE_\w+\]/g, "")
-			.replace(/—\s*$/, "")
-			.trim();
-		proposals.push({ type, value: cleanValue });
-		return "";
-	});
-	// Catch any remaining standalone markers not on their own line
-	cleanContent = cleanContent.replace(
-		/\[PROPOSE_(VALIDATION|NEW_EXPERIMENT|COMPLETE_EXPERIMENT|GO_PAPER)\]/g,
-		(_, type: Proposal["type"]) => {
-			if (!proposals.some((p) => p.type === type)) {
-				proposals.push({ type, value: "" });
-			}
-			return "";
-		},
-	);
-	cleanContent = cleanContent.replace(AUTHOR_PREFIX_RE, "");
-	return { cleanContent: cleanContent.trim(), proposals };
+// Strip [user]/[analyst]/[system]/[risk_manager] prefixes the agent may echo.
+// This is post-processing of agent output, not marker handling — kept here.
+const AUTHOR_PREFIX_RE = /^\[(user|analyst|system|risk_manager)\]\s*/gm;
+function stripAuthorPrefixes(text: string): string {
+	return text.replace(AUTHOR_PREFIX_RE, "");
 }
 
 function ProposalCard({
@@ -259,9 +247,7 @@ function DataFetchProposalCard({
 
 	return (
 		<div className="mt-2 rounded-md border border-border bg-muted/50 px-3 py-2">
-			<div className="text-xs font-medium text-foreground">
-				Fetch historical data for backtest?
-			</div>
+			<div className="text-xs font-medium text-foreground">Fetch historical data for backtest?</div>
 			<div className="mt-1 text-[11px] text-muted-foreground space-y-0.5">
 				<div>
 					<span className="font-medium text-foreground">{proposal.pairs.join(", ")}</span> ·{" "}
@@ -302,7 +288,9 @@ function DataFetchProposalCard({
 	);
 }
 
-function extractDataFetchProposal(metadata: Record<string, unknown> | null): DataFetchProposal | null {
+function extractDataFetchProposal(
+	metadata: Record<string, unknown> | null,
+): DataFetchProposal | null {
 	if (!metadata) return null;
 	const pending = (metadata as { pendingProposal?: { type?: string; data?: unknown } })
 		.pendingProposal;
@@ -526,71 +514,90 @@ export function CommentThread({
 
 			{/* Messages */}
 			<div className="flex-1 overflow-y-auto pl-4 pr-6 py-4 space-y-3">
-				{comments.map((c) => {
-					const config = authorConfig[c.author] ?? authorConfig.system!;
-					const Icon = config.icon;
-					const { cleanContent, proposals } = parseProposals(c.content);
-					return (
-						<div key={c.id} className="rounded-md border border-border p-3">
-							<div className="flex items-center gap-2 mb-1.5">
-								<div
-									className={cn(
-										"size-6 rounded-full flex items-center justify-center shrink-0",
-										c.author === "user" ? "bg-blue-500/15" : "bg-muted",
-									)}
-								>
-									<Icon className={cn("size-3", config.color)} />
-								</div>
-								<span className={cn("text-xs font-medium", config.color)}>{config.label}</span>
-								<span className="text-xs text-muted-foreground ml-auto">
-									{new Date(c.createdAt).toLocaleTimeString([], {
-										hour: "2-digit",
-										minute: "2-digit",
-									})}
-								</span>
-							</div>
-							{cleanContent && (
-								<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2 prose-strong:text-foreground">
-									<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-										{formatAgentMarkers(cleanContent)}
-									</Markdown>
-								</div>
-							)}
-							{proposals.map((p) => (
-								<ProposalCard
-									key={p.type}
-									proposal={p}
-									experimentId={experiment.id}
-									onAction={() => {
-										refresh();
-										setThinkingRole("analyst");
-										setStreamEntries([]);
-									}}
-									onNewExperiment={onNewExperiment}
-								/>
-							))}
-							{(() => {
-								const dfp = extractDataFetchProposal(c.metadata);
-								return dfp ? (
-									<DataFetchProposalCard
-										proposal={dfp}
-										commentId={c.id}
-										onAction={() => {
-											refresh();
-											setThinkingRole("analyst");
-										}}
-									/>
-								) : null;
-							})()}
-							{(c.author === "analyst" || c.author === "risk_manager") && (
-								<>
-									<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
-									<AgentTranscriptToggle experimentId={experiment.id} />
-								</>
-							)}
-						</div>
+				{(() => {
+					const childrenByParent = new Map<string, Comment[]>();
+					for (const c of comments) {
+						const parentId = (c.metadata as { parentCommentId?: string } | null)?.parentCommentId;
+						if (parentId) {
+							const arr = childrenByParent.get(parentId) ?? [];
+							arr.push(c);
+							childrenByParent.set(parentId, arr);
+						}
+					}
+					const topLevel = comments.filter(
+						(c) => !(c.metadata as { parentCommentId?: string } | null)?.parentCommentId,
 					);
-				})}
+					const renderComment = (c: Comment, isChild = false): ReactNode => {
+						const config = authorConfig[c.author] ?? authorConfig.system!;
+						const Icon = config.icon;
+						const cleanContent = stripAuthorPrefixes(c.content).trim();
+						const legacyProposal = extractLegacyProposal(c.metadata);
+						const children = childrenByParent.get(c.id) ?? [];
+						return (
+							<div key={c.id} className={cn(isChild && "ml-6 mt-2")}>
+								<div className="rounded-md border border-border p-3">
+									<div className="flex items-center gap-2 mb-1.5">
+										<div
+											className={cn(
+												"size-6 rounded-full flex items-center justify-center shrink-0",
+												c.author === "user" ? "bg-blue-500/15" : "bg-muted",
+											)}
+										>
+											<Icon className={cn("size-3", config.color)} />
+										</div>
+										<span className={cn("text-xs font-medium", config.color)}>{config.label}</span>
+										<span className="text-xs text-muted-foreground ml-auto">
+											{new Date(c.createdAt).toLocaleTimeString([], {
+												hour: "2-digit",
+												minute: "2-digit",
+											})}
+										</span>
+									</div>
+									{cleanContent && (
+										<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2 prose-strong:text-foreground">
+											<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+												{formatAgentMarkersForDisplay(cleanContent)}
+											</Markdown>
+										</div>
+									)}
+									{legacyProposal && (
+										<ProposalCard
+											proposal={legacyProposal}
+											experimentId={experiment.id}
+											onAction={() => {
+												refresh();
+												setThinkingRole("analyst");
+												setStreamEntries([]);
+											}}
+											onNewExperiment={onNewExperiment}
+										/>
+									)}
+									{(() => {
+										const dfp = extractDataFetchProposal(c.metadata);
+										return dfp ? (
+											<DataFetchProposalCard
+												proposal={dfp}
+												commentId={c.id}
+												onAction={() => {
+													refresh();
+													setThinkingRole("analyst");
+												}}
+											/>
+										) : null;
+									})()}
+									{(c.author === "analyst" || c.author === "risk_manager") && (
+										<>
+											<DatasetChips deskId={experiment.deskId} after={c.createdAt} />
+											<AgentTranscriptToggle experimentId={experiment.id} />
+										</>
+									)}
+								</div>
+								{children.map((child) => renderComment(child, true))}
+							</div>
+						);
+					};
+					return topLevel.map((c) => renderComment(c));
+				})()}
 				{comments.length === 0 && !thinkingRole && (
 					<div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
 						No comments yet

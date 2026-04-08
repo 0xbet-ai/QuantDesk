@@ -1,3 +1,4 @@
+import { type VenueEngines, availableModesForVenues, engineForMode } from "@quantdesk/shared";
 import {
 	Activity,
 	Anchor,
@@ -124,31 +125,25 @@ const stepTabs: { key: Step; label: string; icon: React.ComponentType<{ classNam
 		{ key: "launch", label: "Launch", icon: Rocket },
 	];
 
-// Intersect strategy modes supported across the selected venues.
-// Returns [] if the selection is incompatible or only `generic` is available.
+// Intersect strategy modes supported across the selected venues. Custom
+// venues (not in venues.json) are permissive — both modes available. The
+// underlying engine name resolution lives in `@quantdesk/shared/venue-modes`
+// so the UI never has to know which engine backs which mode.
 function computeAvailableModes(selectedVenueIds: string[]): StrategyMode[] {
 	if (selectedVenueIds.length === 0) return [];
-	const sets = selectedVenueIds.map((id) => {
+	const resolved: VenueEngines[] = [];
+	for (const id of selectedVenueIds) {
 		const v = venues.find((x) => x.id === id);
-		if (!v) return new Set<StrategyMode>(["classic", "realtime"]); // custom venue: permissive
-		const modes = new Set<StrategyMode>();
-		if (v.engines.includes("freqtrade")) modes.add("classic");
-		if (v.engines.includes("nautilus")) modes.add("realtime");
-		return modes;
-	});
-	const [first, ...rest] = sets;
-	if (!first) return [];
-	const out: StrategyMode[] = [];
-	for (const m of first) {
-		if (rest.every((s) => s.has(m))) out.push(m);
+		if (v) {
+			resolved.push(v as VenueEngines);
+		} else {
+			// Custom venue placeholder — declare every managed engine so the
+			// shared helper treats it as permissive.
+			resolved.push({ id, name: id, engines: ["freqtrade", "nautilus"] });
+		}
 	}
-	return out;
+	return availableModesForVenues(resolved);
 }
-
-const MODE_TO_ENGINE: Record<StrategyMode, string> = {
-	classic: "freqtrade",
-	realtime: "nautilus",
-};
 
 const ASSET_CLASS_META: {
 	id: AssetClass;
@@ -335,7 +330,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 	// (falls back to any engine available on the selected venues when mode is not yet picked).
 	const allowedEngines = new Set<string>();
 	if (selectedMode) {
-		allowedEngines.add(MODE_TO_ENGINE[selectedMode]);
+		allowedEngines.add(engineForMode(selectedMode));
 	} else {
 		for (const vid of selectedVenues) {
 			const v = venues.find((x) => x.id === vid);

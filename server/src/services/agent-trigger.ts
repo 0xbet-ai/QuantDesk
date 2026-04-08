@@ -13,8 +13,20 @@ import {
 	runs,
 } from "@quantdesk/db/schema";
 import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
-import { stripAgentMarkers } from "@quantdesk/shared";
-import type { NormalizedResult } from "@quantdesk/shared";
+import {
+	extractBacktestResultBody,
+	extractDatasetBody,
+	extractExperimentTitle,
+	extractRmVerdict,
+	extractRunBacktestRequest,
+	stripAgentMarkers,
+} from "@quantdesk/shared";
+import type { NormalizedResult, RmVerdict } from "@quantdesk/shared";
+
+// Re-export for callers that previously imported these from this file
+// (e.g. tests). The single owner is `packages/shared/src/agent-markers.ts`.
+export { extractRmVerdict };
+export type { RmVerdict };
 import { and, desc, eq } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog, clearAgentLog } from "./agent-log.js";
@@ -23,27 +35,6 @@ import { createComment, systemComment } from "./comments.js";
 import { autoIncrementRunNumber } from "./logic.js";
 import { detectProposals, extractDataFetchProposal, markerToProposalType } from "./triggers.js";
 import { commitCode, hasChanges } from "./workspace.js";
-
-/**
- * Risk Manager verdict markers (phase 08). The RM agent ends every turn
- * with exactly one of these. The result is recorded on the latest run's
- * `result.validation` and the analyst is retriggered with the verdict in
- * its next prompt context. `[RUN_PAPER]`'s precondition checks for an
- * `approve` verdict before promoting a run to paper.
- */
-export type RmVerdict = { verdict: "approve" | "reject"; reason: string };
-
-export function extractRmVerdict(text: string): RmVerdict | null {
-	const approveMatch = text.match(/^\[RM_APPROVE\](.*)$/m);
-	if (approveMatch) {
-		return { verdict: "approve", reason: (approveMatch[1] ?? "").trim() };
-	}
-	const rejectMatch = text.match(/^\[RM_REJECT\](.*)$/m);
-	if (rejectMatch) {
-		return { verdict: "reject", reason: (rejectMatch[1] ?? "").trim() };
-	}
-	return null;
-}
 
 /**
  * Find the existing `agent_sessions` row for a (desk, role) pair, or create
@@ -87,24 +78,6 @@ async function getOrCreateAgentSession(
 		})
 		.returning();
 	return created ?? null;
-}
-
-/**
- * Parse the `[RUN_BACKTEST]...[/RUN_BACKTEST]` marker emitted by the agent.
- * Returns the parsed payload or null if no marker is present.
- */
-function extractRunBacktestRequest(
-	text: string,
-): { strategyName?: string; configFile?: string } | null {
-	const match = text.match(/\[RUN_BACKTEST\]\s*([\s\S]*?)\s*\[\/RUN_BACKTEST\]/);
-	if (!match?.[1]) return null;
-	const body = match[1].trim();
-	if (!body) return {};
-	try {
-		return JSON.parse(body);
-	} catch {
-		return {};
-	}
 }
 
 function normalizedResultToMetrics(normalized: NormalizedResult) {
@@ -496,12 +469,10 @@ export async function triggerAgent(
 
 	// 8. Extract backtest results from agent output and create Run
 	if (result.resultText) {
-		const backtestMatch = result.resultText.match(
-			/\[BACKTEST_RESULT\]\s*([\s\S]*?)\s*\[\/BACKTEST_RESULT\]/,
-		);
-		if (backtestMatch?.[1]) {
+		const backtestBody = extractBacktestResultBody(result.resultText);
+		if (backtestBody) {
 			try {
-				const parsed = JSON.parse(backtestMatch[1]);
+				const parsed = JSON.parse(backtestBody);
 				// Support both new schema (metrics array) and legacy flat schema
 				let resultPayload: { metrics: unknown[] };
 				if (Array.isArray(parsed.metrics)) {
@@ -590,10 +561,10 @@ export async function triggerAgent(
 
 	// 8b. Extract dataset info from agent output
 	if (result.resultText) {
-		const datasetMatch = result.resultText.match(/\[DATASET\]\s*([\s\S]*?)\s*\[\/DATASET\]/);
-		if (datasetMatch?.[1]) {
+		const datasetBody = extractDatasetBody(result.resultText);
+		if (datasetBody) {
 			try {
-				const parsed = JSON.parse(datasetMatch[1]) as {
+				const parsed = JSON.parse(datasetBody) as {
 					exchange: string;
 					pairs: string[];
 					timeframe: string;
@@ -626,9 +597,9 @@ export async function triggerAgent(
 	// The first experiment of a desk is always pinned to "Baseline" — don't let
 	// the agent rename it.
 	if (result.resultText && experiment.number !== 1) {
-		const titleMatch = result.resultText.match(/\[EXPERIMENT_TITLE\]\s*(.+?)(?:\n|$)/);
-		if (titleMatch?.[1]) {
-			const newTitle = titleMatch[1].trim().slice(0, 120);
+		const rawTitle = extractExperimentTitle(result.resultText);
+		if (rawTitle) {
+			const newTitle = rawTitle.slice(0, 120);
 			if (newTitle && newTitle !== experiment.title) {
 				try {
 					await db

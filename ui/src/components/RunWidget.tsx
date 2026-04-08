@@ -13,7 +13,7 @@ interface RunWidgetProps {
 	startedAt?: Date;
 	onStop: () => void;
 	onOpenRun?: () => void;
-	mode?: "backtest" | "paper";
+	mode?: "backtest" | "paper" | "turn";
 }
 
 function ElapsedTimer({ startedAt }: { startedAt: Date }) {
@@ -45,9 +45,10 @@ export function RunWidget({
 	startedAt,
 	onStop,
 	onOpenRun,
-	mode = "backtest",
+	mode = "turn",
 }: RunWidgetProps) {
-	const modeLabel = mode === "paper" ? "Paper Trading Run" : "Backtest Run";
+	const modeLabel =
+		mode === "paper" ? "Paper Trading Run" : mode === "backtest" ? "Backtest Run" : "Agent Turn";
 	const isAnalyst = agentRole !== "risk_manager";
 	const roleLabel = isAnalyst ? "Analyst" : "Risk Manager";
 	const RoleIcon = isAnalyst ? Bot : Shield;
@@ -71,7 +72,7 @@ export function RunWidget({
 				<div className="mt-1 text-xs text-muted-foreground">
 					{streaming
 						? `Agent is working on Experiment #${experimentNumber}`
-						: `Agent finished on Experiment #${experimentNumber}`}
+						: `Agent finished Experiment #${experimentNumber}`}
 				</div>
 			</div>
 
