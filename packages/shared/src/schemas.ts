@@ -64,11 +64,3 @@ export type RunStatus = z.infer<typeof runStatusSchema>;
 export const engineNameSchema = z.enum(["freqtrade", "nautilus", "generic"]);
 export type EngineName = z.infer<typeof engineNameSchema>;
 
-export const proposalMarkerSchema = z.enum([
-	"PROPOSE_VALIDATION",
-	"PROPOSE_NEW_EXPERIMENT",
-	"PROPOSE_COMPLETE_EXPERIMENT",
-	"PROPOSE_GO_PAPER",
-]);
-
-export type ProposalMarker = z.infer<typeof proposalMarkerSchema>;

@@ -947,7 +947,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 										{/* Right: detail panel */}
 										{detailStrategy && DetailIcon && (
 											<div className="w-[45%] shrink-0 animate-in fade-in slide-in-from-right-4 duration-300">
-												<div className="sticky top-0 rounded-xl border border-border bg-background p-5 space-y-4 shadow-sm">
+												<div className="sticky top-4 rounded-xl border border-border bg-background p-5 space-y-4 shadow-sm">
 													{/* Header */}
 													<div className="flex items-start gap-3">
 														<div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
@@ -1015,7 +1015,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 													{/* Timeframes */}
 													<div>
 														<div className="text-[10px] font-medium uppercase tracking-widest text-foreground/40 mb-1.5">
-															Timeframes
+															Timeframes <span className="text-foreground/30 normal-case tracking-normal">(Recommend)</span>
 														</div>
 														<div className="flex flex-wrap gap-1.5">
 															{detailStrategy.timeframes.map((tf) => (
@@ -1048,7 +1048,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 										{/* Right: custom strategy detail */}
 										{selectedStrategyId === "custom" && (
 											<div className="w-[45%] shrink-0 animate-in fade-in slide-in-from-right-4 duration-300">
-												<div className="sticky top-0 rounded-xl border border-border bg-background p-5 space-y-4 shadow-sm">
+												<div className="sticky top-4 rounded-xl border border-border bg-background p-5 space-y-4 shadow-sm">
 													<div className="flex items-start gap-3">
 														<div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
 															<Sparkles className="size-5 text-foreground/70" />

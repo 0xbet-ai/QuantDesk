@@ -115,9 +115,9 @@ export class FreqtradeAdapter implements EngineAdapter {
 
 		// Patch config.json: inject `pairlists` if missing (required by
 		// freqtrade 2026.x). Data download is NOT the adapter's job — the
-		// agent owns data acquisition via the [PROPOSE_DATA_FETCH] flow
-		// (CLAUDE.md rule #13), and the server's data-fetch handler runs
-		// download-data separately before [RUN_BACKTEST] is emitted.
+		// agent asks the user and emits [DATA_FETCH], and the server's
+		// data-fetch handler runs download-data separately before
+		// [RUN_BACKTEST] is emitted.
 		const cfgPath = join(workspaceAbs, configFile);
 		if (existsSync(cfgPath)) {
 			try {
