@@ -503,6 +503,26 @@ export function CommentThread({
 						// Legacy: no turnId. Render as a top-level comment.
 						topItems.push({ kind: "comment", comment: c });
 					}
+					// Merge consecutive turn groups of the same agent role
+					// when no user comment separates them — e.g. a failed
+					// Analyst turn followed by a retrigger from the same
+					// role should read as one continuous card.
+					const turnRole = (cs: Comment[]) =>
+						cs.find((c) => c.author === "risk_manager") ? "risk_manager" : "analyst";
+					const mergedTopItems: TopItem[] = [];
+					for (const it of topItems) {
+						const prev = mergedTopItems[mergedTopItems.length - 1];
+						if (
+							it.kind === "turn" &&
+							prev &&
+							prev.kind === "turn" &&
+							turnRole(prev.comments) === turnRole(it.comments)
+						) {
+							prev.comments.push(...it.comments);
+							continue;
+						}
+						mergedTopItems.push(it);
+					}
 					// Choose a timeline icon for a nested comment based on author
 					// and content heuristics — analyst gets the bot, risk
 					// manager the shield, and system messages are categorized
@@ -682,7 +702,7 @@ export function CommentThread({
 					// is excluded here — it's drawn as the sticky bottom
 					// TurnCard with streaming entries. Past turns get a static
 					// TurnCard with their nested comments.
-					return topItems.map((item) => {
+					return mergedTopItems.map((item) => {
 						if (item.kind === "comment") {
 							return renderComment(item.comment);
 						}
