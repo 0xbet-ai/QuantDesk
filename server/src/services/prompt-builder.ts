@@ -384,5 +384,14 @@ ${runResult.metrics
 	})
 	.join("\n")}
 
-Provide a validation report. Look for signs of overfitting, unrealistic performance, suspiciously low drawdown, or returns that exceed the target by an unusually large margin.`;
+Provide a validation report. Look for signs of overfitting, unrealistic performance, suspiciously low drawdown, or returns that exceed the target by an unusually large margin.
+
+## Verdict marker (required)
+
+End your response with **exactly one** of the following lines:
+
+- \`[RM_APPROVE]\` — the run is sound. The analyst may now propose paper trading via [PROPOSE_GO_PAPER].
+- \`[RM_REJECT] <short reason>\` — the run looks unsafe (overfit, suspicious metrics, constraint violation, etc.). Paper trading is gated until a fresh validation passes.
+
+The marker is what wires your verdict back into the analyst's next turn — without it the verdict is informational only and \`[RUN_PAPER]\` will refuse.`;
 }

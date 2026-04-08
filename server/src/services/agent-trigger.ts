@@ -25,6 +25,27 @@ import { detectProposals, extractDataFetchProposal, markerToProposalType } from 
 import { commitCode, hasChanges } from "./workspace.js";
 
 /**
+ * Risk Manager verdict markers (phase 08). The RM agent ends every turn
+ * with exactly one of these. The result is recorded on the latest run's
+ * `result.validation` and the analyst is retriggered with the verdict in
+ * its next prompt context. `[RUN_PAPER]`'s precondition checks for an
+ * `approve` verdict before promoting a run to paper.
+ */
+export type RmVerdict = { verdict: "approve" | "reject"; reason: string };
+
+export function extractRmVerdict(text: string): RmVerdict | null {
+	const approveMatch = text.match(/^\[RM_APPROVE\](.*)$/m);
+	if (approveMatch) {
+		return { verdict: "approve", reason: (approveMatch[1] ?? "").trim() };
+	}
+	const rejectMatch = text.match(/^\[RM_REJECT\](.*)$/m);
+	if (rejectMatch) {
+		return { verdict: "reject", reason: (rejectMatch[1] ?? "").trim() };
+	}
+	return null;
+}
+
+/**
  * Find the existing `agent_sessions` row for a (desk, role) pair, or create
  * a fresh one. The analyst session is created at desk creation
  * (`services/desks.ts`); risk_manager sessions are created lazily here on
@@ -646,6 +667,42 @@ export async function triggerAgent(
 				content: cleanText,
 				metadata: pendingProposal ? { pendingProposal } : undefined,
 			});
+		}
+
+		// 9b. Risk Manager verdict loop-back (phase 08).
+		// If this turn was the RM, parse the verdict marker and:
+		//   - record the verdict on the latest run's `result.validation`
+		//   - retrigger the analyst so the next analyst turn sees the verdict
+		// The analyst (and the future RUN_PAPER guard) reads
+		// `result.validation.verdict === "approve"` to decide whether paper
+		// trading is unlocked.
+		if (session.agentRole === "risk_manager") {
+			const verdict = extractRmVerdict(result.resultText);
+			if (verdict) {
+				const [latestRun] = await db
+					.select()
+					.from(runs)
+					.where(eq(runs.experimentId, experimentId))
+					.orderBy(desc(runs.runNumber))
+					.limit(1);
+				if (latestRun) {
+					const existingResult = (latestRun.result as Record<string, unknown> | null) ?? {};
+					const nextResult = {
+						...existingResult,
+						validation: {
+							verdict: verdict.verdict,
+							reason: verdict.reason,
+							at: new Date().toISOString(),
+						},
+					};
+					await db.update(runs).set({ result: nextResult }).where(eq(runs.id, latestRun.id));
+				}
+				// Retrigger analyst — the new RM comment is the input.
+				// RM never retriggers itself.
+				void triggerAgent(experimentId, "analyst").catch((err) => {
+					console.error("Analyst retrigger after RM verdict failed:", err);
+				});
+			}
 		}
 	} else if (result.error) {
 		const isStopped = result.error.includes("code 143") || result.error.includes("SIGTERM");
