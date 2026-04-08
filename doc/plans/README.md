@@ -21,7 +21,6 @@ The harness verifies CLAUDE.md rule #15 (no user dead-ends) for every existing a
 
 | # | Title | Kind |
 |---|-------|------|
-| 01 | [Static lint: actionable system comments](01_dead_end_lint.md) | TODO |
 | 02 | [Dispatch invariant: hasNextAction afterEach](02_dispatch_invariant.md) | TODO |
 | 03 | [Spec-generated test matrix from MARKERS.md](03_spec_generated_matrix.md) | TODO |
 
@@ -120,6 +119,10 @@ Verified against the spec docs and the current tree.
 ### Memory infrastructure (population still missing — see phase 23)
 - `memory_summaries` table with `level` / `experimentId` / `content`. — `packages/db/src/schema.ts`
 - Prompt builder reads desk-level + experiment-level summaries. — `server/src/services/prompt-builder.ts`
+
+### Rule #15 enforcement
+- `systemComment(...)` wrapper is the only sanctioned way to insert a system-authored comment; every caller must declare `nextAction: "action" | "retrigger" | "progress"`. — `server/src/services/comments.ts`
+- Static lint (`server/src/__tests__/no-dead-end-lint.test.ts`) rejects (a) any direct `createComment({ author: "system" })` outside the wrapper, and (b) any `nextAction: "action"` call whose literal content does not contain a phrase from `ACTION_PHRASE_PATTERNS`. Runs in `pnpm test`.
 
 ## Open questions
 

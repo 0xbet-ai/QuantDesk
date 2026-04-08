@@ -3,7 +3,7 @@ import { HttpError } from "../middleware/error.js";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { readAgentLog } from "../services/agent-log.js";
 import { stopAgent, triggerAgent } from "../services/agent-trigger.js";
-import { createComment, listComments } from "../services/comments.js";
+import { createComment, listComments, systemComment } from "../services/comments.js";
 import { executeDataFetch } from "../services/data-fetch.js";
 import { completeAndCreateNewExperiment, getExperiment } from "../services/experiments.js";
 import { listRuns } from "../services/runs.js";
@@ -88,9 +88,9 @@ router.post("/:id/complete-and-new", async (req, res, next) => {
 		});
 
 		// Insert a kickoff system comment and trigger agent to propose next direction
-		const kickoff = await createComment({
+		const kickoff = await systemComment({
 			experimentId: newExperiment.id,
-			author: "system",
+			nextAction: "action",
 			content:
 				"Based on the previous experiment's findings, propose the next experiment direction. Start your response with a line in the format: [EXPERIMENT_TITLE] <short title for this new experiment>",
 		});

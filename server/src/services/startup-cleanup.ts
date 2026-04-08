@@ -1,7 +1,7 @@
 import { db } from "@quantdesk/db";
 import { comments, experiments } from "@quantdesk/db/schema";
 import { eq } from "drizzle-orm";
-import { createComment } from "./comments.js";
+import { systemComment } from "./comments.js";
 
 /**
  * Clean up stale agent runs on server startup.
@@ -38,9 +38,9 @@ export async function cleanupStaleAgentRuns(): Promise<void> {
 				// Avoid duplicate cleanup messages — skip if last message already says interrupted
 				if (last.content.includes("interrupted")) continue;
 
-				await createComment({
+				await systemComment({
 					experimentId: exp.id,
-					author: "system",
+					nextAction: "action",
 					content: "Agent run was interrupted (server restart). Please try again.",
 				});
 				cleaned += 1;
