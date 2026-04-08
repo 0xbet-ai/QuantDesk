@@ -58,18 +58,6 @@ function DeskRoute({
 		}
 	}, [deskId, expId]);
 
-	// Redirect home if desk no longer exists (e.g. deleted/archived).
-	// Guard against the initial empty `desks` array (still loading) — that
-	// would otherwise misfire on every hard refresh, redirect to `/`, and
-	// also wipe `lastDeskId` from localStorage, killing the restore path.
-	useEffect(() => {
-		if (desks.length === 0) return;
-		if (deskId && !desks.some((d) => d.id === deskId)) {
-			localStorage.removeItem("quantdesk.lastDeskId");
-			navigate("/", { replace: true });
-		}
-	}, [deskId, desks, navigate]);
-
 	// Auto-select an experiment if none in URL but experiments exist. Prefer
 	// the last one the user viewed for this desk; fall back to the most
 	// recent experiment.
@@ -127,6 +115,10 @@ function DeskRoute({
 						desk={selectedDesk}
 						onUpdated={() => refreshDesks()}
 						onArchived={() => {
+							// Clear the remembered desk so HomeRoute's restore
+							// effect doesn't bounce straight back to the just-
+							// archived desk on its next render.
+							localStorage.removeItem("quantdesk.lastDeskId");
 							navigate("/");
 							refreshDesks();
 						}}
