@@ -1,10 +1,21 @@
+import { db } from "@quantdesk/db";
+import { comments } from "@quantdesk/db/schema";
 import { Router } from "express";
+import { eq } from "drizzle-orm";
 import { HttpError } from "../middleware/error.js";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { readAgentLog } from "../services/agent-log.js";
 import { stopAgent, triggerAgent } from "../services/agent-trigger.js";
 import { createComment, listComments, systemComment } from "../services/comments.js";
-import { completeAndCreateNewExperiment, getExperiment } from "../services/experiments.js";
+import {
+	completeAndCreateNewExperiment,
+	deleteExperiment,
+	getExperiment,
+} from "../services/experiments.js";
+import {
+	extractPendingProposal,
+	resolvePendingProposal,
+} from "../services/proposal-handlers/registry.js";
 import { listRuns } from "../services/runs.js";
 
 const router = Router();
@@ -34,6 +45,25 @@ router.post("/:id/comments", async (req, res, next) => {
 			experimentId: req.params.id,
 			...req.body,
 		});
+
+		// CLAUDE.md rule #15 — when a user replies while a pendingProposal is
+		// still unresolved, auto-supersede the proposal so its Approve/Reject
+		// buttons disappear. The agent's next turn will see the user reply and
+		// either revise the proposal or address the question; leaving stale
+		// buttons around invites accidental clicks on a proposal the user has
+		// already moved past.
+		if (comment.author === "user") {
+			const stale = await db
+				.select()
+				.from(comments)
+				.where(eq(comments.experimentId, req.params.id));
+			for (const c of stale) {
+				if (c.id === comment.id) continue;
+				if (extractPendingProposal(c.metadata)) {
+					await resolvePendingProposal(c.id, "rejected");
+				}
+			}
+		}
 
 		// Broadcast to WebSocket clients
 		publishExperimentEvent({
@@ -105,6 +135,25 @@ router.post("/:id/complete-and-new", async (req, res, next) => {
 		triggerAgent(newExperiment.id).catch((err) => {
 			console.error("Agent trigger failed on new experiment:", err);
 		});
+	} catch (err) {
+		next(err);
+	}
+});
+
+router.delete("/:id", async (req, res, next) => {
+	try {
+		const existing = await getExperiment(req.params.id);
+		if (!existing) throw new HttpError(404, "Experiment not found");
+		try {
+			await deleteExperiment(req.params.id);
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			if (msg.includes("last experiment")) {
+				throw new HttpError(409, msg);
+			}
+			throw err;
+		}
+		res.status(204).end();
 	} catch (err) {
 		next(err);
 	}

@@ -1,6 +1,14 @@
 import { db } from "@quantdesk/db";
-import { agentSessions, comments, experiments, memorySummaries, runs } from "@quantdesk/db/schema";
-import { eq } from "drizzle-orm";
+import {
+	agentSessions,
+	comments,
+	experiments,
+	memorySummaries,
+	runLogs,
+	runs,
+} from "@quantdesk/db/schema";
+import { eq, inArray } from "drizzle-orm";
+import { stopAgent } from "./agent-trigger.js";
 import { autoIncrementExperimentNumber } from "./logic.js";
 
 interface CreateExperimentInput {
@@ -149,4 +157,41 @@ export async function completeAndCreateNewExperiment(input: {
 	});
 
 	return newExperiment;
+}
+
+/**
+ * Delete an experiment and all its children (runs, run_logs, comments,
+ * memory_summaries). Stops any running agent first. Refuses to delete the
+ * last remaining experiment on a desk — every desk must keep at least one
+ * experiment so the comment thread has a home.
+ */
+export async function deleteExperiment(experimentId: string): Promise<void> {
+	const current = await getExperiment(experimentId);
+	if (!current) throw new Error("Experiment not found");
+
+	const siblings = await db
+		.select({ id: experiments.id })
+		.from(experiments)
+		.where(eq(experiments.deskId, current.deskId));
+	if (siblings.length <= 1) {
+		throw new Error("Cannot delete the last experiment on a desk");
+	}
+
+	// Stop agent subprocess if it's running for this experiment.
+	stopAgent(experimentId);
+
+	// Delete run_logs for all runs in this experiment.
+	const expRuns = await db
+		.select({ id: runs.id })
+		.from(runs)
+		.where(eq(runs.experimentId, experimentId));
+	if (expRuns.length > 0) {
+		const runIds = expRuns.map((r) => r.id);
+		await db.delete(runLogs).where(inArray(runLogs.runId, runIds));
+		await db.delete(runs).where(eq(runs.experimentId, experimentId));
+	}
+
+	await db.delete(comments).where(eq(comments.experimentId, experimentId));
+	await db.delete(memorySummaries).where(eq(memorySummaries.experimentId, experimentId));
+	await db.delete(experiments).where(eq(experiments.id, experimentId));
 }
