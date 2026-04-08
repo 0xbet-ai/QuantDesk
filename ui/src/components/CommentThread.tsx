@@ -669,12 +669,23 @@ export function CommentThread({
 							);
 						}
 
+						const isUser = c.author === "user";
 						return (
 							<div
 								key={c.id}
-								className={cn(isChild && "ml-6 mt-2")}
+								className={cn(
+									isChild && "ml-6 mt-2",
+									!isChild && isUser && "flex justify-end",
+								)}
 							>
-								<div className="rounded-md border border-border p-3">
+								<div
+									className={cn(
+										"rounded-md border p-3",
+										isUser && !isChild
+											? "max-w-[75%] border-blue-500/30 bg-blue-500/[0.06]"
+											: "border-border",
+									)}
+								>
 									{/* Author header row */}
 									<div className="flex items-center gap-2 mb-1.5">
 										<div
