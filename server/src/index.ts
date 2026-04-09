@@ -1,8 +1,11 @@
 import { createServer } from "node:http";
 import { initDb } from "@quantdesk/db";
 import express from "express";
+import { handleMcpRequest } from "./mcp/http-route.js";
+import { setTriggerAgent } from "./mcp/server.js";
 import { errorHandler } from "./middleware/error.js";
 import { setupWebSocket } from "./realtime/websocket.js";
+import { triggerAgent } from "./services/agent-trigger.js";
 import commentsRouter from "./routes/comments.js";
 import datasetsRouter from "./routes/datasets.js";
 import desksRouter from "./routes/desks.js";
@@ -37,6 +40,11 @@ app.use("/api/turns", turnsRouter);
 app.use("/api/strategies", strategiesRouter);
 app.use("/api/datasets", datasetsRouter);
 app.use("/api/fs", fsRouter);
+
+// Phase 27 — MCP HTTP transport. Tool handlers run in-process with full
+// parent-server access. Claude CLI connects here via --mcp-config.
+setTriggerAgent(triggerAgent);
+app.post("/mcp", handleMcpRequest);
 
 // Agent adapter test — checks if CLI is available
 app.get("/api/agent/test", async (req, res) => {

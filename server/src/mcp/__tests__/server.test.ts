@@ -1,15 +1,15 @@
 /**
- * Phase 27b — MCP server tool registration smoke test.
+ * Phase 27b/c/d — MCP server tool registration smoke test.
  *
- * Verifies the factory registers the expected tool names. Handler
- * round-trip tests live closer to the real services (integration tests
- * that spin up the DB); this file only checks wiring.
+ * Checks the factory wires all lifecycle tools. Handler round-trip tests
+ * live closer to the real services (integration tests that touch the DB
+ * and engine adapters).
  */
 import { describe, expect, it } from "vitest";
 import { createQuantdeskMcpServer } from "../server.js";
 
-describe("createQuantdeskMcpServer (27b)", () => {
-	it("registers data_fetch and register_dataset", () => {
+describe("createQuantdeskMcpServer", () => {
+	it("registers every phase 27 tool", () => {
 		const server = createQuantdeskMcpServer({
 			experimentId: "exp-test",
 			deskId: "desk-test",
@@ -17,6 +17,17 @@ describe("createQuantdeskMcpServer (27b)", () => {
 		const tools = (server as unknown as { _registeredTools: Record<string, unknown> })
 			._registeredTools;
 		const names = Object.keys(tools).sort();
-		expect(names).toEqual(["data_fetch", "register_dataset"]);
+		expect(names).toEqual(
+			[
+				"complete_experiment",
+				"data_fetch",
+				"new_experiment",
+				"register_dataset",
+				"request_validation",
+				"run_backtest",
+				"set_experiment_title",
+				"submit_rm_verdict",
+			].sort(),
+		);
 	});
 });
