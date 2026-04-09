@@ -61,27 +61,35 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 	const endDate = end.toISOString().slice(0, 10);
 	const sortedPairs = [...proposal.pairs].sort();
 
-	// 1. Dedupe: identical row already cached globally → just link it.
-	const existing = await db
-		.select()
-		.from(datasets)
-		.where(
-			and(
-				eq(datasets.exchange, proposal.exchange),
-				eq(datasets.timeframe, proposal.timeframe),
-				sql`${datasets.pairs}::jsonb = ${JSON.stringify(sortedPairs)}::jsonb`,
-				sql`${datasets.dateRange}->>'start' = ${startDate}`,
-				sql`${datasets.dateRange}->>'end' = ${endDate}`,
-			),
-		);
-
+	// 1. Per-pair dedupe: check if every requested pair already has a
+	//    cached dataset row. If ALL pairs are cached we skip the download
+	//    entirely; partial hits still trigger a full download (the engine
+	//    is responsible for skipping already-fetched files).
 	const exchangeCachePath = join(DATA_CACHE_ROOT, proposal.exchange);
 	const workspaceAbs = resolve(desk.workspacePath);
 	const workspaceDataLink = join(workspaceAbs, "data", proposal.exchange);
 
-	if (existing.length > 0) {
-		const dataset = existing[0]!;
-		await linkDatasetToDesk(desk.id, dataset.id);
+	const cachedDatasets: typeof datasets.$inferSelect[] = [];
+	for (const pair of sortedPairs) {
+		const [hit] = await db
+			.select()
+			.from(datasets)
+			.where(
+				and(
+					eq(datasets.exchange, proposal.exchange),
+					eq(datasets.timeframe, proposal.timeframe),
+					sql`${datasets.pairs}::jsonb = ${JSON.stringify([pair])}::jsonb`,
+					sql`${datasets.dateRange}->>'start' = ${startDate}`,
+					sql`${datasets.dateRange}->>'end' = ${endDate}`,
+				),
+			);
+		if (hit) cachedDatasets.push(hit);
+	}
+
+	if (cachedDatasets.length === sortedPairs.length) {
+		for (const ds of cachedDatasets) {
+			await linkDatasetToDesk(desk.id, ds.id);
+		}
 		ensureSymlink(exchangeCachePath, workspaceDataLink);
 		await systemComment({
 			experimentId,
@@ -92,7 +100,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 				"You may now write the strategy and call mcp__quantdesk__run_backtest.",
 			metadata: threadMeta,
 		});
-		return dataset;
+		return cachedDatasets;
 	}
 
 	// 2. Prepare the shared cache root.
@@ -165,34 +173,39 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 		return null;
 	}
 
-	// 5. Insert the global dataset row + link to this desk + symlink into the workspace.
-	const [dataset] = await db
-		.insert(datasets)
-		.values({
-			exchange: proposal.exchange,
-			pairs: sortedPairs,
-			timeframe: proposal.timeframe,
-			dateRange: { start: startDate, end: endDate },
-			path: exchangeCachePath,
-			createdByDeskId: desk.id,
-			createdByExperimentId: experimentId,
-		})
-		.returning();
-	if (dataset) {
-		await linkDatasetToDesk(desk.id, dataset.id);
-		ensureSymlink(exchangeCachePath, workspaceDataLink);
+	// 5. Insert one dataset row per pair + link each to this desk.
+	const inserted: typeof datasets.$inferSelect[] = [];
+	for (const pair of sortedPairs) {
+		const [row] = await db
+			.insert(datasets)
+			.values({
+				exchange: proposal.exchange,
+				pairs: [pair],
+				timeframe: proposal.timeframe,
+				dateRange: { start: startDate, end: endDate },
+				path: exchangeCachePath,
+				createdByDeskId: desk.id,
+				createdByExperimentId: experimentId,
+			})
+			.returning();
+		if (row) {
+			await linkDatasetToDesk(desk.id, row.id);
+			inserted.push(row);
+		}
 	}
+	ensureSymlink(exchangeCachePath, workspaceDataLink);
 
 	await systemComment({
 		experimentId,
 		nextAction: "action",
 		content:
 			`Downloaded ${fileCount} file(s) for ${proposal.pairs.join(", ")} ` +
-			`${proposal.timeframe} from ${proposal.exchange} into shared cache. Dataset registered ` +
-			"and linked to this desk. You may now write the strategy and call mcp__quantdesk__run_backtest.",
+			`${proposal.timeframe} from ${proposal.exchange} into shared cache. ` +
+			`${inserted.length} dataset(s) registered and linked to this desk. ` +
+			"You may now write the strategy and call mcp__quantdesk__run_backtest.",
 		metadata: threadMeta,
 	});
-	return dataset ?? null;
+	return inserted;
 }
 
 async function linkDatasetToDesk(deskId: string, datasetId: string) {
