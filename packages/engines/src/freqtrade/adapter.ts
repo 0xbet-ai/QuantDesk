@@ -430,7 +430,12 @@ function normaliseFreqtradeResult(strat: FreqtradeStrategyResult): NormalizedRes
 		throw new Error("Failed to parse freqtrade result: missing profit total");
 	}
 
-	const drawdown = strat.max_drawdown_account ?? strat.max_drawdown ?? 0;
+	// max_drawdown_account is 0–1 ratio; max_drawdown is already percent.
+	const drawdownPct =
+		typeof strat.max_drawdown_account === "number"
+			? strat.max_drawdown_account * 100
+			: strat.max_drawdown ?? 0;
+	// winrate / win_rate from freqtrade is 0–1 ratio.
 	const winRate = strat.winrate ?? strat.win_rate ?? 0;
 
 	const trades: TradeEntry[] = (strat.trades ?? []).map((t) => ({
@@ -445,7 +450,7 @@ function normaliseFreqtradeResult(strat: FreqtradeStrategyResult): NormalizedRes
 
 	return {
 		returnPct: profit,
-		drawdownPct: -Math.abs(drawdown),
+		drawdownPct: -Math.abs(drawdownPct),
 		winRate,
 		totalTrades,
 		trades,
