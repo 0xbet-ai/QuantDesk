@@ -803,6 +803,39 @@ export function CommentThread({
 											</Markdown>
 										</div>
 									)}
+									{(() => {
+										// Dataset side-effect chips — same logic as the
+										// in-turn-card timeline render. Shows a clickable
+										// preview pill for every dataset the agent
+										// registered during this turn. Keeps the
+										// "데이터셋 등록 완료" message clickable whether it
+										// lands inside a turn card or as a top-level comment.
+										const regIds = ((c.metadata as { registeredDatasetIds?: unknown } | null)
+											?.registeredDatasetIds ?? []) as string[];
+										if (regIds.length === 0) return null;
+										return (
+											<div className="mt-2 flex flex-wrap gap-1.5">
+												{regIds.map((id) => {
+													const d = datasetsById[id];
+													if (!d) return null;
+													return (
+														<button
+															key={id}
+															type="button"
+															onClick={() => setPreviewDataset(d)}
+															className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px] font-medium text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
+														>
+															<Database className="size-3 text-cyan-600 dark:text-cyan-300" />
+															<span className="font-mono">
+																{d.pairs.join(", ")} · {d.timeframe}
+															</span>
+															<span className="text-foreground/40">{d.exchange}</span>
+														</button>
+													);
+												})}
+											</div>
+										);
+									})()}
 									{(c.author === "analyst" || c.author === "risk_manager") && (
 										<AgentTranscriptToggle experimentId={experiment.id} />
 									)}
