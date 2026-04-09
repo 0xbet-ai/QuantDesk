@@ -184,6 +184,22 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		},
 		async (args) => {
 			try {
+				// Resolve relative paths against the desk workspace so the
+				// dataset preview endpoint (which opens `path` directly) can
+				// read the file. The agent almost always passes something
+				// like `data/hyperliquid/BTC_USDC_USDC-1h.csv` relative to
+				// its current working directory, which is the workspace.
+				let resolvedPath = args.path;
+				if (!resolvedPath.startsWith("/")) {
+					const [desk] = await db
+						.select()
+						.from(desks)
+						.where(eq(desks.id, ctx.deskId));
+					if (desk?.workspacePath) {
+						const { resolve: pathResolve } = await import("node:path");
+						resolvedPath = pathResolve(desk.workspacePath, resolvedPath);
+					}
+				}
 				const [inserted] = await db
 					.insert(datasets)
 					.values({
@@ -191,7 +207,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						pairs: args.pairs,
 						timeframe: args.timeframe,
 						dateRange: args.dateRange,
-						path: args.path,
+						path: resolvedPath,
 					})
 					.returning();
 				if (!inserted) return errorResult("register_dataset: insert returned no row");
@@ -200,7 +216,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					datasetId: inserted.id,
 				});
 				return textResult(
-					JSON.stringify({ datasetId: inserted.id, linked: true }, null, 2),
+					JSON.stringify({ datasetId: inserted.id, linked: true, path: resolvedPath }, null, 2),
 				);
 			} catch (err) {
 				return errorResult(
