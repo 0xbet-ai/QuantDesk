@@ -40,9 +40,12 @@ describe("resolveEngine", () => {
 		expect(resolveEngine(dydx, "realtime")).toBe("nautilus");
 	});
 
-	it("kalshi (generic-only) + any mode → generic", () => {
-		expect(resolveEngine(kalshi, "classic")).toBe("generic");
-		expect(resolveEngine(kalshi, "realtime")).toBe("generic");
+	it("kalshi (generic-only) + generic → generic", () => {
+		expect(resolveEngine(kalshi, "generic")).toBe("generic");
+	});
+
+	it("kalshi (generic-only) + classic → throws (no freqtrade)", () => {
+		expect(() => resolveEngine(kalshi, "classic")).toThrow(/does not support classic/);
 	});
 });
 
@@ -59,14 +62,14 @@ describe("availableModes", () => {
 		expect(availableModes(ibkr)).toEqual(["realtime"]);
 	});
 
-	it("kalshi (generic-only) → []", () => {
-		expect(availableModes(kalshi)).toEqual([]);
+	it("kalshi (generic-only) → [generic]", () => {
+		expect(availableModes(kalshi)).toEqual(["generic"]);
 	});
 });
 
 describe("availableModesForVenues", () => {
-	it("empty venues → both modes", () => {
-		expect(availableModesForVenues([])).toEqual(["classic", "realtime"]);
+	it("empty venues → every mode", () => {
+		expect(availableModesForVenues([])).toEqual(["classic", "realtime", "generic"]);
 	});
 
 	it("single binance → both modes", () => {
@@ -85,7 +88,7 @@ describe("availableModesForVenues", () => {
 		expect(availableModesForVenues([bitvavo, ibkr])).toEqual([]);
 	});
 
-	it("single kalshi → [] (generic only)", () => {
-		expect(availableModesForVenues([kalshi])).toEqual([]);
+	it("single kalshi → [generic]", () => {
+		expect(availableModesForVenues([kalshi])).toEqual(["generic"]);
 	});
 });

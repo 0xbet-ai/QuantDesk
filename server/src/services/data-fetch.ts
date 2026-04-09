@@ -1,11 +1,4 @@
-import {
-	existsSync,
-	mkdirSync,
-	readdirSync,
-	symlinkSync,
-	unlinkSync,
-	writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, readdirSync, symlinkSync, unlinkSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { db } from "@quantdesk/db";
@@ -104,26 +97,6 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 	// 2. Prepare the shared cache root.
 	mkdirSync(DATA_CACHE_ROOT, { recursive: true });
 	mkdirSync(exchangeCachePath, { recursive: true });
-
-	// 2a. Mock mode shortcut — skip the real adapter and synthesize a
-	// tiny OHLCV CSV so UI lifecycle tests can exercise the happy path
-	// deterministically without docker.
-	if (process.env.MOCK_AGENT === "1") {
-		const dataset = await seedMockDataset({
-			experimentId,
-			deskId: desk.id,
-			exchange: proposal.exchange,
-			pairs: sortedPairs,
-			timeframe: proposal.timeframe,
-			startDate,
-			endDate,
-			exchangeCachePath,
-			workspaceDataLink,
-			start,
-			threadMeta,
-		});
-		return dataset;
-	}
 
 	// 3. Delegate the actual download to the engine adapter.
 	await systemComment({
@@ -238,59 +211,3 @@ function ensureSymlink(target: string, linkPath: string) {
 	}
 }
 
-interface MockSeedArgs {
-	experimentId: string;
-	deskId: string;
-	exchange: string;
-	pairs: string[];
-	timeframe: string;
-	startDate: string;
-	endDate: string;
-	exchangeCachePath: string;
-	workspaceDataLink: string;
-	start: Date;
-	threadMeta?: { parentCommentId: string };
-}
-
-async function seedMockDataset(args: MockSeedArgs) {
-	let firstFile: string | null = null;
-	for (const pair of args.pairs) {
-		const safePair = pair.replace("/", "_");
-		const file = join(args.exchangeCachePath, `${safePair}-${args.timeframe}.csv`);
-		const rows: string[] = ["timestamp,open,high,low,close,volume"];
-		const startMs = args.start.getTime();
-		for (let i = 0; i < 50; i++) {
-			const ts = startMs + i * 60 * 60 * 1000;
-			const p = 60000 + Math.sin(i / 3) * 500;
-			rows.push(
-				`${ts},${p.toFixed(2)},${(p * 1.01).toFixed(2)},${(p * 0.99).toFixed(2)},${(p * 1.002).toFixed(2)},${(100 + i * 3).toFixed(2)}`,
-			);
-		}
-		writeFileSync(file, rows.join("\n"));
-		if (!firstFile) firstFile = file;
-	}
-	const [dataset] = await db
-		.insert(datasets)
-		.values({
-			exchange: args.exchange,
-			pairs: args.pairs,
-			timeframe: args.timeframe,
-			dateRange: { start: args.startDate, end: args.endDate },
-			path: firstFile ?? args.exchangeCachePath,
-		})
-		.returning();
-	if (dataset) {
-		await linkDatasetToDesk(args.deskId, dataset.id);
-		ensureSymlink(args.exchangeCachePath, args.workspaceDataLink);
-	}
-	await systemComment({
-		experimentId: args.experimentId,
-		nextAction: "action",
-		content:
-			`(mock) Downloaded ${args.pairs.join(", ")} ${args.timeframe} from ` +
-			`${args.exchange} into shared cache. Dataset registered and linked to this ` +
-			"desk. You may now write the strategy and call mcp__quantdesk__run_backtest.",
-		metadata: args.threadMeta,
-	});
-	return dataset ?? null;
-}

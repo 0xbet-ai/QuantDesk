@@ -314,35 +314,24 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
 				);
 
-				const backtestResult =
-					process.env.MOCK_AGENT === "1"
-						? {
-								normalized: {
-									returnPct: 18.2,
-									drawdownPct: -8.7,
-									winRate: 0.61,
-									totalTrades: 47,
-									trades: [],
-								},
-							}
-						: await engineAdapter.runBacktest({
-								strategyPath: "strategy.py",
-								workspacePath: desk.workspacePath,
-								runId,
-								dataRef: { datasetId: "", path: `${desk.workspacePath}/data` },
-								extraParams: {
-									strategy: args.strategyName ?? "QuantDeskStrategy",
-									configFile: args.configFile ?? "config.json",
-								},
-								extraVolumes: externalMountVolumes,
-								onLogLine: (line, stream) => {
-									publishExperimentEvent({
-										experimentId: ctx.experimentId,
-										type: "run.log_chunk",
-										payload: { runId, stream, line },
-									});
-								},
-							});
+				const backtestResult = await engineAdapter.runBacktest({
+					strategyPath: args.entrypoint ?? "strategy.py",
+					workspacePath: desk.workspacePath,
+					runId,
+					dataRef: { datasetId: "", path: `${desk.workspacePath}/data` },
+					extraParams: {
+						strategy: args.strategyName ?? "QuantDeskStrategy",
+						configFile: args.configFile ?? "config.json",
+					},
+					extraVolumes: externalMountVolumes,
+					onLogLine: (line, stream) => {
+						publishExperimentEvent({
+							experimentId: ctx.experimentId,
+							type: "run.log_chunk",
+							payload: { runId, stream, line },
+						});
+					},
+				});
 
 				const resultPayload = normalizedResultToMetrics(backtestResult.normalized);
 				const latestDatasetId = linked[0]?.dataset.id ?? null;

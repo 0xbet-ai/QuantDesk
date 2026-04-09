@@ -1,4 +1,4 @@
-export type StrategyMode = "classic" | "realtime";
+export type StrategyMode = "classic" | "realtime" | "generic";
 
 export interface Desk {
 	id: string;

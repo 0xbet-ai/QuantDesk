@@ -137,9 +137,13 @@ function computeAvailableModes(selectedVenueIds: string[]): StrategyMode[] {
 		if (v) {
 			resolved.push(v as VenueEngines);
 		} else {
-			// Custom venue placeholder — declare every managed engine so the
-			// shared helper treats it as permissive.
-			resolved.push({ id, name: id, engines: ["freqtrade", "nautilus"] });
+			// Custom venue placeholder — assume generic only. Custom venues
+			// are almost never natively supported by freqtrade or nautilus,
+			// so defaulting to generic lets the agent own data acquisition
+			// and execution. If the user knows the venue IS supported,
+			// they can add it to `strategies/venues.json` with the
+			// appropriate engine list.
+			resolved.push({ id, name: id, engines: ["generic"] });
 		}
 	}
 	return availableModesForVenues(resolved);
@@ -189,9 +193,10 @@ const ASSET_CLASS_META: {
 	},
 ];
 
-const supportedEngines = new Set(venues.flatMap((v) => v.engines).filter((e) => e !== "generic"));
-
-const allVenues = venues.filter((v) => v.engines.some((e) => supportedEngines.has(e)));
+// Every venue in the catalog is shown — managed venues (freqtrade /
+// nautilus) and generic-only venues (Kalshi etc.) alike. The wizard's
+// mode picker filters per-venue via `availableModes`.
+const allVenues = venues;
 
 // Venue type ordering used inside the Venue step (after a market is picked).
 const TYPE_ORDER = ["cex", "dex", "broker"] as const;
@@ -729,17 +734,21 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 										available.
 									</p>
 								</div>
-								<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-									{(["classic", "realtime"] as const).map((mode) => {
+								<div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+									{(["classic", "realtime", "generic"] as const).map((mode) => {
 										const enabled = availableModes.includes(mode);
 										const active = selectedMode === mode;
-										const title = mode === "classic" ? "Classic" : "Real-time";
-										const tag = mode === "classic" ? "Recommended" : "Advanced";
+										const title =
+											mode === "classic" ? "Classic" : mode === "realtime" ? "Real-time" : "Generic";
+										const tag =
+											mode === "classic" ? "Recommended" : mode === "realtime" ? "Advanced" : "Custom";
 										const desc =
 											mode === "classic"
 												? "Candle-based polling strategies. TA indicators, trend following, mean reversion, momentum. Minute to hour timeframes."
-												: "Event-driven strategies reacting to ticks and order book deltas. Market making, arbitrage, HFT. Sub-second timeframes.";
-										const Icon = mode === "classic" ? BarChart3 : Zap;
+												: mode === "realtime"
+													? "Event-driven strategies reacting to ticks and order book deltas. Market making, arbitrage, HFT. Sub-second timeframes."
+													: "Agent-authored strategies with full control over data format and execution. No managed framework — use for venues / hypotheses that don't fit classic or realtime.";
+										const Icon = mode === "classic" ? BarChart3 : mode === "realtime" ? Zap : FlaskConical;
 										return (
 											<button
 												key={mode}
