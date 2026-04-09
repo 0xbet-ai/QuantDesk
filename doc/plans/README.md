@@ -21,7 +21,7 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 |---|-------|------|
 | 11 | [paperSessions table schema](11_paper_schema.md) | TODO |
 | 12 | [paper-sessions service: promotion gates](12_paper_gates.md) | TODO |
-| 13 | [RUN_PAPER + PROPOSE_GO_PAPER dispatch](13_paper_dispatch.md) | TODO |
+| 13 | [Paper trading MCP tools (go_paper / run_paper)](13_paper_dispatch.md) | TODO |
 | 14 | [Boot-time paper reconcile](14_paper_reconcile.md) | TODO |
 | 15 | [Paper status polling](15_paper_status_polling.md) | TODO |
 | 16 | [Observer turns while paper runs](16_paper_observer_turns.md) | TODO |
@@ -60,14 +60,8 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 
 Verified against the spec docs and the current tree.
 
-### Marker dispatch
-- `RUN_BACKTEST` — full dispatch (parser, engine spawn, runs row insert, retrigger). Refusal branch posts a rule #13 system comment naming `[PROPOSE_DATA_FETCH]`. — `server/src/services/agent-trigger.ts`
-- `PROPOSE_DATA_FETCH` — full dispatch (parser, `pendingProposal` attach, generic `/api/comments/:id/approve` route dispatches to the data-fetch handler, cache lookup or `executeDataFetch` container, `desk_datasets` link, retrigger). — `server/src/services/{triggers,data-fetch,proposal-handlers/data-fetch-handler}.ts`, `server/src/routes/comments.ts`
-- `EXPERIMENT_TITLE` — parser + experiment row update, no retrigger (metadata-only). — `server/src/services/agent-trigger.ts`
-- `stripAgentMarkers` — every marker stripped before persistence. — `packages/shared/src/agent-markers.ts`
-- **Generic proposal approve/reject router** at `POST /api/comments/:commentId/{approve,reject}`, keyed off `comment.metadata.pendingProposal.type`. Handler registry in `server/src/services/proposal-handlers/registry.ts`. Phases 06-07 and 11 each register one handler behind the same router. UI calls `postProposalDecision(commentId, action)` — no per-type endpoints. — `server/src/routes/comments.ts`, `server/src/services/proposal-handlers/`
-- **`PROPOSE_NEW_EXPERIMENT`** — agent-trigger now attaches a `pendingProposal` for any line-form `PROPOSE_*` marker (data_fetch still takes priority). The `new_experiment` handler completes the current experiment via `completeAndCreateNewExperiment` (memory summary + status=completed) and triggers the analyst on the new experiment. Reject posts a rule #12 system comment and retriggers the analyst on the current experiment. — `server/src/services/{agent-trigger,triggers,proposal-handlers/new-experiment-handler}.ts`
-- **`PROPOSE_COMPLETE_EXPERIMENT`** — `complete_experiment` handler closes the current experiment via the new `completeExperiment` helper (memory summary + status=completed + agent session reset, no new experiment created), then posts a rule #12 system comment naming the next move. Reject continues the experiment with a retrigger. — `server/src/services/proposal-handlers/complete-experiment-handler.ts`
+### Lifecycle dispatch (phase 27 — MCP tools)
+The bracketed-marker protocol (`[DATA_FETCH]` / `[RUN_BACKTEST]` / `[DATASET]` / `[EXPERIMENT_TITLE]` / `[VALIDATION]` / `[NEW_EXPERIMENT]` / `[COMPLETE_EXPERIMENT]` / `[RM_APPROVE]` / `[RM_REJECT]` / `[GO_PAPER]` / `[RUN_PAPER]`) and the proposal-handler router it fed have been deleted entirely. Dispatch lives in MCP tool handlers (`server/src/mcp/server.ts`), invoked by the agent during a turn via the HTTP bridge at `POST /mcp`. See `doc/agent/MCP.md` for the tool catalog. `stripAgentMarkers` remains as a defensive shim in `packages/shared/src/agent-markers.ts` so stray bracket text never leaks into persisted comments.
 
 ### Agent turns (phase 27)
 - **`agent_turns` table** — one row per `triggerAgent` invocation, `runs.turn_id` and `comments.turn_id` FKs stamp via AsyncLocalStorage so call sites stay untouched. `triggerAgent` opens the row, bumps `last_heartbeat_at` on every stream chunk, and finalizes `status` (`completed` / `failed` / `stopped`) + `failure_reason` in a try/catch/finally. — `packages/db/src/schema.ts`, `server/src/services/{agent-trigger,turn-context,comments}.ts`
@@ -77,17 +71,16 @@ Verified against the spec docs and the current tree.
 
 ### Lifecycle infrastructure
 - `triggerAgent(experimentId)` single entry point, CLI subprocess (claude / codex adapters), session resume via persisted `sessionId`. — `server/src/services/agent-trigger.ts`, `packages/adapters/`
-- Stage 1 first-run gate: agent prompted to emit `[PROPOSE_DATA_FETCH]` first when no dataset; `RUN_BACKTEST` early-returns with rule #13 refusal otherwise. — `server/src/services/{prompt-builder,agent-trigger}.ts`
 - Per-desk git workspace, commit-per-turn, `commit_hash` on `runs` rows. — `server/src/services/workspace.ts`
-- **Resume prompt injects all new comments since the last analyst turn** — previously the resume branch filtered out `system` authors and kept only the last user comment, so server-side side-effect comments (`Downloaded …`, `Data-fetch failed …`, `Backtest Run #N failed …`) never reached the agent and the agent resumed blind. Fixed: the `## New since your last turn` section now tails everything after the last analyst comment (user + system). Prompt contradictions between `analyst-system` (told the agent to execute python directly and always start with Path A) and `mode-classic` / `mode-realtime` (marker-only, no Path A in realtime) are resolved by moving the generic-mode execution / dataset / backtest-result instructions into `mode-generic`, adding a proper data-acquisition block to `mode-realtime`, and replacing the common-block Path A/B prose with a pointer to the mode block plus a "Never give up silently" rule. — `server/src/services/{prompt-builder,prompts/{analyst-system,mode-generic,mode-realtime}}.ts`, `doc/agent/TURN.md`
+- **Resume prompt injects all new comments since the last analyst turn** — the `## New since your last turn` section tails everything posted after the last analyst comment (user + system), so server-side side-effect comments (`Downloaded …`, `Data-fetch failed …`, `Backtest Run #N failed …`) always reach the agent and it never resumes blind. — `server/src/services/prompt-builder.ts`, `doc/agent/TURN.md`
 
 ### Risk Manager
 - `agent_sessions.agentRole` column (`analyst | risk_manager`). — `packages/db/src/schema.ts`
 - `buildRiskManagerPrompt()` template. — `server/src/services/prompt-builder.ts`
 - `agent-runner.ts` branches its prompt by role.
 - `triggerAgent(experimentId, role)` accepts an optional role param (defaults to `"analyst"`); the new `getOrCreateAgentSession(deskId, role)` lazily creates the `risk_manager` row on first use, inheriting adapter config from the analyst session. — `server/src/services/agent-trigger.ts`
-- **`PROPOSE_VALIDATION` dispatch** — `validation-handler.ts` is the single sanctioned path that wakes the Risk Manager. On approve it calls `triggerAgent(experimentId, "risk_manager")`. On reject it posts a rule #12 system comment and retriggers the analyst. — `server/src/services/proposal-handlers/validation-handler.ts`
-- **RM verdict loop-back** — RM ends every turn with `[RM_APPROVE]` or `[RM_REJECT] <reason>`. After the RM comment is saved, `extractRmVerdict` parses the marker, writes `result.validation = { verdict, reason, at }` onto the latest `runs` row, and retriggers the analyst with the verdict in context. RM never retriggers itself. The `[RUN_PAPER]` precondition reads `result.validation.verdict === "approve"` to gate paper trading. — `server/src/services/{agent-trigger,prompt-builder}.ts`, `packages/shared/src/agent-markers.ts`
+- **`request_validation` MCP tool** wakes the Risk Manager — the tool handler calls `triggerAgent(experimentId, "risk_manager")`. Requires prior user consent. — `server/src/mcp/server.ts`
+- **RM verdict loop-back** — RM ends every turn by calling `mcp__quantdesk__submit_rm_verdict({verdict, reason?})`. The handler writes `result.validation = { verdict, reason, at }` onto the latest `runs` row and retriggers the analyst with the verdict in context. RM never retriggers itself. Paper trading tools gate on `result.validation.verdict === "approve"`. — `server/src/mcp/server.ts`
 
 ### Datasets and storage
 - Global dataset cache at `~/.quantdesk/datacache/`, per-desk symlinks, incremental fetch (full hit / partial hit / miss). — `server/src/services/data-fetch.ts`
@@ -114,7 +107,7 @@ Verified against the spec docs and the current tree.
 - `systemComment(...)` wrapper is the only sanctioned way to insert a system-authored comment; every caller must declare `nextAction: "action" | "retrigger" | "progress"`. — `server/src/services/comments.ts`
 - Static lint (`server/src/__tests__/no-dead-end-lint.test.ts`) rejects (a) any direct `createComment({ author: "system" })` outside the wrapper, and (b) any `nextAction: "action"` call whose literal content does not contain a phrase from `ACTION_PHRASE_PATTERNS`. Runs in `pnpm test`.
 - Pure `hasNextAction(snapshot)` invariant checker — `server/src/services/has-next-action.ts`. Returns `{ ok, reason }` over a `DeskInvariantSnapshot` (pendingProposal count, latest system-comment content, retrigger queue state). The DB-touching `assertNoDeadEnd(deskId)` afterEach helper at `server/src/__tests__/helpers/no-dead-end-after-each.ts` wraps it for integration tests when those land.
-- `MARKERS.md` is the executable source of truth for dispatch coverage — `server/src/services/markers-spec.ts` parses every fenced function-signature block, and `markers-spec.test.ts` asserts: (a) parser finds every expected marker, (b) every marker is referenced from `agent-trigger.ts` / `triggers.ts` / `agent-markers.ts`, (c) every branch listed has a matching `user_next_action` entry. Adding a marker / branch in MARKERS.md without wiring it (or vice versa) breaks CI.
+- `doc/agent/MCP.md` is the authoritative dispatch contract. The live tool catalog lives in `server/src/mcp/server.ts`; the `mcp/__tests__/server.test.ts` smoke test asserts the factory registers every expected tool name.
 
 ## Open questions
 

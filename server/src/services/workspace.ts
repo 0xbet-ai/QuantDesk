@@ -20,6 +20,12 @@ export interface InitWorkspaceOptions {
 	 * `initWorkspace` sees it, the path is trusted.
 	 */
 	seedCodePath?: string;
+	/**
+	 * Primary venue for the desk. Passed through to the engine adapter's
+	 * `workspaceTemplate` so the seeded config references the user-chosen
+	 * exchange instead of a hard-coded default.
+	 */
+	venue?: string;
 }
 
 export async function initWorkspace(
@@ -45,10 +51,10 @@ export async function initWorkspace(
 		// not hard-code per-engine file contents (CLAUDE.md rule #6).
 		let template: Record<string, string>;
 		try {
-			template = getEngineAdapter(engine).workspaceTemplate();
+			template = getEngineAdapter(engine).workspaceTemplate({ venue: options.venue });
 		} catch {
 			// Unknown engine → fall back to the generic adapter's template.
-			template = getEngineAdapter("generic").workspaceTemplate();
+			template = getEngineAdapter("generic").workspaceTemplate({ venue: options.venue });
 		}
 		for (const [filename, content] of Object.entries(template)) {
 			await writeFile(join(dir, filename), content);

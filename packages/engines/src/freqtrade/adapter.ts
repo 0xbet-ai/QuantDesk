@@ -361,7 +361,8 @@ export class FreqtradeAdapter implements EngineAdapter {
 		return normaliseFreqtradeResult(data as unknown as FreqtradeStrategyResult);
 	}
 
-	workspaceTemplate(): Record<string, string> {
+	workspaceTemplate(opts?: { venue?: string }): Record<string, string> {
+		const exchangeName = opts?.venue ?? "binance";
 		return {
 			"strategy.py": `# Freqtrade Strategy
 class QuantDeskStrategy:
@@ -387,7 +388,7 @@ class QuantDeskStrategy:
 					stake_currency: "USDT",
 					stake_amount: "unlimited",
 					dry_run: true,
-					exchange: { name: "binance", key: "", secret: "" },
+					exchange: { name: exchangeName, key: "", secret: "" },
 				},
 				null,
 				2,

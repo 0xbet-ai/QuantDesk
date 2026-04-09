@@ -169,7 +169,6 @@ export function CommentThread({
 	// Live tail of `data_fetch.progress` events from the server. Cleared
 	// whenever the comment thread refreshes (the next system comment —
 	// "Downloaded …" or failure — supersedes the live tail).
-	const [dataFetchProgress, setDataFetchProgress] = useState<string[]>([]);
 	const bottomRef = useRef<HTMLDivElement>(null);
 
 	// Phase 27 — dataset index keyed by id so comment-attached
@@ -295,11 +294,7 @@ export function CommentThread({
 	// engine log tail, data-fetch progress, or turn status transitions).
 	useEffect(() => {
 		bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-	}, [
-		turnStatus,
-		streamEntries.length,
-		dataFetchProgress.length,
-	]);
+	}, [turnStatus, streamEntries.length]);
 
 	// Fade-out-and-clear on completed — BUT only when nothing else is still
 	// happening. A completed agent turn often kicks off a downstream server
@@ -311,11 +306,6 @@ export function CommentThread({
 	// failed / stopped stay visible regardless so the user can react.
 	useEffect(() => {
 		if (turnStatus !== "completed") {
-			setFadingOut(false);
-			return;
-		}
-		const workStillHappening = dataFetchProgress.length > 0;
-		if (workStillHappening) {
 			setFadingOut(false);
 			return;
 		}
@@ -331,7 +321,7 @@ export function CommentThread({
 			clearTimeout(holdId);
 			clearTimeout(clearId);
 		};
-	}, [turnStatus, comments, dataFetchProgress.length]);
+	}, [turnStatus, comments]);
 
 	// Auto-refresh on WebSocket events
 	useLiveUpdates(experiment.id, (event) => {
@@ -405,11 +395,13 @@ export function CommentThread({
 		if (event.type === "data_fetch.progress") {
 			const payload = event.payload as { line?: string };
 			if (payload.line) {
-				setDataFetchProgress((prev) => {
-					// Cap at 200 lines so a chatty downloader doesn't OOM the UI.
-					const next = [...prev, payload.line as string];
-					return next.length > 200 ? next.slice(-200) : next;
-				});
+				// Inject as a stdout transcript entry so the data-fetch tail
+				// shows inline under the data_fetch tool_call in the
+				// transcript timeline — same treatment as run_backtest logs.
+				setStreamEntries((prev) => [
+					...prev,
+					{ type: "stdout", content: `${payload.line}\n` } as TranscriptEntry,
+				]);
 			}
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
@@ -442,10 +434,6 @@ export function CommentThread({
 			refresh();
 		}
 		if (event.type === "comment.new") {
-			// A new comment supersedes any in-flight data-fetch progress —
-			// the success / failure system comment that follows the download
-			// is what the user should see now.
-			setDataFetchProgress([]);
 			refresh();
 		}
 		if (event.type === "experiment.updated") {
@@ -845,7 +833,6 @@ export function CommentThread({
 				{turnStatus === "running" &&
 					!(
 						streamEntries.length > 0 ||
-						dataFetchProgress.length > 0 ||
 						(!!currentTurnId && comments.some((c) => c.turnId === currentTurnId))
 					) && (
 						// Nothing to render yet — show a small pending shimmer so
@@ -865,7 +852,6 @@ export function CommentThread({
 					// appearing between desk creation and the first agent
 					// output.
 					(streamEntries.length > 0 ||
-						dataFetchProgress.length > 0 ||
 						(!!currentTurnId &&
 							comments.some((c) => c.turnId === currentTurnId))) && (
 					<div
@@ -902,7 +888,6 @@ export function CommentThread({
 							status={turnStatus}
 							startedAt={runStartedAt ?? undefined}
 							failureReason={turnFailureReason}
-							dataFetchProgress={dataFetchProgress}
 							onStop={async () => {
 								await fetch(`/api/experiments/${experiment.id}/agent/stop`, {
 									method: "POST",

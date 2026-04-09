@@ -83,7 +83,7 @@ export class GenericAdapter implements EngineAdapter {
 		};
 	}
 
-	workspaceTemplate(): Record<string, string> {
+	workspaceTemplate(_opts?: { venue?: string }): Record<string, string> {
 		return {
 			"README.md": `# QuantDesk generic workspace
 
