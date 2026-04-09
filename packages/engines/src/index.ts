@@ -35,3 +35,4 @@ export type {
 	PaperStatus,
 	TradeEntry,
 } from "./types.js";
+export { GenericImageMissingError, UnsupportedRuntimeError } from "./generic/adapter.js";

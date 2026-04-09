@@ -170,7 +170,7 @@ describe("engine images", () => {
 		expect(getEngineImage("freqtrade")).toBe(ENGINE_IMAGES.freqtrade);
 	});
 
-	it("getEngineImage('generic') throws", () => {
-		expect(() => getEngineImage("generic")).toThrow(/does not have a Docker image/);
+	it("getEngineImage('generic') returns the pinned sandbox tag", () => {
+		expect(getEngineImage("generic")).toBe(ENGINE_IMAGES.generic);
 	});
 });
