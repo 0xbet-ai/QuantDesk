@@ -14,6 +14,7 @@
     "db:generate": "pnpm --filter @quantdesk/db generate",
     "db:seed": "pnpm --filter @quantdesk/db seed",
     "db:reset": "pnpm --filter @quantdesk/db reset && pnpm db:migrate && pnpm db:seed",
+    "clean:runs": "rm -rf server/workspaces ~/.quantdesk/logs ~/.quantdesk/datacache && pnpm db:reset",
     "onboard": "pnpm --filter quantdesk onboard"
   },
   "devDependencies": {
