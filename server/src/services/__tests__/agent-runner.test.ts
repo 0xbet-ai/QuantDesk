@@ -80,6 +80,7 @@ describe("AgentRunner", () => {
 			expect.any(String),
 			"session-prev",
 			undefined,
+			undefined,
 		);
 		const args = mockAdapter.buildSpawnArgs.mock.results[0]!.value;
 		expect(args).toContain("--resume");
