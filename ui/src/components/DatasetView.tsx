@@ -245,73 +245,75 @@ export function DatasetView({ desk }: Props) {
 					) : datasets.length === 0 ? (
 						<div className="text-[13px] text-muted-foreground">No datasets yet.</div>
 					) : (
-						<div className="space-y-3">
-							{datasets.map((ds) => (
-								<button
-									type="button"
-									key={ds.id}
-									onClick={() => setPreviewing(ds)}
-									className="w-full text-left rounded-lg border border-border p-4 shadow-sm hover:bg-accent/30 transition-colors group"
-								>
-									<div className="flex items-start justify-between gap-3">
-										<div className="min-w-0 flex-1">
-											{/* Exchange + pairs */}
-											<div className="flex items-center gap-2 mb-2">
-												<span className="text-[13px] font-semibold">
-													{ds.exchange.toUpperCase()}
-												</span>
-												<div className="flex flex-wrap gap-1">
-													{ds.pairs.map((pair) => (
-														<span
-															key={pair}
-															className="rounded bg-muted px-1.5 py-0.5 text-[11px] font-mono text-muted-foreground"
-														>
-															{pair}
-														</span>
-													))}
-												</div>
-											</div>
-
-											{/* Metadata row */}
-											<div className="flex items-center gap-3 text-xs text-muted-foreground">
-												<span
-													className={cn(
-														"rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide",
-													)}
-												>
-													{ds.timeframe}
-												</span>
-												<span>
-													{formatDate(ds.dateRange.start)} — {formatDate(ds.dateRange.end)}
-												</span>
-												<span className="text-border">|</span>
-												<span>{formatRelativeTime(ds.createdAt)}</span>
-											</div>
-
-											{/* Path */}
-											<div className="mt-2 text-[11px] font-mono text-muted-foreground/70 truncate">
-												{ds.path}
-											</div>
-										</div>
-
-										{/* Actions */}
-										<div className="flex items-center gap-1 shrink-0">
-											<div className="p-1.5 rounded text-muted-foreground/40 group-hover:text-foreground transition-colors">
-												<Eye className="size-3.5" />
-											</div>
+						<div className="space-y-6">
+							{Object.entries(
+								datasets.reduce<Record<string, typeof datasets>>((acc, ds) => {
+									const key = ds.exchange.toLowerCase();
+									(acc[key] ??= []).push(ds);
+									return acc;
+								}, {}),
+							).map(([exchange, items]) => (
+								<div key={exchange}>
+									<div className="flex items-center gap-2 mb-3">
+										<Database className="size-3.5 text-muted-foreground/60" />
+										<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+											{exchange}
+										</span>
+										<span className="text-[11px] text-muted-foreground/50">
+											{items.length} dataset{items.length !== 1 ? "s" : ""}
+										</span>
+									</div>
+									<div className="space-y-2 pl-5">
+										{items.map((ds) => (
 											<button
 												type="button"
-												onClick={(e) => {
-													e.stopPropagation();
-													handleDelete(ds.id);
-												}}
-												className="p-1.5 rounded text-muted-foreground/50 hover:text-red-500 transition-colors"
+												key={ds.id}
+												onClick={() => setPreviewing(ds)}
+												className="w-full text-left rounded-lg border border-border p-3 shadow-sm hover:bg-accent/30 transition-colors group"
 											>
-												<Trash2 className="size-3.5" />
+												<div className="flex items-center justify-between gap-3">
+													<div className="min-w-0 flex-1">
+														<div className="flex items-center gap-2 mb-1">
+															<span className="text-[13px] font-medium font-mono">
+																{ds.pairs.map((p) => p.split(":")[0]).join(", ")}
+															</span>
+															{ds.pairs.some((p) => p.includes(":")) && (
+																<span className="text-[9px] px-1 py-px rounded bg-muted text-muted-foreground uppercase leading-none">
+																	perp
+																</span>
+															)}
+														</div>
+														<div className="flex items-center gap-3 text-xs text-muted-foreground">
+															<span className={cn("rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide")}>
+																{ds.timeframe}
+															</span>
+															<span>
+																{formatDate(ds.dateRange.start)} — {formatDate(ds.dateRange.end)}
+															</span>
+															<span className="text-border">|</span>
+															<span>{formatRelativeTime(ds.createdAt)}</span>
+														</div>
+													</div>
+													<div className="flex items-center gap-1 shrink-0">
+														<div className="p-1.5 rounded text-muted-foreground/40 group-hover:text-foreground transition-colors">
+															<Eye className="size-3.5" />
+														</div>
+														<button
+															type="button"
+															onClick={(e) => {
+																e.stopPropagation();
+																handleDelete(ds.id);
+															}}
+															className="p-1.5 rounded text-muted-foreground/50 hover:text-red-500 transition-colors"
+														>
+															<Trash2 className="size-3.5" />
+														</button>
+													</div>
+												</div>
 											</button>
-										</div>
+										))}
 									</div>
-								</button>
+								</div>
 							))}
 						</div>
 					)}

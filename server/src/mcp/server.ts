@@ -135,7 +135,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		},
 		async (args) => {
 			try {
-				const dataset = await executeDataFetch({
+				const result = await executeDataFetch({
 					experimentId: ctx.experimentId,
 					proposal: {
 						exchange: args.exchange,
@@ -146,7 +146,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						rationale: args.rationale ?? "",
 					},
 				});
-				if (!dataset) {
+				if (!result || result.length === 0) {
 					return errorResult(
 						"data_fetch: no dataset produced (download failed or this strategy mode has no server-side fetcher). Read the system comment for details and try a different exchange / pair / mode, or fall back to writing fetch_data.py yourself and calling register_dataset.",
 					);
@@ -154,12 +154,14 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				return textResult(
 					JSON.stringify(
 						{
-							datasetId: dataset.id,
-							exchange: dataset.exchange,
-							pairs: dataset.pairs,
-							timeframe: dataset.timeframe,
-							dateRange: dataset.dateRange,
-							path: dataset.path,
+							datasets: result.map((ds) => ({
+								datasetId: ds.id,
+								exchange: ds.exchange,
+								pair: ds.pairs[0],
+								timeframe: ds.timeframe,
+								dateRange: ds.dateRange,
+								path: ds.path,
+							})),
 						},
 						null,
 						2,
@@ -208,61 +210,62 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						resolvedPath = pathResolve(desk.workspacePath, resolvedPath);
 					}
 				}
-				// Dedupe on (exchange, sorted pairs, timeframe, dateRange).
-				// If an identical dataset already exists, just link it to
-				// this desk instead of creating a duplicate row — different
-				// desks downloading the same window shouldn't pile up rows
-				// in the global dataset list.
+				// Per-pair dedupe + insert. Each pair becomes its own
+				// dataset row so the UI can group by exchange → pair.
 				const sortedPairs = [...args.pairs].sort();
-				const existing = await db
-					.select()
-					.from(datasets)
-					.where(
-						and(
-							eq(datasets.exchange, args.exchange),
-							eq(datasets.timeframe, args.timeframe),
-							sql`${datasets.pairs}::jsonb = ${JSON.stringify(sortedPairs)}::jsonb`,
-							sql`${datasets.dateRange}->>'start' = ${args.dateRange.start}`,
-							sql`${datasets.dateRange}->>'end' = ${args.dateRange.end}`,
-						),
-					);
-				let dataset = existing[0];
-				let reused = false;
-				if (dataset) {
-					reused = true;
-				} else {
-					const [inserted] = await db
-						.insert(datasets)
-						.values({
-							exchange: args.exchange,
-							pairs: sortedPairs,
-							timeframe: args.timeframe,
-							dateRange: args.dateRange,
-							path: resolvedPath,
-						})
-						.returning();
-					if (!inserted) return errorResult("register_dataset: insert returned no row");
-					dataset = inserted;
-				}
-				// Link (idempotent: skip if the join row already exists).
-				const link = await db
-					.select()
-					.from(deskDatasets)
-					.where(
-						and(
-							eq(deskDatasets.deskId, ctx.deskId),
-							eq(deskDatasets.datasetId, dataset.id),
-						),
-					);
-				if (link.length === 0) {
-					await db.insert(deskDatasets).values({
-						deskId: ctx.deskId,
-						datasetId: dataset.id,
-					});
+				const registered: { datasetId: string; pair: string; reused: boolean }[] = [];
+				for (const pair of sortedPairs) {
+					const [existing] = await db
+						.select()
+						.from(datasets)
+						.where(
+							and(
+								eq(datasets.exchange, args.exchange),
+								eq(datasets.timeframe, args.timeframe),
+								sql`${datasets.pairs}::jsonb = ${JSON.stringify([pair])}::jsonb`,
+								sql`${datasets.dateRange}->>'start' = ${args.dateRange.start}`,
+								sql`${datasets.dateRange}->>'end' = ${args.dateRange.end}`,
+							),
+						);
+					let dataset = existing;
+					let reused = false;
+					if (dataset) {
+						reused = true;
+					} else {
+						const [inserted] = await db
+							.insert(datasets)
+							.values({
+								exchange: args.exchange,
+								pairs: [pair],
+								timeframe: args.timeframe,
+								dateRange: args.dateRange,
+								path: resolvedPath,
+							})
+							.returning();
+						if (!inserted) return errorResult("register_dataset: insert returned no row");
+						dataset = inserted;
+					}
+					// Link (idempotent).
+					const link = await db
+						.select()
+						.from(deskDatasets)
+						.where(
+							and(
+								eq(deskDatasets.deskId, ctx.deskId),
+								eq(deskDatasets.datasetId, dataset.id),
+							),
+						);
+					if (link.length === 0) {
+						await db.insert(deskDatasets).values({
+							deskId: ctx.deskId,
+							datasetId: dataset.id,
+						});
+					}
+					registered.push({ datasetId: dataset.id, pair, reused });
 				}
 				return textResult(
 					JSON.stringify(
-						{ datasetId: dataset.id, linked: true, reused, path: dataset.path },
+						{ datasets: registered, path: resolvedPath },
 						null,
 						2,
 					),

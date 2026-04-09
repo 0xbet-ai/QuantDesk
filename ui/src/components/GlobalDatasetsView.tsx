@@ -58,30 +58,37 @@ export function GlobalDatasetsView() {
 		}
 	};
 
-	// Recent first + client-side search. For hundreds of rows this is still
-	// instant; if we ever ship a global list beyond that, lift this to the
-	// server API. The search blob keeps matching logic in one place.
-	const filtered = useMemo(() => {
+	// Recent first + client-side search, then group by exchange.
+	const { filtered, grouped } = useMemo(() => {
 		const sorted = [...datasets].sort(
 			(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
 		);
 		const q = query.trim().toLowerCase();
-		if (!q) return sorted;
-		return sorted.filter((d) => {
-			const blob = [
-				d.exchange,
-				d.pairs.join(" "),
-				d.timeframe,
-				d.dateRange.start,
-				d.dateRange.end,
-				d.createdByDeskName ?? "",
-				d.createdByExperimentTitle ?? "",
-				d.createdByExperimentNumber != null ? `#${d.createdByExperimentNumber}` : "",
-			]
-				.join(" ")
-				.toLowerCase();
-			return blob.includes(q);
-		});
+		const list = q
+			? sorted.filter((d) => {
+					const blob = [
+						d.exchange,
+						d.pairs.join(" "),
+						d.timeframe,
+						d.dateRange.start,
+						d.dateRange.end,
+						d.createdByDeskName ?? "",
+						d.createdByExperimentTitle ?? "",
+						d.createdByExperimentNumber != null ? `#${d.createdByExperimentNumber}` : "",
+					]
+						.join(" ")
+						.toLowerCase();
+					return blob.includes(q);
+				})
+			: sorted;
+		const groups = new Map<string, Dataset[]>();
+		for (const d of list) {
+			const key = d.exchange.toLowerCase();
+			const arr = groups.get(key) ?? [];
+			arr.push(d);
+			groups.set(key, arr);
+		}
+		return { filtered: list, grouped: groups };
 	}, [datasets, query]);
 
 	return (
@@ -127,18 +134,31 @@ export function GlobalDatasetsView() {
 						</button>
 					</div>
 				) : (
-					<div className="px-3 py-2">
-						{filtered.map((d) => (
-							<DatasetRow
-								key={d.id}
-								dataset={d}
-								confirming={confirmingId === d.id}
-								deleting={deletingId === d.id}
-								onOpen={() => setPreviewing(d)}
-								onStartConfirm={() => setConfirmingId(d.id)}
-								onCancelConfirm={() => setConfirmingId(null)}
-								onConfirmDelete={() => handleDelete(d.id)}
-							/>
+					<div className="px-3 py-2 space-y-4">
+						{[...grouped.entries()].map(([exchange, items]) => (
+							<div key={exchange}>
+								<div className="flex items-center gap-2 px-3 py-1.5 mb-1">
+									<Database className="size-3.5 text-muted-foreground/60" />
+									<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+										{exchange}
+									</span>
+									<span className="text-[11px] text-muted-foreground/50">
+										{items.length} dataset{items.length !== 1 ? "s" : ""}
+									</span>
+								</div>
+								{items.map((d) => (
+									<DatasetRow
+										key={d.id}
+										dataset={d}
+										confirming={confirmingId === d.id}
+										deleting={deletingId === d.id}
+										onOpen={() => setPreviewing(d)}
+										onStartConfirm={() => setConfirmingId(d.id)}
+										onCancelConfirm={() => setConfirmingId(null)}
+										onConfirmDelete={() => handleDelete(d.id)}
+									/>
+								))}
+							</div>
 						))}
 					</div>
 				)}
