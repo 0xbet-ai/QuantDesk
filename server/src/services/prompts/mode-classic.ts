@@ -36,7 +36,15 @@ infer unsupportedness from your training data.
 **Path B — agent-side fetcher (fallback after a real Path A failure):**
 If \`data_fetch\` returns an error ("exchange does not support ohlcv",
 "pair not found", "historic data not available", similar), switch to
-Path B:
+Path B.
+
+Before following the generic steps below, check whether your workspace
+contains any \`.quantdesk/PATH_B_FETCH_<venue>.md\` files. If one
+matches the venue you are fetching from, **read it first and prefer its
+venue-specific instructions** (symbol format, recommended fetch route,
+pagination rules, known gotchas) over the generic guidance — those
+files were written from empirically verified runs. If no matching file
+exists, follow the generic steps unchanged:
 
 1. **Read \`strategy.py\` and its imports** to see which framework is
    loading data for you. Inspect the framework's data layer directly

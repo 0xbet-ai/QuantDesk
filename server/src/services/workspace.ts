@@ -4,6 +4,7 @@ import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
 import { SEED_COPY_SKIP_NAMES } from "@quantdesk/shared";
+import { loadVenueGuides } from "./venue-guides.js";
 
 const execAsync = promisify(exec);
 
@@ -26,6 +27,12 @@ export interface InitWorkspaceOptions {
 	 * exchange instead of a hard-coded default.
 	 */
 	venue?: string;
+	/**
+	 * Full venue list for the desk. Used to seed per-venue Path B fetch
+	 * guides from `packages/venues/` into `<workspace>/.quantdesk/`.
+	 * Falls back to `[venue]` when omitted.
+	 */
+	venues?: readonly string[];
 }
 
 export async function initWorkspace(
@@ -61,6 +68,21 @@ export async function initWorkspace(
 		}
 		await git(dir, "add", "-A");
 		await git(dir, "commit", "-m", '"Initial workspace setup"');
+	}
+
+	// Seed per-venue Path B fetch guides (optional reference catalog).
+	// Missing guides are silently skipped; the agent falls back to the
+	// generic Path B instructions in the mode-classic prompt block.
+	const venueList = options.venues ?? (options.venue ? [options.venue] : []);
+	const guides = loadVenueGuides(venueList);
+	if (guides.length > 0) {
+		const guideDir = join(dir, ".quantdesk");
+		await mkdir(guideDir, { recursive: true });
+		for (const guide of guides) {
+			await writeFile(join(guideDir, guide.workspaceFilename), guide.content);
+		}
+		await git(dir, "add", "-A");
+		await git(dir, "commit", "-m", '"chore: seed venue Path B guides"');
 	}
 
 	return dir;
