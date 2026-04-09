@@ -189,6 +189,7 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 														)}
 													</td>
 												)}
+												<td className="w-7" />
 											</tr>
 										);
 									});
