@@ -16,6 +16,9 @@ export interface ActivityItem {
 	summary: string;
 	detail: string | null;
 	timestamp: string;
+	experimentId: string;
+	/** For comment items, the original comment ID for scroll-to linking. */
+	commentId: string | null;
 }
 
 export async function listActivity(deskId: string, limit = 50): Promise<ActivityItem[]> {
@@ -53,6 +56,8 @@ export async function listActivity(deskId: string, limit = 50): Promise<Activity
 			summary: `Experiment #${exp.number} created`,
 			detail: exp.title,
 			timestamp: exp.createdAt.toISOString(),
+			experimentId: exp.id,
+			commentId: null,
 		});
 	}
 
@@ -71,6 +76,8 @@ export async function listActivity(deskId: string, limit = 50): Promise<Activity
 					: `Run #${run.runNumber} started`,
 			detail: expLabel,
 			timestamp: run.createdAt.toISOString(),
+			experimentId: run.experimentId,
+			commentId: null,
 		});
 
 		if (run.completedAt) {
@@ -87,6 +94,8 @@ export async function listActivity(deskId: string, limit = 50): Promise<Activity
 				summary: `Run #${run.runNumber} ${run.status}`,
 				detail: expLabel,
 				timestamp: run.completedAt.toISOString(),
+				experimentId: run.experimentId,
+				commentId: null,
 			});
 		}
 	}
@@ -103,6 +112,8 @@ export async function listActivity(deskId: string, limit = 50): Promise<Activity
 			summary: `${comment.author === "user" ? "You" : comment.author} commented`,
 			detail: expLabel,
 			timestamp: comment.createdAt.toISOString(),
+			experimentId: comment.experimentId,
+			commentId: comment.id,
 		});
 	}
 

@@ -10,6 +10,7 @@ import {
 	XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { ActivityItem, Desk } from "../lib/api.js";
 import { listActivity } from "../lib/api.js";
 import { ScrollArea } from "./ui/scroll-area.js";
@@ -82,6 +83,7 @@ const typeIcons: Record<ActivityItem["type"], typeof Activity> = {
 export function ActivityView({ desk }: Props) {
 	const [items, setItems] = useState<ActivityItem[]>([]);
 	const [loading, setLoading] = useState(true);
+	const navigate = useNavigate();
 
 	useEffect(() => {
 		setLoading(true);
@@ -90,6 +92,11 @@ export function ActivityView({ desk }: Props) {
 			.catch(() => setItems([]))
 			.finally(() => setLoading(false));
 	}, [desk.id]);
+
+	const handleClick = (item: ActivityItem) => {
+		const hash = item.commentId ? `#comment-${item.commentId}` : "";
+		navigate(`/desks/${desk.id}/experiments/${item.experimentId}${hash}`);
+	};
 
 	return (
 		<div className="flex flex-col h-full">
@@ -118,7 +125,14 @@ export function ActivityView({ desk }: Props) {
 							{items.map((item) => {
 								const Icon = typeIcons[item.type];
 								return (
-									<div key={item.id} className="flex items-center gap-3 py-2.5 group">
+									<div
+									key={item.id}
+									className="flex items-center gap-3 py-2.5 group cursor-pointer rounded-md px-2 -mx-2 hover:bg-muted/40 transition-colors"
+									onClick={() => handleClick(item)}
+									onKeyDown={(e) => { if (e.key === "Enter") handleClick(item); }}
+									role="button"
+									tabIndex={0}
+								>
 										{/* Actor badge (full name) */}
 										<span
 											className={`px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${actorBadgeColor(item.actor)}`}

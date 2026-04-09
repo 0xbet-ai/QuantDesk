@@ -88,6 +88,8 @@ export interface ActivityItem {
 	summary: string;
 	detail: string | null;
 	timestamp: string;
+	experimentId: string;
+	commentId: string | null;
 }
 
 export interface Strategy {

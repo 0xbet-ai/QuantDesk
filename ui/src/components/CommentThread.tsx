@@ -209,6 +209,26 @@ export function CommentThread({
 		return () => observer.disconnect();
 	}, []);
 
+	// Scroll to a specific comment when navigating from Activity view
+	// via URL hash (e.g. #comment-<uuid>).
+	useEffect(() => {
+		const hash = window.location.hash;
+		if (!hash.startsWith("#comment-") || comments.length === 0) return;
+		const el = document.getElementById(hash.slice(1));
+		if (!el) return;
+		// Disable auto-stick so the scroll position stays
+		stickToBottomRef.current = false;
+		requestAnimationFrame(() => {
+			el.scrollIntoView({ behavior: "smooth", block: "center" });
+			el.classList.add("ring-2", "ring-primary/50", "rounded-md");
+			setTimeout(() => {
+				el.classList.remove("ring-2", "ring-primary/50", "rounded-md");
+			}, 2000);
+		});
+		// Clear hash so re-renders don't re-trigger
+		window.history.replaceState(null, "", window.location.pathname + window.location.search);
+	}, [comments]);
+
 	// Phase 27 — dataset index keyed by id so comment-attached
 	// registeredDatasetIds can render clickable preview chips without a
 	// per-chip fetch. Reloaded whenever a new comment arrives (the
@@ -763,6 +783,7 @@ export function CommentThread({
 						return (
 							<div
 								key={c.id}
+								id={`comment-${c.id}`}
 								className={cn(
 									isChild && "ml-6 mt-2",
 									!isChild && isUser && "flex justify-end",
