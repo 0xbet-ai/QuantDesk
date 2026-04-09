@@ -72,8 +72,16 @@ function DeskRoute({
 		if (!deskId) return;
 		if (page === "experiments") {
 			navigate(expId ? `/desks/${deskId}/experiments/${expId}` : `/desks/${deskId}`);
-		} else if (page === "runs" && expId) {
-			navigate(`/desks/${deskId}/experiments/${expId}/runs`);
+		} else if (page === "runs") {
+			// Runs always live under an experiment. If the URL doesn't
+			// already have an expId (e.g. we're on /code), fall back to
+			// the latest experiment so the Backtests nav doesn't dead-end.
+			const targetExpId = expId ?? experiments[experiments.length - 1]?.id;
+			if (targetExpId) {
+				navigate(`/desks/${deskId}/experiments/${targetExpId}/runs`);
+			} else {
+				navigate(`/desks/${deskId}`);
+			}
 		} else {
 			navigate(`/desks/${deskId}/${page}`);
 		}
@@ -127,6 +135,10 @@ function DeskRoute({
 						selectedRunId={runId ?? null}
 						onBack={() => navigate(`/desks/${deskId}/experiments/${expId}`)}
 					/>
+				) : selectedDesk && deskPage === "runs" ? (
+					<div className="flex-1 flex items-center justify-center text-[13px] text-foreground/50">
+						No backtest run
+					</div>
 				) : selectedExperiment && deskPage === "experiments" ? (
 					<CommentThread
 						experiment={selectedExperiment}

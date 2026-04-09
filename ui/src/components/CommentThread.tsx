@@ -348,7 +348,7 @@ export function CommentThread({
 					...prev,
 					{
 						type: "stdout",
-						content: `${payload.line}\n`,
+						content: payload.line as string,
 					} as TranscriptEntry,
 				]);
 			}
@@ -400,7 +400,7 @@ export function CommentThread({
 				// transcript timeline — same treatment as run_backtest logs.
 				setStreamEntries((prev) => [
 					...prev,
-					{ type: "stdout", content: `${payload.line}\n` } as TranscriptEntry,
+					{ type: "stdout", content: payload.line as string } as TranscriptEntry,
 				]);
 			}
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);

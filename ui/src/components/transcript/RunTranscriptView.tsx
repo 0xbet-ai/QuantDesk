@@ -893,13 +893,13 @@ function StdoutRow({
 	block,
 	compact,
 }: { block: Extract<TranscriptBlock, { type: "stdout" }>; compact: boolean }) {
-	const [open, setOpen] = useState(false);
+	const [open, setOpen] = useState(true);
 	return (
-		<div>
+		<div className="my-1 overflow-hidden rounded-md border border-border bg-muted/40">
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
+				className="flex w-full items-center gap-1 border-b border-border/60 bg-muted/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
 			>
 				{open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
 				<span>stdout</span>
@@ -907,8 +907,8 @@ function StdoutRow({
 			{open && (
 				<pre
 					className={cn(
-						"mt-1 overflow-x-auto whitespace-pre-wrap break-words font-mono text-foreground/80",
-						compact ? "text-[10px] leading-snug" : "text-xs",
+						"max-h-64 overflow-auto whitespace-pre-wrap break-words px-2.5 py-1.5 font-mono leading-tight text-foreground/80",
+						compact ? "text-[10px]" : "text-xs",
 					)}
 				>
 					{block.content}
