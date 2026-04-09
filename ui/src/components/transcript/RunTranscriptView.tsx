@@ -638,8 +638,8 @@ function CommandGroup({
 	block,
 	compact,
 }: { block: Extract<TranscriptBlock, { type: "command_group" }>; compact: boolean }) {
-	const [open, setOpen] = useState(false);
 	const isRunning = block.items.some((item) => item.status === "running");
+	const [open, setOpen] = useState(isRunning);
 	const hasError = block.items.some((item) => item.status === "error");
 	const runningItem = [...block.items].reverse().find((item) => item.status === "running");
 	const title = isRunning
@@ -748,8 +748,8 @@ function ToolGroup({
 	block,
 	compact,
 }: { block: Extract<TranscriptBlock, { type: "tool_group" }>; compact: boolean }) {
-	const [open, setOpen] = useState(false);
 	const isRunning = block.items.some((item) => item.status === "running");
+	const [open, setOpen] = useState(isRunning);
 	const hasError = block.items.some((item) => item.status === "error");
 	const uniqueNames = [...new Set(block.items.map((item) => item.name))];
 	const toolLabel = uniqueNames.length === 1 ? uniqueNames[0]! : `${uniqueNames.length} tools`;
@@ -893,16 +893,19 @@ function StdoutRow({
 	block,
 	compact,
 }: { block: Extract<TranscriptBlock, { type: "stdout" }>; compact: boolean }) {
-	const [open, setOpen] = useState(true);
+	const [open, setOpen] = useState(false);
 	return (
 		<div className="my-1 overflow-hidden rounded-md border border-border bg-muted/40">
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="flex w-full items-center gap-1 border-b border-border/60 bg-muted/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground"
+				className={cn(
+					"flex w-full items-center gap-1 bg-muted/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground transition-colors hover:text-foreground",
+					open && "border-b border-border/60",
+				)}
 			>
 				{open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-				<span>stdout</span>
+				<span>container log</span>
 			</button>
 			{open && (
 				<pre

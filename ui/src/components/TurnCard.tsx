@@ -222,7 +222,6 @@ export function TurnCard({
 						<RunTranscriptView
 							entries={entries}
 							density="compact"
-							limit={8}
 							streaming={streaming}
 							emptyMessage="Waiting for agent output..."
 						/>

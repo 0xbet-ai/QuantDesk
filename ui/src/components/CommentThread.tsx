@@ -169,6 +169,12 @@ export function CommentThread({
 	// Live tail of `data_fetch.progress` events from the server. Cleared
 	// whenever the comment thread refreshes (the next system comment —
 	// "Downloaded …" or failure — supersedes the live tail).
+	// Optimistic "the user just hit send, a new agent turn is coming" flag.
+	// Set by handleSend so refresh's listExperimentTurns hydration doesn't
+	// clobber the running state with the PREVIOUS (terminal) turn row while
+	// the server is still spawning the new one. Cleared by the turn.status
+	// running event for the new turnId.
+	const pendingSendRef = useRef(false);
 	const bottomRef = useRef<HTMLDivElement>(null);
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const scrollInnerRef = useRef<HTMLDivElement>(null);
@@ -269,6 +275,14 @@ export function CommentThread({
 				listExperimentTurns(experiment.id)
 					.then((turns) => {
 						const latest = turns[turns.length - 1];
+						// If the user just hit send and the server hasn't yet
+						// created the new agent_turns row, `latest` will be the
+						// PREVIOUS (terminal) turn. Skip the hydration so we
+						// don't overwrite the optimistic running state the
+						// send handler just set.
+						if (pendingSendRef.current && (!latest || latest.status !== "running")) {
+							return;
+						}
 						if (!latest) {
 							setTurnStatus(null);
 							setCurrentTurnId(null);
@@ -410,6 +424,11 @@ export function CommentThread({
 				return;
 			}
 			if (payload.turnId) setCurrentTurnId(payload.turnId);
+			if (payload.status === "running") {
+				// The new turn has begun on the server — the optimistic
+				// send flag is no longer needed.
+				pendingSendRef.current = false;
+			}
 			if (payload.status) {
 				setTurnStatus(payload.status);
 				if (payload.status !== "running") {
@@ -479,6 +498,7 @@ export function CommentThread({
 		try {
 			await postComment(experiment.id, input.trim());
 			setInput("");
+			pendingSendRef.current = true;
 			refresh();
 			setThinkingRole("analyst");
 			setStreamEntries([]);

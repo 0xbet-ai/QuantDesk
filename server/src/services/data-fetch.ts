@@ -7,6 +7,7 @@ import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
 import type { DataFetchRequest as DataFetchProposal } from "@quantdesk/shared";
 import { and, eq, sql } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
+import { appendAgentLog } from "./agent-log.js";
 import { systemComment } from "./comments.js";
 
 /**
@@ -125,6 +126,11 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 					type: "data_fetch.progress",
 					payload: { line },
 				});
+				appendAgentLog(experimentId, {
+					ts: new Date().toISOString(),
+					type: "stdout",
+					content: line,
+				});
 			},
 		});
 	} catch (err) {
@@ -168,6 +174,8 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 			timeframe: proposal.timeframe,
 			dateRange: { start: startDate, end: endDate },
 			path: exchangeCachePath,
+			createdByDeskId: desk.id,
+			createdByExperimentId: experimentId,
 		})
 		.returning();
 	if (dataset) {

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { isAbsolute, join, resolve } from "node:path";
 import { db } from "@quantdesk/db";
-import { datasets, deskDatasets, runs } from "@quantdesk/db/schema";
+import { datasets, deskDatasets, desks, experiments, runs } from "@quantdesk/db/schema";
 import { desc, eq } from "drizzle-orm";
 
 interface CreateDatasetInput {
@@ -19,7 +19,23 @@ export async function createDataset(input: CreateDatasetInput) {
 
 /** List every dataset in the global catalog, newest first. */
 export async function listAllDatasets() {
-	return db.select().from(datasets).orderBy(desc(datasets.createdAt));
+	const rows = await db
+		.select({
+			dataset: datasets,
+			deskName: desks.name,
+			experimentTitle: experiments.title,
+			experimentNumber: experiments.number,
+		})
+		.from(datasets)
+		.leftJoin(desks, eq(datasets.createdByDeskId, desks.id))
+		.leftJoin(experiments, eq(datasets.createdByExperimentId, experiments.id))
+		.orderBy(desc(datasets.createdAt));
+	return rows.map((r) => ({
+		...r.dataset,
+		createdByDeskName: r.deskName,
+		createdByExperimentTitle: r.experimentTitle,
+		createdByExperimentNumber: r.experimentNumber,
+	}));
 }
 
 /** List only the datasets linked to a given desk via `desk_datasets`. */

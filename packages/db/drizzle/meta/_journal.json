@@ -50,6 +50,13 @@
       "when": 1775645647879,
       "tag": "0006_bizarre_natasha_romanoff",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1775701849877,
+      "tag": "0007_real_boomerang",
+      "breakpoints": true
     }
   ]
 }

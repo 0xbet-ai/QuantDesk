@@ -96,6 +96,12 @@ export const datasets = pgTable("datasets", {
 	timeframe: text("timeframe").notNull(),
 	dateRange: jsonb("date_range").notNull().$type<{ start: string; end: string }>(),
 	path: text("path").notNull(),
+	createdByDeskId: uuid("created_by_desk_id").references(() => desks.id, {
+		onDelete: "set null",
+	}),
+	createdByExperimentId: uuid("created_by_experiment_id").references(() => experiments.id, {
+		onDelete: "set null",
+	}),
 	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
