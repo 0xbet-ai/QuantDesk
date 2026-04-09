@@ -170,6 +170,38 @@ export function CommentThread({
 	// whenever the comment thread refreshes (the next system comment —
 	// "Downloaded …" or failure — supersedes the live tail).
 	const bottomRef = useRef<HTMLDivElement>(null);
+	const scrollContainerRef = useRef<HTMLDivElement>(null);
+	const scrollInnerRef = useRef<HTMLDivElement>(null);
+	const stickToBottomRef = useRef(true);
+
+	// Track whether the user is (roughly) pinned to the bottom. If they scroll
+	// up to read something, we stop auto-scrolling until they scroll back down.
+	useEffect(() => {
+		const el = scrollContainerRef.current;
+		if (!el) return;
+		const onScroll = () => {
+			const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+			stickToBottomRef.current = distance < 80;
+		};
+		el.addEventListener("scroll", onScroll, { passive: true });
+		return () => el.removeEventListener("scroll", onScroll);
+	}, []);
+
+	// Auto-scroll to the bottom whenever the messages container's content
+	// grows (streamed agent text, tool results, engine log tail, new turn
+	// card, etc.). Uses ResizeObserver so we catch every layout change, not
+	// just React re-renders.
+	useEffect(() => {
+		const inner = scrollInnerRef.current;
+		const container = scrollContainerRef.current;
+		if (!inner || !container || typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver(() => {
+			if (!stickToBottomRef.current) return;
+			container.scrollTop = container.scrollHeight;
+		});
+		observer.observe(inner);
+		return () => observer.disconnect();
+	}, []);
 
 	// Phase 27 — dataset index keyed by id so comment-attached
 	// registeredDatasetIds can render clickable preview chips without a
@@ -468,7 +500,11 @@ export function CommentThread({
 			<Separator />
 
 			{/* Messages */}
-			<div className="flex-1 overflow-y-auto pl-4 pr-6 py-4 space-y-3">
+			<div
+				ref={scrollContainerRef}
+				className="flex-1 overflow-y-auto pl-4 pr-6 py-4"
+			>
+				<div ref={scrollInnerRef} className="space-y-3">
 				{(() => {
 					// Resolve each comment's effective turnId: a comment's own
 					// turnId if set, otherwise its parent's (recursively).
@@ -902,7 +938,8 @@ export function CommentThread({
 						/>
 					</div>
 				)}
-				<div ref={bottomRef} />
+					<div ref={bottomRef} />
+				</div>
 			</div>
 
 			{/* Input */}
