@@ -91,6 +91,32 @@ run_backtest({ strategyName?, configFile?, entrypoint? })
              of emitting a separate result block.
 ```
 
+### `run_script`
+
+```
+run_script({ scriptPath })
+  requires:  desk.engine === "generic" (rejected for managed engines),
+             script exists at <workspace>/<scriptPath>
+  effect:    runs the script inside the generic sandbox container
+             (quantdesk/generic) with the workspace mounted at
+             /workspace and the per-language cache volumes attached.
+             The container entrypoint auto-installs dependencies from
+             the matching manifest file (requirements.txt /
+             package.json / Cargo.toml / go.mod) before execution.
+  returns:   { exitCode, stdout, stderr }
+             on error: { isError: true, content: "…" }
+  postcond:  side effects are whatever the script wrote to
+             /workspace (typically data files under /workspace/data/);
+             no runs row is created.
+  notes:     Use this for fetchers, setup scripts, exploration, or
+             anything that is NOT the final strategy evaluation. For
+             the final evaluation call run_backtest instead — that
+             tool parses NormalizedResult from stdout and persists a
+             runs row with metrics. Agent-authored scripts must
+             ALWAYS go through run_script or run_backtest, never
+             through Bash directly, so they stay sandboxed.
+```
+
 ### `set_experiment_title`
 
 ```

@@ -25,6 +25,7 @@ describe("createQuantdeskMcpServer", () => {
 				"register_dataset",
 				"request_validation",
 				"run_backtest",
+				"run_script",
 				"set_experiment_title",
 				"submit_rm_verdict",
 			].sort(),

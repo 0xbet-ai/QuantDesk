@@ -114,6 +114,54 @@ export class GenericAdapter implements EngineAdapter {
 		);
 	}
 
+	/**
+	 * Execute an arbitrary script inside the generic sandbox image and
+	 * return its raw stdout / stderr / exit code. Used by the
+	 * `run_script` MCP tool for agent-authored fetchers, setup steps,
+	 * or anything else that is NOT the final strategy evaluation.
+	 *
+	 * Unlike `runBacktest`, the caller does not expect the stdout to
+	 * match `NormalizedResult`, so no parsing or throwing happens on a
+	 * non-JSON tail line.
+	 */
+	async runScript(input: {
+		workspacePath: string;
+		scriptPath: string;
+		extraVolumes?: string[];
+		onLogLine?: (line: string, stream: "stdout" | "stderr") => void;
+	}): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+		await this.ensureImage();
+		const ext = extname(input.scriptPath).toLowerCase();
+		const runtime = RUNTIME_BY_EXT[ext];
+		if (!runtime) {
+			throw new UnsupportedRuntimeError(ext);
+		}
+		const workspaceAbs = resolve(input.workspacePath);
+		const result = await runContainer(
+			{
+				image: ENGINE_IMAGES.generic,
+				rm: true,
+				cpus: "2",
+				memory: "2g",
+				volumes: [
+					`${workspaceAbs}:/workspace`,
+					...cacheVolumes(),
+					...(input.extraVolumes ?? []),
+				],
+				command: [runtime, input.scriptPath],
+			},
+			{
+				onStdoutLine: input.onLogLine ? (line) => input.onLogLine!(line, "stdout") : undefined,
+				onStderrLine: input.onLogLine ? (line) => input.onLogLine!(line, "stderr") : undefined,
+			},
+		);
+		return {
+			stdout: result.stdout,
+			stderr: result.stderr,
+			exitCode: result.exitCode,
+		};
+	}
+
 	async runBacktest(config: BacktestConfig): Promise<BacktestResult> {
 		await this.ensureImage();
 		const ext = extname(config.strategyPath).toLowerCase();
