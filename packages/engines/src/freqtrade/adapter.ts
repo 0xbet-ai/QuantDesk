@@ -176,6 +176,8 @@ export class FreqtradeAdapter implements EngineAdapter {
 					`${USERDIR_IN_CONTAINER}/${configFile}`,
 					"--strategy",
 					strategyName,
+					"--strategy-path",
+					USERDIR_IN_CONTAINER,
 					"--export",
 					"trades",
 					"--export-filename",
@@ -273,6 +275,8 @@ export class FreqtradeAdapter implements EngineAdapter {
 				`${USERDIR_IN_CONTAINER}/config.json`,
 				"--strategy",
 				strategyName,
+				"--strategy-path",
+				USERDIR_IN_CONTAINER,
 			],
 		});
 
