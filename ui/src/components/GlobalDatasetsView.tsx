@@ -22,6 +22,17 @@ export function GlobalDatasetsView() {
 
 	useEffect(() => {
 		refresh();
+		// Datasets are created by background agent turns on other desks, and
+		// the server doesn't emit a global `dataset.new` WS event yet. Poll
+		// every 4s while the view is mounted, and refresh on window focus so
+		// Cmd-Tab back from another app picks up new rows immediately.
+		const interval = setInterval(refresh, 4000);
+		const onFocus = () => refresh();
+		window.addEventListener("focus", onFocus);
+		return () => {
+			clearInterval(interval);
+			window.removeEventListener("focus", onFocus);
+		};
 	}, []);
 
 	const handleDelete = async (id: string) => {
