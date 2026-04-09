@@ -13,7 +13,8 @@ export interface LiveEvent {
 		| "experiment.updated"
 		| "data_fetch.progress"
 		| "turn.status"
-		| "run.log_chunk";
+		| "run.log_chunk"
+		| "paper.status";
 	payload: Record<string, unknown>;
 	createdAt: string;
 }

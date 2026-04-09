@@ -21,12 +21,14 @@ describe("createQuantdeskMcpServer", () => {
 			[
 				"complete_experiment",
 				"data_fetch",
+				"go_paper",
 				"new_experiment",
 				"register_dataset",
 				"request_validation",
 				"run_backtest",
 				"run_script",
 				"set_experiment_title",
+				"stop_paper",
 				"submit_rm_verdict",
 			].sort(),
 		);
