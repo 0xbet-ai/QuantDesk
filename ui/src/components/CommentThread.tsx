@@ -253,6 +253,17 @@ export function CommentThread({
 						if (latest.status === "running") {
 							setThinkingRole(latest.agentRole);
 							setRunStartedAt((prev) => prev ?? new Date(latest.startedAt));
+							// Hydrate streamEntries from the persisted agent log
+							// so a refresh or navigate-away-and-back shows the
+							// transcript the user had before, instead of a blank
+							// card stuck on "Agent is working...".
+							getAgentLogs(experiment.id)
+								.then((logs) => {
+									if (logs.length > 0) {
+										setStreamEntries(logs as unknown as TranscriptEntry[]);
+									}
+								})
+								.catch(() => {});
 						} else {
 							// Terminal — wipe anything the heuristic set so
 							// the composer re-enables.
