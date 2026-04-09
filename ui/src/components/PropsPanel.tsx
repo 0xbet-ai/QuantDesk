@@ -1,4 +1,4 @@
-import { Play, Shield, TrendingUp, XCircle } from "lucide-react";
+import { Play, TrendingUp } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import type { Experiment, Run } from "../lib/api.js";
@@ -170,30 +170,6 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 														)}
 													</td>
 												)}
-											<td className="text-right py-1.5 pl-1">
-												{run.mode === "backtest" && run.status === "completed" && (() => {
-													const v = run.result?.validation?.verdict;
-													if (v === "approve") {
-														return (
-															<button
-																type="button"
-																title="Start Paper Trading"
-																onClick={(e) => {
-																	e.stopPropagation();
-																	handleGoPaper(run.id);
-																}}
-																className="inline-flex items-center justify-center size-5 rounded hover:bg-green-500/20 text-green-500 transition-colors"
-															>
-																<Play className="size-3" />
-															</button>
-														);
-													}
-													if (v === "reject") {
-														return <XCircle className="size-3 text-red-500/60" />;
-													}
-													return <Shield className="size-3 text-muted-foreground/40" />;
-												})()}
-											</td>
 											</tr>
 										);
 									})}

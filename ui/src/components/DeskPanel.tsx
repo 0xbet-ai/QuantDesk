@@ -5,6 +5,7 @@ import {
 	FlaskConical,
 	LineChart,
 	Pause,
+	Play,
 	Plus,
 	Settings,
 	Shield,
@@ -16,11 +17,13 @@ import type { Desk, Experiment, PaperSession, Run, Strategy } from "../lib/api.j
 import {
 	completeAndCreateNewExperiment,
 	getActivePaperSession,
+	goPaper,
 	listActiveExperiments,
 	listRuns,
 	listStrategies,
 	stopPaperSession,
 } from "../lib/api.js";
+import { cn } from "../lib/utils.js";
 import { SidebarNavItem } from "./SidebarNavItem.js";
 import { SidebarSection } from "./SidebarSection.js";
 import { StatusDot } from "./StatusDot.js";
@@ -91,6 +94,8 @@ export function DeskPanel({
 	const [liveAgentExperiments, setLiveAgentExperiments] = useState<Set<string>>(() => new Set());
 
 	const [strategy, setStrategy] = useState<Strategy | null>(null);
+	// Track the best completed backtest run across all experiments (for paper promotion)
+	const [bestRun, setBestRun] = useState<Run | null>(null);
 
 	// Paper trading session state
 	const [paperSession, setPaperSession] = useState<PaperSession | null>(null);
@@ -107,6 +112,22 @@ export function DeskPanel({
 		const id = setInterval(refreshPaper, 5000);
 		return () => clearInterval(id);
 	}, [refreshPaper]);
+
+	const [startingPaper, setStartingPaper] = useState(false);
+	const [paperError, setPaperError] = useState<string | null>(null);
+
+	const handleStartPaper = async (runId: string) => {
+		setStartingPaper(true);
+		setPaperError(null);
+		try {
+			await goPaper(runId);
+			refreshPaper();
+		} catch (err) {
+			setPaperError(err instanceof Error ? err.message : String(err));
+		} finally {
+			setStartingPaper(false);
+		}
+	};
 
 	const handleStopPaper = async () => {
 		setStoppingPaper(true);
@@ -164,6 +185,17 @@ export function DeskPanel({
 						...prev,
 						[exp.id]: runs.some((r) => r.status === "running" || r.status === "pending"),
 					}));
+					// Track overall best completed backtest run for paper promotion
+					const completed = runs.filter((r) => r.mode === "backtest" && r.status === "completed");
+					for (const run of completed) {
+						const val = run.result?.metrics?.[0]?.value;
+						if (val != null) {
+							setBestRun((prev) => {
+								const prevVal = prev?.result?.metrics?.[0]?.value;
+								return prevVal == null || val > prevVal ? run : prev;
+							});
+						}
+					}
 				})
 				.catch(() => {
 					setBestReturns((prev) => ({ ...prev, [exp.id]: null }));
@@ -334,17 +366,14 @@ export function DeskPanel({
 										{paperSession.status === "pending" ? "Starting…" : "Running"}
 									</span>
 								</div>
-								<div className="text-[11px] text-muted-foreground space-y-0.5">
-									<div>Engine: {paperSession.engine}</div>
-									<div>
-										Started{" "}
-										{new Date(paperSession.startedAt).toLocaleString(undefined, {
-											month: "short",
-											day: "numeric",
-											hour: "2-digit",
-											minute: "2-digit",
-										})}
-									</div>
+								<div className="text-[11px] text-muted-foreground">
+									Started{" "}
+									{new Date(paperSession.startedAt).toLocaleString(undefined, {
+										month: "short",
+										day: "numeric",
+										hour: "2-digit",
+										minute: "2-digit",
+									})}
 								</div>
 								<button
 									type="button"
@@ -366,9 +395,59 @@ export function DeskPanel({
 									{paperSession.error ?? "Unknown error"}
 								</div>
 							</div>
-						) : (
+						) : bestRun ? (() => {
+							const val = bestRun.result?.metrics?.[0]?.value;
+							const verdict = bestRun.result?.validation?.verdict;
+							const isApproved = verdict === "approve";
+							return (
+								<div className="px-3 py-2 space-y-2">
+									<div className="flex items-center justify-between">
+										<div className="text-xs">
+											<span className="text-muted-foreground">Best: </span>
+											<span className="font-medium font-mono">
+												Run #{bestRun.runNumber}
+											</span>
+											{val != null && (
+												<span className={cn("ml-1 font-mono", val > 0 ? "text-green-500" : "text-red-500")}>
+													{val > 0 ? "+" : ""}{val.toFixed(1)}%
+												</span>
+											)}
+										</div>
+										{isApproved ? (
+											<span className="text-[10px] text-green-600 dark:text-green-400 font-medium">Approved</span>
+										) : verdict === "reject" ? (
+											<span className="text-[10px] text-red-500 font-medium">Rejected</span>
+										) : (
+											<span className="text-[10px] text-muted-foreground">Not validated</span>
+										)}
+									</div>
+									{isApproved ? (
+										<>
+											<button
+												type="button"
+												onClick={() => handleStartPaper(bestRun.id)}
+												disabled={startingPaper}
+												className="flex items-center justify-center gap-1.5 w-full px-2 py-1.5 rounded-md text-[11px] font-medium bg-green-600 hover:bg-green-500 text-white transition-colors disabled:opacity-50"
+											>
+												<Play className="size-3" />
+												{startingPaper ? "Starting…" : "Start Paper Trading"}
+											</button>
+											{paperError && (
+												<div className="text-[10px] text-red-500 truncate" title={paperError}>
+													{paperError}
+												</div>
+											)}
+										</>
+									) : (
+										<div className="text-[11px] text-muted-foreground">
+											Ask the agent to validate this run first.
+										</div>
+									)}
+								</div>
+							);
+						})() : (
 							<div className="px-3 py-2 text-xs text-muted-foreground">
-								No active session. Validate a run to start paper trading.
+								No completed runs yet.
 							</div>
 						)}
 					</SidebarSection>
