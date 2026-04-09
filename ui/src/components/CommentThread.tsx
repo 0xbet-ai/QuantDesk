@@ -607,21 +607,6 @@ export function CommentThread({
 						};
 					};
 
-					// Per-marker chip labels. Shows as a small inline chip
-					// under the comment body when the agent fired that marker
-					// in this turn. Informational only — no click behaviour.
-					const MARKER_CHIP_LABEL: Record<string, string> = {
-						DATA_FETCH: "Tool · data_fetch",
-						DATASET: "Tool · register_dataset",
-						RUN_BACKTEST: "Tool · run_backtest",
-						BACKTEST_RESULT: "Tool · backtest_result",
-						EXPERIMENT_TITLE: "Tool · experiment_title",
-						VALIDATION: "Tool · validation",
-						NEW_EXPERIMENT: "Tool · new_experiment",
-						COMPLETE_EXPERIMENT: "Tool · complete_experiment",
-						GO_PAPER: "Tool · go_paper",
-					};
-
 					const renderComment = (
 						c: Comment,
 						isChild = false,
@@ -631,8 +616,6 @@ export function CommentThread({
 						const Icon = config.icon;
 						const cleanContent = stripAuthorPrefixes(c.content).trim();
 						const children = childrenByParent.get(c.id) ?? [];
-						const firedMarkers = ((c.metadata as { firedMarkers?: unknown } | null)
-							?.firedMarkers ?? []) as string[];
 
 						// Timeline mode: render as a row in the turn card's
 						// vertical timeline (icon column + content). The icon
@@ -658,18 +641,6 @@ export function CommentThread({
 											<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
 												{formatAgentMarkersForDisplay(cleanContent)}
 											</Markdown>
-										</div>
-									)}
-									{firedMarkers.length > 0 && (
-										<div className="mt-1.5 flex flex-wrap gap-1">
-											{firedMarkers.map((m) => (
-												<span
-													key={m}
-													className="inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.12em] text-muted-foreground"
-												>
-													{MARKER_CHIP_LABEL[m] ?? `Tool · ${m.toLowerCase()}`}
-												</span>
-											))}
 										</div>
 									)}
 									{/* In turn-card timeline mode, `children` is always

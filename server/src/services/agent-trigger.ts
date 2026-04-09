@@ -9,43 +9,19 @@ import {
 	agentSessions,
 	agentTurns,
 	comments,
-	datasets,
-	deskDatasets,
 	desks,
 	experiments,
 	memorySummaries,
 	runs,
 } from "@quantdesk/db/schema";
-import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
-import {
-	extractBacktestResultBody,
-	extractCompleteExperimentRequest,
-	extractDataFetchRequest,
-	extractDatasetBody,
-	extractExperimentTitle,
-	extractGoPaperRequest,
-	extractNewExperimentRequest,
-	extractRmVerdict,
-	extractRunBacktestRequest,
-	extractValidationRequest,
-	stripAgentMarkers,
-} from "@quantdesk/shared";
-import type { NormalizedResult, RmVerdict } from "@quantdesk/shared";
-
-// Re-export for callers that previously imported these from this file
-// (e.g. tests). The single owner is `packages/shared/src/agent-markers.ts`.
-export { extractRmVerdict };
-export type { RmVerdict };
-import { and, desc, eq } from "drizzle-orm";
+import { stripAgentMarkers } from "@quantdesk/shared";
+import { and, eq } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog, clearAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
 import { createComment, systemComment } from "./comments.js";
-import { executeDataFetch } from "./data-fetch.js";
 import { maybeRescueDeadEnd } from "./dead-end-guard.js";
-import { completeAndCreateNewExperiment, completeExperiment } from "./experiments.js";
-import { autoIncrementRunNumber } from "./logic.js";
-import { getCurrentTurnId, runWithTurn } from "./turn-context.js";
+import { runWithTurn } from "./turn-context.js";
 import { commitCode, hasChanges } from "./workspace.js";
 
 /**
@@ -90,39 +66,6 @@ async function getOrCreateAgentSession(
 		})
 		.returning();
 	return created ?? null;
-}
-
-function normalizedResultToMetrics(normalized: NormalizedResult) {
-	return {
-		metrics: [
-			{
-				key: "return",
-				label: "Return",
-				value: normalized.returnPct,
-				format: "percent",
-				tone: normalized.returnPct >= 0 ? "positive" : "negative",
-			},
-			{
-				key: "drawdown",
-				label: "Max Drawdown",
-				value: normalized.drawdownPct,
-				format: "percent",
-				tone: "negative",
-			},
-			{
-				key: "win_rate",
-				label: "Win Rate",
-				value: normalized.winRate * 100,
-				format: "percent",
-			},
-			{
-				key: "trades",
-				label: "Trades",
-				value: normalized.totalTrades,
-				format: "integer",
-			},
-		],
-	};
 }
 
 // Track running agent processes per experiment
@@ -258,8 +201,7 @@ function spawnCli(
  * side-effects to the correct desk/experiment without any per-process
  * state.
  */
-function buildMcpConfigForTurn(experimentId: string, deskId: string): string | null {
-	if (process.env.AGENT_MCP !== "1") return null;
+function buildMcpConfigForTurn(experimentId: string, deskId: string): string {
 	const port = Number(process.env.PORT ?? 3000);
 	const url = `http://127.0.0.1:${port}/mcp`;
 	const config = {
@@ -374,16 +316,22 @@ export async function triggerAgent(
 			);
 
 			const mcpConfigPath = buildMcpConfigForTurn(experimentId, desk.id);
-			const mcpEnv: Record<string, string> = {};
+			// Phase 27d — track whether the agent invoked any MCP tool during
+			// this turn. Replaces the old "any marker present in resultText"
+			// heuristic the dead-end guard used. Any tool_call chunk counts;
+			// the guard only cares that the agent took a concrete action.
+			let didCallTool = false;
 
 			const streamingSpawn = (args: string[], stdin: string) =>
 				spawnCli(args, stdin, {
 					cwd: desk.workspacePath ?? undefined,
 					experimentId,
-					extraEnv: mcpEnv,
 					onLine: (line) => {
 						const chunk = adapter.parseStreamLine(line);
 						if (chunk) {
+							if (chunk.type === "tool_call") {
+								didCallTool = true;
+							}
 							// Phase 27 — heartbeat: any chunk proves the subprocess is
 							// alive, so bump `last_heartbeat_at`. Watchdog (future
 							// sub-step) uses this to mark dead turns as failed.
@@ -467,12 +415,11 @@ export async function triggerAgent(
 			}
 
 			// 7. Post-process workspace: commit code changes
-			let latestCommitHash: string | null = null;
 			if (desk.workspacePath) {
 				try {
 					const changed = await hasChanges(desk.workspacePath);
 					if (changed) {
-						latestCommitHash = await commitCode(
+						await commitCode(
 							desk.workspacePath,
 							`Agent: Experiment #${experiment.number} — ${experiment.title}`,
 						);
@@ -482,340 +429,14 @@ export async function triggerAgent(
 				}
 			}
 
-			// 7b. Handle [RUN_BACKTEST] marker — server runs the engine adapter and
-			// creates the Run record, then posts a system comment that will retrigger
-			// the agent for analysis.
-			//
-			// Only classic and realtime modes use this path. Generic mode keeps the
-			// existing [BACKTEST_RESULT] flow (agent runs scripts on the host).
-			const runBacktestRequest = result.resultText
-				? extractRunBacktestRequest(result.resultText)
-				: null;
-			if (runBacktestRequest && desk.strategyMode !== "generic") {
-				// Hard gate: a backtest cannot run without a registered dataset.
-				// Lookup via the desk_datasets join — datasets are global and
-				// shared across desks.
-				const linkedDatasets = await db
-					.select({ dataset: datasets, linkedAt: deskDatasets.createdAt })
-					.from(deskDatasets)
-					.innerJoin(datasets, eq(deskDatasets.datasetId, datasets.id))
-					.where(eq(deskDatasets.deskId, desk.id))
-					.orderBy(desc(deskDatasets.createdAt));
-				if (linkedDatasets.length === 0) {
-					await systemComment({
-						experimentId,
-						nextAction: "action",
-						content:
-							"Cannot run backtest: no dataset is registered for this desk. " +
-							"If you have already downloaded the data yourself (e.g. via a " +
-							"`fetch_data.py` script in the workspace), emit a [DATASET] block " +
-							"pointing at it so the server can register the row. Otherwise " +
-							"ask the user in plain text which data to download and, once " +
-							"they agree, emit [DATA_FETCH]. Do not emit [RUN_BACKTEST] until " +
-							"one of those two paths has registered a dataset.",
-					});
-					publishExperimentEvent({ experimentId, type: "comment.new", payload: {} });
-					// Do NOT re-trigger here — the user input or next explicit action
-					// should drive the next turn, to avoid an infinite retry loop.
-					return;
-				}
-				try {
-					const engineAdapter = getEngineAdapter(desk.engine);
-					const existingRuns = await db
-						.select()
-						.from(runs)
-						.where(eq(runs.experimentId, experimentId));
-					const runNumber = autoIncrementRunNumber(existingRuns.length);
-					const isBaseline = existingRuns.length === 0;
-					const runId = crypto.randomUUID();
+			// Phase 27d — all legacy marker dispatch (RUN_BACKTEST, BACKTEST_RESULT,
+			// DATASET, EXPERIMENT_TITLE, DATA_FETCH, VALIDATION, NEW_EXPERIMENT,
+			// COMPLETE_EXPERIMENT, RM_APPROVE/REJECT) has moved into MCP tool
+			// handlers in `server/src/mcp/server.ts`. The agent calls those tools
+			// during its turn and reacts to structured return values on the same
+			// turn. See `doc/agent/MCP.md` for the tool contract.
 
-					// Engine images are expected to be pre-pulled via `npx quantdesk onboard`.
-					// If the image is missing here, runBacktest will surface a clear error.
-					// Phase 10 — desk.externalMounts becomes a list of read-only docker
-					// `-v hostPath:/workspace/data/external/<label>:ro` flags appended on
-					// top of the workspace mount, so the agent's strategy code can read
-					// the user's local datasets without copying.
-					const externalMountVolumes = (desk.externalMounts ?? []).map(
-						(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
-					);
-					// Mock mode: skip the real engine container and return
-					// synthetic metrics so UI flows can exercise the full
-					// backtest -> run card path without a valid strategy.py in
-					// the workspace.
-					const backtestResult =
-						process.env.MOCK_AGENT === "1"
-							? {
-									normalized: {
-										returnPct: 18.2,
-										drawdownPct: -8.7,
-										winRate: 0.61,
-										totalTrades: 47,
-										trades: [],
-									},
-								}
-							: await engineAdapter.runBacktest({
-									strategyPath: "strategy.py",
-									workspacePath: desk.workspacePath!,
-									runId,
-									dataRef: {
-										datasetId: "",
-										path: `${desk.workspacePath}/data`,
-									},
-									extraParams: {
-										strategy: runBacktestRequest.strategyName ?? "QuantDeskStrategy",
-										configFile: runBacktestRequest.configFile ?? "config.json",
-									},
-									extraVolumes: externalMountVolumes,
-									onLogLine: (line, stream) => {
-										publishExperimentEvent({
-											experimentId,
-											type: "run.log_chunk",
-											payload: { runId, stream, line },
-										});
-									},
-								});
-
-					const resultPayload = normalizedResultToMetrics(backtestResult.normalized);
-
-					// Link the run to the most recently approved dataset for this desk.
-					const latestDatasetId = linkedDatasets[0]?.dataset.id ?? null;
-
-					const [run] = await db
-						.insert(runs)
-						.values({
-							id: runId,
-							experimentId,
-							turnId: getCurrentTurnId() ?? null,
-							runNumber,
-							isBaseline,
-							mode: "backtest",
-							status: "completed",
-							result: resultPayload,
-							commitHash: latestCommitHash,
-							datasetId: latestDatasetId,
-							completedAt: new Date(),
-						})
-						.returning();
-
-					publishExperimentEvent({
-						experimentId,
-						type: "run.status",
-						payload: { runId: run!.id, status: "completed", result: run!.result },
-					});
-
-					// Post a system comment with the result and re-trigger the agent
-					// so it can analyse. We embed the result as [BACKTEST_RESULT] so any
-					// downstream tools that scan for that marker still see the data.
-					await systemComment({
-						experimentId,
-						nextAction: "retrigger",
-						content:
-							`Backtest Run #${run!.runNumber} completed.\n\n` +
-							"[BACKTEST_RESULT]\n" +
-							`${JSON.stringify(resultPayload, null, 2)}\n` +
-							"[/BACKTEST_RESULT]",
-						runId: run!.id,
-					});
-					// Re-trigger in the background; the new comment acts as the input.
-					void triggerAgent(experimentId).catch((err) => {
-						console.error("Follow-up agent trigger failed:", err);
-					});
-				} catch (err) {
-					const message = err instanceof Error ? err.message : "Unknown error";
-					await systemComment({
-						experimentId,
-						nextAction: "retrigger",
-						content: `Backtest request failed: ${message}`,
-						// Hidden from the UI: the raw freqtrade stderr is noisy and the
-						// agent will retrigger and post a clean follow-up. The agent
-						// still sees this comment via listComments when building its
-						// next prompt.
-						metadata: { hidden: true },
-					});
-					// Re-trigger so the agent sees the failure message and can fix its
-					// config / pair naming / strategy and retry.
-					void triggerAgent(experimentId).catch((err) => {
-						console.error("Follow-up agent trigger failed:", err);
-					});
-				}
-			}
-
-			// 8. Extract backtest results from agent output and create Run
-			if (result.resultText) {
-				const backtestBody = extractBacktestResultBody(result.resultText);
-				if (backtestBody) {
-					try {
-						const parsed = JSON.parse(backtestBody);
-						// Support both new schema (metrics array) and legacy flat schema
-						let resultPayload: { metrics: unknown[] };
-						if (Array.isArray(parsed.metrics)) {
-							resultPayload = { metrics: parsed.metrics };
-						} else {
-							// Legacy fallback — wrap old shape into the new one
-							const legacy: {
-								key: string;
-								label: string;
-								value: number;
-								format: string;
-								tone?: string;
-							}[] = [];
-							if (typeof parsed.returnPct === "number") {
-								legacy.push({
-									key: "return",
-									label: "Return",
-									value: parsed.returnPct,
-									format: "percent",
-									tone: "positive",
-								});
-							}
-							if (typeof parsed.drawdownPct === "number") {
-								legacy.push({
-									key: "drawdown",
-									label: "Max Drawdown",
-									value: parsed.drawdownPct,
-									format: "percent",
-									tone: "negative",
-								});
-							}
-							if (typeof parsed.winRate === "number") {
-								legacy.push({
-									key: "win_rate",
-									label: "Win Rate",
-									value: parsed.winRate,
-									format: "percent",
-								});
-							}
-							if (typeof parsed.totalTrades === "number") {
-								legacy.push({
-									key: "trades",
-									label: "Trades",
-									value: parsed.totalTrades,
-									format: "integer",
-								});
-							}
-							resultPayload = { metrics: legacy };
-						}
-
-						const existingRuns = await db
-							.select()
-							.from(runs)
-							.where(eq(runs.experimentId, experimentId));
-						const runNumber = autoIncrementRunNumber(existingRuns.length);
-						const isBaseline = existingRuns.length === 0;
-
-						const [run] = await db
-							.insert(runs)
-							.values({
-								experimentId,
-								turnId: getCurrentTurnId() ?? null,
-								runNumber,
-								isBaseline,
-								mode: "backtest",
-								status: "completed",
-								result: resultPayload,
-								commitHash: latestCommitHash,
-								completedAt: new Date(),
-							})
-							.returning();
-
-						publishExperimentEvent({
-							experimentId,
-							type: "run.status",
-							payload: {
-								runId: run!.id,
-								status: "completed",
-								result: run!.result,
-							},
-						});
-					} catch {
-						/* backtest result parse failed, non-fatal */
-					}
-				}
-			}
-
-			// 8b. Extract dataset info from agent output
-			if (result.resultText) {
-				const datasetBody = extractDatasetBody(result.resultText);
-				if (datasetBody) {
-					try {
-						const parsed = JSON.parse(datasetBody) as {
-							exchange?: string;
-							pairs?: string[];
-							timeframe?: string;
-							dateRange?: { start: string; end: string };
-							path?: string;
-						};
-						const missing: string[] = [];
-						if (!parsed.exchange) missing.push("exchange");
-						if (!parsed.pairs || parsed.pairs.length === 0) missing.push("pairs");
-						if (!parsed.timeframe) missing.push("timeframe");
-						if (!parsed.dateRange?.start || !parsed.dateRange?.end)
-							missing.push("dateRange.{start,end}");
-						if (!parsed.path) missing.push("path");
-						if (missing.length > 0) {
-							throw new Error(
-								`[DATASET] block is missing required field(s): ${missing.join(", ")}`,
-							);
-						}
-						const [inserted] = await db
-							.insert(datasets)
-							.values({
-								exchange: parsed.exchange!,
-								pairs: parsed.pairs!,
-								timeframe: parsed.timeframe!,
-								dateRange: parsed.dateRange!,
-								path: parsed.path!,
-							})
-							.returning();
-						if (inserted) {
-							await db.insert(deskDatasets).values({
-								deskId: desk.id,
-								datasetId: inserted.id,
-							});
-						}
-					} catch (err) {
-						const msg = err instanceof Error ? err.message : String(err);
-						console.error("DATASET registration failed:", msg, {
-							body: datasetBody,
-						});
-						await systemComment({
-							experimentId,
-							nextAction: "action",
-							content:
-								`Dataset registration failed: ${msg}. ` +
-								"Re-emit a valid [DATASET] block with all required fields " +
-								"(exchange, pairs, timeframe, dateRange.start, dateRange.end, path).",
-						});
-					}
-				}
-			}
-
-			// 8c. Extract experiment title from [EXPERIMENT_TITLE] marker and update experiment.
-			// The first experiment of a desk is always pinned to "Baseline" — don't let
-			// the agent rename it.
-			if (result.resultText && experiment.number !== 1) {
-				const rawTitle = extractExperimentTitle(result.resultText);
-				if (rawTitle) {
-					const newTitle = rawTitle.slice(0, 120);
-					if (newTitle && newTitle !== experiment.title) {
-						try {
-							await db
-								.update(experiments)
-								.set({ title: newTitle, updatedAt: new Date() })
-								.where(eq(experiments.id, experimentId));
-							publishExperimentEvent({
-								experimentId,
-								type: "experiment.updated",
-								payload: { title: newTitle },
-							});
-						} catch {
-							/* title update failed, non-fatal */
-						}
-					}
-				}
-			}
-
-			// 9. Post agent response as comment (strip all markers).
+			// 9. Post agent response as comment (strip legacy markers defensively).
 			// Approval is conversational (CLAUDE.md rule #15): the agent
 			// never creates "pending proposal" objects. When the agent needs
 			// user consent it asks in plain text and waits. When the user
@@ -829,131 +450,14 @@ export async function triggerAgent(
 			// the UI can render a small chip next to the comment. The
 			// chip is informational only — no buttons, no pending
 			// proposal state.
-			let currentCommentId: string | undefined;
 			if (result.resultText) {
 				const cleanText = stripAgentMarkers(result.resultText);
-				const firedMarkers: string[] = [];
-				if (extractDataFetchRequest(result.resultText)) firedMarkers.push("DATA_FETCH");
-				if (extractDatasetBody(result.resultText)) firedMarkers.push("DATASET");
-				if (extractRunBacktestRequest(result.resultText)) firedMarkers.push("RUN_BACKTEST");
-				if (extractBacktestResultBody(result.resultText)) firedMarkers.push("BACKTEST_RESULT");
-				if (extractExperimentTitle(result.resultText)) firedMarkers.push("EXPERIMENT_TITLE");
-				if (extractValidationRequest(result.resultText)) firedMarkers.push("VALIDATION");
-				if (extractNewExperimentRequest(result.resultText)) firedMarkers.push("NEW_EXPERIMENT");
-				if (extractCompleteExperimentRequest(result.resultText))
-					firedMarkers.push("COMPLETE_EXPERIMENT");
-				if (extractGoPaperRequest(result.resultText)) firedMarkers.push("GO_PAPER");
 				if (cleanText) {
-					const created = await createComment({
+					await createComment({
 						experimentId,
 						author: session.agentRole,
 						content: cleanText,
-						metadata: firedMarkers.length > 0 ? { firedMarkers } : undefined,
 					});
-					currentCommentId = created.id;
-				}
-			}
-
-			// 9a. Direct action markers that run NOW — the agent asked the
-			// user in a previous turn, the user agreed, and this turn is
-			// the execution step.
-			if (result.resultText) {
-				const dataFetchRequest = extractDataFetchRequest(result.resultText);
-				if (dataFetchRequest) {
-					try {
-						await executeDataFetch({
-							experimentId,
-							proposal: dataFetchRequest,
-							parentCommentId: currentCommentId,
-						});
-						void triggerAgent(experimentId).catch((err) => {
-							console.error("Retrigger after DATA_FETCH failed:", err);
-						});
-					} catch (err) {
-						console.error("DATA_FETCH execution failed:", err);
-						await systemComment({
-							experimentId,
-							nextAction: "action",
-							content: `Data fetch failed: ${
-								err instanceof Error ? err.message : String(err)
-							}. Reply with different parameters and try again.`,
-							metadata: currentCommentId ? { parentCommentId: currentCommentId } : undefined,
-						});
-					}
-				}
-
-				if (extractValidationRequest(result.resultText)) {
-					void triggerAgent(experimentId, "risk_manager").catch((err) => {
-						console.error("Risk-manager dispatch after VALIDATION failed:", err);
-					});
-				}
-
-				const newExperimentRequest = extractNewExperimentRequest(result.resultText);
-				if (newExperimentRequest) {
-					try {
-						const newExperiment = await completeAndCreateNewExperiment({
-							currentExperimentId: experimentId,
-							newTitle: newExperimentRequest.title,
-						});
-						void triggerAgent(newExperiment.id).catch((err) => {
-							console.error("Retrigger after NEW_EXPERIMENT failed:", err);
-						});
-					} catch (err) {
-						console.error("NEW_EXPERIMENT execution failed:", err);
-					}
-				}
-
-				if (extractCompleteExperimentRequest(result.resultText)) {
-					try {
-						await completeExperiment(experimentId);
-						await systemComment({
-							experimentId,
-							nextAction: "action",
-							content:
-								"Experiment closed. Reply with the next direction to start a new " +
-								"experiment, or close the desk to finish.",
-						});
-					} catch (err) {
-						console.error("COMPLETE_EXPERIMENT execution failed:", err);
-					}
-				}
-			}
-
-			if (result.resultText) {
-				// 9b. Risk Manager verdict loop-back (phase 08).
-				// If this turn was the RM, parse the verdict marker and:
-				//   - record the verdict on the latest run's `result.validation`
-				//   - retrigger the analyst so the next analyst turn sees the verdict
-				// The analyst (and the future RUN_PAPER guard) reads
-				// `result.validation.verdict === "approve"` to decide whether paper
-				// trading is unlocked.
-				if (session.agentRole === "risk_manager") {
-					const verdict = extractRmVerdict(result.resultText);
-					if (verdict) {
-						const [latestRun] = await db
-							.select()
-							.from(runs)
-							.where(eq(runs.experimentId, experimentId))
-							.orderBy(desc(runs.runNumber))
-							.limit(1);
-						if (latestRun) {
-							const existingResult = (latestRun.result as Record<string, unknown> | null) ?? {};
-							const nextResult = {
-								...existingResult,
-								validation: {
-									verdict: verdict.verdict,
-									reason: verdict.reason,
-									at: new Date().toISOString(),
-								},
-							};
-							await db.update(runs).set({ result: nextResult }).where(eq(runs.id, latestRun.id));
-						}
-						// Retrigger analyst — the new RM comment is the input.
-						// RM never retriggers itself.
-						void triggerAgent(experimentId, "analyst").catch((err) => {
-							console.error("Analyst retrigger after RM verdict failed:", err);
-						});
-					}
 				}
 			} else if (result.error) {
 				const isStopped = result.error.includes("code 143") || result.error.includes("SIGTERM");
@@ -976,33 +480,19 @@ export async function triggerAgent(
 				}
 			}
 
-			// 9c. Dead-end guard (CLAUDE.md rule #14, phase 14). If this turn
-			// produced no action marker AND the response is a bare acknowledgment,
-			// the user has nothing to click — the guard posts a forcing system
-			// comment and re-triggers the agent. Capped per-experiment so a
-			// permanently broken agent cannot loop forever.
-			const hadActionMarker =
-				!!result.resultText &&
-				(!!extractRunBacktestRequest(result.resultText) ||
-					!!extractDataFetchRequest(result.resultText) ||
-					!!extractExperimentTitle(result.resultText) ||
-					!!extractRmVerdict(result.resultText) ||
-					!!extractBacktestResultBody(result.resultText) ||
-					!!extractDatasetBody(result.resultText) ||
-					extractValidationRequest(result.resultText) ||
-					!!extractNewExperimentRequest(result.resultText) ||
-					extractCompleteExperimentRequest(result.resultText));
-
-			// MOCK_AGENT scenarios are deterministic and intentionally produce
-			// no markers, so the dead-end guard would loop forever rescuing
-			// them. Skip the guard entirely under MOCK_AGENT.
+			// 9c. Dead-end guard. Phase 27d — "had action" is now driven by
+			// whether the agent invoked any MCP tool during the turn (tracked
+			// via streaming tool_call chunks on `didCallTool` below). If no
+			// tool call AND the response is a bare acknowledgment, the guard
+			// posts a forcing system comment and retriggers. MOCK_AGENT is
+			// still skipped because its scenarios are deterministic.
 			const shouldRescue =
 				process.env.MOCK_AGENT === "1"
 					? false
 					: await maybeRescueDeadEnd({
 							experimentId,
 							resultText: result.resultText,
-							hadMarker: hadActionMarker,
+							hadMarker: didCallTool,
 						});
 			if (shouldRescue) {
 				publishExperimentEvent({ experimentId, type: "comment.new", payload: {} });

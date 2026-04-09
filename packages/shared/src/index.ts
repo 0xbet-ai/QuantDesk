@@ -1,19 +1,19 @@
-export {
-	AGENT_MARKERS,
-	extractBacktestResultBody,
-	extractCompleteExperimentRequest,
-	extractDataFetchRequest,
-	extractDatasetBody,
-	extractExperimentTitle,
-	extractGoPaperRequest,
-	extractNewExperimentRequest,
-	extractRmVerdict,
-	extractRunBacktestRequest,
-	extractValidationRequest,
-	formatAgentMarkersForDisplay,
-	stripAgentMarkers,
-} from "./agent-markers.js";
-export type { DataFetchRequest, RmVerdict, RunBacktestRequest } from "./agent-markers.js";
+export { formatAgentMarkersForDisplay, stripAgentMarkers } from "./agent-markers.js";
+
+// Phase 27d — legacy marker types kept here as thin shims so call sites
+// that still reference them compile while the transition settles.
+export interface DataFetchRequest {
+	exchange: string;
+	pairs: string[];
+	timeframe: string;
+	days: number;
+	tradingMode?: "spot" | "futures" | "margin";
+	rationale?: string;
+}
+export interface RmVerdict {
+	verdict: "approve" | "reject";
+	reason: string;
+}
 
 export {
 	adapterConfigSchema,
