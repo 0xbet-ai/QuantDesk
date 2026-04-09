@@ -28,7 +28,12 @@ interface ClaudeResultEvent {
 export class ClaudeAdapter implements AgentAdapter {
 	readonly name = "claude";
 
-	buildSpawnArgs(_prompt: string, sessionId?: string, mcpConfigPath?: string): string[] {
+	buildSpawnArgs(
+		_prompt: string,
+		sessionId?: string,
+		mcpConfigPath?: string,
+		settingsPath?: string,
+	): string[] {
 		const args = [
 			"claude",
 			"-p",
@@ -43,6 +48,12 @@ export class ClaudeAdapter implements AgentAdapter {
 		}
 		if (mcpConfigPath) {
 			args.push("--mcp-config", mcpConfigPath);
+		}
+		if (settingsPath) {
+			// Per-turn settings file carrying permission deny rules that
+			// sandbox the agent to its workspace. `permissions.deny` is
+			// honoured even alongside `--dangerously-skip-permissions`.
+			args.push("--settings", settingsPath);
 		}
 		return args;
 	}

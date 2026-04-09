@@ -2,7 +2,8 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getAgentAdapter } from "@quantdesk/adapters";
 import { db } from "@quantdesk/db";
 import {
@@ -203,6 +204,53 @@ function spawnCli(
  * side-effects to the correct desk/experiment without any per-process
  * state.
  */
+/**
+ * Resolve the QuantDesk server's own install root. The agent subprocess is
+ * executed with `cwd = desk.workspacePath`, but the CLI's Read/Edit/Bash
+ * tools accept absolute paths regardless of cwd. We emit a per-turn Claude
+ * settings file that denies tool access to this root, so the agent cannot
+ * peek at `doc/`, `server/`, `packages/`, `ui/` — none of which exist in
+ * production deployments anyway.
+ *
+ * Detected once at module load from `import.meta.url`. Layout:
+ *   <repoRoot>/server/src/services/agent-trigger.ts  → climb 4 levels.
+ */
+const QUANTDESK_REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
+
+function buildClaudeSettingsForTurn(workspacePath: string): string {
+	const denyRoots = new Set<string>([QUANTDESK_REPO_ROOT]);
+	// If the workspace lives inside the repo root (dev scenario), don't deny
+	// the workspace itself — only the siblings above it.
+	const settings = {
+		permissions: {
+			deny: Array.from(denyRoots).flatMap((root) => {
+				// Exclude the workspace so the agent can still operate there
+				// even when the workspace is nested under the repo root.
+				const scope = `${root}/**`;
+				return [
+					`Read(${scope})`,
+					`Edit(${scope})`,
+					`Write(${scope})`,
+					`Bash(cat:${scope})`,
+					`Bash(less:${scope})`,
+					`Bash(head:${scope})`,
+					`Bash(tail:${scope})`,
+				];
+			}),
+			// Re-allow the workspace so nested-dev layouts keep working.
+			allow: [
+				`Read(${workspacePath}/**)`,
+				`Edit(${workspacePath}/**)`,
+				`Write(${workspacePath}/**)`,
+			],
+		},
+	};
+	const dir = mkdtempSync(join(tmpdir(), "quantdesk-settings-"));
+	const path = join(dir, "settings.json");
+	writeFileSync(path, JSON.stringify(settings, null, 2));
+	return path;
+}
+
 function buildMcpConfigForTurn(experimentId: string, deskId: string): string {
 	const port = Number(process.env.PORT ?? 3000);
 	const url = `http://127.0.0.1:${port}/mcp`;
@@ -314,6 +362,13 @@ export async function triggerAgent(
 			const adapter = getAgentAdapter(session.adapterType);
 
 			const mcpConfigPath = buildMcpConfigForTurn(experimentId, desk.id);
+			// Sandbox the CLI's file tools to the desk workspace so it cannot
+			// read the QuantDesk server's own source/doc tree even with
+			// absolute paths. Adapter ignores it when not supported.
+			const settingsPath =
+				adapter.name === "claude" && desk.workspacePath
+					? buildClaudeSettingsForTurn(desk.workspacePath)
+					: undefined;
 			// Phase 27d — track whether the agent invoked any MCP tool during
 			// this turn. Replaces the old "any marker present in resultText"
 			// heuristic the dead-end guard used. Any tool_call chunk counts;
@@ -398,6 +453,7 @@ export async function triggerAgent(
 				sessionId: session.sessionId ?? undefined,
 				agentRole: session.agentRole as "analyst" | "risk_manager",
 				mcpConfigPath: mcpConfigPath ?? undefined,
+				settingsPath,
 			});
 
 			// 6. Update session ID for resume
