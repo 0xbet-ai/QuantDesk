@@ -5,10 +5,8 @@ export const htxGuide: VenueGuide = {
 	displayName: "HTX",
 
 	tldr:
-		"Use ccxt's `fetch_ohlcv` with exchange ID `htx`. Returns up to 2000 " +
-		"candles per request (spot). All linear perps are USDT-settled only. " +
-		"If ccxt fails, fall back to REST `/market/history/kline` (spot) or " +
-		"`/linear-swap-ex/market/history/kline` (linear swap).",
+		"HTX has an excellent bulk portal (futures.huobi.com/data/) with klines+trades, " +
+		"well documented. Try bulk first, then ccxt (2000 candles/req), then REST.",
 
 	symbolFormat: {
 		spot:
@@ -21,6 +19,13 @@ export const htxGuide: VenueGuide = {
 			"USDT: 1242 spot, 219 linear perps. USDC: 47 spot only, 0 futures. " +
 			"Native spot symbols are lowercase concatenated (btcusdt). " +
 			"Native futures use dash (BTC-USDT). Formerly Huobi.",
+	},
+
+	bulkDownload: {
+		url: "https://futures.huobi.com/data/",
+		format: "zip/csv",
+		dataTypes: "klines (1m-1M), trades for spot/futures/swaps",
+		notes: "Well documented (github.com/hbdmapi/huobi_public_data). SHA256 checksums.",
 	},
 
 	recommendedFetch: {
@@ -54,14 +59,16 @@ export const htxGuide: VenueGuide = {
 		"Advance `since = candles[-1][0] + 1`. " +
 		"Rate limit: 800 req / min for market data. On 429, back off 1 second.",
 
+	apiDocs: [
+		"https://www.htx.com/en-us/opend/newApiPages/?id=7ec4a2ba-7773-11ed-9966-0242ac110003",
+		"https://www.htx.com/en-us/opend/newApiPages/?id=8cb09012-77b5-11ed-9966-0242ac110003",
+	],
+
 	knownGotchas: [
 		"Exchange ID in ccxt is `htx` (rebranded from `huobi`).",
 		"Native spot symbols are lowercase concatenated (btcusdt), not slash-separated.",
 		"Only stoploss-limit on exchange for spot trading in freqtrade.",
 		"Futures support is listed but limited in freqtrade docs (spot + stoploss mainly).",
-		"REST API docs (spot): https://www.htx.com/en-us/opend/newApiPages/?id=7ec4a2ba-7773-11ed-9966-0242ac110003",
-		"REST API docs (swaps): https://www.htx.com/en-us/opend/newApiPages/?id=8cb09012-77b5-11ed-9966-0242ac110003",
-		"Bulk data portal: https://futures.huobi.com/data/ — klines+trades for spot/futures/swaps. Free ZIP with SHA256. Well documented (github.com/hbdmapi/huobi_public_data).",
 	],
 
 	lastVerified: "2026-04-09",

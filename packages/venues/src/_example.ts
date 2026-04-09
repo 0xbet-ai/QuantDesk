@@ -28,6 +28,13 @@ export const exampleGuide: VenueGuide = {
 			" behaviour if the venue has more than one linear contract per base.",
 	},
 
+	bulkDownload: {
+		url: "https://data.example.com/",
+		format: "zip/csv",
+		dataTypes: "klines, trades, orderbook",
+		notes: "Remove this block if the venue has no bulk portal.",
+	},
+
 	recommendedFetch: {
 		language: "python",
 		library: "ccxt>=4.3",
@@ -48,6 +55,8 @@ export const exampleGuide: VenueGuide = {
 		"Max N candles per request. Advance with `since = candles[-1][0] + 1`." +
 		" Server-side rate limit: M req / S seconds. On 429, back off for" +
 		" the `Retry-After` value and retry the same page.",
+
+	apiDocs: "https://docs.example.com/market-data/candlesticks",
 
 	knownGotchas: [
 		"Describe a real landmine here (e.g. 1m candles only available after 2020-01-01).",

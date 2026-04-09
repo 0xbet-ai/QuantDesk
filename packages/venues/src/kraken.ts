@@ -5,10 +5,8 @@ export const krakenGuide: VenueGuide = {
 	displayName: "Kraken",
 
 	tldr:
-		"Use ccxt's `fetch_ohlcv` — Kraken returns max 720 candles per request. " +
-		"Internally uses XBT but ccxt normalises to BTC. For spot use exchange ID " +
-		"`kraken`; for futures use `krakenfutures` (separate API). " +
-		"If ccxt is insufficient, use REST `/0/public/OHLC` (spot) or Kraken Futures API.",
+		"Kraken has bulk OHLCVT ZIPs on Google Drive (quarterly updates). " +
+		"ccxt returns max 720 candles/req. Uses XBT internally (ccxt normalises to BTC).",
 
 	symbolFormat: {
 		spot:
@@ -27,6 +25,13 @@ export const krakenGuide: VenueGuide = {
 			"Spot and futures are completely separate exchange classes in ccxt.\n\n" +
 			"**Nautilus symbols:** Spot `XBT/USDT.KRAKEN` (keeps XBT, NOT normalised!), " +
 			"Perp `PF_XBTUSD.KRAKEN`. Tardis key: `kraken`.",
+	},
+
+	bulkDownload: {
+		url: "https://support.kraken.com/articles/360047124832",
+		format: "zip/csv",
+		dataTypes: "OHLCVT at 1/5/15/30/60/240/720/1440m, tick-level trades",
+		notes: "Hosted on Google Drive. Quarterly updates — clunky for automation.",
 	},
 
 	recommendedFetch: {
@@ -63,14 +68,16 @@ export const krakenGuide: VenueGuide = {
 		"Data download is memory-intensive — freqtrade docs recommend `--dl-trades` for backtesting. " +
 		"On 429, wait 5 seconds.",
 
+	apiDocs: [
+		"https://docs.kraken.com/api/docs/rest-api/get-ohlc-data",
+		"https://docs.futures.kraken.com/#http-api-charts-ohlc",
+	],
+
 	knownGotchas: [
 		"Two separate ccxt exchange IDs: `kraken` (spot) and `krakenfutures` (derivatives).",
 		"XBT is normalised to BTC by ccxt — never use XBT in ccxt symbols.",
 		"Primary quote is real USD, not USDT. EUR is equally prominent.",
 		"Data download requires significantly more RAM than other exchanges.",
-		"REST API docs (spot): https://docs.kraken.com/api/docs/rest-api/get-ohlc-data",
-		"REST API docs (futures): https://docs.futures.kraken.com/#http-api-charts-ohlc",
-		"Bulk data: OHLCVT ZIPs via Google Drive (https://support.kraken.com/articles/360047124832). Quarterly updates, clunky for automation.",
 	],
 
 	lastVerified: "2026-04-09",

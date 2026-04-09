@@ -46,6 +46,8 @@ export const dydxGuide: VenueGuide = {
 		"Indexer returns max 100 candles per request. Advance `fromISO` to last candle time. " +
 		"Rate limit: 100 req / 10 seconds. On 429, back off 1-2 seconds.",
 
+	apiDocs: "https://docs.dydx.trade/api_integration-indexer/indexer_api",
+
 	knownGotchas: [
 		"dYdX v4 is Cosmos SDK-based — completely different from v3 (StarkEx).",
 		"All markets are perpetuals (no spot). Settled in USDC.",
@@ -53,7 +55,6 @@ export const dydxGuide: VenueGuide = {
 		"Indexer API is the REST interface; the chain itself uses gRPC/WebSocket.",
 		"Resolution values are strings: 1MIN, 5MINS, 15MINS, 30MINS, 1HOUR, 4HOURS, 1DAY.",
 		"Tardis exchange key: `dydx` (covers v4).",
-		"REST API docs (indexer): https://docs.dydx.trade/api_integration-indexer/indexer_api",
 	],
 
 	lastVerified: "2026-04-09",

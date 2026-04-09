@@ -50,12 +50,13 @@ export const bitmexGuide: VenueGuide = {
 		"Rate limit: 30 req / min (unauthenticated), 60 req / min (authenticated). " +
 		"On 429, honour Retry-After.",
 
+	apiDocs: "https://www.bitmex.com/api/explorer/#!/Trade/Trade_getBucketed",
+
 	knownGotchas: [
 		"Uses XBT for Bitcoin, not BTC. Nautilus preserves this (no normalisation).",
 		"No spot market — derivatives only (perpetuals + dated futures).",
 		"Nautilus adapter has both data and execution clients.",
 		"Tardis exchange key is `bitmex`.",
-		"REST API docs: https://www.bitmex.com/api/explorer/#!/Trade/Trade_getBucketed",
 	],
 
 	lastVerified: "2026-04-09",

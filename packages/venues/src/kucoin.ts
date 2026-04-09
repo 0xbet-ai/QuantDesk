@@ -5,10 +5,8 @@ export const kucoinGuide: VenueGuide = {
 	displayName: "KuCoin",
 
 	tldr:
-		"Use ccxt's `fetch_ohlcv` with exchange ID `kucoin`. Returns up to 1500 " +
-		"candles per request. Requires passphrase in addition to key/secret. " +
-		"If ccxt fails, fall back to REST `/api/v1/market/candles` (spot) or " +
-		"KuCoin Futures API `/api/v1/kline/query`.",
+		"KuCoin has a bulk portal (historical-data.kucoin.com) but poorly documented. " +
+		"ccxt returns 1500 candles/req. Requires passphrase.",
 
 	symbolFormat: {
 		spot:
@@ -21,6 +19,13 @@ export const kucoinGuide: VenueGuide = {
 			"USDT: 928 spot, 561 linear perps. USDC: 59 spot, 7 linear perps. " +
 			"Native futures symbols use M suffix (XBTUSDTM). " +
 			"Passphrase required for all authenticated endpoints.",
+	},
+
+	bulkDownload: {
+		url: "https://historical-data.kucoin.com/",
+		format: "csv",
+		dataTypes: "klines, trades, orderbook depth",
+		notes: "Exists but poorly documented. Browse via UI at kucoin.com/markets/historydata.",
 	},
 
 	recommendedFetch: {
@@ -54,14 +59,16 @@ export const kucoinGuide: VenueGuide = {
 		"Rate limit: 30 req / 3 seconds for market data. " +
 		"On 429, back off 1-2 seconds.",
 
+	apiDocs: [
+		"https://www.kucoin.com/docs/rest/spot-trading/market-data/get-klines",
+		"https://www.kucoin.com/docs/rest/futures-trading/market-data/get-klines",
+	],
+
 	knownGotchas: [
 		"Requires passphrase in config (key + secret + passphrase).",
 		"Blacklist KCS/<STAKE> to avoid fee token complications (same as BNB on Binance).",
 		"Native futures symbols use XBT (not BTC) with M suffix: XBTUSDTM. ccxt normalises.",
 		"USDC futures support is very limited (only 7 pairs).",
-		"REST API docs (spot): https://www.kucoin.com/docs/rest/spot-trading/market-data/get-klines",
-		"REST API docs (futures): https://www.kucoin.com/docs/rest/futures-trading/market-data/get-klines",
-		"Bulk data portal: https://historical-data.kucoin.com/ — exists but poorly documented.",
 	],
 
 	lastVerified: "2026-04-09",

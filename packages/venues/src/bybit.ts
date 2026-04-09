@@ -5,9 +5,8 @@ export const bybitGuide: VenueGuide = {
 	displayName: "Bybit",
 
 	tldr:
-		"Use ccxt's `fetch_ohlcv` with enableRateLimit. Bybit returns up to " +
-		"1000 candles per request. Paginate by advancing `since`. " +
-		"If ccxt fails, fall back to `/v5/market/kline` (unified v5 API for all market types).",
+		"Bybit has a solid bulk portal (public.bybit.com) with tick-level trades. " +
+		"Try bulk first, then ccxt paginated fetch, then v5 REST direct.",
 
 	symbolFormat: {
 		spot: "BTC/USDT, ETH/USDC (ccxt) | BTCUSDT, ETHUSDC (native REST, category=spot)",
@@ -20,6 +19,13 @@ export const bybitGuide: VenueGuide = {
 			"USDC perps: 70 linear pairs. Quote currencies: USDT (dominant), USDC, EUR.\n\n" +
 			"**Nautilus symbols:** Linear `BTCUSDT-LINEAR.BYBIT`, Inverse `BTCUSD-INVERSE.BYBIT`, " +
 			"Spot `BTCUSDT-SPOT.BYBIT`. Tardis key: `bybit`, `bybit-spot`.",
+	},
+
+	bulkDownload: {
+		url: "https://public.bybit.com/",
+		format: "gzip/csv",
+		dataTypes: "tick-level trades, MT4 klines",
+		notes: "Inverse since 2019, linear since 2020, spot available.",
 	},
 
 	recommendedFetch: {
@@ -53,12 +59,12 @@ export const bybitGuide: VenueGuide = {
 		"Rate limit: 120 req / min for market endpoints. " +
 		"On 429, back off 1-2 seconds.",
 
+	apiDocs: "https://bybit-exchange.github.io/docs/v5/market/kline",
+
 	knownGotchas: [
 		"Position mode is auto-set to One-way by freqtrade. Use one subaccount per bot.",
 		"v5 API unifies spot/linear/inverse under one endpoint with `category` param.",
 		"Bybit has kline history back to ~2019 for major pairs.",
-		"REST API docs (v5): https://bybit-exchange.github.io/docs/v5/market/kline",
-		"Bulk data portal: https://public.bybit.com/ — tick-level trades, MT4 klines. Free gzip/CSV.",
 	],
 
 	lastVerified: "2026-04-09",

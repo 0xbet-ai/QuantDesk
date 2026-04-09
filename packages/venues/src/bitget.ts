@@ -5,10 +5,8 @@ export const bitgetGuide: VenueGuide = {
 	displayName: "Bitget",
 
 	tldr:
-		"Use ccxt's `fetch_ohlcv` with exchange ID `bitget`. Returns up to 1000 " +
-		"candles per request. Good USDC futures support (50 pairs). Requires passphrase. " +
-		"If ccxt fails, fall back to REST `/api/v2/spot/market/candles` (spot) or " +
-		"`/api/v2/mix/market/candles` (futures).",
+		"Bitget has a limited bulk portal (futures klines capped at 30 days). " +
+		"ccxt returns 1000 candles/req. Good USDC futures coverage (50 pairs). Requires passphrase.",
 
 	symbolFormat: {
 		spot:
@@ -21,6 +19,13 @@ export const bitgetGuide: VenueGuide = {
 			"USDT: 620 spot, 542 linear perps. USDC: 39 spot, 50 linear perps. " +
 			"Bitget has good USDC futures coverage among freqtrade exchanges. " +
 			"Passphrase required for all authenticated endpoints.",
+	},
+
+	bulkDownload: {
+		url: "https://www.bitget.com/data-download",
+		format: "csv",
+		dataTypes: "klines, orderbook, transaction history",
+		notes: "Futures klines limited to 30 days. Spot has more depth.",
 	},
 
 	recommendedFetch: {
@@ -54,13 +59,15 @@ export const bitgetGuide: VenueGuide = {
 		"Max 1000 candles per request. Advance `since = candles[-1][0] + 1`. " +
 		"Rate limit: 20 req / second for market data. On 429, back off 1 second.",
 
+	apiDocs: [
+		"https://www.bitget.com/api-doc/spot/market/Get-Candle-Data",
+		"https://www.bitget.com/api-doc/contract/market/Get-Candle-Data",
+	],
+
 	knownGotchas: [
 		"Requires passphrase in addition to API key and secret.",
 		"Position mode is auto-set to One-way by freqtrade.",
 		"productType in native REST varies: USDT-FUTURES, USDC-FUTURES, COIN-FUTURES.",
-		"REST API docs (v2): https://www.bitget.com/api-doc/spot/market/Get-Candle-Data",
-		"REST API docs (futures): https://www.bitget.com/api-doc/contract/market/Get-Candle-Data",
-		"Bulk data portal: https://www.bitget.com/data-download — klines, orderbook, trades. Futures klines limited to 30 days.",
 	],
 
 	lastVerified: "2026-04-09",

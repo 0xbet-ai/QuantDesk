@@ -5,10 +5,8 @@ export const gateIoGuide: VenueGuide = {
 	displayName: "Gate.io",
 
 	tldr:
-		"Use ccxt's `fetch_ohlcv` with exchange ID `gateio`. Returns up to 1000 " +
-		"candles per request. All linear perps are USDT-settled only (no USDC futures). " +
-		"If ccxt fails, fall back to REST `/api/v4/spot/candlesticks` (spot) or " +
-		"`/api/v4/futures/usdt/candlesticks` (futures).",
+		"Gate.io has a bulk portal (download.gatedata.org) with deals, orderbooks, " +
+		"candlesticks. Try bulk first, then ccxt (1000 candles/req), then v4 REST.",
 
 	symbolFormat: {
 		spot:
@@ -20,6 +18,13 @@ export const gateIoGuide: VenueGuide = {
 		notes:
 			"USDT dominates: 2130 spot, all 643 linear perps. USDC: 66 spot only, 0 futures. " +
 			"Native REST uses underscore separator (BTC_USDT), not slash.",
+	},
+
+	bulkDownload: {
+		url: "https://download.gatedata.org/",
+		format: "gzip/csv",
+		dataTypes: "deals (trades), orderbooks, candlesticks for spot and futures",
+		notes: "URL-addressable and scriptable. Structure: /${biz}/${type}/${yearmonth}/.",
 	},
 
 	recommendedFetch: {
@@ -52,14 +57,16 @@ export const gateIoGuide: VenueGuide = {
 		"Rate limit: 900 req / min for public endpoints. " +
 		"On 429, back off for `Retry-After` header value.",
 
+	apiDocs: [
+		"https://www.gate.io/docs/developers/apiv4/#spot-market-candlesticks",
+		"https://www.gate.io/docs/developers/apiv4/#futures-market-candlesticks",
+	],
+
 	knownGotchas: [
 		"ccxt exchange ID is `gateio` (no dot, no underscore).",
 		"POINT token fee handling — set `unknown_fee_rate` in freqtrade config.",
 		"Needs Spot/Perpetual Futures + Wallet (read) + Account (read) API permissions.",
 		"Native REST uses underscore in pairs (BTC_USDT), ccxt uses slash (BTC/USDT).",
-		"REST API docs (spot): https://www.gate.io/docs/developers/apiv4/#spot-market-candlesticks",
-		"REST API docs (futures): https://www.gate.io/docs/developers/apiv4/#futures-market-candlesticks",
-		"Bulk data portal: https://download.gatedata.org/ — deals, orderbooks, candlesticks. Free gzip/CSV.",
 	],
 
 	lastVerified: "2026-04-09",

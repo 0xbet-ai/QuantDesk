@@ -43,6 +43,22 @@ export interface VenueGuide {
 	};
 
 	/**
+	 * Bulk data download portal, if this venue offers one. Venues with
+	 * a portal get an extra step in the fetch priority chain (between
+	 * engine downloader and API pagination). `null` / omitted = no portal.
+	 */
+	bulkDownload?: {
+		/** Direct URL to the portal or file listing. */
+		url: string;
+		/** File format, e.g. `"zip/csv"`, `"gzip/csv"`, `"lz4"`. */
+		format: string;
+		/** What's available, e.g. `"1s klines, trades, aggTrades"`. */
+		dataTypes: string;
+		/** Extra caveats (e.g. "futures limited to 30 days"). */
+		notes?: string;
+	};
+
+	/**
 	 * Exactly one recommended fetch snippet. Must be copy-paste runnable
 	 * (after filling in symbol/timeframe). Listing multiple options is
 	 * an anti-pattern — the agent will pick the wrong one.
@@ -53,6 +69,13 @@ export interface VenueGuide {
 		library: string;
 		code: string;
 	};
+
+	/**
+	 * Direct REST API docs URL for this venue's candlestick/OHLCV
+	 * endpoint. Used as the last-resort fetch tier before reporting
+	 * failure to the user.
+	 */
+	apiDocs: string | string[];
 
 	/**
 	 * Pagination rules: max candles per request, how to advance the

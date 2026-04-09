@@ -55,6 +55,8 @@ export const betfairGuide: VenueGuide = {
 		"Historical data portal: bulk TAR downloads by date. " +
 		"On rate limit, back off 1 second.",
 
+	apiDocs: "https://docs.developer.betfair.com/display/1smk3cen4v3lu3yomq5qye0ni/API-NG+Overview",
+
 	knownGotchas: [
 		"Sports betting exchange — odds-based order book, not price-based.",
 		"Requires Betfair account + API certificates for any data access.",
@@ -62,7 +64,6 @@ export const betfairGuide: VenueGuide = {
 		"Symbols are market/selection IDs, not human-readable names.",
 		"NOT available through Tardis.",
 		"Nautilus uses `betfair-parser` for protocol parsing.",
-		"API docs: https://docs.developer.betfair.com/display/1smk3cen4v3lu3yomq5qye0ni/API-NG+Overview",
 	],
 
 	lastVerified: "2026-04-09",

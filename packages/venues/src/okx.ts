@@ -5,10 +5,8 @@ export const okxGuide: VenueGuide = {
 	displayName: "OKX",
 
 	tldr:
-		"Use ccxt's `fetch_ohlcv` — but OKX only returns 100 candles per request, " +
-		"so pagination is slow. If ccxt is too slow, use the REST endpoint " +
-		"`/api/v5/market/candles` (recent) or `/api/v5/market/history-candles` " +
-		"(older than 3 months) directly. Requires passphrase in config.",
+		"OKX has a bulk portal with trades (2021+) and 1m klines (2023+). " +
+		"ccxt only returns 100 candles/req (very slow), so prefer bulk or direct REST.",
 
 	symbolFormat: {
 		spot: "BTC/USDT, BTC/USDC (ccxt) | BTC-USDT, BTC-USDC (native REST, instType=SPOT)",
@@ -24,6 +22,13 @@ export const okxGuide: VenueGuide = {
 			"Quote currencies: USDT, USDC, USD, EUR. Passphrase required for API auth.\n\n" +
 			"**Nautilus symbols:** Spot `BTC-USDT.OKX`, Swap `BTC-USDT-SWAP.OKX`, " +
 			"Futures `BTC-USD-241227.OKX`. Tardis key: `okex`, `okex-swap`, `okex-futures`.",
+	},
+
+	bulkDownload: {
+		url: "https://www.okx.com/en-us/historical-data",
+		format: "zip/csv",
+		dataTypes: "trades (2021+), 1m klines (2023+), funding rate, L2 orderbook",
+		notes: "Data only goes back to Sep 2021.",
 	},
 
 	recommendedFetch: {
@@ -58,14 +63,14 @@ export const okxGuide: VenueGuide = {
 		"`/api/v5/market/candles`. Rate limit: 40 req / 2 seconds per endpoint. " +
 		"On 429, back off for 2 seconds.",
 
+	apiDocs: "https://www.okx.com/docs-v5/en/#order-book-trading-market-data-get-candlesticks",
+
 	knownGotchas: [
 		"Only 100 candles per API call — backtesting data download is very slow.",
 		"Two separate candle endpoints: /candles (recent 3 months) and /history-candles (older).",
 		"BTC/USD:BTC (inverse) vs BTC/USD:USD (linear) — same native symbol, different settle. ccxt handles this.",
 		"Requires passphrase in addition to API key and secret.",
 		"Use `myokx` exchange ID for EAA-registered accounts.",
-		"REST API docs: https://www.okx.com/docs-v5/en/#order-book-trading-market-data-get-candlesticks",
-		"Bulk data portal: https://www.okx.com/en-us/historical-data — trades (2021+), 1m klines (2023+). Free ZIP.",
 	],
 
 	lastVerified: "2026-04-09",

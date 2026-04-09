@@ -5,10 +5,8 @@ export const bingxGuide: VenueGuide = {
 	displayName: "BingX",
 
 	tldr:
-		"Use ccxt's `fetch_ohlcv` with exchange ID `bingx`. Returns up to 1000 " +
-		"candles per request. Good USDC futures coverage (51 pairs). " +
-		"If ccxt fails, fall back to REST `/openApi/spot/v1/market/kline` (spot) " +
-		"or `/openApi/swap/v3/quote/klines` (perps).",
+		"No bulk portal. ccxt returns 1000 candles/req. " +
+		"Good USDC futures coverage (51 pairs). Direct REST as fallback.",
 
 	symbolFormat: {
 		spot:
@@ -52,12 +50,14 @@ export const bingxGuide: VenueGuide = {
 		"Max 1000 candles per request. Advance `since = candles[-1][0] + 1`. " +
 		"Rate limit varies by endpoint. On 429, back off 1-2 seconds.",
 
+	apiDocs: [
+		"https://bingx-api.github.io/docs/#/en-us/spot/market-api.html#K-Line%20Data",
+		"https://bingx-api.github.io/docs/#/en-us/swapV2/market-api.html#K-Line%20Data",
+	],
+
 	knownGotchas: [
 		"Stoploss on exchange supported (stop-limit and stop-market) — one of the better-supported exchanges in freqtrade.",
 		"Native REST uses dash separator (BTC-USDT), not slash or underscore.",
-		"REST API docs (spot): https://bingx-api.github.io/docs/#/en-us/spot/market-api.html#K-Line%20Data",
-		"REST API docs (perps): https://bingx-api.github.io/docs/#/en-us/swapV2/market-api.html#K-Line%20Data",
-		"Bulk data portal: none — API-only for historical data.",
 	],
 
 	lastVerified: "2026-04-09",
