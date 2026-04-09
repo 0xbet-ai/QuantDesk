@@ -1,6 +1,8 @@
 import { ArrowLeft, Bot, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
+import Markdown from "react-markdown";
 import { useNavigate, useParams } from "react-router-dom";
+import remarkGfm from "remark-gfm";
 import { StatusBadge } from "../components/StatusBadge.js";
 import { getTurn, type TurnDetail } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
@@ -39,6 +41,7 @@ export function TurnDetailPage() {
 	const RoleIcon = isAnalyst ? Bot : Shield;
 
 	return (
+		<div className="h-screen overflow-y-auto">
 		<div className="mx-auto max-w-3xl space-y-4 p-6">
 			<button
 				type="button"
@@ -117,7 +120,9 @@ export function TurnDetailPage() {
 											<span>·</span>
 											<span>{new Date(c.createdAt).toLocaleTimeString()}</span>
 										</div>
-										<div className="whitespace-pre-wrap text-[13px]">{c.content}</div>
+										<div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-[13px] prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-4 prose-headings:mb-2">
+											<Markdown remarkPlugins={[remarkGfm]}>{c.content}</Markdown>
+										</div>
 									</div>
 								))}
 							</div>
@@ -162,6 +167,7 @@ export function TurnDetailPage() {
 					</section>
 				</div>
 			</div>
+		</div>
 		</div>
 	);
 }

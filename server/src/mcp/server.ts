@@ -34,7 +34,7 @@ import {
 } from "@quantdesk/db/schema";
 import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
 import type { NormalizedResult } from "@quantdesk/shared";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { systemComment } from "../services/comments.js";
@@ -200,23 +200,64 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						resolvedPath = pathResolve(desk.workspacePath, resolvedPath);
 					}
 				}
-				const [inserted] = await db
-					.insert(datasets)
-					.values({
-						exchange: args.exchange,
-						pairs: args.pairs,
-						timeframe: args.timeframe,
-						dateRange: args.dateRange,
-						path: resolvedPath,
-					})
-					.returning();
-				if (!inserted) return errorResult("register_dataset: insert returned no row");
-				await db.insert(deskDatasets).values({
-					deskId: ctx.deskId,
-					datasetId: inserted.id,
-				});
+				// Dedupe on (exchange, sorted pairs, timeframe, dateRange).
+				// If an identical dataset already exists, just link it to
+				// this desk instead of creating a duplicate row — different
+				// desks downloading the same window shouldn't pile up rows
+				// in the global dataset list.
+				const sortedPairs = [...args.pairs].sort();
+				const existing = await db
+					.select()
+					.from(datasets)
+					.where(
+						and(
+							eq(datasets.exchange, args.exchange),
+							eq(datasets.timeframe, args.timeframe),
+							sql`${datasets.pairs}::jsonb = ${JSON.stringify(sortedPairs)}::jsonb`,
+							sql`${datasets.dateRange}->>'start' = ${args.dateRange.start}`,
+							sql`${datasets.dateRange}->>'end' = ${args.dateRange.end}`,
+						),
+					);
+				let dataset = existing[0];
+				let reused = false;
+				if (dataset) {
+					reused = true;
+				} else {
+					const [inserted] = await db
+						.insert(datasets)
+						.values({
+							exchange: args.exchange,
+							pairs: sortedPairs,
+							timeframe: args.timeframe,
+							dateRange: args.dateRange,
+							path: resolvedPath,
+						})
+						.returning();
+					if (!inserted) return errorResult("register_dataset: insert returned no row");
+					dataset = inserted;
+				}
+				// Link (idempotent: skip if the join row already exists).
+				const link = await db
+					.select()
+					.from(deskDatasets)
+					.where(
+						and(
+							eq(deskDatasets.deskId, ctx.deskId),
+							eq(deskDatasets.datasetId, dataset.id),
+						),
+					);
+				if (link.length === 0) {
+					await db.insert(deskDatasets).values({
+						deskId: ctx.deskId,
+						datasetId: dataset.id,
+					});
+				}
 				return textResult(
-					JSON.stringify({ datasetId: inserted.id, linked: true, path: resolvedPath }, null, 2),
+					JSON.stringify(
+						{ datasetId: dataset.id, linked: true, reused, path: dataset.path },
+						null,
+						2,
+					),
 				);
 			} catch (err) {
 				return errorResult(

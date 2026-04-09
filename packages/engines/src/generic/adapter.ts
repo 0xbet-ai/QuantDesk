@@ -31,14 +31,13 @@ export class GenericAdapter implements EngineAdapter {
 		// No image — host-native execution.
 	}
 
-	async downloadData(config: DataConfig): Promise<DataRef> {
-		const scriptPath = `${config.workspacePath}/download-data.sh`;
-		try {
-			await execAsync(`bash ${scriptPath}`, { cwd: config.workspacePath });
-		} catch {
-			// Script might not exist yet — agent writes it
-		}
-		return { datasetId: crypto.randomUUID(), path: `${config.workspacePath}/data` };
+	async downloadData(_config: DataConfig): Promise<DataRef> {
+		// Generic desks have no managed downloader. The agent writes and
+		// runs its own fetcher (see mode-generic prompt). Throwing here
+		// makes the data_fetch MCP tool surface a clear error.
+		throw new Error(
+			"generic engine has no server-side downloader. Fetch data yourself and call register_dataset.",
+		);
 	}
 
 	async runBacktest(config: BacktestConfig): Promise<BacktestResult> {
@@ -81,6 +80,16 @@ export class GenericAdapter implements EngineAdapter {
 			winRate: data.winRate ?? 0,
 			totalTrades: data.totalTrades,
 			trades: data.trades ?? [],
+		};
+	}
+
+	workspaceTemplate(): Record<string, string> {
+		return {
+			"README.md": `# QuantDesk generic workspace
+
+Agent-written strategy. No engine template — the agent writes both
+the strategy and the backtest/paper trading scripts from scratch.
+`,
 		};
 	}
 }

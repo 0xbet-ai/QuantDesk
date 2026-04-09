@@ -66,7 +66,7 @@ export async function previewDataset(id: string, limit = 50): Promise<PreviewRes
 	if (!existsSync(absPath)) return null;
 
 	let stats = statSync(absPath);
-	// Legacy rows (and real freqtrade downloads) store the directory path
+	// Legacy rows and engine-native downloads store the directory path
 	// instead of a single file. Pick the first CSV/JSON inside so the
 	// preview endpoint can render something instead of EISDIR.
 	if (stats.isDirectory()) {
