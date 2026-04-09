@@ -146,6 +146,7 @@ export function GlobalDatasetsView() {
 										{items.length} dataset{items.length !== 1 ? "s" : ""}
 									</span>
 								</div>
+								<div className="pl-6">
 								{items.map((d) => (
 									<DatasetRow
 										key={d.id}
@@ -158,6 +159,7 @@ export function GlobalDatasetsView() {
 										onConfirmDelete={() => handleDelete(d.id)}
 									/>
 								))}
+								</div>
 							</div>
 						))}
 					</div>
