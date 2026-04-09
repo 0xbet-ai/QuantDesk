@@ -16,7 +16,7 @@
     "reset": "tsx src/reset.ts"
   },
   "dependencies": {
-    "drizzle-orm": "^0.39.3",
+    "drizzle-orm": "^0.45.2",
     "embedded-postgres": "18.3.0-beta.16",
     "postgres": "^3.4.5"
   },
