@@ -13,7 +13,11 @@
  * into the mcp-config file.
  */
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { db } from "@quantdesk/db";
+import { agentTurns } from "@quantdesk/db/schema";
+import { and, desc, eq } from "drizzle-orm";
 import type { Request, Response } from "express";
+import { runWithTurn } from "../services/turn-context.js";
 import { createQuantdeskMcpServer } from "./server.js";
 
 export async function handleMcpRequest(req: Request, res: Response): Promise<void> {
@@ -25,14 +29,32 @@ export async function handleMcpRequest(req: Request, res: Response): Promise<voi
 		});
 		return;
 	}
+	// Look up the currently-running turn for this experiment so tool side
+	// effects (systemComment, run inserts) get stamped with the right
+	// turn_id via turn-context AsyncLocalStorage. Without this the tool
+	// runs outside runWithTurn and produces orphaned comments that the UI
+	// renders as top-level instead of nested inside the turn card.
+	const [activeTurn] = await db
+		.select()
+		.from(agentTurns)
+		.where(
+			and(eq(agentTurns.experimentId, experimentId), eq(agentTurns.status, "running")),
+		)
+		.orderBy(desc(agentTurns.startedAt))
+		.limit(1);
+
 	const server = createQuantdeskMcpServer({ experimentId, deskId });
-	// Stateless transport — every request is isolated. The MCP spec
-	// allows `initialize` + `tools/*` on a single connection without a
-	// persistent session, which is exactly what we want here.
 	const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
-	try {
+	const handle = async () => {
 		await server.connect(transport);
 		await transport.handleRequest(req, res, req.body);
+	};
+	try {
+		if (activeTurn) {
+			await runWithTurn(activeTurn.id, handle);
+		} else {
+			await handle();
+		}
 	} catch (err) {
 		console.error("MCP request failed:", err);
 		if (!res.headersSent) {
