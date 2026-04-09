@@ -460,7 +460,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						scriptPath: string;
 						extraVolumes?: string[];
 						onLogLine?: (line: string, stream: "stdout" | "stderr") => void;
-					}) => Promise<{ stdout: string; stderr: string; exitCode: number }>;
+					}) => Promise<{ stdout: string; stderr: string; exitCode: number; containerName: string }>;
 				};
 				if (typeof adapter.runScript !== "function") {
 					return errorResult("run_script: generic adapter is missing runScript");
@@ -485,12 +485,16 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						});
 					},
 				});
+				console.log(
+					`[run_script] container=${result.containerName} script=${args.scriptPath} exit=${result.exitCode}`,
+				);
 				return textResult(
 					JSON.stringify(
 						{
 							exitCode: result.exitCode,
 							stdout: result.stdout,
 							stderr: result.stderr,
+							containerName: result.containerName,
 						},
 						null,
 						2,
