@@ -83,7 +83,13 @@ importers:
       '@quantdesk/shared':
         specifier: workspace:*
         version: link:../shared
+      adm-zip:
+        specifier: ^0.5.17
+        version: 0.5.17
     devDependencies:
+      '@types/adm-zip':
+        specifier: ^0.5.8
+        version: 0.5.8
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
@@ -2258,6 +2264,12 @@ packages:
       vite: 6.4.2
     dev: true
 
+  /@types/adm-zip@0.5.8:
+    resolution: {integrity: sha512-RVVH7QvZYbN+ihqZ4kX/dMiowf6o+Jk1fNwiSdx0NahBJLU787zkULhGhJM8mf/obmLGmgdMM0bXsQTmyfbR7Q==}
+    dependencies:
+      '@types/node': 25.5.2
+    dev: true
+
   /@types/babel__core@7.20.5:
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
     dependencies:
@@ -2510,6 +2522,11 @@ packages:
     dependencies:
       mime-types: 3.0.2
       negotiator: 1.0.0
+    dev: false
+
+  /adm-zip@0.5.17:
+    resolution: {integrity: sha512-+Ut8d9LLqwEvHHJl1+PIHqoyDxFgVN847JTVM3Izi3xHDWPE4UtzzXysMZQs64DMcrJfBeS/uoEP4AD3HQHnQQ==}
+    engines: {node: '>=12.0'}
     dev: false
 
   /ajv-formats@3.0.1(ajv@8.18.0):

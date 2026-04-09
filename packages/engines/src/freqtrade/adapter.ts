@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import AdmZip from "adm-zip";
 import { join, resolve } from "node:path";
 import {
 	DockerError,
@@ -210,7 +211,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 				`freqtrade backtesting produced no result file under ${resultsDir}. Last log lines:\n${tail}`,
 			);
 		}
-		const raw = readFileSync(resultFile, "utf-8");
+		const raw = readResultFile(resultFile);
 		const normalized = this.parseResult(raw);
 		return { raw, normalized };
 	}
@@ -462,14 +463,53 @@ function lastLines(text: string, n: number): string {
 
 function findLatestResultFile(dir: string, preferredName: string): string | null {
 	if (!existsSync(dir)) return null;
+
+	// 1. Check exact preferred name (.json)
 	const preferred = join(dir, preferredName);
 	if (existsSync(preferred)) return preferred;
+
+	// 2. freqtrade 2026.3+ writes .zip instead of .json and ignores
+	//    --export-filename. Try .last_result.json which points to the
+	//    actual file (zip or json).
+	const lastResultPath = join(dir, ".last_result.json");
+	if (existsSync(lastResultPath)) {
+		try {
+			const meta = JSON.parse(readFileSync(lastResultPath, "utf-8"));
+			const target = meta.latest_backtest ?? meta.latest_backtest_filename;
+			if (typeof target === "string") {
+				const resolved = join(dir, target);
+				if (existsSync(resolved)) return resolved;
+			}
+		} catch {
+			// Corrupt .last_result.json — fall through to scan.
+		}
+	}
+
+	// 3. Scan for .zip or .json (prefer zip, then json, newest first).
 	const entries = readdirSync(dir)
-		.filter((f) => f.endsWith(".json") && !f.endsWith(".meta.json"))
+		.filter(
+			(f) =>
+				(f.endsWith(".json") || f.endsWith(".zip")) &&
+				!f.endsWith(".meta.json") &&
+				!f.startsWith("."),
+		)
 		.map((f) => join(dir, f));
 	if (entries.length === 0) return null;
 	entries.sort();
 	return entries[entries.length - 1]!;
+}
+
+/** Read backtest result JSON from a .json or .zip file. */
+function readResultFile(filePath: string): string {
+	if (filePath.endsWith(".zip")) {
+		const zip = new AdmZip(filePath);
+		const jsonEntry = zip.getEntries().find((e) => e.entryName.endsWith(".json"));
+		if (!jsonEntry) {
+			throw new Error(`No JSON entry found inside ${filePath}`);
+		}
+		return jsonEntry.getData().toString("utf-8");
+	}
+	return readFileSync(filePath, "utf-8");
 }
 
 async function pickFreePort(): Promise<number> {
