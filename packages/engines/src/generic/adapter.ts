@@ -1,5 +1,8 @@
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
+import { existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { extname, join, resolve } from "node:path";
+import { DockerError, hasImage, runContainer } from "../docker.js";
+import { ENGINE_IMAGES } from "../images.js";
 import type {
 	BacktestConfig,
 	BacktestResult,
@@ -12,42 +15,151 @@ import type {
 	PaperStatus,
 } from "../types.js";
 
-const execAsync = promisify(exec);
+/**
+ * Script extension → runtime name understood by the generic entrypoint
+ * script baked into `docker/generic/Dockerfile`. The entrypoint handles
+ * per-runtime dependency install and execution.
+ */
+const RUNTIME_BY_EXT: Record<string, "python" | "node" | "bun" | "rust" | "go"> = {
+	".py": "python",
+	".js": "node",
+	".mjs": "node",
+	".cjs": "node",
+	".ts": "bun",
+	".rs": "rust",
+	".go": "go",
+};
 
 /**
- * Generic engine: fallback for venues with no managed engine (e.g. Kalshi).
+ * Thrown when `quantdesk/generic:<tag>` is not present locally and we
+ * cannot pull it yet (the image currently ships as a build-from-source
+ * Dockerfile). Surfaced to the user with an actionable next step.
+ */
+export class GenericImageMissingError extends Error {
+	readonly image: string;
+	constructor(image: string) {
+		super(
+			`Generic engine image \`${image}\` is not installed on Docker. ` +
+				`Build it once with \`pnpm build:generic-image\` (or ` +
+				`\`docker build -t ${image} docker/generic/\` from the repo root), ` +
+				`then retry.`,
+		);
+		this.name = "GenericImageMissingError";
+		this.image = image;
+	}
+}
+
+export class UnsupportedRuntimeError extends Error {
+	constructor(ext: string) {
+		super(
+			`generic engine: unsupported script extension \`${ext || "(none)"}\`. ` +
+				`Supported: ${Object.keys(RUNTIME_BY_EXT).join(", ")}.`,
+		);
+		this.name = "UnsupportedRuntimeError";
+	}
+}
+
+/**
+ * Mount the host-side package-manager caches into the container so
+ * `pip install`, `npm install`, `cargo fetch`, and `go mod download`
+ * are fast on subsequent runs. First run still eats the cost.
+ */
+function cacheVolumes(): string[] {
+	const root = join(homedir(), ".quantdesk", "generic-cache");
+	const dirs = {
+		pip: join(root, "pip"),
+		npm: join(root, "npm"),
+		cargo: join(root, "cargo"),
+		go: join(root, "go-build"),
+		gomod: join(root, "gopath"),
+	};
+	for (const d of Object.values(dirs)) {
+		if (!existsSync(d)) mkdirSync(d, { recursive: true });
+	}
+	return [
+		`${dirs.pip}:/root/.cache/pip`,
+		`${dirs.npm}:/root/.npm`,
+		`${dirs.cargo}:/root/.cargo`,
+		`${dirs.go}:/root/.cache/go-build`,
+		`${dirs.gomod}:/root/go`,
+	];
+}
+
+/**
+ * Generic engine: runs agent-authored scripts inside a single Ubuntu-
+ * based container (`quantdesk/generic`) that bundles python3, node,
+ * bun, rust, and go. This is the OS-neutral alternative to host-native
+ * exec — the only requirement on the user's machine is Docker.
  *
- * Unlike Freqtrade and Nautilus, generic runs agent-authored scripts
- * directly on the host — no Docker container. This is the explicit
- * opt-out from isolation (CLAUDE.md rule 11). Users pick it by selecting
- * a venue whose only supported engine is `generic`.
- *
- * Generic supports BACKTEST ONLY. Paper trading throws.
+ * Paper trading is not yet implemented for generic desks.
  */
 export class GenericAdapter implements EngineAdapter {
 	readonly name = "generic";
 
 	async ensureImage(): Promise<void> {
-		// No image — host-native execution.
+		const image = ENGINE_IMAGES.generic;
+		if (!(await hasImage(image))) {
+			throw new GenericImageMissingError(image);
+		}
 	}
 
 	async downloadData(_config: DataConfig): Promise<DataRef> {
-		// Generic desks have no managed downloader. The agent writes and
-		// runs its own fetcher (see mode-generic prompt). Throwing here
-		// makes the data_fetch MCP tool surface a clear error.
+		// The agent owns data acquisition on generic desks: it writes a
+		// fetcher script (ccxt / venue SDK / The Graph / …), runs it via
+		// its own Bash tool, and then calls `register_dataset`. The
+		// server has no generic downloader to invoke, so this method
+		// deliberately fails fast.
 		throw new Error(
 			"generic engine has no server-side downloader. Fetch data yourself and call register_dataset.",
 		);
 	}
 
 	async runBacktest(config: BacktestConfig): Promise<BacktestResult> {
-		const { stdout } = await execAsync(
-			`node ${config.strategyPath} 2>/dev/null || python3 ${config.strategyPath} 2>/dev/null || bun ${config.strategyPath}`,
-			{ cwd: config.workspacePath },
+		await this.ensureImage();
+		const ext = extname(config.strategyPath).toLowerCase();
+		const runtime = RUNTIME_BY_EXT[ext];
+		if (!runtime) {
+			throw new UnsupportedRuntimeError(ext);
+		}
+
+		const workspaceAbs = resolve(config.workspacePath);
+		const externalMountVolumes = config.extraVolumes ?? [];
+
+		const result = await runContainer(
+			{
+				image: ENGINE_IMAGES.generic,
+				rm: true,
+				cpus: "2",
+				memory: "2g",
+				volumes: [
+					`${workspaceAbs}:/workspace`,
+					...cacheVolumes(),
+					...externalMountVolumes,
+				],
+				command: [runtime, config.strategyPath],
+			},
+			{
+				onStdoutLine: config.onLogLine ? (line) => config.onLogLine!(line, "stdout") : undefined,
+				onStderrLine: config.onLogLine ? (line) => config.onLogLine!(line, "stderr") : undefined,
+			},
 		);
 
-		const normalized = this.parseResult(stdout);
-		return { raw: stdout, normalized };
+		if (result.exitCode !== 0) {
+			throw new DockerError(
+				`generic ${runtime} script exited ${result.exitCode}: ` +
+					`${(result.stderr || result.stdout).trim().split("\n").slice(-10).join("\n")}`,
+				result.exitCode,
+				result.stderr,
+			);
+		}
+
+		// Agent scripts must print the NormalizedResult JSON as the LAST
+		// line of stdout. Pick the final non-empty line so entrypoint /
+		// framework banners above don't poison the parser.
+		const lines = result.stdout.trim().split("\n").filter((l) => l.trim().length > 0);
+		const lastLine = lines[lines.length - 1] ?? "";
+		const normalized = this.parseResult(lastLine);
+		return { raw: result.stdout, normalized };
 	}
 
 	async startPaper(_config: PaperConfig): Promise<PaperHandle> {
@@ -89,6 +201,23 @@ export class GenericAdapter implements EngineAdapter {
 
 Agent-written strategy. No engine template — the agent writes both
 the strategy and the backtest/paper trading scripts from scratch.
+
+Scripts run inside a single sandbox container
+(\`quantdesk/generic:<pinned>\`) that bundles python3, node, bun,
+rust, and go. Per-language dependencies are declared in the usual
+manifest file at the workspace root:
+
+  - python  → requirements.txt
+  - node    → package.json
+  - bun     → package.json
+  - rust    → Cargo.toml (standard layout, src/main.rs)
+  - go      → go.mod
+
+The container entrypoint installs dependencies from the manifest
+before running the script. Cache volumes are mounted on the host so
+repeat runs are fast.
+
+The last line of stdout MUST be a NormalizedResult JSON object.
 `,
 		};
 	}

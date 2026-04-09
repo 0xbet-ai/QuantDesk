@@ -171,13 +171,50 @@ workspaces/desk-{id}/
 
 ## Generic Engine
 
-For venues that don't fit Freqtrade or Nautilus (e.g. Kalshi prediction markets, custom venues). The desk's `strategy_mode` is still `classic` or `realtime` — the user picked one of those in the wizard — and the agent writes scripts that follow that mode's philosophy: candle-based polling for `classic`, event-driven for `realtime`. All scripts run inside a pinned Ubuntu+Python container. Backtest scripts must output `NormalizedResult` JSON to stdout; paper scripts run long-lived with the same `quantdesk.kind=paper` labels managed engines use.
+For venues that don't fit Freqtrade or Nautilus (e.g. Kalshi prediction markets, custom venues). The desk's `strategy_mode` is still `classic` or `realtime` — the user picked one of those in the wizard — and the agent writes scripts that follow that mode's philosophy: candle-based polling for `classic`, event-driven for `realtime`. Backtest scripts must output a `NormalizedResult` JSON object as the **last line** of stdout.
+
+Unlike Freqtrade and Nautilus, the generic engine ships its own image (`quantdesk/generic:<pinned>`, defined in `docker/generic/Dockerfile`) that bundles five runtimes: **python3, node, bun, rust, go**. Every agent-authored script — backtest, fetcher, anything else — runs inside this one image so the host stays untouched regardless of the user's OS.
+
+**Image distribution.** Until we publish to a registry the image must be built locally:
+
+```bash
+pnpm build:generic-image
+# → docker build -t quantdesk/generic:0.1.0 docker/generic/
+```
+
+`GenericAdapter.ensureImage()` checks for the image and throws `GenericImageMissingError` with the build instructions if it's absent, so a fresh clone surfaces the "run this command" step instead of a cryptic docker error.
 
 ```
-ensureImage()       → pulls the pinned Ubuntu+Python base image
-downloadData()      → runs agent-written data download script in container
-runBacktest()       → runs agent-written backtest script, parses stdout JSON
-startPaper()        → spawns agent-written paper loop script as a long-lived labelled container
-stopPaper()         → graceful shutdown + docker rm
-getPaperStatus()    → reads container status and latest emitted state
+ensureImage()       → verifies quantdesk/generic is present locally
+downloadData()      → NOT implemented — the agent fetches data itself,
+                      then calls register_dataset
+runBacktest()       → runContainer(quantdesk/generic, volumes=[workspace, caches],
+                      command=[runtime, scriptPath]) — parses the LAST line of
+                      stdout as NormalizedResult
+startPaper()        → not yet supported on generic desks
 ```
+
+### Dependency declaration
+
+Agents declare third-party packages in the standard manifest file for the chosen runtime, placed at the workspace root. The container entrypoint auto-installs them before running the script:
+
+| Runtime | Manifest | Install command (inside container) |
+|---|---|---|
+| python | `requirements.txt` | `pip install -r requirements.txt` |
+| node / bun | `package.json` | `npm install` |
+| rust | `Cargo.toml` (standard layout) | `cargo run` (fetches + compiles) |
+| go | `go.mod` | `go run` (fetches transitively) |
+
+Package-manager caches are mounted from `~/.quantdesk/generic-cache/{pip,npm,cargo,go-build,gopath}` on the host so the first install is slow but every subsequent run is fast.
+
+### Supported script extensions
+
+| Extension | Runtime |
+|---|---|
+| `.py` | `python3` |
+| `.js`, `.mjs`, `.cjs` | `node` |
+| `.ts` | `bun` |
+| `.rs` | `cargo run --release --quiet` (requires `Cargo.toml` + `src/main.rs`) |
+| `.go` | `go run` |
+
+Any other extension is rejected by `runBacktest` with `UnsupportedRuntimeError`.

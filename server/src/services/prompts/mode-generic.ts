@@ -13,6 +13,21 @@ the backtest entrypoint from scratch. The seeded workspace may contain
 a README but no \`strategy.py\` template; structure the code however
 best fits the venue and hypothesis.
 
+### Execution sandbox
+Every script — fetcher, backtest, anything else — runs inside a single
+pinned Docker image (\`quantdesk/generic\`) that bundles five
+runtimes: **python3, node, bun, rust, go**. Scripts are isolated from
+the host by Docker, so you can assume:
+
+- Workspace files are at \`/workspace\` inside the container
+- No access to the user's home directory, shell history, keys, etc.
+- Package manager caches are mounted across runs (pip / npm / cargo /
+  go-build) so dependency installs are fast after the first run
+
+Pick the language that best fits the venue (Python for most quant
+work, Node/bun if the venue has a strong JS SDK, Rust/Go for perf-
+sensitive or native-SDK cases).
+
 ### Data acquisition
 There is no server-side downloader for generic desks; \`data_fetch\`
 will return an error. Fetch data yourself:
@@ -20,10 +35,19 @@ will return an error. Fetch data yourself:
 1. Write a fetcher script (\`fetch_data.py\`, \`fetch.ts\`, whatever
    fits) using \`ccxt\`, the venue's REST/SDK, The Graph for on-chain
    DEXes, etc.
-2. Run it via the Bash tool (\`run_in_background: true\` for slow
-   fetches; poll with \`BashOutput\`).
-3. Save the result to a path and format your own entrypoint script
-   will read back (you control both sides, so format is free).
+2. If the fetcher needs third-party libraries, declare them in the
+   appropriate manifest at the workspace root:
+   - python → \`requirements.txt\`
+   - node/bun → \`package.json\`
+   - rust → \`Cargo.toml\` (standard layout, \`src/main.rs\`)
+   - go → \`go.mod\`
+   The container entrypoint auto-installs them before running the
+   script. You never run \`pip install\` / \`npm install\` / \`cargo
+   install\` directly — the manifest is the contract.
+3. Run the fetcher by calling \`mcp__quantdesk__run_backtest\` with
+   the fetcher as the entrypoint, OR via your own Bash tool. The
+   important part is that it writes its output into \`/workspace/data/\`
+   (mounted from the desk workspace) in a format your backtest can read.
 4. Call \`mcp__quantdesk__register_dataset\` so the server records the
    metadata.
 
