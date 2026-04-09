@@ -73,10 +73,48 @@ function truncate(value: string, max: number): string {
 	return value.length > max ? `${value.slice(0, Math.max(0, max - 1))}…` : value;
 }
 
+function isMcpTool(name: string): boolean {
+	return name.startsWith("mcp__");
+}
+
+/** Strip the `mcp__<server>__` prefix so cards show `data_fetch` instead of
+ *  `mcp__quantdesk__data_fetch`. */
+function prettyToolName(name: string): string {
+	if (!isMcpTool(name)) return name;
+	const parts = name.split("__");
+	return parts[parts.length - 1] ?? name;
+}
+
+/** Compact one-line summary of an MCP tool's arguments: `key=value, key=value`.
+ *  Objects and arrays are JSON-stringified inline with a length cap so the
+ *  card header stays readable. */
+function summarizeMcpInput(rec: Record<string, unknown>, maxLen: number): string {
+	const parts: string[] = [];
+	for (const [k, v] of Object.entries(rec)) {
+		if (v === undefined || v === null || v === "") continue;
+		let rendered: string;
+		if (typeof v === "string") rendered = v;
+		else if (typeof v === "number" || typeof v === "boolean") rendered = String(v);
+		else if (Array.isArray(v)) rendered = `[${v.join(", ")}]`;
+		else {
+			try {
+				rendered = JSON.stringify(v);
+			} catch {
+				rendered = String(v);
+			}
+		}
+		parts.push(`${k}=${rendered}`);
+	}
+	return truncate(parts.join(", "), maxLen) || "(no args)";
+}
+
 function summarizeToolInput(name: string, input: unknown, maxLen: number): string {
 	if (typeof input === "string") return truncate(input, maxLen);
 	if (typeof input !== "object" || input === null) return `${name} input`;
 	const rec = input as Record<string, unknown>;
+
+	// MCP tools: show every non-empty arg as key=value
+	if (isMcpTool(name)) return summarizeMcpInput(rec, maxLen);
 
 	// Bash command
 	if (typeof rec.command === "string") {
@@ -481,9 +519,16 @@ function ThinkingBlock({
 }
 
 function ToolCard({ item, compact }: { item: ToolItem; compact: boolean }) {
-	const [open, setOpen] = useState(item.status === "error");
+	const mcp = isMcpTool(item.name);
+	// MCP tool cards default to open so args are visible without a click,
+	// matching how Claude Code renders its own tool calls.
+	const [open, setOpen] = useState(item.status === "error" || mcp);
 	const command = isCommandTool(item.name);
-	const displayName = command ? "Executing command" : item.name;
+	const displayName = command
+		? "Executing command"
+		: mcp
+			? `MCP · ${prettyToolName(item.name)}`
+			: item.name;
 	const summary = summarizeToolInput(item.name, item.input, compact ? 72 : 120);
 
 	const statusLabel =
@@ -775,7 +820,7 @@ function ToolGroup({
 									<Wrench className="h-3 w-3" />
 								</span>
 								<span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-									{item.name}
+									{isMcpTool(item.name) ? `MCP · ${prettyToolName(item.name)}` : item.name}
 								</span>
 								<span
 									className={cn(
