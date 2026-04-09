@@ -93,18 +93,23 @@ describe("buildAnalystPrompt", () => {
 		expect(prompt).toContain("baseline");
 	});
 
-	it("classic mode prompt instructs Freqtrade IStrategy + run_backtest MCP tool", () => {
+	it("classic mode prompt is engine-agnostic and calls run_backtest via MCP", () => {
 		const prompt = buildAnalystPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
 		expect(prompt).toContain("Classic");
-		expect(prompt).toContain("IStrategy");
-		expect(prompt).toContain("populate_indicators");
-		expect(prompt).toContain("populate_entry_trend");
+		expect(prompt).toContain("candle");
 		expect(prompt).toContain("mcp__quantdesk__run_backtest");
-		// Should not leak the realtime-specific API into a classic prompt
+		// Engine specifics must NOT leak into the prompt (CLAUDE.md rule #6).
+		// The framework contract lives in the seeded strategy.py; the prompt
+		// only tells the agent to read it.
+		expect(prompt).not.toContain("Freqtrade");
+		expect(prompt).not.toContain("freqtrade");
+		expect(prompt).not.toContain("IStrategy");
+		expect(prompt).not.toContain("populate_indicators");
+		// Realtime-specific API must never appear in a classic prompt either.
 		expect(prompt).not.toContain("on_quote_tick");
 	});
 
-	it("realtime mode prompt instructs Nautilus Strategy event handlers", () => {
+	it("realtime mode prompt is engine-agnostic and calls run_backtest via MCP", () => {
 		const prompt = buildAnalystPrompt({
 			desk: realtimeDesk,
 			experiment,
@@ -113,9 +118,12 @@ describe("buildAnalystPrompt", () => {
 			memorySummaries: [],
 		});
 		expect(prompt).toContain("Real-time");
-		expect(prompt).toContain("on_quote_tick");
-		expect(prompt).toContain("order_factory");
+		expect(prompt).toContain("event");
 		expect(prompt).toContain("mcp__quantdesk__run_backtest");
+		expect(prompt).not.toContain("Nautilus");
+		expect(prompt).not.toContain("nautilus");
+		expect(prompt).not.toContain("on_quote_tick");
+		expect(prompt).not.toContain("order_factory");
 		expect(prompt).not.toContain("populate_indicators");
 	});
 

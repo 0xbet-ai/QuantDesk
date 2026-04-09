@@ -1,0 +1,30 @@
+/**
+ * MCP tool catalog shown to the analyst agent.
+ *
+ * This file is the **single source of truth** for which tools the agent
+ * is told about. Adding / removing / renaming a tool means editing this
+ * file and `server/src/mcp/server.ts` — nothing else in the prompt layer
+ * should reference specific tool names.
+ */
+
+export function buildToolsGlossaryBlock(): string {
+	return `## Tools (MCP)
+Every lifecycle action goes through an MCP tool on the \`quantdesk\` server.
+**Never describe an action in prose without actually calling its tool.** Tool
+calls return results on the same turn — read the return value or error and
+react immediately.
+
+- \`mcp__quantdesk__data_fetch({exchange, pairs, timeframe, days, tradingMode?, rationale?})\` — download market data and register it to this desk. Blocks until finished; returns \`{datasetId, exchange, pairs, timeframe, dateRange, path}\`. Requires prior user consent.
+- \`mcp__quantdesk__register_dataset({exchange, pairs, timeframe, dateRange:{start,end}, path})\` — register an already-downloaded dataset (workspace-local fetch). **Call this immediately after you fetch data yourself, BEFORE calling run_backtest.** No consent needed — it is a metadata insert.
+- \`mcp__quantdesk__run_backtest({strategyName?, configFile?, entrypoint?})\` — execute the strategy and return normalized metrics. Requires at least one registered dataset. Returns \`{runId, runNumber, metrics[]}\` — react to the metrics directly on the same turn.
+- \`mcp__quantdesk__set_experiment_title({title})\` — rename the current experiment. No-op for Experiment #1. No consent needed.
+- \`mcp__quantdesk__request_validation({})\` — dispatch Risk Manager validation on the latest run. Requires prior user consent.
+- \`mcp__quantdesk__submit_rm_verdict({verdict:"approve"|"reject", reason?})\` — **Risk Manager only**: attach verdict to the latest run.
+- \`mcp__quantdesk__new_experiment({title, hypothesis?})\` — close this experiment and open a new one. Requires prior user consent.
+- \`mcp__quantdesk__complete_experiment({summary?})\` — mark the current experiment finished. Requires prior user consent.
+
+### Conversational approval
+Tools that need prior user consent in a previous turn: \`data_fetch\`, \`request_validation\`, \`new_experiment\`, \`complete_experiment\`. For these, the ask turn must make **no tool call**; the execution turn (after the user agrees) makes the call.
+
+Tools that fire directly without asking: \`register_dataset\`, \`run_backtest\`, \`set_experiment_title\`, \`submit_rm_verdict\`.`;
+}
