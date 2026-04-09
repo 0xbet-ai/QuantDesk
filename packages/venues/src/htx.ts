@@ -61,6 +61,7 @@ export const htxGuide: VenueGuide = {
 		"Futures support is listed but limited in freqtrade docs (spot + stoploss mainly).",
 		"REST API docs (spot): https://www.htx.com/en-us/opend/newApiPages/?id=7ec4a2ba-7773-11ed-9966-0242ac110003",
 		"REST API docs (swaps): https://www.htx.com/en-us/opend/newApiPages/?id=8cb09012-77b5-11ed-9966-0242ac110003",
+		"Bulk data portal: https://futures.huobi.com/data/ — klines+trades for spot/futures/swaps. Free ZIP with SHA256. Well documented (github.com/hbdmapi/huobi_public_data).",
 	],
 
 	lastVerified: "2026-04-09",

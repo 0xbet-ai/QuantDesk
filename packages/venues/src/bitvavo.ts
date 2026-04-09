@@ -52,6 +52,7 @@ export const bitvavoGuide: VenueGuide = {
 		"No USDT pairs. Primary quote is EUR. Only 11 USDC pairs.",
 		"EU-regulated exchange — may restrict non-EU IP addresses.",
 		"REST API docs: https://docs.bitvavo.com/#tag/Market-Data/paths/~1{market}~1candles/get",
+		"Bulk data portal: none — API-only for historical data.",
 	],
 
 	lastVerified: "2026-04-09",

@@ -17,7 +17,9 @@ export const bybitGuide: VenueGuide = {
 			"BTC/USD:BTC, ADA/USD:ADA (ccxt) | BTCUSD, ADAUSD (native REST, category=inverse)",
 		notes:
 			"Bybit v5 uses a unified endpoint with `category` param (spot, linear, inverse). " +
-			"USDC perps: 70 linear pairs. Quote currencies: USDT (dominant), USDC, EUR.",
+			"USDC perps: 70 linear pairs. Quote currencies: USDT (dominant), USDC, EUR.\n\n" +
+			"**Nautilus symbols:** Linear `BTCUSDT-LINEAR.BYBIT`, Inverse `BTCUSD-INVERSE.BYBIT`, " +
+			"Spot `BTCUSDT-SPOT.BYBIT`. Tardis key: `bybit`, `bybit-spot`.",
 	},
 
 	recommendedFetch: {
@@ -56,6 +58,7 @@ export const bybitGuide: VenueGuide = {
 		"v5 API unifies spot/linear/inverse under one endpoint with `category` param.",
 		"Bybit has kline history back to ~2019 for major pairs.",
 		"REST API docs (v5): https://bybit-exchange.github.io/docs/v5/market/kline",
+		"Bulk data portal: https://public.bybit.com/ — tick-level trades, MT4 klines. Free gzip/CSV.",
 	],
 
 	lastVerified: "2026-04-09",

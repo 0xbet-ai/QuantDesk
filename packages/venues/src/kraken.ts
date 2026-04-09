@@ -24,7 +24,9 @@ export const krakenGuide: VenueGuide = {
 			"Kraken spot uses real USD and EUR as primary quote (not USDT). " +
 			"USDT: 48 pairs, USDC: 45 pairs. " +
 			"ccxt normalises XBT -> BTC via commonCurrencies — always use BTC in ccxt symbols. " +
-			"Spot and futures are completely separate exchange classes in ccxt.",
+			"Spot and futures are completely separate exchange classes in ccxt.\n\n" +
+			"**Nautilus symbols:** Spot `XBT/USDT.KRAKEN` (keeps XBT, NOT normalised!), " +
+			"Perp `PF_XBTUSD.KRAKEN`. Tardis key: `kraken`.",
 	},
 
 	recommendedFetch: {
@@ -68,6 +70,7 @@ export const krakenGuide: VenueGuide = {
 		"Data download requires significantly more RAM than other exchanges.",
 		"REST API docs (spot): https://docs.kraken.com/api/docs/rest-api/get-ohlc-data",
 		"REST API docs (futures): https://docs.futures.kraken.com/#http-api-charts-ohlc",
+		"Bulk data: OHLCVT ZIPs via Google Drive (https://support.kraken.com/articles/360047124832). Quarterly updates, clunky for automation.",
 	],
 
 	lastVerified: "2026-04-09",

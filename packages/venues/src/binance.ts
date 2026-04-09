@@ -18,7 +18,9 @@ export const binanceGuide: VenueGuide = {
 			"BTC/USD:BTC, ETH/USD:ETH (ccxt) | BTCUSD_PERP, ETHUSD_PERP (native REST, COIN-M futures)",
 		notes:
 			"Quote currencies: USDT (dominant), USDC (38 linear perps), BTC, FDUSD, BNB, ETH. " +
-			"BUSD is delisted. Spot and futures are separate API domains.",
+			"BUSD is delisted. Spot and futures are separate API domains.\n\n" +
+			"**Nautilus symbols:** Spot `BTCUSDT.BINANCE`, USDT-M perp `BTCUSDT-PERP.BINANCE`, " +
+			"COIN-M perp `BTCUSD-PERP.BINANCE`. Tardis key: `binance`, `binance-futures`.",
 	},
 
 	recommendedFetch: {
@@ -60,6 +62,7 @@ export const binanceGuide: VenueGuide = {
 		"1m candles go back to exchange launch; smaller timeframes may have gaps.",
 		"REST API docs (spot): https://developers.binance.com/docs/binance-spot-api-docs/rest-api",
 		"REST API docs (futures): https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info",
+		"Bulk data portal: https://data.binance.vision/ — 1s klines, trades, aggTrades. Free ZIP/CSV. Best in class.",
 	],
 
 	lastVerified: "2026-04-09",

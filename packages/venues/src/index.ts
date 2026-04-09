@@ -29,6 +29,12 @@ import { bitmartGuide } from "./bitmart.js";
 import { bingxGuide } from "./bingx.js";
 import { bitvavoGuide } from "./bitvavo.js";
 import { hyperliquidGuide } from "./hyperliquid.js";
+import { bitmexGuide } from "./bitmex.js";
+import { deribitGuide } from "./deribit.js";
+import { dydxGuide } from "./dydx.js";
+import { interactiveBrokersGuide } from "./interactive_brokers.js";
+import { polymarketGuide } from "./polymarket.js";
+import { betfairGuide } from "./betfair.js";
 
 const REGISTRY: Record<string, VenueGuide> = {
 	binance: binanceGuide,
@@ -43,6 +49,12 @@ const REGISTRY: Record<string, VenueGuide> = {
 	bingx: bingxGuide,
 	bitvavo: bitvavoGuide,
 	hyperliquid: hyperliquidGuide,
+	bitmex: bitmexGuide,
+	deribit: deribitGuide,
+	dydx: dydxGuide,
+	interactive_brokers: interactiveBrokersGuide,
+	polymarket: polymarketGuide,
+	betfair: betfairGuide,
 };
 
 /**

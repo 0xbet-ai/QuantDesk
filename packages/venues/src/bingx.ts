@@ -57,6 +57,7 @@ export const bingxGuide: VenueGuide = {
 		"Native REST uses dash separator (BTC-USDT), not slash or underscore.",
 		"REST API docs (spot): https://bingx-api.github.io/docs/#/en-us/spot/market-api.html#K-Line%20Data",
 		"REST API docs (perps): https://bingx-api.github.io/docs/#/en-us/swapV2/market-api.html#K-Line%20Data",
+		"Bulk data portal: none — API-only for historical data.",
 	],
 
 	lastVerified: "2026-04-09",

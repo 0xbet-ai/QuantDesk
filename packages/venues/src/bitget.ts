@@ -60,6 +60,7 @@ export const bitgetGuide: VenueGuide = {
 		"productType in native REST varies: USDT-FUTURES, USDC-FUTURES, COIN-FUTURES.",
 		"REST API docs (v2): https://www.bitget.com/api-doc/spot/market/Get-Candle-Data",
 		"REST API docs (futures): https://www.bitget.com/api-doc/contract/market/Get-Candle-Data",
+		"Bulk data portal: https://www.bitget.com/data-download — klines, orderbook, trades. Futures klines limited to 30 days.",
 	],
 
 	lastVerified: "2026-04-09",
