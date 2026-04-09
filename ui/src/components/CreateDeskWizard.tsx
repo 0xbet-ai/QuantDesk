@@ -431,7 +431,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 	const isStepValid = (s: Step): boolean => {
 		switch (s) {
 			case "desk":
-				return name.trim().length > 0;
+				return name.trim().length > 0 && description.trim().length >= 10;
 			case "market":
 				return selectedAssetClass !== undefined;
 			case "venue":
@@ -530,15 +530,18 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									</div>
 									<div>
 										<label htmlFor="desk-desc" className="text-xs text-foreground/60 mb-1.5 block">
-											Mission / goal (optional)
+											Mission / goal <span className="text-red-500">*</span>
 										</label>
 										<Textarea
 											id="desk-desc"
 											value={description}
 											onChange={(e) => setDescription(e.target.value)}
 											rows={4}
-											placeholder="What is this strategy trying to achieve?"
+											placeholder="What is this strategy trying to achieve? (write in the language you want the agent to reply in)"
 										/>
+										<p className="text-[11px] text-foreground/40 mt-1">
+											Minimum 10 characters. The agent matches its response language to this description on the first turn.
+										</p>
 									</div>
 								</div>
 							</div>
