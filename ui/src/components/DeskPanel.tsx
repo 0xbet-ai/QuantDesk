@@ -151,25 +151,25 @@ export function DeskPanel({
 					<h2 className="text-xs font-semibold truncate flex-1">{desk.name}</h2>
 					{/* Team avatars */}
 					<div className="flex items-center -space-x-1 shrink-0">
-						<Tooltip>
+						<Tooltip delayDuration={0}>
 							<TooltipTrigger asChild>
-								<div className="flex size-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40 ring-2 ring-background">
+								<div className="flex size-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40 ring-2 ring-background transition-transform duration-150 hover:scale-125 hover:z-10">
 									<User className="size-2.5 text-blue-700 dark:text-blue-300" />
 								</div>
 							</TooltipTrigger>
 							<TooltipContent side="bottom">You — Lead</TooltipContent>
 						</Tooltip>
-						<Tooltip>
+						<Tooltip delayDuration={0}>
 							<TooltipTrigger asChild>
-								<div className="flex size-5 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/40 ring-2 ring-background">
+								<div className="flex size-5 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/40 ring-2 ring-background transition-transform duration-150 hover:scale-125 hover:z-10">
 									<Bot className="size-2.5 text-purple-700 dark:text-purple-300" />
 								</div>
 							</TooltipTrigger>
 							<TooltipContent side="bottom">Analyst — Strategy research & backtests</TooltipContent>
 						</Tooltip>
-						<Tooltip>
+						<Tooltip delayDuration={0}>
 							<TooltipTrigger asChild>
-								<div className="flex size-5 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40 ring-2 ring-background">
+								<div className="flex size-5 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40 ring-2 ring-background transition-transform duration-150 hover:scale-125 hover:z-10">
 									<Shield className="size-2.5 text-orange-700 dark:text-orange-300" />
 								</div>
 							</TooltipTrigger>
