@@ -45,8 +45,15 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 		}
 	});
 
-	const selectedRun = runs.find((r) => r.id === selectedRunId) ?? null;
-	const baseline = runs.find((r) => r.isBaseline) ?? null;
+	// Hide failed/stopped runs from the Properties panel — users care
+	// about runs that produced a usable result. `running` is kept so the
+	// user sees the live one appear immediately.
+	const visibleRuns = runs.filter((r) => r.status !== "failed" && r.status !== "stopped");
+	const selectedRun = visibleRuns.find((r) => r.id === selectedRunId) ?? null;
+	// Baseline = first COMPLETED run in runNumber order, not the first
+	// attempt. Early failed runs shouldn't become the baseline just
+	// because they were the first row in the DB.
+	const baseline = visibleRuns.find((r) => r.status === "completed") ?? null;
 
 	const handleGoPaper = async (runId: string) => {
 		try {
@@ -68,7 +75,7 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 						</span>
 					</PropRow>
 					<PropRow label="Runs">
-						<span className="text-muted-foreground">{runs.length}</span>
+						<span className="text-muted-foreground">{visibleRuns.length}</span>
 					</PropRow>
 				</>
 			)}
@@ -81,12 +88,13 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 				<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
 					Runs
 				</div>
-				{runs.length === 0 ? (
+				{visibleRuns.length === 0 ? (
 					<div className="text-xs text-muted-foreground py-2">No runs yet</div>
 				) : (
 					(() => {
 						// Use the first run with metrics to determine column headers
-						const sampleMetrics = runs.find((r) => r.result?.metrics?.length)?.result?.metrics;
+						const sampleMetrics = visibleRuns.find((r) => r.result?.metrics?.length)?.result
+							?.metrics;
 						const col1Label = sampleMetrics?.[0]?.label ?? "Value";
 						const col2Label = sampleMetrics?.[1]?.label;
 						return (
@@ -99,14 +107,15 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 									</tr>
 								</thead>
 								<tbody>
-									{runs.map((run) => {
+									{visibleRuns.map((run) => {
 										const m0 = run.result?.metrics?.[0];
 										const m1 = run.result?.metrics?.[1];
 										const ret = m0?.value;
 										const dd = m1?.value;
 										const baselineM0 = baseline?.result?.metrics?.[0];
+										const isBase = baseline?.id === run.id;
 										const delta =
-											!run.isBaseline && baselineM0 && m0 ? m0.value - baselineM0.value : null;
+											!isBase && baselineM0 && m0 ? m0.value - baselineM0.value : null;
 										return (
 											<tr
 												key={run.id}
@@ -119,7 +128,7 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 											>
 												<td className="py-1.5">
 													{run.runNumber}
-													{run.isBaseline && (
+													{isBase && (
 														<span className="ml-1 text-[10px] text-muted-foreground">base</span>
 													)}
 												</td>
