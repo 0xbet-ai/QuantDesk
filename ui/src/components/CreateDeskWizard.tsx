@@ -892,7 +892,20 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											{categories.map((cat) => {
 												const meta = categoryMeta[cat] ?? { label: cat, icon: FlaskConical };
 												const CatIcon = meta.icon;
-												const catStrategies = filteredStrategies.filter((s) => s.category === cat);
+												const difficultyRank: Record<string, number> = {
+													easy: 0,
+													medium: 1,
+													advanced: 2,
+												};
+												const catStrategies = filteredStrategies
+													.filter((s) => s.category === cat)
+													.slice()
+													.sort((a, b) => {
+														const ra = difficultyRank[a.difficulty] ?? 99;
+														const rb = difficultyRank[b.difficulty] ?? 99;
+														if (ra !== rb) return ra - rb;
+														return a.name.localeCompare(b.name);
+													});
 												return (
 													<div key={cat}>
 														<div className="flex items-center gap-1.5 mb-1.5">
