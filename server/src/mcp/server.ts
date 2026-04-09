@@ -79,7 +79,7 @@ function normalizedResultToMetrics(normalized: NormalizedResult) {
 			{
 				key: "win_rate",
 				label: "Win Rate",
-				value: normalized.winRate,
+				value: normalized.winRate * 100,
 				format: "percent",
 			},
 			{
