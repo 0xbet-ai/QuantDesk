@@ -26,10 +26,14 @@ export interface VenueEngines {
  * file — callers want `availableModes` / `availableModesForVenues` /
  * `engineForMode`, not the raw mapping.
  */
+/**
+ * Preferred managed engine per mode. When the venue supports this
+ * engine we use it directly; otherwise the engine resolves to
+ * `generic` as an auto-fallback (see `resolveEngine`).
+ */
 const MODE_TO_ENGINE: Record<StrategyMode, string> = {
 	classic: "freqtrade",
 	realtime: "nautilus",
-	generic: "generic",
 };
 
 /**
@@ -43,15 +47,13 @@ export function engineForMode(mode: StrategyMode): string {
 }
 
 /**
- * Return the strategy modes available for a venue. Derived from
- * `venue.engines` via the MODE_TO_ENGINE mapping.
+ * Every venue supports every mode — if the preferred managed engine
+ * isn't available for the venue, the engine falls back to `generic`
+ * at resolve time. The wizard's mode picker is therefore always
+ * permissive; there are no disabled cards.
  */
-export function availableModes(venue: VenueEngines): StrategyMode[] {
-	const modes: StrategyMode[] = [];
-	for (const mode of Object.keys(MODE_TO_ENGINE) as StrategyMode[]) {
-		if (venue.engines.includes(MODE_TO_ENGINE[mode])) modes.push(mode);
-	}
-	return modes;
+export function availableModes(_venue: VenueEngines): StrategyMode[] {
+	return Object.keys(MODE_TO_ENGINE) as StrategyMode[];
 }
 
 /**
@@ -78,12 +80,14 @@ export function availableModesForVenues(venues: VenueEngines[]): StrategyMode[] 
  * creation; the UI should call `availableModes(forVenues)` instead and
  * never resolve the engine name itself.
  */
+/**
+ * Resolve the engine for a (venue, mode) pair. Uses the preferred
+ * managed engine when the venue supports it, otherwise falls back to
+ * `generic` so the agent writes both the strategy and the entrypoint.
+ * Never throws — every (venue, mode) combination is resolvable.
+ */
 export function resolveEngine(venue: VenueEngines, mode: StrategyMode): string {
-	const mapped = MODE_TO_ENGINE[mode];
-	if (venue.engines.includes(mapped)) return mapped;
-	const modes = availableModes(venue);
-	throw new Error(
-		`Venue ${venue.name} does not support ${mode} strategies. ` +
-			`Available modes: ${modes.length > 0 ? modes.join(", ") : "none"}`,
-	);
+	const preferred = MODE_TO_ENGINE[mode];
+	if (venue.engines.includes(preferred)) return preferred;
+	return "generic";
 }

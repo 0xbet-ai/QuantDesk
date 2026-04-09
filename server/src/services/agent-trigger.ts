@@ -374,8 +374,7 @@ export async function triggerAgent(
 					budget: desk.budget!,
 					targetReturn: desk.targetReturn!,
 					stopLoss: desk.stopLoss!,
-					strategyMode:
-						(desk.strategyMode as "classic" | "realtime" | "generic") ?? "classic",
+					strategyMode: (desk.strategyMode as "classic" | "realtime") ?? "classic",
 					engine: desk.engine,
 					venues: desk.venues as string[],
 					description: desk.description,

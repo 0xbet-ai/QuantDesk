@@ -14,6 +14,7 @@ export interface DeskContext {
 	targetReturn: string;
 	stopLoss: string;
 	strategyMode: StrategyMode;
+	/** Resolved engine: freqtrade | nautilus | generic. */
 	engine: string;
 	venues: string[];
 	description: string | null;

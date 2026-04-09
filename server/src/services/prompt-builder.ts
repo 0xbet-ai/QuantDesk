@@ -62,9 +62,7 @@ export function trimCommentsToTokenBudget(
  * stable for the desk's lifetime.
  */
 function buildModeInstructions(desk: DeskContext): string {
-	if (desk.strategyMode === "classic") return buildClassicModeBlock();
-	if (desk.strategyMode === "realtime") return buildRealtimeModeBlock();
-	return buildGenericModeBlock();
+	return desk.strategyMode === "realtime" ? buildRealtimeModeBlock() : buildClassicModeBlock();
 }
 
 /**
@@ -84,10 +82,18 @@ export function buildAnalystPrompt(input: AnalystPromptInput): string {
 	//    which tools exist and which need prior consent).
 	sections.push(buildToolsGlossaryBlock());
 
-	// 3. mode-{classic|realtime|generic} — execution model + data
-	//    acquisition protocol. Engine-agnostic; the framework contract
-	//    lives in the seeded strategy.py.
+	// 3. mode-{classic|realtime} — execution model + data acquisition
+	//    protocol. Engine-agnostic; the framework contract lives in
+	//    the seeded strategy.py.
 	sections.push(buildModeInstructions(desk));
+
+	// 3b. If the desk's venue has no managed engine for the chosen
+	//     mode, the engine resolved to `generic` — append a short
+	//     block telling the agent there is no managed runner so it
+	//     owns the execution entrypoint too.
+	if (desk.engine === "generic") {
+		sections.push(buildGenericModeBlock());
+	}
 
 	// 4. lifecycle rules — title / new_experiment / complete_experiment
 	//    policies. Cross-mode, tool-driven.

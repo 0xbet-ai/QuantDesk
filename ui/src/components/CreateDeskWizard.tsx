@@ -137,13 +137,11 @@ function computeAvailableModes(selectedVenueIds: string[]): StrategyMode[] {
 		if (v) {
 			resolved.push(v as VenueEngines);
 		} else {
-			// Custom venue placeholder — assume generic only. Custom venues
-			// are almost never natively supported by freqtrade or nautilus,
-			// so defaulting to generic lets the agent own data acquisition
-			// and execution. If the user knows the venue IS supported,
-			// they can add it to `strategies/venues.json` with the
-			// appropriate engine list.
-			resolved.push({ id, name: id, engines: ["generic"] });
+			// Custom venue placeholder. Mode selection is permissive
+			// because resolveEngine now falls back to the generic engine
+			// whenever the preferred managed engine isn't available for
+			// the venue, so the user can always pick either mode.
+			resolved.push({ id, name: id, engines: [] });
 		}
 	}
 	return availableModesForVenues(resolved);
@@ -734,21 +732,17 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 										available.
 									</p>
 								</div>
-								<div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-									{(["classic", "realtime", "generic"] as const).map((mode) => {
+								<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+									{(["classic", "realtime"] as const).map((mode) => {
 										const enabled = availableModes.includes(mode);
 										const active = selectedMode === mode;
-										const title =
-											mode === "classic" ? "Classic" : mode === "realtime" ? "Real-time" : "Generic";
-										const tag =
-											mode === "classic" ? "Recommended" : mode === "realtime" ? "Advanced" : "Custom";
+										const title = mode === "classic" ? "Classic" : "Real-time";
+										const tag = mode === "classic" ? "Recommended" : "Advanced";
 										const desc =
 											mode === "classic"
 												? "Candle-based polling strategies. TA indicators, trend following, mean reversion, momentum. Minute to hour timeframes."
-												: mode === "realtime"
-													? "Event-driven strategies reacting to ticks and order book deltas. Market making, arbitrage, HFT. Sub-second timeframes."
-													: "Agent-authored strategies with full control over data format and execution. No managed framework — use for venues / hypotheses that don't fit classic or realtime.";
-										const Icon = mode === "classic" ? BarChart3 : mode === "realtime" ? Zap : FlaskConical;
+												: "Event-driven strategies reacting to ticks and order book deltas. Market making, arbitrage, HFT. Sub-second timeframes.";
+										const Icon = mode === "classic" ? BarChart3 : Zap;
 										return (
 											<button
 												key={mode}
