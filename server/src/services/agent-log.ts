@@ -40,9 +40,33 @@ export function appendAgentLog(experimentId: string, entry: AgentLogEntry): void
 	if (process.env.NODE_ENV !== "production") {
 		const summary = summarizeEntry(entry);
 		if (summary) {
-			process.stdout.write(`[agent ${experimentId.slice(0, 8)}] ${summary}\n`);
+			const prefix = color(`[agent ${experimentId.slice(0, 8)}]`, "gray");
+			process.stdout.write(`${prefix} ${summary}\n`);
 		}
 	}
+}
+
+// ── ANSI color helpers ───────────────────────────────────────────────
+// Colors are enabled when stdout is a TTY and `NO_COLOR` is not set.
+// Keeps CI / piped output clean while giving devs a readable stream.
+const COLOR_ENABLED = process.stdout.isTTY && !process.env.NO_COLOR;
+const ANSI = {
+	reset: "\x1b[0m",
+	gray: "\x1b[90m",
+	red: "\x1b[31m",
+	green: "\x1b[32m",
+	yellow: "\x1b[33m",
+	blue: "\x1b[34m",
+	magenta: "\x1b[35m",
+	cyan: "\x1b[36m",
+	white: "\x1b[37m",
+	bold: "\x1b[1m",
+	dim: "\x1b[2m",
+} as const;
+type ColorName = keyof typeof ANSI;
+
+function color(text: string, name: ColorName): string {
+	return COLOR_ENABLED ? `${ANSI[name]}${text}${ANSI.reset}` : text;
 }
 
 /**
@@ -61,12 +85,12 @@ function summarizeEntry(entry: AgentLogEntry): string | null {
 	switch (type) {
 		case "init": {
 			const model = typeof entry.model === "string" ? entry.model : "?";
-			return `init           model=${model}`;
+			return `${color("init          ", "magenta")} ${color(`model=${model}`, "dim")}`;
 		}
 		case "thinking":
-			return `thinking       ${preview(entry.content, 100)}`;
+			return `${color("thinking      ", "dim")} ${color(preview(entry.content, 100), "dim")}`;
 		case "text":
-			return `text           ${preview(entry.content, 140)}`;
+			return `${color("text          ", "white")} ${preview(entry.content, 140)}`;
 		case "tool_call": {
 			const name = typeof entry.name === "string" ? entry.name : "?";
 			let inputStr = "";
@@ -75,15 +99,16 @@ function summarizeEntry(entry: AgentLogEntry): string | null {
 			} catch {
 				inputStr = "<unserializable>";
 			}
-			return `tool_call      ${name} ${preview(inputStr, 160)}`;
+			return `${color("tool_call     ", "cyan")} ${color(name, "bold")} ${color(preview(inputStr, 160), "dim")}`;
 		}
 		case "tool_result": {
 			const isError = entry.isError === true;
-			const tag = isError ? "tool_result ✗ " : "tool_result ✓ ";
-			// On error, surface the full body (truncated to 400) so the
-			// failure reason is visible without switching terminals.
+			const tag = isError
+				? color("tool_result ✗ ", "red")
+				: color("tool_result ✓ ", "green");
 			const max = isError ? 400 : 140;
-			return `${tag} ${preview(entry.content, max)}`;
+			const body = preview(entry.content, max);
+			return `${tag} ${isError ? color(body, "red") : color(body, "dim")}`;
 		}
 		case "result": {
 			const isError = entry.isError === true;
@@ -93,13 +118,13 @@ function summarizeEntry(entry: AgentLogEntry): string | null {
 				typeof entry.costUsd === "number" && entry.costUsd > 0
 					? ` cost=$${entry.costUsd.toFixed(4)}`
 					: "";
-			const status = isError ? "✗" : "✓";
-			return `result ${status}       in=${inTok} out=${outTok}${cost}`;
+			const status = isError ? color("✗", "red") : color("✓", "green");
+			return `${color("result        ", "magenta")} ${status} ${color(`in=${inTok} out=${outTok}${cost}`, "dim")}`;
 		}
 		case "stdout":
-			return `stdout         ${preview(entry.content, 200)}`;
+			return `${color("stdout        ", "yellow")} ${color(preview(entry.content, 200), "dim")}`;
 		case "system":
-			return `system         ${preview(entry.content, 160)}`;
+			return `${color("system        ", "blue")} ${preview(entry.content, 160)}`;
 		default:
 			return null;
 	}
