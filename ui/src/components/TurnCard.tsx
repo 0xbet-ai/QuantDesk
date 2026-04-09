@@ -25,8 +25,6 @@ interface TurnCardProps {
 	hasRun?: boolean;
 	/** Populated when `status` is `failed` or `stopped` — shown in the header as a red reason line. */
 	failureReason?: string | null;
-	/** Live data-fetch progress lines from the server, if a download is in flight inside this turn. */
-	dataFetchProgress?: string[];
 	mode?: "backtest" | "paper" | "turn";
 	/**
 	 * Pre-rendered system / analyst / risk_manager comments that belong to
@@ -75,7 +73,6 @@ export function TurnCard({
 	onOpen,
 	hasRun,
 	failureReason,
-	dataFetchProgress,
 	mode = "turn",
 	nestedComments,
 	footer,
