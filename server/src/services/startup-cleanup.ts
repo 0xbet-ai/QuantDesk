@@ -1,6 +1,7 @@
 import { db } from "@quantdesk/db";
-import { agentTurns, comments, experiments } from "@quantdesk/db/schema";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { agentTurns, comments, experiments, runs } from "@quantdesk/db/schema";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { publishExperimentEvent } from "../realtime/live-events.js";
 import { systemComment } from "./comments.js";
 
 /** Heartbeat freshness threshold — if the turn's heartbeat was bumped
@@ -111,6 +112,42 @@ export async function reconcileOrphanAgentTurns(): Promise<void> {
 		}
 		if (toMark.length > 0) {
 			console.log(`[startup] Reconciled ${toMark.length} orphan agent_turns row(s)`);
+		}
+
+		// Cascade to backtest runs reserved inside those dead turns. The MCP
+		// `run_backtest` tool inserts a row in `running` before awaiting the
+		// engine adapter; if the server died mid-call (tsx-watch dev restart,
+		// crash, SIGTERM) the adapter's catch never executed, leaving a
+		// phantom running run. Mark them failed so the UI exits the spinner.
+		if (toMark.length > 0) {
+			const orphanRuns = await db
+				.update(runs)
+				.set({
+					status: "failed",
+					error: "server_restart",
+					completedAt: new Date(),
+				})
+				.where(
+					and(
+						eq(runs.status, "running"),
+						eq(runs.mode, "backtest"),
+						inArray(
+							runs.turnId,
+							toMark.map((t) => t.id),
+						),
+					),
+				)
+				.returning({ id: runs.id, experimentId: runs.experimentId });
+			for (const r of orphanRuns) {
+				publishExperimentEvent({
+					experimentId: r.experimentId,
+					type: "run.status",
+					payload: { runId: r.id, status: "failed", error: "server_restart" },
+				});
+			}
+			if (orphanRuns.length > 0) {
+				console.log(`[startup] Reconciled ${orphanRuns.length} orphan backtest run(s)`);
+			}
 		}
 		const kept = candidates.length - toMark.length;
 		if (kept > 0) {
