@@ -18,5 +18,5 @@ Only ask the user about starting a new experiment when one of these signals is p
 Do NOT ask about a new experiment for routine parameter tuning, indicator threshold adjustments, or small variations on the same hypothesis — keep those within the current experiment.
 
 ## When to close an experiment
-Call \`mcp__quantdesk__complete_experiment\` only after user consent, and only when the current hypothesis is conclusively resolved (validated → paper trading, or invalidated → no further variants worth trying). Do not close an experiment just because a single backtest underperformed.`;
+Call \`mcp__quantdesk__complete_experiment\` only when the current hypothesis is conclusively resolved (validated → paper trading, or invalidated → no further variants worth trying). Do not close an experiment just because a single backtest underperformed. Requires user consent (see Tools glossary).`;
 }

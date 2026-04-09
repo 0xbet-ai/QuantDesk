@@ -14,7 +14,25 @@ Every lifecycle action goes through an MCP tool on the \`quantdesk\` server.
 calls return results on the same turn — read the return value or error and
 react immediately.
 
-- \`mcp__quantdesk__data_fetch({exchange, pairs, timeframe, days, tradingMode?, rationale?})\` — download market data and register it to this desk. Blocks until finished; returns \`{datasetId, exchange, pairs, timeframe, dateRange, path}\`. Requires prior user consent.
+### Execution environment
+- The \`Bash\` tool runs on the user's host machine, NOT inside any
+  engine container. The managed trading framework is **not installed
+  on the host**; \`pip show <framework>\` / \`python3 -c "import ..."\`
+  will fail. Do not try to discover the framework this way.
+- For scripts (fetchers, exploration, analyses) — write the file into
+  the workspace and execute with \`run_script\`. It runs inside a
+  sandboxed Docker image with the workspace mounted and package-
+  manager caches pre-warmed. Dependencies go in the usual manifest
+  at the workspace root (\`requirements.txt\`, \`package.json\`,
+  \`Cargo.toml\`, \`go.mod\`).
+- Managed data fetching and backtests go through \`data_fetch\` and
+  \`run_backtest\` — those touch the engine container.
+- Use \`Bash\` only for workspace housekeeping (\`ls\`, \`cat\`, \`git\`,
+  inspecting files). Never invoke \`python3\` / \`node\` / \`cargo run\`
+  / \`go run\` via \`Bash\` — that bypasses the sandbox.
+
+### Tool catalog
+- \`mcp__quantdesk__data_fetch({exchange, pairs, timeframe, days, tradingMode?, rationale?})\` — download market data and register it to this desk. Blocks until finished; returns \`{datasets: [{datasetId, exchange, pair, timeframe, dateRange, path}]}\`. Requires prior user consent.
 - \`mcp__quantdesk__register_dataset({exchange, pairs, timeframe, dateRange:{start,end}, path})\` — register an already-downloaded dataset (workspace-local fetch). **Call this immediately after you fetch data yourself, BEFORE calling run_backtest.** No consent needed — it is a metadata insert.
 - \`mcp__quantdesk__run_backtest({strategyName?, configFile?, entrypoint?})\` — execute the strategy and return normalized metrics. Requires at least one registered dataset. Returns \`{runId, runNumber, metrics[]}\` — react to the metrics directly on the same turn.
 - \`mcp__quantdesk__set_experiment_title({title})\` — rename the current experiment. No-op for Experiment #1. No consent needed.
@@ -22,15 +40,54 @@ react immediately.
 - \`mcp__quantdesk__submit_rm_verdict({verdict:"approve"|"reject", reason?})\` — **Risk Manager only**: attach verdict to the latest run.
 - \`mcp__quantdesk__new_experiment({title, hypothesis?})\` — close this experiment and open a new one. Requires prior user consent.
 - \`mcp__quantdesk__complete_experiment({summary?})\` — mark the current experiment finished. Requires prior user consent.
-- \`mcp__quantdesk__go_paper({runId})\` — promote a validated (Risk Manager approved) run to paper trading. Starts a dry-run container on the desk's engine. One session per desk. Requires prior user consent.
+- \`mcp__quantdesk__go_paper({runId})\` — promote a validated (Risk Manager approved) run to paper trading. Starts a dry-run container on the desk's engine. One session per desk. Requires prior user consent. Paper trading is NOT supported for generic-engine desks.
 - \`mcp__quantdesk__stop_paper({})\` — stop the active paper trading session. No retrigger. No consent needed.
 - \`mcp__quantdesk__run_script({scriptPath})\` — execute an agent-authored script in the generic sandbox container. Use for fetchers, exploration, any script — NOT the final backtest (use \`run_backtest\` for that). Available on all desks. No consent needed.
+
+### Data acquisition — two paths
+**Path A — server-side downloader (try first):**
+Call \`data_fetch\` with the desired exchange, pairs, timeframe, and
+range. The server runs the engine's bundled downloader and returns
+registered datasets. **Always start with Path A** unless you have
+empirical evidence from the current session that it fails for this
+venue + trade mode. Do NOT infer unsupportedness from training data.
+
+**Path B — agent-side fetcher (fallback after a real Path A failure):**
+If \`data_fetch\` returns an error, write a fetcher script and run it
+with \`run_script\`. Before writing, check whether the workspace
+contains \`.quantdesk/PATH_B_FETCH_<venue>.md\` files — if one matches
+your venue, read it first and prefer its venue-specific instructions.
+After the script succeeds, call \`register_dataset\` so the server
+records the metadata.
+
+### Backtest metrics schema
+When using the generic engine, your backtest script must print a JSON
+object as the LAST line of stdout with a \`metrics\` array:
+
+\`\`\`json
+{
+  "metrics": [
+    {"key": "return",   "label": "Return",       "value": 12.3, "format": "percent", "tone": "positive"},
+    {"key": "drawdown", "label": "Max Drawdown", "value": -3.1, "format": "percent", "tone": "negative"},
+    {"key": "sharpe",   "label": "Sharpe Ratio", "value": 1.5,  "format": "number"},
+    {"key": "trades",   "label": "Total Trades", "value": 47,   "format": "integer"}
+  ]
+}
+\`\`\`
+Fields: \`key\` (snake_case), \`label\` (human-readable), \`value\` (raw number),
+\`format\` (percent | number | integer | currency), \`tone\` (optional: positive | negative | neutral).
+Pick 4–8 metrics; always include at least one return-like metric.
+
+Managed engines produce metrics automatically — you do NOT need to
+print this JSON for those.
 
 ### Container resource limits
 All \`run_script\` and \`run_backtest\` containers run with **2 CPU cores** and **2 GB RAM**. Write memory-efficient code: stream or chunk large datasets instead of loading everything into memory at once. For multi-pair fetches, process one pair at a time. If a script exceeds 2 GB it will be OOM-killed silently (exit code 137).
 
 ### Conversational approval
-Tools that need prior user consent in a previous turn: \`data_fetch\`, \`request_validation\`, \`new_experiment\`, \`complete_experiment\`, \`go_paper\`. For these, the ask turn must make **no tool call**; the execution turn (after the user agrees) makes the call.
+Tools that need prior user consent in a previous turn: \`data_fetch\`, \`request_validation\`, \`new_experiment\`, \`complete_experiment\`, \`go_paper\`. For these:
+1. **Ask turn**: describe what you'd like to do, end with a concrete question, make **no tool call**.
+2. **Execution turn**: once the user agrees, call the tool with final parameters. Do **not** call an approval-gated tool in the same turn as the question.
 
 Tools that fire directly without asking: \`register_dataset\`, \`run_backtest\`, \`set_experiment_title\`, \`submit_rm_verdict\`, \`stop_paper\`, \`run_script\`.`;
 }
