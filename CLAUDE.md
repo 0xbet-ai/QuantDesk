@@ -18,8 +18,7 @@ Users research, backtest, and validate strategies through async interaction with
 - `doc/OVERVIEW.md` — tech stack, repo map
 - `doc/agent/TURN.md` — how a single agent turn is executed (CLI subprocess, prompt, session)
 - `doc/agent/PAPER_LIFECYCLE.md` — long-running paper trading state machine, observer turns, reconcile
-- `doc/agent/MCP.md` — MCP tool glossary (the primary agent↔server protocol)
-- `doc/agent/MARKERS.md` — legacy bracketed-marker protocol (fallback, being retired in phase 27)
+- `doc/agent/MCP.md` — MCP tool glossary (the agent↔server protocol)
 - `doc/agent/ROLES.md` — Analyst, Risk Manager, interaction pattern
 - `doc/agent/MEMORY.md` — hipocampus-inspired long-term context
 - `doc/engine/README.md` — pluggable engine adapter interface (incl. per-engine workspace layout)
