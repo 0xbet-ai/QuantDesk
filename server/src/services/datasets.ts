@@ -10,6 +10,8 @@ interface CreateDatasetInput {
 	timeframe: string;
 	dateRange: { start: string; end: string };
 	path: string;
+	createdByDeskId?: string | null;
+	createdByExperimentId?: string | null;
 }
 
 export async function createDataset(input: CreateDatasetInput) {

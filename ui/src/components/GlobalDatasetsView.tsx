@@ -79,11 +79,30 @@ export function GlobalDatasetsView() {
 								tabIndex={0}
 							>
 								<div className="flex-1 min-w-0">
-									<div className="text-sm font-medium">
-										{d.pairs.join(", ")} · {d.timeframe}
+									<div className="text-sm font-medium flex items-center gap-1.5 flex-wrap">
+										{d.pairs.map((p, i) => {
+											// CCXT perp symbols look like "BTC/USDC:USDC" — split
+											// the `:settle` suffix off and render a "perp" badge
+											// so spot vs perp is obvious at a glance.
+											const [pair, settle] = p.split(":");
+											return (
+												<span key={`${p}-${i}`} className="flex items-center gap-1">
+													{i > 0 && <span className="text-muted-foreground">,</span>}
+													<span>{pair}</span>
+													{settle && (
+														<span className="text-[10px] px-1 py-px rounded bg-muted text-muted-foreground font-normal uppercase">
+															perp
+														</span>
+													)}
+												</span>
+											);
+										})}
+										<span className="text-muted-foreground">·</span>
+										<span>{d.timeframe}</span>
 									</div>
 									<div className="text-xs text-muted-foreground mt-0.5">
-										{d.exchange} · {d.dateRange.start} → {d.dateRange.end}
+										{d.exchange} · {d.dateRange.start} → {d.dateRange.end} · added{" "}
+										{new Date(d.createdAt).toLocaleString()}
 									</div>
 									{(d.createdByDeskName || d.createdByExperimentTitle) && (
 										<div className="text-[11px] text-muted-foreground/80 mt-0.5">
