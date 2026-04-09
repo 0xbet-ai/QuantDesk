@@ -2,7 +2,7 @@ import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve as pathResolve } from "node:path";
+import { join } from "node:path";
 import { getAgentAdapter } from "@quantdesk/adapters";
 import { db } from "@quantdesk/db";
 import {
@@ -251,30 +251,26 @@ function spawnCli(
 }
 
 /**
- * Phase 27b — generate a temporary MCP config JSON file pointing at the
- * stdio entry. Returns the absolute path (or null when AGENT_MCP is off).
- * The claude CLI is passed this path via `--mcp-config` and spawns the
- * stdio-entry subprocess itself. Per-turn context reaches the subprocess
- * via environment variables we set on the outer spawnCli call.
+ * Phase 27 — generate a temporary MCP config JSON file pointing at the
+ * parent server's in-process HTTP MCP endpoint. Returns the absolute
+ * path (or null when AGENT_MCP is off). Per-turn context (experimentId,
+ * deskId) is carried on request headers so the handler can scope tool
+ * side-effects to the correct desk/experiment without any per-process
+ * state.
  */
-function buildMcpConfigForTurn(): string | null {
+function buildMcpConfigForTurn(experimentId: string, deskId: string): string | null {
 	if (process.env.AGENT_MCP !== "1") return null;
-	// Resolve paths relative to this file's compiled location. In dev we
-	// run via tsx so __dirname is the ts source dir; the stdio entry is a
-	// sibling under src/mcp. In a prod build (tsc → dist/) it's the same
-	// relative layout.
-	const stdioEntry = pathResolve(
-		new URL("../mcp/stdio-entry.ts", import.meta.url).pathname,
-	);
-	// In prod we'd prefer dist/.js, but since the server itself runs via
-	// tsx in both dev and current prod config, always target the .ts
-	// source through tsx's bin.
-	const tsxBin = pathResolve(new URL("../../node_modules/.bin/tsx", import.meta.url).pathname);
+	const port = Number(process.env.PORT ?? 3000);
+	const url = `http://127.0.0.1:${port}/mcp`;
 	const config = {
 		mcpServers: {
 			quantdesk: {
-				command: tsxBin,
-				args: [stdioEntry],
+				type: "http",
+				url,
+				headers: {
+					"X-QuantDesk-Experiment": experimentId,
+					"X-QuantDesk-Desk": deskId,
+				},
 			},
 		},
 	};
@@ -377,13 +373,8 @@ export async function triggerAgent(
 				process.env.MOCK_AGENT === "1" ? "mock" : session.adapterType,
 			);
 
-			const mcpConfigPath = buildMcpConfigForTurn();
-			const mcpEnv: Record<string, string> = mcpConfigPath
-				? {
-						QUANTDESK_MCP_EXPERIMENT_ID: experimentId,
-						QUANTDESK_MCP_DESK_ID: desk.id,
-					}
-				: {};
+			const mcpConfigPath = buildMcpConfigForTurn(experimentId, desk.id);
+			const mcpEnv: Record<string, string> = {};
 
 			const streamingSpawn = (args: string[], stdin: string) =>
 				spawnCli(args, stdin, {

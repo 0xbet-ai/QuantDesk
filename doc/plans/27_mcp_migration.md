@@ -89,6 +89,16 @@ via the prompt, not by the server. The only change is the emission shape
    Default: (a). The existing run-log tail infrastructure already covers
    the "what's happening during the wait" UX.
 
+## Status
+
+- **27a** ✅ scaffold landed — zero-tool MCP server factory + stdio entry (6e670e0)
+- **27b** ✅ data_fetch + register_dataset tools + CLI wiring (8294020)
+- **27c** ✅ run_backtest tool (absorbs [BACKTEST_RESULT])
+- **27d** ✅ lifecycle tools (set_experiment_title, request_validation, submit_rm_verdict, new_experiment, complete_experiment)
+- **27e** ⏳ in progress — MCP.md written, CLAUDE.md updated, marker parser deletion deferred until a week of real runs confirms agents are calling tools instead of emitting brackets
+
+**Architecture change vs original plan:** the MCP server is hosted **in-process** over HTTP at `POST /mcp` on the parent server, not as a stdio subprocess. Claude CLI connects via `--mcp-config` → `{"type":"http","url":"http://127.0.0.1:PORT/mcp","headers":{...}}`. Each request is stateless; experiment/desk context rides on `X-QuantDesk-Experiment` / `X-QuantDesk-Desk` headers. This gives tool handlers direct access to the parent's DB, event emitter, engine adapters, and `triggerAgent` without any cross-process RPC.
+
 ## Execution slices (each its own PR)
 
 ### 27a — MCP server scaffold

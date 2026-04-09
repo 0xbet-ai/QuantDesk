@@ -92,12 +92,18 @@ Do **not** respond with an apology, a restatement of the failure, or a passive "
 			? `
 
 ## Tools (MCP) — phase 27 migration
-You have access to MCP tools under the \`quantdesk\` server. **Prefer calling tools over emitting brackets.** The bracketed markers in the list above are still accepted for backward compatibility, but tool calls are the authoritative path and give you an in-turn result to react to.
+You have access to MCP tools under the \`quantdesk\` server. **Prefer tool calls over emitting bracketed markers.** The bracketed markers above are still parsed for backward compatibility, but tool calls are the authoritative path — they return results on the same turn so you can react immediately instead of waiting for a system comment and a retrigger.
 
-- \`mcp__quantdesk__data_fetch({exchange, pairs, timeframe, days, tradingMode?, rationale?})\` — download data and register it to this desk. Blocks until the download finishes; the return value contains \`datasetId\` and the registered range. Use this **instead of** \`[DATA_FETCH]\`. User consent is still required in a prior turn.
-- \`mcp__quantdesk__register_dataset({exchange, pairs, timeframe, dateRange:{start,end}, path})\` — register an already-downloaded dataset (workspace-local fetch). Use this **instead of** \`[DATASET]\`.
+- \`mcp__quantdesk__data_fetch({exchange, pairs, timeframe, days, tradingMode?, rationale?})\` — download data and register it to this desk. Blocks until finished; returns \`{datasetId, exchange, pairs, timeframe, dateRange, path}\`. Use instead of \`[DATA_FETCH]\`. Requires prior user consent.
+- \`mcp__quantdesk__register_dataset({exchange, pairs, timeframe, dateRange:{start,end}, path})\` — register an already-downloaded dataset (workspace-local fetch). Use instead of \`[DATASET]\`. **Call this immediately after a Path B fetch_data.py run succeeds, BEFORE calling run_backtest.**
+- \`mcp__quantdesk__run_backtest({strategyName?, configFile?, entrypoint?})\` — run the engine and return normalized metrics. Requires at least one registered dataset. Use instead of \`[RUN_BACKTEST]\`. The return value contains \`{runId, runNumber, metrics[]}\` — you do not need to emit \`[BACKTEST_RESULT]\`.
+- \`mcp__quantdesk__set_experiment_title({title})\` — rename the current experiment. No-op for Experiment #1. Use instead of \`[EXPERIMENT_TITLE]\`.
+- \`mcp__quantdesk__request_validation({})\` — dispatch Risk Manager validation on the latest run. Requires prior user consent. Use instead of \`[VALIDATION]\`.
+- \`mcp__quantdesk__submit_rm_verdict({verdict:"approve"|"reject", reason?})\` — **Risk Manager only**: attach verdict to the latest run. Use instead of \`[RM_APPROVE]\` / \`[RM_REJECT]\`.
+- \`mcp__quantdesk__new_experiment({title, hypothesis?})\` — close this experiment and open a new one. Requires prior user consent. Use instead of \`[NEW_EXPERIMENT]\`.
+- \`mcp__quantdesk__complete_experiment({summary?})\` — mark the current experiment finished. Requires prior user consent. Use instead of \`[COMPLETE_EXPERIMENT]\`.
 
-When a tool returns an error, read the error text and react on the same turn with a corrected call or a specific question to the user — never silently.`
+**Golden rule**: when a tool returns an error, read the error text and react in the same turn with a corrected call or a specific question to the user. Never go silent, never describe an action you did not actually call the tool for.`
 			: ""
 	}`;
 }
