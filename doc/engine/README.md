@@ -14,7 +14,7 @@ The whitelist above is **approval-gated**: the default answer to "can we add eng
 
 ## Data download tools (per engine)
 
-Each engine brings its own historical data download tool, invoked by the server during the agent-proposed data fetch (see `../agent/MARKERS.md` rows 1 / 1a):
+Each engine brings its own historical data download tool, invoked by the server when the agent calls the `data_fetch` MCP tool (see `../agent/MCP.md`):
 
 | Engine | Download mechanism |
 |---|---|
