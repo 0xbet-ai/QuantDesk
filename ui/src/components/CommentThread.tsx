@@ -660,6 +660,36 @@ export function CommentThread({
 											</Markdown>
 										</div>
 									)}
+									{(() => {
+										// Phase 27 — dataset side-effect chips.
+										// register_dataset tool calls get attached to the
+										// comment's metadata by agent-trigger so we can
+										// render clickable preview pills without needing
+										// a per-chip roundtrip.
+										const regIds = ((c.metadata as { registeredDatasetIds?: unknown } | null)
+											?.registeredDatasetIds ?? []) as string[];
+										if (regIds.length === 0) return null;
+										return (
+											<div className="mt-2 flex flex-wrap gap-1.5">
+												{regIds.map((id) => {
+													const d = datasetsById[id];
+													if (!d) return null;
+													return (
+														<button
+															key={id}
+															type="button"
+															onClick={() => setPreviewDataset(d)}
+															className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px] font-medium text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
+														>
+															<Database className="size-3 text-cyan-600 dark:text-cyan-300" />
+															<span className="font-mono">{d.pairs.join(", ")} · {d.timeframe}</span>
+															<span className="text-foreground/40">{d.exchange}</span>
+														</button>
+													);
+												})}
+											</div>
+										);
+									})()}
 									{/* In turn-card timeline mode, `children` is always
 									    empty (the builder flattens everything into the
 									    turn group as siblings), so we intentionally skip
@@ -896,6 +926,13 @@ export function CommentThread({
 					</Button>
 				</div>
 			</div>
+			{previewDataset && (
+				<DatasetPreviewModal
+					dataset={previewDataset}
+					deskId={experiment.deskId}
+					onClose={() => setPreviewDataset(null)}
+				/>
+			)}
 		</div>
 	);
 }
