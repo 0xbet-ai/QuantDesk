@@ -1,6 +1,6 @@
 import { db } from "@quantdesk/db";
-import { agentTurns } from "@quantdesk/db/schema";
-import { and, eq, lt } from "drizzle-orm";
+import { agentTurns, runs } from "@quantdesk/db/schema";
+import { and, eq, inArray, lt } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { systemComment } from "./comments.js";
 
@@ -25,6 +25,37 @@ export async function scanStaleTurns(now: Date = new Date()): Promise<number> {
 		})
 		.where(and(eq(agentTurns.status, "running"), lt(agentTurns.lastHeartbeatAt, cutoff)))
 		.returning({ id: agentTurns.id, experimentId: agentTurns.experimentId });
+
+	// Cascade: any backtest runs reserved inside these dead turns are
+	// orphaned — the MCP tool handler will never reach its catch block.
+	// Mark them failed so the Runs list exits the spinner.
+	if (stale.length > 0) {
+		const orphanRuns = await db
+			.update(runs)
+			.set({
+				status: "failed",
+				error: "heartbeat_timeout",
+				completedAt: now,
+			})
+			.where(
+				and(
+					eq(runs.status, "running"),
+					eq(runs.mode, "backtest"),
+					inArray(
+						runs.turnId,
+						stale.map((t) => t.id),
+					),
+				),
+			)
+			.returning({ id: runs.id, experimentId: runs.experimentId });
+		for (const r of orphanRuns) {
+			publishExperimentEvent({
+				experimentId: r.experimentId,
+				type: "run.status",
+				payload: { runId: r.id, status: "failed", error: "heartbeat_timeout" },
+			});
+		}
+	}
 
 	for (const row of stale) {
 		try {
