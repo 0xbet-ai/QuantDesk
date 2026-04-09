@@ -229,7 +229,7 @@ export function TurnCard({
 				    the transcript is redundant and we hide it to keep the card
 				    focused. */}
 				{(!nestedComments || streaming) && (
-					<div ref={transcriptScrollRef} className="max-h-[320px] overflow-y-auto pr-4 mt-3">
+					<div ref={transcriptScrollRef} className="max-h-[640px] overflow-y-auto pr-4 mt-3">
 						<RunTranscriptView
 							entries={entries}
 							density="compact"
