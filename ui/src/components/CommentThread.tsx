@@ -150,6 +150,16 @@ export function CommentThread({
 	const [comments, setComments] = useState<Comment[]>([]);
 	const [input, setInput] = useState("");
 	const [sending, setSending] = useState(false);
+
+	// Listen for prefill-chat events (e.g. "Validate" button in sidebar)
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const text = (e as CustomEvent<string>).detail;
+			if (text) setInput(text);
+		};
+		window.addEventListener("quantdesk:prefill-chat", handler);
+		return () => window.removeEventListener("quantdesk:prefill-chat", handler);
+	}, []);
 	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
 	const [streamEntries, setStreamEntries] = useState<TranscriptEntry[]>([]);
 	const [runStartedAt, setRunStartedAt] = useState<Date | null>(null);

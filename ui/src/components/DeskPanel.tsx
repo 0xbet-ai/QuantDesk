@@ -404,20 +404,28 @@ export function DeskPanel({
 								<div className="px-3 py-2">
 									<button
 										type="button"
-										onClick={isApproved ? () => handleStartPaper(bestRun.id) : undefined}
-										disabled={!isApproved || startingPaper}
+										onClick={
+											isApproved
+												? () => handleStartPaper(bestRun.id)
+												: !verdict
+													? () => window.dispatchEvent(new CustomEvent("quantdesk:prefill-chat", { detail: `Run #${bestRun.runNumber} 검증해줘` }))
+													: undefined
+											}
+										disabled={startingPaper || verdict === "reject"}
 										title={
 											isApproved
 												? `Start paper trading with Run #${bestRun.runNumber}`
 												: verdict === "reject"
 													? "Run was rejected by Risk Manager"
-													: "Validate this run first (ask the agent)"
+													: "Click to request validation"
 										}
 										className={cn(
 											"flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md transition-colors",
 											isApproved
 												? "hover:bg-green-500/10 cursor-pointer"
-												: "cursor-default opacity-70",
+												: verdict === "reject"
+													? "cursor-default opacity-50"
+													: "hover:bg-muted cursor-pointer",
 										)}
 									>
 										{isApproved ? (
@@ -443,7 +451,7 @@ export function DeskPanel({
 												)}
 											</div>
 											<div className="text-[10px] text-muted-foreground">
-												{startingPaper ? "Starting…" : isApproved ? "Ready for paper" : verdict === "reject" ? "Rejected" : "Needs validation"}
+												{startingPaper ? "Starting…" : isApproved ? "Ready for paper" : verdict === "reject" ? "Rejected" : "Click to validate"}
 											</div>
 										</div>
 									</button>
