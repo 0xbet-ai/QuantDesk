@@ -1,5 +1,6 @@
 import { Play, TrendingUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import type { Experiment, Run } from "../lib/api.js";
 import { goPaper, listRuns } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
@@ -24,11 +25,25 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 	const [runs, setRuns] = useState<Run[]>([]);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 
-	useEffect(() => {
+	const refreshRuns = useCallback(() => {
 		listRuns(experimentId)
 			.then(setRuns)
 			.catch(() => {});
 	}, [experimentId]);
+
+	useEffect(() => {
+		refreshRuns();
+	}, [refreshRuns]);
+
+	// Live refresh — a backtest finishes via the MCP tool handler on the
+	// server and publishes a `run.status` event. Without this, the panel
+	// stays frozen on the snapshot fetched at mount and the user has to
+	// hard-refresh the page to see a new run.
+	useLiveUpdates(experimentId, (event) => {
+		if (event.type === "run.status" || event.type === "comment.new") {
+			refreshRuns();
+		}
+	});
 
 	const selectedRun = runs.find((r) => r.id === selectedRunId) ?? null;
 	const baseline = runs.find((r) => r.isBaseline) ?? null;

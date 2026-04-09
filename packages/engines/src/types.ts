@@ -5,6 +5,22 @@ export interface DataConfig {
 	startDate: string;
 	endDate: string;
 	workspacePath: string;
+	/** Optional trading mode passed through to the engine's downloader. */
+	tradingMode?: "spot" | "futures" | "margin";
+	/**
+	 * Optional host path to use as the download target instead of
+	 * `workspacePath`. Typically set by `data-fetch.ts` to the global
+	 * dataset cache root so multiple desks can share a single download.
+	 * When omitted, adapters write directly under `workspacePath`.
+	 */
+	userDir?: string;
+	/**
+	 * Optional line-buffered log streamer. Adapters forward the
+	 * downloader container's stdout/stderr through this callback so the
+	 * caller can publish progress to the UI without having to wait for
+	 * the container to exit.
+	 */
+	onLogLine?: (line: string, stream: "stdout" | "stderr") => void;
 }
 
 export interface DataRef {
@@ -101,4 +117,13 @@ export interface EngineAdapter {
 	stopPaper(handle: PaperHandle): Promise<void>;
 	getPaperStatus(handle: PaperHandle): Promise<PaperStatus>;
 	parseResult(raw: string): NormalizedResult;
+	/**
+	 * Files to seed into a freshly-created workspace for this engine.
+	 * Keys are workspace-relative paths; values are the file bodies.
+	 * The files carry the framework contract (imports, class shape,
+	 * required methods) the agent must follow. Engine-specific
+	 * knowledge lives entirely inside each adapter's implementation —
+	 * the server's workspace service must not hard-code any of it.
+	 */
+	workspaceTemplate(): Record<string, string>;
 }

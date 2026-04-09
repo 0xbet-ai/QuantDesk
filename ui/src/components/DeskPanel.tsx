@@ -3,6 +3,7 @@ import {
 	Bot,
 	Code,
 	FlaskConical,
+	LineChart,
 	Plus,
 	Settings,
 	Shield,
@@ -298,6 +299,12 @@ export function DeskPanel({
 
 			{/* Bottom nav — desk-scoped pages */}
 			<div className="shrink-0 border-t border-border px-2 py-2 flex flex-col gap-0.5">
+				<SidebarNavItem
+					label="Backtests"
+					icon={LineChart}
+					active={activePage === "runs"}
+					onClick={() => onPageChange("runs")}
+				/>
 				<SidebarNavItem
 					label="Code"
 					icon={Code}
