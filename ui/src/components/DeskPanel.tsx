@@ -354,6 +354,10 @@ export function DeskPanel({
 						)}
 					</SidebarSection>
 
+				</div>
+			</ScrollArea>
+
+				{/* Paper Trading — pinned above nav */}
 					{/* Paper Trading */}
 					<SidebarSection label="Paper Trading">
 						{paperSession && (paperSession.status === "running" || paperSession.status === "pending") ? (
@@ -468,8 +472,6 @@ export function DeskPanel({
 							</div>
 						)}
 					</SidebarSection>
-				</div>
-			</ScrollArea>
 
 			{/* Bottom nav — desk-scoped pages */}
 			<div className="shrink-0 border-t border-border px-2 py-2 flex flex-col gap-0.5">
