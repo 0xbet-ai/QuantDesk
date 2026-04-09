@@ -266,6 +266,13 @@ export const getCodeFile = async (
 	return res.text();
 };
 
+export const getCodeDiff = async (deskId: string, from: string, to: string): Promise<string> => {
+	const params = new URLSearchParams({ from, to });
+	const res = await fetch(`/api/desks/${deskId}/code/diff?${params}`);
+	if (!res.ok) throw new Error("Failed to fetch diff");
+	return res.text();
+};
+
 export const goPaper = (runId: string) => api<Run>(`/runs/${runId}/go-paper`, { method: "POST" });
 export const stopRun = (runId: string) => api<Run>(`/runs/${runId}/stop`, { method: "POST" });
 
