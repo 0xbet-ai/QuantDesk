@@ -68,15 +68,22 @@ setupWebSocket(server);
 
 server.listen(port, () => {
 	console.log(`QuantDesk server listening on port ${port}`);
-	// Clean up any stale agent runs from a previous crash/restart
-	cleanupStaleAgentRuns().catch((err) => {
-		console.error("Startup cleanup failed:", err);
-	});
-	// Phase 27 — mark orphan agent_turns rows as failed and start the
-	// heartbeat watchdog that catches silent subprocess deaths at runtime.
-	reconcileOrphanAgentTurns().catch((err) => {
-		console.error("Turn reconcile failed:", err);
-	});
+	// Boot reconcile must run BEFORE the stale-run cleanup so any
+	// in-flight turns from the previous process are marked failed
+	// first — otherwise `cleanupStaleAgentRuns` may see a stale
+	// running turn and skip posting the "interrupted" comment.
+	(async () => {
+		try {
+			await reconcileOrphanAgentTurns();
+		} catch (err) {
+			console.error("Turn reconcile failed:", err);
+		}
+		try {
+			await cleanupStaleAgentRuns();
+		} catch (err) {
+			console.error("Startup cleanup failed:", err);
+		}
+	})();
 	startTurnWatchdog();
 });
 
