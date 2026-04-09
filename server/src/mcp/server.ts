@@ -45,6 +45,13 @@ import {
 	completeExperiment,
 } from "../services/experiments.js";
 import { autoIncrementRunNumber } from "../services/logic.js";
+import {
+	failSession,
+	getActiveSession,
+	markSessionRunning,
+	startPaperSession,
+	stopSession,
+} from "../services/paper-sessions.js";
 import { getCurrentTurnId } from "../services/turn-context.js";
 
 export interface McpServerContext {
@@ -683,6 +690,150 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 			} catch (err) {
 				return errorResult(
 					`complete_experiment failed: ${err instanceof Error ? err.message : String(err)}`,
+				);
+			}
+		},
+	);
+
+	// ── go_paper ─────────────────────────────────────────────────────
+	server.registerTool(
+		"go_paper",
+		{
+			description:
+				"Promote a validated backtest run to paper trading. The source " +
+				"run must have a Risk Manager verdict of 'approve' and the desk " +
+				"must have no active paper session. Requires prior user consent. " +
+				"Returns { sessionId, status } on success.",
+			inputSchema: {
+				runId: z.string().uuid().describe("The validated run to promote."),
+			},
+		},
+		async (args) => {
+			try {
+				// 1. Create pending session (gates: validated run, one-per-desk).
+				const session = await startPaperSession({
+					runId: args.runId,
+					deskId: ctx.deskId,
+					experimentId: ctx.experimentId,
+				});
+
+				// 2. Resolve desk + engine adapter.
+				const [desk] = await db
+					.select()
+					.from(desks)
+					.where(eq(desks.id, ctx.deskId));
+				if (!desk || !desk.workspacePath) {
+					await failSession(session.id, "desk not found or no workspace");
+					return errorResult("go_paper: desk not found or no workspace path");
+				}
+				const engineAdapter = getEngineAdapter(desk.engine);
+
+				// 3. Resolve run details for the engine adapter.
+				const [run] = await db
+					.select()
+					.from(runs)
+					.where(eq(runs.id, args.runId));
+				if (!run) {
+					await failSession(session.id, "run not found");
+					return errorResult("go_paper: run not found");
+				}
+				const venue = (desk.venues as string[])[0] ?? "binance";
+				const config = run.config as Record<string, unknown> | null;
+				const pairs = config?.pairs as string[] | undefined;
+				const timeframe = config?.timeframe as string | undefined;
+
+				// 4. Spawn paper container via engine adapter.
+				const handle = await engineAdapter.startPaper({
+					strategyPath: "strategy.py",
+					runId: args.runId,
+					workspacePath: desk.workspacePath,
+					exchange: venue,
+					pairs: pairs ?? ["BTC/USDT"],
+					timeframe: timeframe ?? "5m",
+					wallet: Number(desk.budget) || 10000,
+					extraVolumes: (desk.externalMounts ?? []).map(
+						(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
+					),
+				});
+
+				// 5. Mark running.
+				await markSessionRunning(session.id, {
+					containerName: handle.containerName,
+					apiPort: handle.meta?.apiPort as number | undefined,
+					meta: handle.meta ?? undefined,
+				});
+
+				publishExperimentEvent({
+					experimentId: ctx.experimentId,
+					type: "paper.status",
+					payload: { sessionId: session.id, status: "running" },
+				});
+
+				return textResult(
+					JSON.stringify(
+						{
+							sessionId: session.id,
+							status: "running",
+							containerName: handle.containerName,
+						},
+						null,
+						2,
+					),
+				);
+			} catch (err) {
+				return errorResult(
+					`go_paper failed: ${err instanceof Error ? err.message : String(err)}`,
+				);
+			}
+		},
+	);
+
+	// ── stop_paper ────────────────────────────────────────────────────
+	server.registerTool(
+		"stop_paper",
+		{
+			description:
+				"Stop the active paper trading session for this desk. The " +
+				"container is gracefully shut down and removed. No retrigger.",
+			inputSchema: {},
+		},
+		async () => {
+			try {
+				const session = await getActiveSession(ctx.deskId);
+				if (!session) {
+					return errorResult("stop_paper: no active paper session on this desk.");
+				}
+
+				// Stop via engine adapter.
+				const [desk] = await db
+					.select()
+					.from(desks)
+					.where(eq(desks.id, ctx.deskId));
+				if (desk) {
+					const engineAdapter = getEngineAdapter(desk.engine);
+					try {
+						await engineAdapter.stopPaper({
+							containerName: session.containerName ?? "",
+							runId: session.runId,
+							meta: (session.meta as Record<string, unknown>) ?? {},
+						});
+					} catch {
+						// Container may already be gone — continue to mark DB.
+					}
+				}
+
+				await stopSession(session.id);
+
+				publishExperimentEvent({
+					experimentId: ctx.experimentId,
+					type: "paper.status",
+					payload: { sessionId: session.id, status: "stopped" },
+				});
+
+				return textResult(JSON.stringify({ stopped: true, sessionId: session.id }, null, 2));
+			} catch (err) {
+				return errorResult(
+					`stop_paper failed: ${err instanceof Error ? err.message : String(err)}`,
 				);
 			}
 		},
