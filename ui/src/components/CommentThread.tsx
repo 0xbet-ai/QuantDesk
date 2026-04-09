@@ -18,10 +18,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
-import type { Comment, Experiment } from "../lib/api.js";
-import { getAgentLogs, listComments, postComment } from "../lib/api.js";
+import type { Comment, Dataset, Experiment } from "../lib/api.js";
+import { getAgentLogs, listComments, listDatasets, postComment } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { listExperimentTurns } from "../lib/api.js";
+import { DatasetPreviewModal } from "./DatasetView.js";
 import { TurnCard, type TurnLifecycleStatus } from "./TurnCard.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
 import { RunTranscriptView } from "./transcript/RunTranscriptView.js";
@@ -171,6 +172,22 @@ export function CommentThread({
 	// "Downloaded …" or failure — supersedes the live tail).
 	const [dataFetchProgress, setDataFetchProgress] = useState<string[]>([]);
 	const bottomRef = useRef<HTMLDivElement>(null);
+
+	// Phase 27 — dataset index keyed by id so comment-attached
+	// registeredDatasetIds can render clickable preview chips without a
+	// per-chip fetch. Reloaded whenever a new comment arrives (the
+	// register_dataset tool may have run in between).
+	const [datasetsById, setDatasetsById] = useState<Record<string, Dataset>>({});
+	const [previewDataset, setPreviewDataset] = useState<Dataset | null>(null);
+	useEffect(() => {
+		listDatasets(experiment.deskId)
+			.then((list) => {
+				const map: Record<string, Dataset> = {};
+				for (const d of list) map[d.id] = d;
+				setDatasetsById(map);
+			})
+			.catch(() => {});
+	}, [experiment.deskId, comments.length]);
 
 	const refresh = useCallback(() => {
 		listComments(experiment.id)

@@ -9,13 +9,15 @@ import {
 	agentSessions,
 	agentTurns,
 	comments,
+	datasets,
+	deskDatasets,
 	desks,
 	experiments,
 	memorySummaries,
 	runs,
 } from "@quantdesk/db/schema";
 import { stripAgentMarkers } from "@quantdesk/shared";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog, clearAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
@@ -453,10 +455,37 @@ export async function triggerAgent(
 			if (result.resultText) {
 				const cleanText = stripAgentMarkers(result.resultText);
 				if (cleanText) {
+					// Phase 27 — scan for side-effects produced during this turn
+					// and attach them to the comment metadata so the UI can
+					// render clickable chips (dataset preview, run detail)
+					// without extra round-trips. Uses turn.startedAt as a lower
+					// bound because desk_datasets has no turn_id column.
+					const linkedThisTurn = await db
+						.select({ datasetId: datasets.id })
+						.from(deskDatasets)
+						.innerJoin(datasets, eq(deskDatasets.datasetId, datasets.id))
+						.where(
+							and(
+								eq(deskDatasets.deskId, desk.id),
+								gte(deskDatasets.createdAt, turn!.startedAt),
+							),
+						);
+					const runsThisTurn = await db
+						.select({ id: runs.id, runNumber: runs.runNumber })
+						.from(runs)
+						.where(eq(runs.turnId, turnId));
+					const toolEffects: Record<string, unknown> = {};
+					if (linkedThisTurn.length > 0) {
+						toolEffects.registeredDatasetIds = linkedThisTurn.map((r) => r.datasetId);
+					}
+					if (runsThisTurn.length > 0) {
+						toolEffects.runIds = runsThisTurn.map((r) => r.id);
+					}
 					await createComment({
 						experimentId,
 						author: session.agentRole,
 						content: cleanText,
+						metadata: Object.keys(toolEffects).length > 0 ? toolEffects : undefined,
 					});
 				}
 			} else if (result.error) {

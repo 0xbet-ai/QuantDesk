@@ -78,6 +78,57 @@ export async function previewDataset(id: string, limit = 50): Promise<PreviewRes
 		stats = statSync(absPath);
 	}
 	const content = readFileSync(absPath, "utf-8");
+
+	// JSON branch: OHLCV files stored as arrays of arrays
+	// (`[[timestamp, open, high, low, close, volume], ...]`). Freqtrade's
+	// download-data writes this shape for every pair, and it's what hits
+	// the preview endpoint when a classic desk's dataset is clicked.
+	if (absPath.endsWith(".json")) {
+		try {
+			const parsed = JSON.parse(content);
+			if (Array.isArray(parsed) && parsed.length > 0 && Array.isArray(parsed[0])) {
+				const width = (parsed[0] as unknown[]).length;
+				// Assume OHLCV layout when the row width matches.
+				const ohlcvHeaders = ["timestamp", "open", "high", "low", "close", "volume"];
+				const headers =
+					width === ohlcvHeaders.length
+						? ohlcvHeaders
+						: Array.from({ length: width }, (_, i) => `col_${i}`);
+				const rows = (parsed as unknown[][]).slice(0, limit).map((row) =>
+					row.map((cell) => {
+						if (typeof cell === "number" || typeof cell === "bigint") {
+							return String(cell);
+						}
+						if (cell == null) return "";
+						return typeof cell === "string" ? cell : JSON.stringify(cell);
+					}),
+				);
+				return {
+					headers,
+					rows,
+					totalRows: parsed.length,
+					fileSize: stats.size,
+				};
+			}
+			// Array of objects — use the first object's keys as headers.
+			if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "object") {
+				const headers = Object.keys(parsed[0] as Record<string, unknown>);
+				const rows = (parsed as Record<string, unknown>[]).slice(0, limit).map((obj) =>
+					headers.map((h) => {
+						const v = obj[h];
+						if (v == null) return "";
+						if (typeof v === "object") return JSON.stringify(v);
+						return String(v);
+					}),
+				);
+				return { headers, rows, totalRows: parsed.length, fileSize: stats.size };
+			}
+			// Fall through to raw text rendering for other JSON shapes.
+		} catch {
+			/* not valid JSON — fall through to the line splitter below */
+		}
+	}
+
 	const allLines = content.split("\n").filter((l) => l.length > 0);
 	if (allLines.length === 0) {
 		return { headers: [], rows: [], totalRows: 0, fileSize: stats.size };

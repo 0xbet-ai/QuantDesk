@@ -235,33 +235,53 @@ export function TurnCard({
 						{nestedComments && <div className="text-[13px]">{nestedComments}</div>}
 						{dataFetchProgress && dataFetchProgress.length > 0 && (
 							<div className="relative pl-8 pb-3">
-								<div className="absolute left-0 top-0 z-10 flex size-6 items-center justify-center rounded-full bg-cyan-100 ring-4 ring-background dark:bg-cyan-900/40">
-									<Database className="size-3 text-cyan-700 dark:text-cyan-300 animate-pulse" />
+								<div className="absolute left-0 top-0 z-10 flex size-6 items-center justify-center rounded-full bg-emerald-100 ring-4 ring-background dark:bg-emerald-900/40">
+									<Database className="size-3 text-emerald-700 dark:text-emerald-300 animate-pulse" />
 								</div>
-								<div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-									Data fetch · live
+								<div className="rounded-md border border-emerald-500/25 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.06]">
+									<div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 px-2.5 py-1">
+										<div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+											<Database className="size-3" />
+											<span>Server · data fetch</span>
+										</div>
+										<span className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-[0.14em] text-emerald-600/80 dark:text-emerald-300/80">
+											<span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+											live
+										</span>
+									</div>
+									<pre className="max-h-48 overflow-y-auto whitespace-pre-wrap px-2.5 py-1.5 font-mono text-[10px] leading-tight text-emerald-950/80 dark:text-emerald-100/80">
+										{dataFetchProgress.slice(-30).join("\n")}
+									</pre>
 								</div>
-								<pre className="max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] leading-tight text-muted-foreground">
-									{dataFetchProgress.slice(-30).join("\n")}
-								</pre>
 							</div>
 						)}
 						{runLogLines && runLogLines.length > 0 && (
 							<div className="relative pl-8 pb-3">
-								<div className="absolute left-0 top-0 z-10 flex size-6 items-center justify-center rounded-full bg-cyan-100 ring-4 ring-background dark:bg-cyan-900/40">
+								<div className="absolute left-0 top-0 z-10 flex size-6 items-center justify-center rounded-full bg-sky-100 ring-4 ring-background dark:bg-sky-900/40">
 									<Terminal
 										className={cn(
-											"size-3 text-cyan-700 dark:text-cyan-300",
+											"size-3 text-sky-700 dark:text-sky-300",
 											streaming && "animate-pulse",
 										)}
 									/>
 								</div>
-								<div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-									Engine container {streaming ? "· live" : ""}
+								<div className="rounded-md border border-sky-500/25 bg-sky-950/[0.03] dark:bg-sky-950/40">
+									<div className="flex items-center justify-between gap-2 border-b border-sky-500/20 bg-sky-500/[0.06] px-2.5 py-1">
+										<div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">
+											<Terminal className="size-3" />
+											<span>Docker · engine container</span>
+										</div>
+										{streaming && (
+											<span className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-[0.14em] text-sky-600/80 dark:text-sky-300/80">
+												<span className="size-1.5 rounded-full bg-sky-500 animate-pulse" />
+												live
+											</span>
+										)}
+									</div>
+									<pre className="max-h-48 overflow-y-auto whitespace-pre-wrap px-2.5 py-1.5 font-mono text-[10px] leading-tight text-sky-950/80 dark:text-sky-100/80">
+										{runLogLines.slice(-30).join("\n")}
+									</pre>
 								</div>
-								<pre className="max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-[10px] leading-tight text-muted-foreground">
-									{runLogLines.slice(-30).join("\n")}
-								</pre>
 							</div>
 						)}
 					</div>
