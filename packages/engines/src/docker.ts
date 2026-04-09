@@ -161,7 +161,32 @@ export async function runContainer(
 	stream: ExecStreamOptions = {},
 ): Promise<RunResult> {
 	const args = buildRunArgs({ ...opts, detach: false });
-	return exec(args, stream);
+
+	// Periodically log container resource usage when a name is set.
+	let statsInterval: ReturnType<typeof setInterval> | undefined;
+	if (opts.name) {
+		statsInterval = setInterval(async () => {
+			try {
+				const s = await exec([
+					"stats",
+					"--no-stream",
+					"--format",
+					"{{.Name}}\tCPU={{.CPUPerc}}\tMEM={{.MemUsage}}\tMEM%={{.MemPerc}}",
+					opts.name!,
+				]);
+				const line = s.stdout.trim();
+				if (line) console.log(`[docker-stats] ${line}`);
+			} catch {
+				/* container may have exited between ticks */
+			}
+		}, 5_000);
+	}
+
+	try {
+		return await exec(args, stream);
+	} finally {
+		if (statsInterval) clearInterval(statsInterval);
+	}
 }
 
 /**

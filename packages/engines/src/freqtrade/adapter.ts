@@ -160,9 +160,11 @@ export class FreqtradeAdapter implements EngineAdapter {
 			}
 		}
 
+		const containerName = `quantdesk-ft-backtest-${config.runId.slice(0, 8)}`;
 		const result = await runContainer(
 			{
 				image: ENGINE_IMAGES.freqtrade,
+				name: containerName,
 				rm: true,
 				volumes: [`${workspaceAbs}:${USERDIR_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
 				tmpfs: GIT_SHADOW_TMPFS,

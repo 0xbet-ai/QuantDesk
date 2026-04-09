@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { extname, join, resolve } from "node:path";
@@ -129,7 +130,7 @@ export class GenericAdapter implements EngineAdapter {
 		scriptPath: string;
 		extraVolumes?: string[];
 		onLogLine?: (line: string, stream: "stdout" | "stderr") => void;
-	}): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+	}): Promise<{ stdout: string; stderr: string; exitCode: number; containerName: string }> {
 		await this.ensureImage();
 		const ext = extname(input.scriptPath).toLowerCase();
 		const runtime = RUNTIME_BY_EXT[ext];
@@ -137,9 +138,11 @@ export class GenericAdapter implements EngineAdapter {
 			throw new UnsupportedRuntimeError(ext);
 		}
 		const workspaceAbs = resolve(input.workspacePath);
+		const containerName = `quantdesk-script-${crypto.randomUUID().slice(0, 8)}`;
 		const result = await runContainer(
 			{
 				image: ENGINE_IMAGES.generic,
+				name: containerName,
 				rm: true,
 				cpus: "2",
 				memory: "2g",
@@ -159,6 +162,7 @@ export class GenericAdapter implements EngineAdapter {
 			stdout: result.stdout,
 			stderr: result.stderr,
 			exitCode: result.exitCode,
+			containerName,
 		};
 	}
 
@@ -172,10 +176,12 @@ export class GenericAdapter implements EngineAdapter {
 
 		const workspaceAbs = resolve(config.workspacePath);
 		const externalMountVolumes = config.extraVolumes ?? [];
+		const containerName = `quantdesk-backtest-${config.runId.slice(0, 8)}`;
 
 		const result = await runContainer(
 			{
 				image: ENGINE_IMAGES.generic,
+				name: containerName,
 				rm: true,
 				cpus: "2",
 				memory: "2g",

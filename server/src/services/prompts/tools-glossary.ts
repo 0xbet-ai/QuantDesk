@@ -26,6 +26,9 @@ react immediately.
 - \`mcp__quantdesk__stop_paper({})\` — stop the active paper trading session. No retrigger. No consent needed.
 - \`mcp__quantdesk__run_script({scriptPath})\` — execute an agent-authored script in the generic sandbox container. Use for fetchers, exploration, any script — NOT the final backtest (use \`run_backtest\` for that). Available on all desks. No consent needed.
 
+### Container resource limits
+All \`run_script\` and \`run_backtest\` containers run with **2 CPU cores** and **2 GB RAM**. Write memory-efficient code: stream or chunk large datasets instead of loading everything into memory at once. For multi-pair fetches, process one pair at a time. If a script exceeds 2 GB it will be OOM-killed silently (exit code 137).
+
 ### Conversational approval
 Tools that need prior user consent in a previous turn: \`data_fetch\`, \`request_validation\`, \`new_experiment\`, \`complete_experiment\`, \`go_paper\`. For these, the ask turn must make **no tool call**; the execution turn (after the user agrees) makes the call.
 
