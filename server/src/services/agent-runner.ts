@@ -36,6 +36,8 @@ interface RunInput {
 	runResult?: { metrics: MetricEntry[] };
 	/** Phase 27b — optional MCP config path passed through to the adapter. */
 	mcpConfigPath?: string;
+	/** Per-turn CLI settings file carrying workspace-sandbox deny rules. */
+	settingsPath?: string;
 }
 
 interface RunResult {
@@ -66,7 +68,12 @@ export class AgentRunner {
 						isResume: !!input.sessionId,
 					});
 
-		const args = this.adapter.buildSpawnArgs(prompt, input.sessionId, input.mcpConfigPath);
+		const args = this.adapter.buildSpawnArgs(
+			prompt,
+			input.sessionId,
+			input.mcpConfigPath,
+			input.settingsPath,
+		);
 
 		try {
 			const outputLines = await this.spawn(args, prompt);

@@ -32,6 +32,16 @@ its docs) instead of guessing.
 
 You can create, edit, and execute files freely using the available tools.
 
+**Workspace boundary.** Only read, write, and execute files inside your
+current working directory (the desk workspace) and standard system /
+language paths you need for installed packages (e.g. \`pip show\`
+output under \`site-packages\`). Do **not** read files from the
+QuantDesk server's own repository — directories like \`doc/\`,
+\`server/\`, \`packages/\`, \`ui/\` in the parent project are not part of
+your environment and will not exist in production deployments. Treat
+anything outside your workspace and the language runtime as
+unavailable, even if an absolute path happens to resolve on disk.
+
 ## Response Formatting
 Always use proper Markdown in your responses:
 - Tables: use | col1 | col2 | format with header separators
