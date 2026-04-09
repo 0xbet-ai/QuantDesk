@@ -51,13 +51,12 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 |---|-------|------|
 | 26 | [Server-side P1 bootstrap for catalog desks](26_catalog_p1_bootstrap.md) | TODO |
 
-### Group H — Agent protocol
-
-| # | Title | Kind |
-|---|-------|------|
-| 27 | [Replace marker protocol with MCP tools](27_mcp_migration.md) | TODO |
 
 ## DONE (baseline — already in code)
+
+### Agent protocol (phase 27)
+- **MCP tool migration** — the bracketed-marker protocol (`[DATA_FETCH]`, `[RUN_BACKTEST]`, etc.) is gone. Every lifecycle action (data_fetch, register_dataset, run_backtest, set_experiment_title, request_validation, submit_rm_verdict, new_experiment, complete_experiment) is now an MCP tool hosted in-process at `POST /mcp` on the parent server. Claude CLI connects via `--mcp-config` → `{"type":"http","url":"http://127.0.0.1:PORT/mcp","headers":{"X-QuantDesk-Experiment":..., "X-QuantDesk-Desk":...}}`. Tool handlers run in-process with full access to the DB, event emitter, engine adapters, and `triggerAgent`. Dead-end guard's hadMarker signal is now driven by `tool_call` streaming chunks instead of marker regex. See `doc/agent/MCP.md`. — `server/src/mcp/{server,http-route}.ts`, `server/src/services/{agent-trigger,prompts/analyst-system}.ts`, `packages/shared/src/agent-markers.ts` (reduced to defensive stripping).
+
 
 Verified against the spec docs and the current tree.
 
