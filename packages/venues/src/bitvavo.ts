@@ -5,10 +5,8 @@ export const bitvavoGuide: VenueGuide = {
 	displayName: "Bitvavo",
 
 	tldr:
-		"Use ccxt's `fetch_ohlcv` with exchange ID `bitvavo`. Returns up to 1440 " +
-		"candles per request. Spot only — no futures. EUR is the primary quote " +
-		"currency (not USDT). If ccxt fails, fall back to REST " +
-		"`/v2/<market>/candles`.",
+		"No bulk portal. Spot only, EUR-primary (no USDT). " +
+		"ccxt returns 1440 candles/req. Direct REST as fallback.",
 
 	symbolFormat: {
 		spot:
@@ -47,12 +45,12 @@ export const bitvavoGuide: VenueGuide = {
 		"Max 1440 candles per request. Advance `since = candles[-1][0] + 1`. " +
 		"Rate limit: 1000 req / min. On 429, back off per Retry-After.",
 
+	apiDocs: "https://docs.bitvavo.com/#tag/Market-Data/paths/~1{market}~1candles/get",
+
 	knownGotchas: [
 		"Spot only — no futures, no margin, no derivatives at all.",
 		"No USDT pairs. Primary quote is EUR. Only 11 USDC pairs.",
 		"EU-regulated exchange — may restrict non-EU IP addresses.",
-		"REST API docs: https://docs.bitvavo.com/#tag/Market-Data/paths/~1{market}~1candles/get",
-		"Bulk data portal: none — API-only for historical data.",
 	],
 
 	lastVerified: "2026-04-09",

@@ -5,10 +5,8 @@ export const binanceGuide: VenueGuide = {
 	displayName: "Binance",
 
 	tldr:
-		"Use ccxt's `fetch_ohlcv` with enableRateLimit. Binance returns up to " +
-		"1000 candles per request. Paginate by advancing `since` to " +
-		"`candles[-1][0] + 1`. If ccxt fails, fall back to the public REST " +
-		"endpoint `/api/v3/klines` (spot) or `/fapi/v1/klines` (USDT-M futures).",
+		"Binance has the best bulk data portal in crypto (data.binance.vision) with " +
+		"1s klines. Try bulk first, then ccxt paginated fetch, then direct REST.",
 
 	symbolFormat: {
 		spot: "BTC/USDT, BTC/USDC, ETH/BTC (ccxt) | BTCUSDT, BTCUSDC, ETHBTC (native REST)",
@@ -21,6 +19,13 @@ export const binanceGuide: VenueGuide = {
 			"BUSD is delisted. Spot and futures are separate API domains.\n\n" +
 			"**Nautilus symbols:** Spot `BTCUSDT.BINANCE`, USDT-M perp `BTCUSDT-PERP.BINANCE`, " +
 			"COIN-M perp `BTCUSD-PERP.BINANCE`. Tardis key: `binance`, `binance-futures`.",
+	},
+
+	bulkDownload: {
+		url: "https://data.binance.vision/",
+		format: "zip/csv",
+		dataTypes: "1s klines, trades, aggTrades, book ticker, funding rate",
+		notes: "Covers spot + USDT-M + COIN-M futures. Best in class.",
 	},
 
 	recommendedFetch: {
@@ -55,14 +60,16 @@ export const binanceGuide: VenueGuide = {
 		"Each kline request costs weight 1-5 depending on limit. " +
 		"On 429 or 418, honour `Retry-After` header and back off.",
 
+	apiDocs: [
+		"https://developers.binance.com/docs/binance-spot-api-docs/rest-api",
+		"https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info",
+	],
+
 	knownGotchas: [
 		"Futures use separate API base: fapi.binance.com (USDT-M) and dapi.binance.com (COIN-M).",
 		"Blacklist BNB/<STAKE> pairs to avoid fee token complications.",
 		"Position mode must be One-way Mode, asset mode must be Single-Asset Mode for futures.",
 		"1m candles go back to exchange launch; smaller timeframes may have gaps.",
-		"REST API docs (spot): https://developers.binance.com/docs/binance-spot-api-docs/rest-api",
-		"REST API docs (futures): https://developers.binance.com/docs/derivatives/usds-margined-futures/general-info",
-		"Bulk data portal: https://data.binance.vision/ — 1s klines, trades, aggTrades. Free ZIP/CSV. Best in class.",
 	],
 
 	lastVerified: "2026-04-09",

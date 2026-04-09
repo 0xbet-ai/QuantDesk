@@ -51,13 +51,14 @@ export const deribitGuide: VenueGuide = {
 		"Advance `start_timestamp` to last tick + 1 (ms). " +
 		"Rate limit: 20 req / second (unauthenticated). On 429, back off 1 second.",
 
+	apiDocs: "https://docs.deribit.com/#public-get_tradingview_chart_data",
+
 	knownGotchas: [
 		"Options are the primary product — more options than futures/perps.",
 		"Perpetual symbol is literally `BTC-PERPETUAL`, not abbreviated.",
 		"Timestamps in API are milliseconds.",
 		"WebSocket is preferred for real-time data; REST for historical.",
 		"Tardis exchange key is `deribit`.",
-		"REST API docs: https://docs.deribit.com/#public-get_tradingview_chart_data",
 	],
 
 	lastVerified: "2026-04-09",

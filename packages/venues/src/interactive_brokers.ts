@@ -55,6 +55,8 @@ export const interactiveBrokersGuide: VenueGuide = {
 		"Max duration depends on bar size (e.g., 1 sec bars → max 1800 secs). " +
 		"On pacing violation, wait 10 minutes.",
 
+	apiDocs: "https://ibkrcampus.com/campus/ibkr-api-page/twsapi-doc/",
+
 	knownGotchas: [
 		"Requires IB Gateway or TWS running locally — no public REST API.",
 		"Paper trading port: 4002. Live trading port: 4001.",
@@ -62,7 +64,6 @@ export const interactiveBrokersGuide: VenueGuide = {
 		"Multi-asset class (stocks, futures, options, forex, crypto) — symbology varies.",
 		"NOT available through Tardis — IB data stays within IB ecosystem.",
 		"Futures use month codes: F(Jan), G(Feb), H(Mar), J(Apr), K(May), M(Jun), N(Jul), Q(Aug), U(Sep), V(Oct), X(Nov), Z(Dec).",
-		"IB API docs: https://ibkrcampus.com/campus/ibkr-api-page/twsapi-doc/",
 	],
 
 	lastVerified: "2026-04-09",

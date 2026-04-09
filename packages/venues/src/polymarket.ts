@@ -49,13 +49,14 @@ export const polymarketGuide: VenueGuide = {
 		"Fidelity param controls granularity (seconds between points). " +
 		"Rate limit: varies, be conservative with 1 req / second.",
 
+	apiDocs: "https://docs.polymarket.com/",
+
 	knownGotchas: [
 		"Prediction market — binary outcomes (YES/NO tokens), not traditional trading pairs.",
 		"Symbols are hex condition IDs + numeric token IDs, not human-readable tickers.",
 		"Markets are created per event and expire — no perpetual instruments.",
 		"NOT available through Tardis — Polymarket API only.",
 		"Order book is the primary data type (price levels for YES/NO tokens).",
-		"CLOB API docs: https://docs.polymarket.com/",
 	],
 
 	lastVerified: "2026-04-09",

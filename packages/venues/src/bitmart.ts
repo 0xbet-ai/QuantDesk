@@ -5,10 +5,8 @@ export const bitmartGuide: VenueGuide = {
 	displayName: "BitMart",
 
 	tldr:
-		"Use ccxt's `fetch_ohlcv` with exchange ID `bitmart`. Returns up to 200 " +
-		"candles per request (low limit — pagination-heavy). All linear perps are " +
-		"USDT-settled. If ccxt fails, fall back to REST " +
-		"`/spot/quotation/v3/lite-klines` (spot) or `/contract/public/kline` (futures).",
+		"No bulk portal. ccxt returns only 200 candles/req (very slow). " +
+		"Direct REST is the realistic fallback.",
 
 	symbolFormat: {
 		spot:
@@ -50,15 +48,17 @@ export const bitmartGuide: VenueGuide = {
 		"Advance `since = candles[-1][0] + 1`. " +
 		"Rate limit: 15 req / second for public endpoints. On 429, back off 2 seconds.",
 
+	apiDocs: [
+		"https://developer-pro.bitmart.com/en/spot/#get-history-k-line-v3",
+		"https://developer-pro.bitmart.com/en/futuresv2/#get-k-line",
+	],
+
 	knownGotchas: [
 		"Only 200 candles per request — pagination is slow for long date ranges.",
 		"USDC perps exist (5 pairs) but are actually USDT-settled (BTC/USDC:USDT).",
 		"Requires API key Memo (UID) for authentication — not just key/secret.",
 		"No stoploss on exchange support in freqtrade.",
 		"Verification Level 2 needed for API access.",
-		"REST API docs (spot): https://developer-pro.bitmart.com/en/spot/#get-history-k-line-v3",
-		"REST API docs (futures): https://developer-pro.bitmart.com/en/futuresv2/#get-k-line",
-		"Bulk data portal: none — API-only for historical data.",
 	],
 
 	lastVerified: "2026-04-09",

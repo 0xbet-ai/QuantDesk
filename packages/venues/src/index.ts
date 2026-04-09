@@ -89,16 +89,41 @@ export function renderVenueGuideMarkdown(guide: VenueGuide): string {
 
 	const gotchas = guide.knownGotchas.map((g) => `- ${g}`).join("\n");
 
+	// Build fetch priority section
+	const priorities: string[] = [];
+	priorities.push("1. **Engine downloader** (Path A) — already attempted, failed");
+
+	if (guide.bulkDownload) {
+		const bd = guide.bulkDownload;
+		const bdNotes = bd.notes ? ` — ${bd.notes}` : "";
+		priorities.push(
+			`2. **Bulk portal** → ${bd.url} (${bd.format}: ${bd.dataTypes}${bdNotes})`,
+		);
+	}
+
+	const nextNum = guide.bulkDownload ? 3 : 2;
+	priorities.push(
+		`${nextNum}. **${guide.recommendedFetch.library}** — paginated fetch (see snippet below)`,
+	);
+
+	const apiDocs = Array.isArray(guide.apiDocs) ? guide.apiDocs : [guide.apiDocs];
+	const apiDocsStr = apiDocs.map((d) => `  - ${d}`).join("\n");
+	priorities.push(`${nextNum + 1}. **Direct REST API** — last resort\n${apiDocsStr}`);
+	priorities.push(`${nextNum + 2}. **Report to user** if all above fail`);
+
 	return `# Path B fetch guide — ${guide.displayName}
 
 > Venue id: \`${guide.venue}\`
 > Last verified: \`${guide.lastVerified}\` — ${guide.verificationNotes}
 
 This file was seeded into your workspace because your desk uses this
-venue. When the engine's bundled downloader fails (Path A), prefer the
-instructions below over the generic Path B guidance in your system
-prompt — they were written from empirically verified runs against this
-specific venue.
+venue. When the engine's bundled downloader fails (Path A), follow the
+priority order below — try each tier in sequence, advance to the next
+only on failure.
+
+## Data fetch priority
+
+${priorities.join("\n")}
 
 ## TL;DR
 

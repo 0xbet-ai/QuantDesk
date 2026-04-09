@@ -5,10 +5,8 @@ export const hyperliquidGuide: VenueGuide = {
 	displayName: "Hyperliquid",
 
 	tldr:
-		"Use ccxt's `fetch_ohlcv` with exchange ID `hyperliquid`. Returns up to " +
-		"5000 candles per request (generous). USDC-native DEX — no USDT. " +
-		"If ccxt fails, POST to `https://api.hyperliquid.xyz/info` with " +
-		"`{\"type\": \"candleSnapshot\", ...}` body.",
+		"S3 archive has L2 book only (no klines). USDC-native DEX — no USDT. " +
+		"ccxt returns 5000 candles/req (generous). Direct REST POST as fallback.",
 
 	symbolFormat: {
 		spot:
@@ -22,6 +20,13 @@ export const hyperliquidGuide: VenueGuide = {
 			"DEX — uses wallet private key, not traditional API key.\n\n" +
 			"**Nautilus symbols:** Perp `BTC-USD-PERP.HYPERLIQUID`, " +
 			"Spot `BTC-USDC-SPOT.HYPERLIQUID`. Tardis key: `hyperliquid`.",
+	},
+
+	bulkDownload: {
+		url: "s3://hyperliquid-archive/",
+		format: "lz4",
+		dataTypes: "L2 book snapshots, asset contexts only",
+		notes: "No klines or trades. Requester-pays S3 bucket. ~Monthly updates.",
 	},
 
 	recommendedFetch: {
@@ -54,14 +59,14 @@ export const hyperliquidGuide: VenueGuide = {
 		"Advance `since = candles[-1][0] + 1`. " +
 		"Rate limit: 1200 req / min. No auth needed for market data.",
 
+	apiDocs: "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/candle-snapshot",
+
 	knownGotchas: [
 		"USDC-native DEX — no USDT at all. All pairs are USDC-denominated.",
 		"Does not support real market orders — freqtrade simulates via limit with 5% slippage.",
 		"Only ~5000 historic candles available via API — limited history depth.",
 		"Uses wallet private key for auth, not API key. Create a dedicated API wallet.",
 		"Native API for perps uses bare coin name (BTC), spot uses numeric index (@1). ccxt normalises both.",
-		"REST API (info endpoint): https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/candle-snapshot",
-		"Bulk data: s3://hyperliquid-archive/ — L2 book snapshots only (no klines). Requester-pays, monthly updates.",
 	],
 
 	lastVerified: "2026-04-09",
