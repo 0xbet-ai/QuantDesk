@@ -6,6 +6,8 @@
  */
 
 export { buildAnalystSystemBlock } from "./analyst-system.js";
+export { buildToolsGlossaryBlock } from "./tools-glossary.js";
+export { buildLifecycleRulesBlock } from "./lifecycle-rules.js";
 export { buildClassicModeBlock } from "./mode-classic.js";
 export { buildRealtimeModeBlock } from "./mode-realtime.js";
 export { buildGenericModeBlock } from "./mode-generic.js";

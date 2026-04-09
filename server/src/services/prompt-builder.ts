@@ -9,7 +9,9 @@ import {
 	buildClassicModeBlock,
 	buildFailureEscalationBlock,
 	buildGenericModeBlock,
+	buildLifecycleRulesBlock,
 	buildRealtimeModeBlock,
+	buildToolsGlossaryBlock,
 	countRecentFailureStreak,
 } from "./prompts/index.js";
 import type { AnalystPromptInput, CommentContext, DeskContext } from "./prompts/index.js";
@@ -74,13 +76,24 @@ export function buildAnalystPrompt(input: AnalystPromptInput): string {
 
 	const sections: string[] = [];
 
-	// 1. analyst.system — identity, rules, marker glossary, first-run protocol
+	// 1. analyst.system — identity, rules, workspace, conversational
+	//    approval, never-give-up.
 	sections.push(buildAnalystSystemBlock());
 
-	// 2. analyst.mode-{classic|realtime|generic} — engine-shaped execution
+	// 2. tools glossary — MCP tool catalog (single source of truth for
+	//    which tools exist and which need prior consent).
+	sections.push(buildToolsGlossaryBlock());
+
+	// 3. mode-{classic|realtime|generic} — execution model + data
+	//    acquisition protocol. Engine-agnostic; the framework contract
+	//    lives in the seeded strategy.py.
 	sections.push(buildModeInstructions(desk));
 
-	// 3. analyst.failure-escalation — conditional ralph-loop pressure
+	// 4. lifecycle rules — title / new_experiment / complete_experiment
+	//    policies. Cross-mode, tool-driven.
+	sections.push(buildLifecycleRulesBlock());
+
+	// 5. analyst.failure-escalation — conditional ralph-loop pressure.
 	const failureStreak = countRecentFailureStreak(comments);
 	const escalation = buildFailureEscalationBlock(failureStreak);
 	if (escalation) sections.push(escalation);

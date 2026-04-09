@@ -1,73 +1,48 @@
 /**
  * `analyst.mode-realtime` — execution model for the `realtime` strategy_mode
- * (event-driven, tick-level).
+ * (event-driven, tick/orderbook level).
  *
- * Same engine-name leakage allowance as `mode-classic`: the agent has to
- * code against a specific API surface, so the name appears here.
+ * Engine-agnostic. The framework contract lives in the seeded
+ * \`strategy.py\` (and any runner/config files next to it); the agent
+ * discovers it by reading those files. Do NOT name engines, data file
+ * formats, catalog layouts, or native extensions here.
  */
 
 export function buildRealtimeModeBlock(): string {
-	return `## Execution Model: Real-time (event-driven, tick-level)
+	return `## Execution Model: Real-time (event-driven, tick/orderbook)
 
-You are working with a **Nautilus Trader** engine under the hood. Write
-the strategy as a Nautilus \`Strategy\` subclass in \`strategy.py\` with
-event handlers:
-
-- \`on_start(self)\` — subscribe to data (\`subscribe_quote_ticks\`, \`subscribe_order_book_deltas\`, \`subscribe_bars\`)
-- \`on_quote_tick(self, tick)\` — react to new best bid/ask
-- \`on_trade_tick(self, tick)\` — react to prints
-- \`on_order_book_delta(self, delta)\` — react to book updates
-- \`on_order_filled(self, event)\` — handle own fills
-
-Create orders via \`self.order_factory\` (market, limit, post-only, OCO…).
-Use Nautilus indicator objects (\`ExponentialMovingAverage\`, \`RelativeStrengthIndex\`, …)
-and feed them via \`handle_bar\` / \`handle_tick\`.
-
-The workspace also needs a \`runner.py\` — the default one emits JSONL
-status events on stdout; feel free to extend it to wire your strategy into
-the TradingNode.
+Realtime mode is for strategies that react to individual market events
+(trades, quotes, order-book deltas) rather than closed candles. The
+workspace has a seeded \`strategy.py\` (and any related runner/config
+files) whose imports and class structure define the framework contract
+you must follow — read it before writing any code.
 
 ### Data acquisition
-There is **no server-side data fetcher** for realtime desks yet — the
-\`mcp__quantdesk__data_fetch\` tool only runs for classic mode. Do **not**
-call \`data_fetch\`; the tool will return an error saying it is unsupported.
-Fetch the data yourself:
+There is no server-side downloader for realtime desks — \`data_fetch\`
+will return an error. Fetch the data yourself:
 
-1. Write a fetcher script in the workspace (e.g. \`fetch_data.py\`) using
-   \`ccxt\`, the venue's REST/WebSocket API, or Nautilus's own data catalog
-   ingestion tooling. Tick data and order book deltas are typically what
-   realtime strategies need.
-2. Run it via the Bash tool. Use \`run_in_background: true\` for slow
-   downloads and poll with \`BashOutput\`.
-3. Save the result under \`./data/\` in a layout Nautilus can ingest
-   (Parquet/catalog is typical; document the path in your script).
-4. Call \`mcp__quantdesk__register_dataset\` so the server registers it:
+1. **Read \`strategy.py\` and its imports** to see which framework
+   loads events for you, then inspect the framework's data layer
+   (\`pip show <package>\` + Read on the source, or its docs) to learn
+   the expected format, directory layout, and naming convention. Do
+   not guess.
+2. Write a fetcher script in the workspace (\`fetch_data.py\`, etc.)
+   using whatever works for the venue: \`ccxt\`, venue REST/WebSocket
+   APIs, the framework's own ingestion tooling. Tick-level data or
+   book deltas are typical.
+3. Run it via the Bash tool (\`run_in_background: true\` for slow
+   downloads; poll with \`BashOutput\`).
+4. Save the result in **exactly the format and location the framework
+   reads from**, not a custom path of your own.
+5. Call \`mcp__quantdesk__register_dataset\` so the server records the
+   metadata. The framework will pick up the files transparently.
 
-\`\`\`
-mcp__quantdesk__register_dataset({
-  "exchange": "<id>",
-  "pairs": ["BTC/USDT"],
-  "timeframe": "tick",
-  "dateRange": {"start": "2025-01-01", "end": "2025-01-07"},
-  "path": "<workspace-relative path>"
-})
-\`\`\`
-
-After \`register_dataset\` returns, the desk satisfies the data requirement
-and you may proceed to writing the strategy and calling
-\`mcp__quantdesk__run_backtest\`.
-
-### Running backtests
-
-**Do NOT execute python directly.** The server runs runner.py inside a
-pinned Nautilus Docker container. Call the \`run_backtest\` tool to request
-execution:
-
-\`\`\`
-mcp__quantdesk__run_backtest({"strategyName": "QuantDeskStrategy"})
-\`\`\`
-
-The tool blocks until the container finishes and returns
-\`{runId, runNumber, metrics[]}\`. React to the metrics directly on the
-same turn.`;
+### Execution
+Write / refine your strategy in \`strategy.py\` (preserving the seeded
+imports and event-handler signatures) and call
+\`mcp__quantdesk__run_backtest\` to execute it. The tool returns
+\`{runId, runNumber, metrics[]}\` — react to the metrics on the same
+turn. **Do not execute your strategy code yourself** — realtime
+backtests must go through the tool so the server runs them in a
+pinned, isolated container.`;
 }

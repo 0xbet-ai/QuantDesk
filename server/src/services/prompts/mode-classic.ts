@@ -2,121 +2,67 @@
  * `analyst.mode-classic` — execution model for the `classic` strategy_mode
  * (candle-based, polling, OHLCV).
  *
- * This is the designated leakage point for the engine proper name. The
- * agent has to know which API surface (Freqtrade `IStrategy` subclass) to
- * code against, so the name lives here. No other prompt block may name
- * the engine.
+ * This block stays engine-agnostic. The framework contract lives in the
+ * seeded \`strategy.py\`; the agent discovers it by reading that file.
+ * Do NOT name engines, data file formats, directory layouts, or native
+ * file extensions here — all of that is engine-internal.
  */
 
 export function buildClassicModeBlock(): string {
 	return `## Execution Model: Classic (candle-based, polling)
 
-You are working with a **Freqtrade** engine under the hood. Write the
-strategy as a Freqtrade \`IStrategy\` subclass in \`strategy.py\`.
-
-Required methods:
-- \`populate_indicators(dataframe, metadata)\` — compute TA indicators on the OHLCV dataframe
-- \`populate_entry_trend(dataframe, metadata)\` — set the \`enter_long\` / \`enter_short\` columns
-- \`populate_exit_trend(dataframe, metadata)\` — set the \`exit_long\` / \`exit_short\` columns
-
-Also maintain a \`config.json\` at workspace root with at minimum:
-- \`timeframe\`, \`stake_currency\`, \`stake_amount\`, \`dry_run: true\`
-- \`exchange.name\`, \`exchange.pair_whitelist\`
-- \`pairlists\`: \`[{"method": "StaticPairList"}]\` (required by freqtrade 2026.x)
+Classic mode is for strategies that react to closed candles (OHLCV bars)
+on a fixed timeframe. The workspace has a seeded \`strategy.py\` whose
+imports and class structure define the framework contract you must
+follow — read it before writing any code.
 
 ### Data acquisition — two paths
 
-**Path A — server-side downloader (always try first):**
-Approval is conversational. On your **first** turn on a new desk, describe
-the strategy idea in plain text and ask the user to confirm (or adjust) the
-dataset you'd like to pull — exchange, pair, timeframe, range, and a short
-rationale. End the turn with a concrete question and make **no tool call**.
-Wait for the user to reply affirmatively. On the **next** turn, once the
-user has agreed, call \`mcp__quantdesk__data_fetch\` with the final
-parameters; the server runs the engine's bundled \`download-data\` tool
-inside a container and the tool returns \`{datasetId, exchange, pairs,
-timeframe, dateRange, path}\`. **Always start on Path A unless you have
-empirical evidence from the current session that it will fail for this
-exact venue + mode** (e.g. an earlier failure comment in this experiment's
-history).
+**Path A — server-side downloader (try first):**
+On your first turn on a new desk, describe the strategy idea in plain
+text and ask the user to confirm (or adjust) the dataset you'd like to
+pull — exchange, pair, timeframe, range, and a short rationale. End the
+turn with a concrete question and make **no tool call**. Wait for the
+user to reply affirmatively. On the next turn, once the user has agreed,
+call \`mcp__quantdesk__data_fetch\` with the final parameters. The server
+runs the framework's bundled downloader and returns the registered
+dataset.
 
-Do **not** infer Path A unsupportedness from your training data — engine
-support evolves. Try first, fail empirically, then switch.
-
-Honour the venue's trade mode in pair naming (e.g. perp pairs may use a
-quoted-margin form like \`BTC/USDC:USDC\`):
-
-\`\`\`
-mcp__quantdesk__data_fetch({
-  "exchange": "<venue id>",
-  "pairs": ["<pair>"],
-  "timeframe": "<5m|1h|...>",
-  "days": <integer>,
-  "tradingMode": "spot|futures|margin",
-  "rationale": "<why this dataset>"
-})
-\`\`\`
-
-Remember: **do NOT call \`data_fetch\` in the same turn you ask the user**
-— that defeats the approval step. The question turn has no tool call; the
-execution turn has the tool call and no re-asking.
+**Always start with Path A** unless you already have empirical evidence
+from the current session that it will fail for this exact venue + trade
+mode (e.g. an earlier \`data_fetch\` failure in this experiment). Do NOT
+infer unsupportedness from your training data.
 
 **Path B — agent-side fetcher (fallback after a real Path A failure):**
-if Path A returns an error like "exchange does not support ohlcv", "pair
-not found", "historic data not available", or similar engine-side
-limitation, **do not keep retrying Path A**. Switch to Path B:
+If \`data_fetch\` returns an error ("exchange does not support ohlcv",
+"pair not found", "historic data not available", similar), switch to
+Path B:
 
-  1. Probe first if you are unsure of pair naming, supported markets, or
-     trade modes — see the failure escalation block when one is injected.
-  2. Write a small fetcher script in the workspace (e.g.
-     \`fetch_data.py\`) using whatever tool actually works for the venue:
-     \`ccxt\` directly (which often supports more endpoints than the
-     engine's wrapper), the venue's REST API via \`requests\`, the venue's
-     SDK, The Graph for on-chain DEXes, etc.
-  3. Run it via the Bash tool (use \`run_in_background: true\` for slow
-     fetches and poll with BashOutput so progress streams to the user).
-  4. Save the result to \`./data/<exchange>/<pair>-<timeframe>.csv\` or
-     \`.json\`. Path is up to you; just be consistent.
-  5. **Call \`mcp__quantdesk__register_dataset\` immediately** so the
-     server registers the dataset and the desk can run backtests against
-     it:
+1. **Read \`strategy.py\` and its imports** to see which framework is
+   loading data for you. Inspect the framework's data layer directly
+   (\`pip show <package>\` + Read on the source, or its docs) to learn
+   the file format, directory layout, and naming convention it expects.
+   Don't guess — the framework will reject anything that doesn't match.
+2. Write a small fetcher script in the workspace (e.g. \`fetch_data.py\`)
+   using whatever actually works for the venue: \`ccxt\`, the venue's
+   REST API, its SDK, etc. Run it via the Bash tool; use
+   \`run_in_background: true\` for slow fetches and poll with
+   \`BashOutput\` so progress streams to the user.
+3. Save the result in **exactly the format and location the framework
+   reads from**, not in a custom path of your own.
+4. Call \`mcp__quantdesk__register_dataset\` so the server records the
+   metadata. The framework will pick up the files you wrote transparently.
 
-\`\`\`
-mcp__quantdesk__register_dataset({
-  "exchange": "<id>",
-  "pairs": ["BTC/USDC:USDC"],
-  "timeframe": "5m",
-  "dateRange": {"start": "2025-10-08", "end": "2026-04-08"},
-  "path": "<workspace-relative or absolute path>"
-})
-\`\`\`
+After Path A or Path B succeeds, write / refine your strategy in
+\`strategy.py\` (preserving the seeded imports and class structure) and
+call \`mcp__quantdesk__run_backtest\` to execute it. The tool returns
+\`{runId, runNumber, metrics[]}\` — react to the metrics on the same
+turn. If it errors, read the error and fix the specific issue before
+retrying.
 
-After \`register_dataset\` returns, the desk satisfies the data requirement
-and you may proceed straight to writing strategy code and calling
-\`mcp__quantdesk__run_backtest\`.
-
-**Never** sit silent or apologise when Path A fails. Path B is always
-available — the only requirement is that the resulting CSV/JSON has
-columns the engine can read (timestamp + OHLCV for classic mode).
-
-Use pandas-ta or talib for indicators. Think in minutes to hours — not ticks.
-
-### Running backtests
-
-**Do NOT execute python or freqtrade directly.** The server runs everything
-inside a pinned Freqtrade Docker container. Instead, call the
-\`mcp__quantdesk__run_backtest\` tool when you want a backtest:
-
-\`\`\`
-mcp__quantdesk__run_backtest({
-  "strategyName": "QuantDeskStrategy",
-  "configFile": "config.json"
-})
-\`\`\`
-
-The tool blocks until the container finishes and returns
-\`{runId, runNumber, isBaseline, metrics[]}\` — react to the metrics on the
-same turn. If the tool returns an error (freqtrade stderr), read it
-carefully and fix the specific issue (strategy code, config, pair naming)
-before retrying — don't blindly retry the same call.`;
+### Execution
+**Do not execute your strategy code yourself** (no direct \`python\`,
+no manual engine CLI). Classic-mode backtests must go through
+\`mcp__quantdesk__run_backtest\` so the server can run them in a pinned,
+isolated container with the correct resource limits.`;
 }
