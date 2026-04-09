@@ -422,11 +422,11 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 			description:
 				"Execute an arbitrary script from the desk workspace inside the " +
 				"generic sandbox container (quantdesk/generic) and return its " +
-				"raw stdout / stderr / exit code. Use this for fetchers, setup, " +
-				"exploration — anything that is NOT the final strategy evaluation " +
-				"(for that, use run_backtest so the run is recorded with metrics). " +
-				"Generic desks ONLY — managed engines (freqtrade, nautilus) reject " +
-				"this tool.",
+				"raw stdout / stderr / exit code. Available on every desk — the " +
+				"script always runs in the sandbox image, not in the desk's " +
+				"managed engine container. Use this for fetchers, setup, and " +
+				"exploration — anything that is NOT the managed data fetch or " +
+				"final backtest (those go through data_fetch / run_backtest).",
 			inputSchema: {
 				scriptPath: z
 					.string()
@@ -440,11 +440,10 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				if (!desk) return errorResult("run_script: desk not found");
 				if (!desk.workspacePath)
 					return errorResult("run_script: desk has no workspace path");
-				if (desk.engine !== "generic") {
-					return errorResult(
-						`run_script is only available for generic desks. This desk uses ${desk.engine} — its data fetch and backtest flows go through data_fetch / run_backtest instead.`,
-					);
-				}
+				// Scripts always run in the generic sandbox image regardless
+				// of the desk's managed engine — the engine container is
+				// reserved for `data_fetch` and `run_backtest`, everything
+				// the agent writes lives in `quantdesk/generic`.
 				const adapter = getEngineAdapter("generic") as unknown as {
 					runScript: (input: {
 						workspacePath: string;

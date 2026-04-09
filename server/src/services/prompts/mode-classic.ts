@@ -46,18 +46,27 @@ pagination rules, known gotchas) over the generic guidance — those
 files were written from empirically verified runs. If no matching file
 exists, follow the generic steps unchanged:
 
-1. **Read \`strategy.py\` and its imports** to see which framework is
-   loading data for you. Inspect the framework's data layer directly
-   (\`pip show <package>\` + Read on the source, or its docs) to learn
-   the file format, directory layout, and naming convention it expects.
-   Don't guess — the framework will reject anything that doesn't match.
-2. Write a small fetcher script in the workspace (e.g. \`fetch_data.py\`)
-   using whatever actually works for the venue: \`ccxt\`, the venue's
-   REST API, its SDK, etc. Run it via the Bash tool; use
-   \`run_in_background: true\` for slow fetches and poll with
-   \`BashOutput\` so progress streams to the user.
+1. **Read \`strategy.py\` and any framework config** that was seeded
+   into the workspace. These files — not the agent host — are the
+   authoritative definition of the framework contract (class shape,
+   data format, directory layout). If the workspace has a
+   \`.quantdesk/\` directory with venue or engine notes, read those
+   too. Do NOT try to \`pip show\` or import the framework from your
+   shell: the framework is only installed inside the engine container,
+   not on the machine your \`Bash\` tool touches.
+2. Write a small fetcher script in the workspace (e.g.
+   \`fetch_data.py\`) using whatever actually works for the venue:
+   \`ccxt\`, the venue's REST API, its SDK, etc. **Execute it with
+   \`mcp__quantdesk__run_script({ scriptPath: "fetch_data.py" })\`** —
+   that runs the script inside the sandboxed generic container, with
+   the workspace mounted in and your usual package-manager caches
+   available. Never run agent-authored scripts (\`python3 fetch.py\`,
+   \`node ...\`) via the \`Bash\` tool — that would execute on the
+   user's host, which is not your environment.
 3. Save the result in **exactly the format and location the framework
-   reads from**, not in a custom path of your own.
+   reads from**, not in a custom path of your own. If you don't
+   already know the format, ask the user rather than guessing — the
+   framework will reject anything that doesn't match.
 4. Call \`mcp__quantdesk__register_dataset\` so the server records the
    metadata. The framework will pick up the files you wrote transparently.
 
@@ -69,8 +78,11 @@ turn. If it errors, read the error and fix the specific issue before
 retrying.
 
 ### Execution
-**Do not execute your strategy code yourself** (no direct \`python\`,
-no manual engine CLI). Classic-mode backtests must go through
-\`mcp__quantdesk__run_backtest\` so the server can run them in a pinned,
-isolated container with the correct resource limits.`;
+**Do not execute your strategy code yourself** (no \`python3 strategy.py\`
+via \`Bash\`, no manual engine CLI). Classic-mode backtests must go
+through \`mcp__quantdesk__run_backtest\` so the server can run them in
+the pinned engine container with the correct resource limits. For any
+other script you write (fetchers, exploration, one-off analyses), use
+\`mcp__quantdesk__run_script\` — that runs in the sandboxed generic
+container, not on the user's host.`;
 }

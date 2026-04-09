@@ -21,17 +21,22 @@ you must follow — read it before writing any code.
 There is no server-side downloader for realtime desks — \`data_fetch\`
 will return an error. Fetch the data yourself:
 
-1. **Read \`strategy.py\` and its imports** to see which framework
-   loads events for you, then inspect the framework's data layer
-   (\`pip show <package>\` + Read on the source, or its docs) to learn
-   the expected format, directory layout, and naming convention. Do
-   not guess.
+1. **Read \`strategy.py\` and any framework config** seeded into the
+   workspace — these are the authoritative source for the framework
+   contract. Do not try to \`pip show\` or import the framework from
+   your shell: the framework is only installed inside the engine
+   container, not on the host your \`Bash\` tool touches. If the
+   seeded files leave you uncertain about the expected data format
+   or directory layout, ask the user.
 2. Write a fetcher script in the workspace (\`fetch_data.py\`, etc.)
    using whatever works for the venue: \`ccxt\`, venue REST/WebSocket
-   APIs, the framework's own ingestion tooling. Tick-level data or
-   book deltas are typical.
-3. Run it via the Bash tool (\`run_in_background: true\` for slow
-   downloads; poll with \`BashOutput\`).
+   APIs, etc. Tick-level data or book deltas are typical.
+3. **Execute the fetcher with
+   \`mcp__quantdesk__run_script({ scriptPath: "fetch_data.py" })\`** —
+   that runs it inside the sandboxed generic container with the
+   workspace mounted in. Never run agent-authored scripts via the
+   \`Bash\` tool (\`python3 fetch.py\` etc.) — \`Bash\` touches the
+   user's host, which is not your environment.
 4. Save the result in **exactly the format and location the framework
    reads from**, not a custom path of your own.
 5. Call \`mcp__quantdesk__register_dataset\` so the server records the
@@ -43,6 +48,7 @@ imports and event-handler signatures) and call
 \`mcp__quantdesk__run_backtest\` to execute it. The tool returns
 \`{runId, runNumber, metrics[]}\` — react to the metrics on the same
 turn. **Do not execute your strategy code yourself** — realtime
-backtests must go through the tool so the server runs them in a
-pinned, isolated container.`;
+backtests must go through \`run_backtest\`. For any auxiliary scripts
+(fetchers, exploration), use \`mcp__quantdesk__run_script\`, never
+\`Bash\`.`;
 }

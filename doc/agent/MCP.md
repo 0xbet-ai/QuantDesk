@@ -103,17 +103,19 @@ Both tools execute an agent-authored script inside the `quantdesk/generic` sandb
 | DB side effect | None | Inserts a `runs` row with `runNumber`, `isBaseline`, `result.metrics[]`, links it to the latest dataset |
 | WS events | `run.log_chunk` for live tail (no `runId`) | `run.log_chunk` with `runId` + `run.status` on start / completed / failed |
 | Return value | `{ exitCode, stdout, stderr }` | `{ runId, runNumber, isBaseline, metrics[] }` |
-| Engine scope | Generic desks only (freqtrade / nautilus reject it) | All engines — managed engines use their own adapters instead of the generic container |
+| Engine scope | All desks — always runs in the generic sandbox image regardless of the desk's managed engine | All engines — managed engines use their own adapters instead of the generic container |
 | Dataset requirement | None | Desk must have ≥1 registered dataset |
 
-**Typical generic-desk flow**:
+**Typical flow (all desks)**:
 
 1. `Write` `fetch_data.py` (and `requirements.txt` if it needs libraries)
-2. `run_script({ scriptPath: "fetch_data.py" })` → writes data under `/workspace/data/`
+2. `run_script({ scriptPath: "fetch_data.py" })` → writes data under `/workspace/data/` (runs inside the generic sandbox, not the desk's managed engine container)
 3. `register_dataset({ exchange, pairs, timeframe, dateRange, path })`
-4. `Write` `backtest.py` that reads the data and prints `NormalizedResult` as its last stdout line
-5. `run_backtest({ entrypoint: "backtest.py" })` → `runs` row saved, metrics returned
+4. Refine `strategy.py` (or write `backtest.py` on generic desks — the entrypoint contract is engine-specific)
+5. `run_backtest({ ... })` → `runs` row saved, metrics returned
 6. React to the metrics on the same turn
+
+On managed-engine desks, step 1-3 is only needed as the Path B fallback when the server-side `data_fetch` downloader fails for the venue. Path A (`data_fetch`) is the default.
 
 Agent-authored scripts must ALWAYS go through one of these two tools. The `Bash` tool is for workspace housekeeping only (`ls`, `cat`, `git`, inspecting files) — never for executing scripts the agent wrote.
 
@@ -121,14 +123,17 @@ Agent-authored scripts must ALWAYS go through one of these two tools. The `Bash`
 
 ```
 run_script({ scriptPath })
-  requires:  desk.engine === "generic" (rejected for managed engines),
-             script exists at <workspace>/<scriptPath>
+  requires:  script exists at <workspace>/<scriptPath>
   effect:    runs the script inside the generic sandbox container
              (quantdesk/generic) with the workspace mounted at
              /workspace and the per-language cache volumes attached.
              The container entrypoint auto-installs dependencies from
              the matching manifest file (requirements.txt /
              package.json / Cargo.toml / go.mod) before execution.
+             Available on every desk regardless of the managed
+             engine — the engine container is only used by
+             data_fetch / run_backtest; everything else the agent
+             writes runs in the generic sandbox.
   returns:   { exitCode, stdout, stderr }
              on error: { isError: true, content: "…" }
   postcond:  side effects are whatever the script wrote to
