@@ -50,9 +50,10 @@ function primaryValue(run: Run): number | null {
 
 function RunListItem({
 	run,
+	isBaseline,
 	isSelected,
 	onClick,
-}: { run: Run; isSelected: boolean; onClick: () => void }) {
+}: { run: Run; isBaseline: boolean; isSelected: boolean; onClick: () => void }) {
 	const ret = primaryValue(run);
 	const retFormat = run.result?.metrics?.[0]?.format ?? "number";
 	return (
@@ -69,7 +70,7 @@ function RunListItem({
 					#{run.runNumber}
 				</span>
 				<StatusBadge status={run.status} />
-				{run.isBaseline && (
+				{isBaseline && (
 					<span className="text-[10px] text-muted-foreground bg-muted rounded px-1 py-0.5 shrink-0">
 						base
 					</span>
@@ -119,7 +120,7 @@ function RunDetail({
 					<div className="flex items-center gap-2 flex-wrap">
 						<StatusBadge status={run.status} />
 						<span className="text-xs font-mono text-muted-foreground">Run #{run.runNumber}</span>
-						{run.isBaseline && (
+						{baseline?.id === run.id && (
 							<span className="text-[10px] bg-muted rounded px-1.5 py-0.5 font-medium text-muted-foreground">
 								baseline
 							</span>
@@ -185,7 +186,7 @@ function RunDetail({
 				{(() => {
 					const runPrimary = primaryValue(run);
 					const basePrimary = baseline ? primaryValue(baseline) : null;
-					if (baseline == null || runPrimary == null || basePrimary == null || run.isBaseline)
+					if (baseline == null || runPrimary == null || basePrimary == null || baseline.id === run.id)
 						return null;
 					const delta = runPrimary - basePrimary;
 					const primaryLabel = run.result?.metrics?.[0]?.label ?? "value";
@@ -289,7 +290,11 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 		(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
 	);
 	const selectedRun = sorted.find((r) => r.id === activeRunId) ?? null;
-	const baseline = sorted.find((r) => r.isBaseline) ?? null;
+	// Baseline = first completed run in the original runNumber order, NOT
+	// the first attempt. Early failed runs shouldn't become the baseline.
+	const baseline =
+		[...runs].sort((a, b) => a.runNumber - b.runNumber).find((r) => r.status === "completed") ??
+		null;
 
 	const handleGoPaper = async (runId: string) => {
 		try {
@@ -339,6 +344,7 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 							<RunListItem
 								key={run.id}
 								run={run}
+								isBaseline={baseline?.id === run.id}
 								isSelected={run.id === activeRunId}
 								onClick={() => selectRun(run.id)}
 							/>
