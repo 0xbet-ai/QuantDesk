@@ -486,9 +486,13 @@ export async function triggerAgent(
 				try {
 					const changed = await hasChanges(desk.workspacePath);
 					if (changed) {
+						const ts = new Date()
+							.toISOString()
+							.replace("T", " ")
+							.slice(0, 16);
 						await commitCode(
 							desk.workspacePath,
-							`Agent: Experiment #${experiment.number} — ${experiment.title}`,
+							`Agent: Experiment #${experiment.number} — ${experiment.title} (${ts})`,
 						);
 					}
 				} catch {

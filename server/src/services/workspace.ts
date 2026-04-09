@@ -119,7 +119,18 @@ async function copyTree(src: string, dest: string): Promise<void> {
 
 export async function commitCode(cwd: string, message: string): Promise<string> {
 	await git(cwd, "add", "-A");
-	await git(cwd, "commit", "-m", `"${message.replace(/"/g, '\\"')}"`);
+	// Build a short summary of changed files for the commit body
+	const staged = await git(cwd, "diff", "--cached", "--name-only");
+	const files = staged
+		.split("\n")
+		.map((f) => f.trim())
+		.filter(Boolean);
+	const body =
+		files.length > 0
+			? `\n\nChanged: ${files.slice(0, 5).join(", ")}${files.length > 5 ? ` (+${files.length - 5} more)` : ""}`
+			: "";
+	const full = `${message}${body}`.replace(/"/g, '\\"');
+	await git(cwd, "commit", "-m", `"${full}"`);
 	const hash = await git(cwd, "rev-parse", "HEAD");
 	return hash;
 }
