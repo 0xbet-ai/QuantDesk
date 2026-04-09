@@ -34,7 +34,7 @@ will return an error. Fetch data yourself:
 
 1. Write a fetcher script (\`fetch_data.py\`, \`fetch.ts\`, whatever
    fits) using \`ccxt\`, the venue's REST/SDK, The Graph for on-chain
-   DEXes, etc.
+   DEXes, etc. Save it to the workspace root.
 2. If the fetcher needs third-party libraries, declare them in the
    appropriate manifest at the workspace root:
    - python → \`requirements.txt\`
@@ -44,12 +44,22 @@ will return an error. Fetch data yourself:
    The container entrypoint auto-installs them before running the
    script. You never run \`pip install\` / \`npm install\` / \`cargo
    install\` directly — the manifest is the contract.
-3. Run the fetcher by calling \`mcp__quantdesk__run_backtest\` with
-   the fetcher as the entrypoint, OR via your own Bash tool. The
-   important part is that it writes its output into \`/workspace/data/\`
-   (mounted from the desk workspace) in a format your backtest can read.
+3. Execute the fetcher inside the sandbox by calling
+   \`mcp__quantdesk__run_script({ scriptPath: "fetch_data.py" })\`.
+   This runs in the container with network access, writes into
+   \`/workspace/data/\` (which is the desk workspace on the host),
+   and returns \`{ exitCode, stdout, stderr }\`. Inspect the result
+   and retry with a fix if \`exitCode !== 0\`.
 4. Call \`mcp__quantdesk__register_dataset\` so the server records the
    metadata.
+
+**Never run agent-authored scripts via the \`Bash\` tool**
+(\`python3 fetch_data.py\`, \`node backtest.js\`, etc.). That would
+bypass the sandbox and touch the user's host directly. All script
+execution goes through \`run_script\` (for fetchers / setup) or
+\`run_backtest\` (for the final strategy evaluation). \`Bash\` is
+reserved for workspace housekeeping — \`ls\`, \`cat\`, \`git\`,
+inspecting the files you wrote — not for running them.
 
 ### Backtest execution
 Write a standalone entrypoint (Python, JS, whatever fits) that:

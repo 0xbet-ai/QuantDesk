@@ -186,13 +186,19 @@ pnpm build:generic-image
 
 ```
 ensureImage()       → verifies quantdesk/generic is present locally
-downloadData()      → NOT implemented — the agent fetches data itself,
-                      then calls register_dataset
-runBacktest()       → runContainer(quantdesk/generic, volumes=[workspace, caches],
-                      command=[runtime, scriptPath]) — parses the LAST line of
-                      stdout as NormalizedResult
+downloadData()      → NOT implemented — the agent writes a fetcher
+                      script, runs it via the `run_script` MCP tool
+                      (inside the sandbox), then calls register_dataset
+runScript()         → runContainer(quantdesk/generic, volumes=[workspace,
+                      caches], command=[runtime, scriptPath]) — returns
+                      raw { stdout, stderr, exitCode } without parsing
+runBacktest()       → same container recipe, but parses the LAST line
+                      of stdout as NormalizedResult and persists a runs
+                      row with the metrics
 startPaper()        → not yet supported on generic desks
 ```
+
+`runScript` exists precisely so the agent has a sandboxed path for every side-effecting script it writes. The `mode-generic` prompt forbids running agent-authored scripts via the `Bash` tool — `Bash` is reserved for workspace housekeeping (`ls`, `cat`, `git`), and any `python3` / `node` / `cargo run` invocation must go through `run_script` or `run_backtest` so it stays inside the container.
 
 ### Dependency declaration
 

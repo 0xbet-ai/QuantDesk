@@ -415,6 +415,86 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		},
 	);
 
+	// ── run_script ────────────────────────────────────────────────────
+	server.registerTool(
+		"run_script",
+		{
+			description:
+				"Execute an arbitrary script from the desk workspace inside the " +
+				"generic sandbox container (quantdesk/generic) and return its " +
+				"raw stdout / stderr / exit code. Use this for fetchers, setup, " +
+				"exploration — anything that is NOT the final strategy evaluation " +
+				"(for that, use run_backtest so the run is recorded with metrics). " +
+				"Generic desks ONLY — managed engines (freqtrade, nautilus) reject " +
+				"this tool.",
+			inputSchema: {
+				scriptPath: z
+					.string()
+					.min(1)
+					.describe("Path to the script, relative to the desk workspace root."),
+			},
+		},
+		async (args) => {
+			try {
+				const [desk] = await db.select().from(desks).where(eq(desks.id, ctx.deskId));
+				if (!desk) return errorResult("run_script: desk not found");
+				if (!desk.workspacePath)
+					return errorResult("run_script: desk has no workspace path");
+				if (desk.engine !== "generic") {
+					return errorResult(
+						`run_script is only available for generic desks. This desk uses ${desk.engine} — its data fetch and backtest flows go through data_fetch / run_backtest instead.`,
+					);
+				}
+				const adapter = getEngineAdapter("generic") as unknown as {
+					runScript: (input: {
+						workspacePath: string;
+						scriptPath: string;
+						extraVolumes?: string[];
+						onLogLine?: (line: string, stream: "stdout" | "stderr") => void;
+					}) => Promise<{ stdout: string; stderr: string; exitCode: number }>;
+				};
+				if (typeof adapter.runScript !== "function") {
+					return errorResult("run_script: generic adapter is missing runScript");
+				}
+				const externalMountVolumes = (desk.externalMounts ?? []).map(
+					(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
+				);
+				const result = await adapter.runScript({
+					workspacePath: desk.workspacePath,
+					scriptPath: args.scriptPath,
+					extraVolumes: externalMountVolumes,
+					onLogLine: (line, stream) => {
+						publishExperimentEvent({
+							experimentId: ctx.experimentId,
+							type: "run.log_chunk",
+							payload: { runId: null, stream, line },
+						});
+						appendAgentLog(ctx.experimentId, {
+							ts: new Date().toISOString(),
+							type: "stdout",
+							content: line,
+						});
+					},
+				});
+				return textResult(
+					JSON.stringify(
+						{
+							exitCode: result.exitCode,
+							stdout: result.stdout,
+							stderr: result.stderr,
+						},
+						null,
+						2,
+					),
+				);
+			} catch (err) {
+				return errorResult(
+					`run_script failed: ${err instanceof Error ? err.message : String(err)}`,
+				);
+			}
+		},
+	);
+
 	// ── set_experiment_title ──────────────────────────────────────────
 	server.registerTool(
 		"set_experiment_title",
