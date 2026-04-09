@@ -58,6 +58,20 @@ To point at an external Postgres instead, set `DATABASE_URL` before running any 
 | `AGENT_MODEL` | `claude-opus-4-6` |
 | `LOG_LEVEL` | `info` |
 
+## Debugging
+
+Agent session transcripts (tool_call / tool_result / text / thinking chunks)
+are persisted per-experiment at `~/.quantdesk/logs/<experimentId>.jsonl`.
+Tail the most recent one in real time:
+
+```bash
+tail -f "$(ls -t ~/.quantdesk/logs/*.jsonl | head -1)" | jq .
+```
+
+This is the fastest way to verify MCP tool calls are actually firing
+(`type: "tool_call"` with `name: "mcp__quantdesk__..."`) and to read the
+returned tool_result payload.
+
 ## Rules
 
 1. **English only** — all code, comments, strings, docs, commits.
