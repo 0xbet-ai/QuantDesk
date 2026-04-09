@@ -284,33 +284,54 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 			},
 		},
 		async (args) => {
+			// Reserve the run row BEFORE invoking the engine so that parse /
+			// post-process failures after a successful docker exit still show
+			// up in the Runs list as a `failed` row instead of silently
+			// vanishing while the agent summarizes docker stdout as success.
+			const [desk] = await db.select().from(desks).where(eq(desks.id, ctx.deskId));
+			if (!desk) return errorResult("run_backtest: desk not found");
+			if (!desk.workspacePath)
+				return errorResult("run_backtest: desk has no workspace path");
+
+			const linked = await db
+				.select({ dataset: datasets })
+				.from(deskDatasets)
+				.innerJoin(datasets, eq(deskDatasets.datasetId, datasets.id))
+				.where(eq(deskDatasets.deskId, desk.id))
+				.orderBy(desc(deskDatasets.createdAt));
+			if (linked.length === 0) {
+				return errorResult(
+					"run_backtest: no dataset is registered for this desk. Call data_fetch (if you want the server to download) or register_dataset (if you already downloaded the data yourself) before calling run_backtest.",
+				);
+			}
+
+			const existingRuns = await db
+				.select()
+				.from(runs)
+				.where(eq(runs.experimentId, ctx.experimentId));
+			const runNumber = autoIncrementRunNumber(existingRuns.length);
+			const isBaseline = existingRuns.length === 0;
+			const runId = crypto.randomUUID();
+			const latestDatasetId = linked[0]?.dataset.id ?? null;
+
+			await db.insert(runs).values({
+				id: runId,
+				experimentId: ctx.experimentId,
+				turnId: getCurrentTurnId() ?? null,
+				runNumber,
+				isBaseline,
+				mode: "backtest",
+				status: "running",
+				datasetId: latestDatasetId,
+			});
+			publishExperimentEvent({
+				experimentId: ctx.experimentId,
+				type: "run.status",
+				payload: { runId, status: "running" },
+			});
+
 			try {
-				const [desk] = await db.select().from(desks).where(eq(desks.id, ctx.deskId));
-				if (!desk) return errorResult("run_backtest: desk not found");
-				if (!desk.workspacePath)
-					return errorResult("run_backtest: desk has no workspace path");
-
-				const linked = await db
-					.select({ dataset: datasets })
-					.from(deskDatasets)
-					.innerJoin(datasets, eq(deskDatasets.datasetId, datasets.id))
-					.where(eq(deskDatasets.deskId, desk.id))
-					.orderBy(desc(deskDatasets.createdAt));
-				if (linked.length === 0) {
-					return errorResult(
-						"run_backtest: no dataset is registered for this desk. Call data_fetch (if you want the server to download) or register_dataset (if you already downloaded the data yourself) before calling run_backtest.",
-					);
-				}
-
 				const engineAdapter = getEngineAdapter(desk.engine);
-				const existingRuns = await db
-					.select()
-					.from(runs)
-					.where(eq(runs.experimentId, ctx.experimentId));
-				const runNumber = autoIncrementRunNumber(existingRuns.length);
-				const isBaseline = existingRuns.length === 0;
-				const runId = crypto.randomUUID();
-
 				const externalMountVolumes = (desk.externalMounts ?? []).map(
 					(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
 				);
@@ -343,22 +364,15 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				});
 
 				const resultPayload = normalizedResultToMetrics(backtestResult.normalized);
-				const latestDatasetId = linked[0]?.dataset.id ?? null;
 
 				const [run] = await db
-					.insert(runs)
-					.values({
-						id: runId,
-						experimentId: ctx.experimentId,
-						turnId: getCurrentTurnId() ?? null,
-						runNumber,
-						isBaseline,
-						mode: "backtest",
+					.update(runs)
+					.set({
 						status: "completed",
 						result: resultPayload,
-						datasetId: latestDatasetId,
 						completedAt: new Date(),
 					})
+					.where(eq(runs.id, runId))
 					.returning();
 
 				publishExperimentEvent({
@@ -380,9 +394,23 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					),
 				);
 			} catch (err) {
-				return errorResult(
-					`run_backtest failed: ${err instanceof Error ? err.message : String(err)}`,
-				);
+				const message = err instanceof Error ? err.message : String(err);
+				// Mark the reserved row as failed so the Runs list surfaces
+				// parse / artifact failures instead of dropping them.
+				await db
+					.update(runs)
+					.set({
+						status: "failed",
+						error: message,
+						completedAt: new Date(),
+					})
+					.where(eq(runs.id, runId));
+				publishExperimentEvent({
+					experimentId: ctx.experimentId,
+					type: "run.status",
+					payload: { runId, status: "failed", error: message },
+				});
+				return errorResult(`run_backtest failed: ${message}`);
 			}
 		},
 	);
