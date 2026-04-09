@@ -1,7 +1,12 @@
 import { db } from "@quantdesk/db";
 import { agentTurns, comments, experiments } from "@quantdesk/db/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { systemComment } from "./comments.js";
+
+/** Heartbeat freshness threshold — if the turn's heartbeat was bumped
+ *  within this window, the agent subprocess is assumed to still be alive
+ *  (tsx-watch restarted the parent but the child is still streaming). */
+const FRESH_HEARTBEAT_MS = 60 * 1000;
 
 /**
  * Clean up stale agent runs on server startup.
@@ -38,6 +43,26 @@ export async function cleanupStaleAgentRuns(): Promise<void> {
 				// Avoid duplicate cleanup messages — skip if last message already says interrupted
 				if (last.content.includes("interrupted")) continue;
 
+				// Dev-mode safety: tsx watch restarts the parent server on
+				// every file save, but the spawned Claude CLI subprocess and
+				// its docker children keep running. If the latest turn's
+				// heartbeat was bumped within the last minute, assume the
+				// agent is still alive and do NOT post the interrupted
+				// message — otherwise we'd spam bogus failures on every
+				// file save.
+				const [latestTurn] = await db
+					.select()
+					.from(agentTurns)
+					.where(eq(agentTurns.experimentId, exp.id))
+					.orderBy(desc(agentTurns.startedAt))
+					.limit(1);
+				if (latestTurn && latestTurn.status === "running") {
+					const age = Date.now() - new Date(latestTurn.lastHeartbeatAt).getTime();
+					if (age < FRESH_HEARTBEAT_MS) {
+						continue;
+					}
+				}
+
 				await systemComment({
 					experimentId: exp.id,
 					nextAction: "action",
@@ -64,17 +89,32 @@ export async function cleanupStaleAgentRuns(): Promise<void> {
  */
 export async function reconcileOrphanAgentTurns(): Promise<void> {
 	try {
-		const updated = await db
-			.update(agentTurns)
-			.set({
-				status: "failed",
-				endedAt: new Date(),
-				failureReason: "server_restart",
-			})
-			.where(and(eq(agentTurns.status, "running"), isNull(agentTurns.endedAt)))
-			.returning({ id: agentTurns.id });
-		if (updated.length > 0) {
-			console.log(`[startup] Reconciled ${updated.length} orphan agent_turns row(s)`);
+		// Skip turns whose heartbeat is still fresh — the subprocess is
+		// almost certainly still alive (tsx-watch dev restart case).
+		const staleBefore = new Date(Date.now() - FRESH_HEARTBEAT_MS);
+		const candidates = await db
+			.select()
+			.from(agentTurns)
+			.where(and(eq(agentTurns.status, "running"), isNull(agentTurns.endedAt)));
+		const toMark = candidates.filter(
+			(t) => new Date(t.lastHeartbeatAt).getTime() < staleBefore.getTime(),
+		);
+		for (const row of toMark) {
+			await db
+				.update(agentTurns)
+				.set({
+					status: "failed",
+					endedAt: new Date(),
+					failureReason: "server_restart",
+				})
+				.where(eq(agentTurns.id, row.id));
+		}
+		if (toMark.length > 0) {
+			console.log(`[startup] Reconciled ${toMark.length} orphan agent_turns row(s)`);
+		}
+		const kept = candidates.length - toMark.length;
+		if (kept > 0) {
+			console.log(`[startup] Kept ${kept} running turn(s) with fresh heartbeat`);
 		}
 	} catch (err) {
 		console.error("[startup] Failed to reconcile orphan agent_turns:", err);
