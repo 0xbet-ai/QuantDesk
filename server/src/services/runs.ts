@@ -1,7 +1,14 @@
 import { db } from "@quantdesk/db";
-import { runLogs, runs } from "@quantdesk/db/schema";
+import { desks, experiments, runLogs, runs } from "@quantdesk/db/schema";
+import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
 import { eq } from "drizzle-orm";
+import { publishExperimentEvent } from "../realtime/live-events.js";
 import { assignBaseline, validateGoPaper, validateStop } from "./logic.js";
+import {
+	failSession,
+	markSessionRunning,
+	startPaperSession,
+} from "./paper-sessions.js";
 
 interface Metric {
 	key: string;
@@ -106,6 +113,63 @@ export async function goPaper(runId: string) {
 	if (!run) throw new Error("Run not found");
 	validateGoPaper({ status: run.status, mode: run.mode });
 
+	// Resolve experiment → desk.
+	const [experiment] = await db
+		.select()
+		.from(experiments)
+		.where(eq(experiments.id, run.experimentId));
+	if (!experiment) throw new Error("Experiment not found");
+	const [desk] = await db
+		.select()
+		.from(desks)
+		.where(eq(desks.id, experiment.deskId));
+	if (!desk || !desk.workspacePath) throw new Error("Desk not found or no workspace");
+
+	// 1. Create paper session (validates: verdict=approve, one-per-desk).
+	const session = await startPaperSession({
+		runId,
+		deskId: desk.id,
+		experimentId: experiment.id,
+	});
+
+	// 2. Spawn the engine's dry-run container.
+	const engineAdapter = getEngineAdapter(desk.engine);
+	const venue = (desk.venues as string[])[0] ?? "binance";
+	const config = run.config as Record<string, unknown> | null;
+
+	let handle: Awaited<ReturnType<typeof engineAdapter.startPaper>>;
+	try {
+		handle = await engineAdapter.startPaper({
+			strategyPath: "strategy.py",
+			runId,
+			workspacePath: desk.workspacePath,
+			exchange: venue,
+			pairs: (config?.pairs as string[]) ?? ["BTC/USDT"],
+			timeframe: (config?.timeframe as string) ?? "5m",
+			wallet: Number(desk.budget) || 10000,
+			extraVolumes: (desk.externalMounts ?? []).map(
+				(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
+			),
+		});
+	} catch (err) {
+		await failSession(session.id, err instanceof Error ? err.message : "spawn failed");
+		throw err;
+	}
+
+	// 3. Mark session running.
+	await markSessionRunning(session.id, {
+		containerName: handle.containerName,
+		apiPort: handle.meta?.apiPort as number | undefined,
+		meta: handle.meta ?? undefined,
+	});
+
+	publishExperimentEvent({
+		experimentId: experiment.id,
+		type: "paper.status",
+		payload: { sessionId: session.id, status: "running" },
+	});
+
+	// 4. Create a paper runs row for UI display.
 	const [paperRun] = await db
 		.insert(runs)
 		.values({
