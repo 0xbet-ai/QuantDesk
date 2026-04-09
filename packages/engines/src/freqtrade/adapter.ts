@@ -28,6 +28,14 @@ import type {
 // The freqtrade container mounts workspace → /freqtrade/user_data.
 // We organise everything under that single bind mount.
 const USERDIR_IN_CONTAINER = "/freqtrade/user_data";
+
+// Shadow the host `.git` directory with an in-container tmpfs. The workspace
+// is a per-desk git checkout, and freqtrade's entrypoint runs
+// `chown -R ftuser /freqtrade/user_data`, which fails loudly on git's
+// host-owned read-only object files (`Permission denied` spam). freqtrade
+// itself never needs `.git`, so shadowing it keeps chown happy and keeps the
+// host repo untouched.
+const GIT_SHADOW_TMPFS = [`${USERDIR_IN_CONTAINER}/.git`];
 const DEFAULT_PAPER_API_PORT = 8080; // container port — we publish to a free host port per run
 
 interface FreqtradeBacktestRaw {
@@ -101,6 +109,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 				image: ENGINE_IMAGES.freqtrade,
 				rm: true,
 				volumes: [`${userDirHost}:${USERDIR_IN_CONTAINER}`],
+				tmpfs: GIT_SHADOW_TMPFS,
 				command: cmd,
 			},
 			config.onLogLine
@@ -155,6 +164,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 				image: ENGINE_IMAGES.freqtrade,
 				rm: true,
 				volumes: [`${workspaceAbs}:${USERDIR_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
+				tmpfs: GIT_SHADOW_TMPFS,
 				cpus: "2",
 				memory: "2g",
 				command: [
@@ -250,6 +260,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 				kind: "paper",
 			}),
 			volumes: [`${workspaceAbs}:${USERDIR_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
+			tmpfs: GIT_SHADOW_TMPFS,
 			ports: [`127.0.0.1:${hostApiPort}:${DEFAULT_PAPER_API_PORT}`],
 			cpus: "1",
 			memory: "1g",

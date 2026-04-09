@@ -27,6 +27,13 @@ export interface DockerRunOptions {
 	labels?: Record<string, string>;
 	/** Bind mounts: hostPath:containerPath[:ro]. */
 	volumes?: string[];
+	/**
+	 * tmpfs mounts: containerPath[:options]. Used to shadow sub-paths of a
+	 * bind-mounted workspace so the container cannot touch host files there
+	 * (e.g. `.git/objects` — freqtrade's entrypoint chowns user_data and
+	 * fails noisily on git's read-only host-owned files).
+	 */
+	tmpfs?: string[];
 	/** Host:container port mappings, e.g. `["8080:8080"]`. */
 	ports?: string[];
 	/** Environment variables. */
@@ -307,6 +314,9 @@ export function buildRunArgs(opts: DockerRunOptions): string[] {
 	}
 	for (const mount of opts.volumes ?? []) {
 		args.push("-v", mount);
+	}
+	for (const mount of opts.tmpfs ?? []) {
+		args.push("--tmpfs", mount);
 	}
 	for (const port of opts.ports ?? []) {
 		args.push("-p", port);
