@@ -108,13 +108,28 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 									</tr>
 								</thead>
 								<tbody>
-									{visibleRuns.map((run) => {
+									{(() => {
+									// Find the best run by primary metric (highest return)
+									const completedRuns = visibleRuns.filter(
+										(r) => r.status === "completed" && r.result?.metrics?.[0]?.value != null,
+									);
+									const bestRunId =
+										completedRuns.length > 0
+											? completedRuns.reduce((best, r) =>
+													(r.result?.metrics?.[0]?.value ?? -Infinity) >
+													(best.result?.metrics?.[0]?.value ?? -Infinity)
+														? r
+														: best,
+												).id
+											: null;
+									return visibleRuns.map((run) => {
 										const m0 = run.result?.metrics?.[0];
 										const m1 = run.result?.metrics?.[1];
 										const ret = m0?.value;
 										const dd = m1?.value;
 										const baselineM0 = baseline?.result?.metrics?.[0];
 										const isBase = baseline?.id === run.id;
+										const isBest = run.id === bestRunId && completedRuns.length > 1;
 										const delta =
 											!isBase && baselineM0 && m0 ? m0.value - baselineM0.value : null;
 										return (
@@ -124,7 +139,11 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 												onKeyDown={(e) => e.key === "Enter" && setSelectedRunId(run.id)}
 												className={cn(
 													"cursor-pointer transition-colors border-b border-border/50",
-													run.id === selectedRunId ? "bg-accent" : "hover:bg-accent/50",
+													run.id === selectedRunId
+														? "bg-accent"
+														: isBest
+															? "bg-green-500/10 hover:bg-green-500/15"
+															: "hover:bg-accent/50",
 												)}
 											>
 												<td className="py-1.5">
@@ -172,7 +191,8 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 												)}
 											</tr>
 										);
-									})}
+									});
+								})()}
 								</tbody>
 							</table>
 						);
