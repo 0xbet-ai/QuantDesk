@@ -59,6 +59,7 @@ export const gateIoGuide: VenueGuide = {
 		"Native REST uses underscore in pairs (BTC_USDT), ccxt uses slash (BTC/USDT).",
 		"REST API docs (spot): https://www.gate.io/docs/developers/apiv4/#spot-market-candlesticks",
 		"REST API docs (futures): https://www.gate.io/docs/developers/apiv4/#futures-market-candlesticks",
+		"Bulk data portal: https://download.gatedata.org/ — deals, orderbooks, candlesticks. Free gzip/CSV.",
 	],
 
 	lastVerified: "2026-04-09",

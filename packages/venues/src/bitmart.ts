@@ -58,6 +58,7 @@ export const bitmartGuide: VenueGuide = {
 		"Verification Level 2 needed for API access.",
 		"REST API docs (spot): https://developer-pro.bitmart.com/en/spot/#get-history-k-line-v3",
 		"REST API docs (futures): https://developer-pro.bitmart.com/en/futuresv2/#get-k-line",
+		"Bulk data portal: none — API-only for historical data.",
 	],
 
 	lastVerified: "2026-04-09",

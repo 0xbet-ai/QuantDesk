@@ -61,6 +61,7 @@ export const kucoinGuide: VenueGuide = {
 		"USDC futures support is very limited (only 7 pairs).",
 		"REST API docs (spot): https://www.kucoin.com/docs/rest/spot-trading/market-data/get-klines",
 		"REST API docs (futures): https://www.kucoin.com/docs/rest/futures-trading/market-data/get-klines",
+		"Bulk data portal: https://historical-data.kucoin.com/ — exists but poorly documented.",
 	],
 
 	lastVerified: "2026-04-09",

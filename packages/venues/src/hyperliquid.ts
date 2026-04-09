@@ -19,7 +19,9 @@ export const hyperliquidGuide: VenueGuide = {
 			"USDC is the only quote/settle currency. No USDT, no USD, no EUR. " +
 			"Spot: 271 USDC pairs. Linear perps: 294 USDC, 53 USDH, 25 USDE. " +
 			"Native API uses bare coin names for perps (BTC) and numeric indices for spot (@1). " +
-			"DEX — uses wallet private key, not traditional API key.",
+			"DEX — uses wallet private key, not traditional API key.\n\n" +
+			"**Nautilus symbols:** Perp `BTC-USD-PERP.HYPERLIQUID`, " +
+			"Spot `BTC-USDC-SPOT.HYPERLIQUID`. Tardis key: `hyperliquid`.",
 	},
 
 	recommendedFetch: {
@@ -59,6 +61,7 @@ export const hyperliquidGuide: VenueGuide = {
 		"Uses wallet private key for auth, not API key. Create a dedicated API wallet.",
 		"Native API for perps uses bare coin name (BTC), spot uses numeric index (@1). ccxt normalises both.",
 		"REST API (info endpoint): https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/candle-snapshot",
+		"Bulk data: s3://hyperliquid-archive/ — L2 book snapshots only (no klines). Requester-pays, monthly updates.",
 	],
 
 	lastVerified: "2026-04-09",

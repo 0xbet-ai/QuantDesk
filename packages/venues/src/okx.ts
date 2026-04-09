@@ -21,7 +21,9 @@ export const okxGuide: VenueGuide = {
 		notes:
 			"OKX has a unique split: same quote USD but different settle currencies. " +
 			"ccxt disambiguates via the :SETTLE suffix. USDC: 251 spot pairs, 0 perps. " +
-			"Quote currencies: USDT, USDC, USD, EUR. Passphrase required for API auth.",
+			"Quote currencies: USDT, USDC, USD, EUR. Passphrase required for API auth.\n\n" +
+			"**Nautilus symbols:** Spot `BTC-USDT.OKX`, Swap `BTC-USDT-SWAP.OKX`, " +
+			"Futures `BTC-USD-241227.OKX`. Tardis key: `okex`, `okex-swap`, `okex-futures`.",
 	},
 
 	recommendedFetch: {
@@ -63,6 +65,7 @@ export const okxGuide: VenueGuide = {
 		"Requires passphrase in addition to API key and secret.",
 		"Use `myokx` exchange ID for EAA-registered accounts.",
 		"REST API docs: https://www.okx.com/docs-v5/en/#order-book-trading-market-data-get-candlesticks",
+		"Bulk data portal: https://www.okx.com/en-us/historical-data — trades (2021+), 1m klines (2023+). Free ZIP.",
 	],
 
 	lastVerified: "2026-04-09",
