@@ -263,6 +263,41 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					}
 					registered.push({ datasetId: dataset.id, pair, reused });
 				}
+
+				// Ensure workspace symlink so the engine container finds
+				// the data at the expected path, regardless of where the
+				// agent's fetcher actually wrote the files.
+				const [deskForLink] = await db
+					.select()
+					.from(desks)
+					.where(eq(desks.id, ctx.deskId));
+				if (deskForLink?.workspacePath) {
+					const { join, dirname } = await import("node:path");
+					const { existsSync, mkdirSync, symlinkSync, unlinkSync, lstatSync } =
+						await import("node:fs");
+					const linkPath = join(deskForLink.workspacePath, "data", args.exchange);
+					if (!existsSync(linkPath)) {
+						try {
+							mkdirSync(dirname(linkPath), { recursive: true });
+							symlinkSync(resolvedPath, linkPath, "dir");
+						} catch {
+							/* best effort — path may already exist as a real dir */
+						}
+					} else {
+						// If it exists but is not a symlink (agent created a real
+						// dir), leave it alone — the files are already there.
+						try {
+							const stat = lstatSync(linkPath);
+							if (stat.isSymbolicLink()) {
+								unlinkSync(linkPath);
+								symlinkSync(resolvedPath, linkPath, "dir");
+							}
+						} catch {
+							/* best effort */
+						}
+					}
+				}
+
 				return textResult(
 					JSON.stringify(
 						{ datasets: registered, path: resolvedPath },

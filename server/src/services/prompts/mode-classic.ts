@@ -64,9 +64,16 @@ exists, follow the generic steps unchanged:
    \`node ...\`) via the \`Bash\` tool — that would execute on the
    user's host, which is not your environment.
 3. Save the result in **exactly the format and location the framework
-   reads from**, not in a custom path of your own. If you don't
-   already know the format, ask the user rather than guessing — the
-   framework will reject anything that doesn't match.
+   reads from**, not in a custom path of your own. The workspace root
+   is mounted as the engine's user-data directory — do NOT create a
+   \`user_data/\` subdirectory (that would double-nest inside the
+   container). Read the seeded config to find the expected data path
+   and file naming convention, then save there. For example, if config
+   sets \`datadir\` to \`data/hyperliquid\`, save to
+   \`data/hyperliquid/BTC_USDC-5m.json\` (flat, no sub-directories per
+   pair). If you don't already know the exact format, read the seeded
+   config or ask the user rather than guessing — the framework will
+   reject anything that doesn't match.
 4. Call \`mcp__quantdesk__register_dataset\` so the server records the
    metadata. The framework will pick up the files you wrote transparently.
 

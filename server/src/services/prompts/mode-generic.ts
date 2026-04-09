@@ -50,6 +50,11 @@ will return an error. Fetch data yourself:
    \`/workspace/data/\` (which is the desk workspace on the host),
    and returns \`{ exitCode, stdout, stderr }\`. Inspect the result
    and retry with a fix if \`exitCode !== 0\`.
+   **Important:** the workspace root IS the engine's user-data
+   directory — do NOT create a \`user_data/\` subdirectory (that
+   would double-nest inside the container). Save data as
+   \`data/<exchange>/<PAIR>-<timeframe>.json\` (flat, no
+   sub-directories per pair).
 4. Call \`mcp__quantdesk__register_dataset\` so the server records the
    metadata.
 
