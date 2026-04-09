@@ -3,7 +3,7 @@
  * scripts, host execution).
  *
  * Paper trading is **explicitly disallowed** for generic desks — the
- * prompt must tell the agent to never emit `[GO_PAPER]` or `[RUN_PAPER]`
+ * prompt must tell the agent to never call `go_paper` / `run_paper` tools
  * here.
  */
 
@@ -15,9 +15,9 @@ backtest script yourself. This is the explicit opt-out from container
 isolation — the script runs on the host Node/Python.
 
 ### Data acquisition
-There is **no server-side data fetcher** for generic desks. Do **not** emit
-\`[DATA_FETCH]\` — the server has no pre-packaged downloader to run
-for this mode. Fetch data yourself:
+There is **no server-side data fetcher** for generic desks. Do **not** call
+\`mcp__quantdesk__data_fetch\` — the server has no pre-packaged downloader
+for this mode and the tool will return an error. Fetch data yourself:
 
 1. Write a fetcher script in the workspace (\`fetch_data.py\`, \`fetch.ts\`,
    whatever fits the venue) using \`ccxt\`, the venue's REST API via
@@ -26,43 +26,44 @@ for this mode. Fetch data yourself:
    fetches and poll with \`BashOutput\` so progress streams to the user.
 3. Save the result to \`./data/<exchange>/<pair>-<timeframe>.csv\` (or
    \`.json\`). Path is up to you; be consistent.
-4. Emit a \`[DATASET]\` marker so the server registers it:
+4. Call \`mcp__quantdesk__register_dataset\` so the server registers it:
 
 \`\`\`
-[DATASET]
-{"exchange": "<id>", "pairs": ["BTC/USDT"], "timeframe": "5m", "dateRange": {"start": "2025-01-01", "end": "2025-03-01"}, "path": "<path to saved file>"}
-[/DATASET]
+mcp__quantdesk__register_dataset({
+  "exchange": "<id>",
+  "pairs": ["BTC/USDT"],
+  "timeframe": "5m",
+  "dateRange": {"start": "2025-01-01", "end": "2025-03-01"},
+  "path": "<path to saved file>"
+})
 \`\`\`
 
 ### Backtest execution
-1. Write the strategy as a standalone script in the workspace (Python, JS,
-   whatever fits the venue). Use pandas + ta (or equivalent) for indicators.
-   Always use **real** market data fetched above — never synthetic or random.
-2. For long-running commands (data downloads, backtests, optimizations), run
-   them in the background and poll for progress so the user can see what is
-   happening:
-   - Use the Bash tool with \`run_in_background: true\`. Returns a shell ID
-     immediately instead of blocking.
-   - Make sure your script flushes stdout line-by-line. In Python use
-     \`print(..., flush=True)\` or run with \`python -u\`. In other
-     languages, ensure line-buffered output (e.g. wrap with \`stdbuf -oL\`).
-   - Poll the running shell with \`BashOutput(bash_id=…)\` every few seconds
-     until it finishes. Each poll appends new stdout to the same UI card.
-   - Avoid single foreground commands that take more than ~30 seconds — the
-     user sees only "Waiting for result..." until they finish.
-3. Print a JSON result to stdout as the LAST line of output, then wrap it
-   in your response as:
+Generic mode still uses the \`mcp__quantdesk__run_backtest\` tool — the
+server runs your entrypoint script and parses its stdout for a JSON
+metrics line. Write a standalone script (Python, JS, whatever fits the
+venue) that:
+
+1. Uses pandas + ta (or equivalent) for indicators. Always use **real**
+   market data fetched above — never synthetic or random.
+2. Prints a JSON metrics object to stdout as the LAST line of output.
+
+Then call:
 
 \`\`\`
-[BACKTEST_RESULT]
-{"metrics": [...]}
-[/BACKTEST_RESULT]
+mcp__quantdesk__run_backtest({
+  "strategyName": "<your strategy class or name>",
+  "entrypoint": "<path/to/your/entrypoint.py>"
+})
 \`\`\`
+
+The tool blocks until the script finishes and returns
+\`{runId, runNumber, metrics[]}\`.
 
 ### Metrics schema
-The result must be a JSON object with a \`metrics\` array. Pick 4–8 metrics
-that best characterise the strategy's performance; always include at least
-one return-like metric for sorting. Order by importance.
+The last-line JSON your script prints must have a \`metrics\` array. Pick
+4–8 metrics that best characterise the strategy's performance; always
+include at least one return-like metric for sorting. Order by importance.
 
 \`\`\`
 {
@@ -83,7 +84,7 @@ Field reference:
 - \`tone\` (optional): \`positive\` (green when value > 0), \`negative\` (red), \`neutral\` (default)
 
 ### Paper trading
-**Paper trading is not supported** for generic desks. Do **not** emit
-\`[RUN_PAPER]\` or \`[GO_PAPER]\`, and do not ask the user about paper
-trading. Only backtest workflows are allowed here.`;
+**Paper trading is not supported** for generic desks. Do **not** call the
+paper-trading tools and do not ask the user about paper trading. Only
+backtest workflows are allowed here.`;
 }

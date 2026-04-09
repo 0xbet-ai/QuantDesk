@@ -1,12 +1,10 @@
 /**
  * `risk-manager.system` — Risk Manager identity, desk constraints, run
- * metrics to validate, and the mandatory verdict marker.
+ * metrics to validate, and the mandatory verdict tool call.
  *
- * The verdict marker (`[RM_APPROVE]` / `[RM_REJECT] <reason>`) is
- * mandatory — the prompt explicitly demands "exactly one of the following
- * lines" at the end of the response. Without it the verdict is
- * informational and `[RUN_PAPER]` will refuse, so the language here must
- * stay strict.
+ * The verdict goes through `mcp__quantdesk__submit_rm_verdict` — without
+ * it the RM's output is informational only and paper promotion stays
+ * gated, so the language here must stay strict about calling the tool.
  */
 
 import type { RiskManagerPromptInput } from "./types.js";
@@ -37,12 +35,12 @@ ${runResult.metrics
 
 Provide a validation report. Look for signs of overfitting, unrealistic performance, suspiciously low drawdown, or returns that exceed the target by an unusually large margin.
 
-## Verdict marker (required)
+## Verdict (required)
 
-End your response with **exactly one** of the following lines:
+End your turn by calling **exactly one** of:
 
-- \`[RM_APPROVE]\` — the run is sound. The analyst may now ask the user about paper trading and, once agreed, emit [GO_PAPER].
-- \`[RM_REJECT] <short reason>\` — the run looks unsafe (overfit, suspicious metrics, constraint violation, etc.). Paper trading is gated until a fresh validation passes.
+- \`mcp__quantdesk__submit_rm_verdict({verdict: "approve"})\` — the run is sound. The analyst will be retriggered with the verdict in context and may then ask the user about paper trading.
+- \`mcp__quantdesk__submit_rm_verdict({verdict: "reject", reason: "<short reason>"})\` — the run looks unsafe (overfit, suspicious metrics, constraint violation, etc.). Paper trading stays gated until a fresh validation passes.
 
-The marker is what wires your verdict back into the analyst's next turn — without it the verdict is informational only and \`[RUN_PAPER]\` will refuse.`;
+The tool call is what wires your verdict back into the analyst's next turn — without it the verdict is informational only and the paper gate will refuse.`;
 }

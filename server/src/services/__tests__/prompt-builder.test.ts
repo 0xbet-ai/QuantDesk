@@ -93,13 +93,13 @@ describe("buildAnalystPrompt", () => {
 		expect(prompt).toContain("baseline");
 	});
 
-	it("classic mode prompt instructs Freqtrade IStrategy + RUN_BACKTEST marker", () => {
+	it("classic mode prompt instructs Freqtrade IStrategy + run_backtest MCP tool", () => {
 		const prompt = buildAnalystPrompt({ desk, experiment, runs, comments, memorySummaries: [] });
 		expect(prompt).toContain("Classic");
 		expect(prompt).toContain("IStrategy");
 		expect(prompt).toContain("populate_indicators");
 		expect(prompt).toContain("populate_entry_trend");
-		expect(prompt).toContain("[RUN_BACKTEST]");
+		expect(prompt).toContain("mcp__quantdesk__run_backtest");
 		// Should not leak the realtime-specific API into a classic prompt
 		expect(prompt).not.toContain("on_quote_tick");
 	});
@@ -115,7 +115,7 @@ describe("buildAnalystPrompt", () => {
 		expect(prompt).toContain("Real-time");
 		expect(prompt).toContain("on_quote_tick");
 		expect(prompt).toContain("order_factory");
-		expect(prompt).toContain("[RUN_BACKTEST]");
+		expect(prompt).toContain("mcp__quantdesk__run_backtest");
 		expect(prompt).not.toContain("populate_indicators");
 	});
 

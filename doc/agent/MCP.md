@@ -169,8 +169,6 @@ There is **no automatic stage-level retry**. If a tool's effect fails, the tool 
 
 An apology, a passive "I'll wait for guidance", or a restatement of the failure counts as abandoning the task and violates the "never give up silently" rule in the analyst system prompt.
 
-## Legacy marker protocol
+## Legacy marker protocol (retired)
 
-The legacy bracketed-marker protocol (`[DATA_FETCH]`, `[RUN_BACKTEST]`, etc.) is still parsed by `agent-trigger.ts` as a fallback during the phase 27 migration. Tool calls are the authoritative path — they return structured results on the same turn, which is how the agent recovers from transient failures without the inject-a-system-comment-and-retrigger round-trip the markers required.
-
-Once a week of real runs shows zero marker emissions, the marker parsers will be deleted in a follow-up cleanup slice (see `doc/plans/27_mcp_migration.md`).
+The bracketed-marker protocol (`[DATA_FETCH]`, `[RUN_BACKTEST]`, etc.) that preceded this file has been fully deleted. `packages/shared/src/agent-markers.ts` still exports a defensive `stripAgentMarkers` that removes any stray bracket text before a comment is persisted, but nothing in the server parses or dispatches markers anymore. All lifecycle actions go through the MCP tools above.

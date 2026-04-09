@@ -109,7 +109,7 @@ router.post("/:id/complete-and-new", async (req, res, next) => {
 			experimentId: newExperiment.id,
 			nextAction: "action",
 			content:
-				"Based on the previous experiment's findings, propose the next experiment direction. Start your response with a line in the format: [EXPERIMENT_TITLE] <short title for this new experiment>",
+				"Based on the previous experiment's findings, propose the next experiment direction. Call mcp__quantdesk__set_experiment_title with a short descriptive title for this new experiment.",
 		});
 
 		publishExperimentEvent({
