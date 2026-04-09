@@ -29,9 +29,9 @@ the TradingNode.
 
 ### Data acquisition
 There is **no server-side data fetcher** for realtime desks yet — the
-generic \`[DATA_FETCH]\` path only runs for classic mode. Do **not**
-emit \`[DATA_FETCH]\`; the server will post a system comment telling
-you it is unsupported and nothing will happen. Fetch the data yourself:
+\`mcp__quantdesk__data_fetch\` tool only runs for classic mode. Do **not**
+call \`data_fetch\`; the tool will return an error saying it is unsupported.
+Fetch the data yourself:
 
 1. Write a fetcher script in the workspace (e.g. \`fetch_data.py\`) using
    \`ccxt\`, the venue's REST/WebSocket API, or Nautilus's own data catalog
@@ -41,35 +41,33 @@ you it is unsupported and nothing will happen. Fetch the data yourself:
    downloads and poll with \`BashOutput\`.
 3. Save the result under \`./data/\` in a layout Nautilus can ingest
    (Parquet/catalog is typical; document the path in your script).
-4. Emit a \`[DATASET]\` marker so the server registers the dataset:
+4. Call \`mcp__quantdesk__register_dataset\` so the server registers it:
 
 \`\`\`
-[DATASET]
-{"exchange": "<id>", "pairs": ["BTC/USDT"], "timeframe": "tick", "dateRange": {"start": "2025-01-01", "end": "2025-01-07"}, "path": "<workspace-relative path>"}
-[/DATASET]
+mcp__quantdesk__register_dataset({
+  "exchange": "<id>",
+  "pairs": ["BTC/USDT"],
+  "timeframe": "tick",
+  "dateRange": {"start": "2025-01-01", "end": "2025-01-07"},
+  "path": "<workspace-relative path>"
+})
 \`\`\`
 
-After \`[DATASET]\` is registered the desk satisfies the data requirement
-and you may proceed to writing the strategy and emitting \`[RUN_BACKTEST]\`.
+After \`register_dataset\` returns, the desk satisfies the data requirement
+and you may proceed to writing the strategy and calling
+\`mcp__quantdesk__run_backtest\`.
 
-### Running backtests and paper trading
+### Running backtests
 
 **Do NOT execute python directly.** The server runs runner.py inside a
-pinned Nautilus Docker container. Emit markers to request execution:
+pinned Nautilus Docker container. Call the \`run_backtest\` tool to request
+execution:
 
 \`\`\`
-[RUN_BACKTEST]
-{"strategyName": "QuantDeskStrategy"}
-[/RUN_BACKTEST]
+mcp__quantdesk__run_backtest({"strategyName": "QuantDeskStrategy"})
 \`\`\`
 
-or, for paper trading a previously-completed backtest run:
-
-\`\`\`
-[RUN_PAPER] <runId>
-\`\`\`
-
-The server will execute the container and post a system comment with the
-result. You will be re-triggered for analysis — do not poll or read files
-yourself.`;
+The tool blocks until the container finishes and returns
+\`{runId, runNumber, metrics[]}\`. React to the metrics directly on the
+same turn.`;
 }

@@ -342,7 +342,7 @@ describe("rule #12 — no user dead-ends (static lint)", () => {
 	});
 
 	it("ACTION_PHRASE_PATTERNS itself matches a known-good example", () => {
-		const good = "You may now write the strategy and emit [RUN_BACKTEST].";
+		const good = "You may now write the strategy and call mcp__quantdesk__run_backtest.";
 		expect(ACTION_PHRASE_PATTERNS.some((re) => re.test(good))).toBe(true);
 	});
 

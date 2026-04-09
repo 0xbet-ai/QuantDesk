@@ -32,7 +32,8 @@ describe("hasNextAction (rule #12 invariant)", () => {
 	it("passes when the latest system comment contains an action phrase", () => {
 		const result = hasNextAction({
 			pendingProposalCount: 0,
-			latestSystemCommentContent: "Cannot run backtest: you must emit [DATASET] first.",
+			latestSystemCommentContent:
+				"Cannot run backtest: you must call mcp__quantdesk__register_dataset first.",
 			retriggerPending: false,
 		});
 		expect(result.ok).toBe(true);

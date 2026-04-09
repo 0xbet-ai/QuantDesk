@@ -107,7 +107,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 			content:
 				`Reusing existing dataset for ${proposal.pairs.join(", ")} ${proposal.timeframe} ` +
 				`from ${proposal.exchange} (${startDate} → ${endDate}). No download needed. ` +
-				"You may now write the strategy and emit [RUN_BACKTEST].",
+				"You may now write the strategy and call mcp__quantdesk__run_backtest.",
 			metadata: threadMeta,
 		});
 		return dataset;
@@ -164,7 +164,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 			content:
 				`(mock) Downloaded ${proposal.pairs.join(", ")} ${proposal.timeframe} from ` +
 				`${proposal.exchange} into shared cache. Dataset registered and linked to this ` +
-				"desk. You may now write the strategy and emit [RUN_BACKTEST].",
+				"desk. You may now write the strategy and call mcp__quantdesk__run_backtest.",
 			metadata: threadMeta,
 		});
 		return dataset ?? null;
@@ -238,7 +238,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 			nextAction: "action",
 			content:
 				`Data-fetch failed for ${proposal.pairs.join(", ")} on ${proposal.exchange}. ` +
-				"Check the pair naming and trade mode, then ask the user about a corrected fetch and emit [DATA_FETCH] once they agree. " +
+				"Check the pair naming and trade mode, then ask the user about a corrected fetch and call mcp__quantdesk__data_fetch again once they agree. " +
 				`Last log lines:\n\`\`\`log\n${tail || "(no output)"}\n\`\`\``,
 			metadata: threadMeta,
 		});
@@ -269,7 +269,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 		content:
 			`Downloaded ${fileCount} file(s) for ${proposal.pairs.join(", ")} ` +
 			`${proposal.timeframe} from ${proposal.exchange} into shared cache. Dataset registered ` +
-			"and linked to this desk. You may now write the strategy and emit [RUN_BACKTEST].",
+			"and linked to this desk. You may now write the strategy and call mcp__quantdesk__run_backtest.",
 		metadata: threadMeta,
 	});
 

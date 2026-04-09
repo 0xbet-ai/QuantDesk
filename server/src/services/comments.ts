@@ -81,8 +81,8 @@ export const ACTION_PHRASE_PATTERNS: readonly RegExp[] = [
 	/please try again/i,
 	/you may now/i,
 	/proceed to/i,
-	/\b(?:emit|send) /i,
-	/\[[A-Z][A-Z_]+\]/, // instructs the agent to emit a bracketed marker
+	/\b(?:emit|send|call) /i,
+	/mcp__quantdesk__/, // instructs the agent to call an MCP tool
 	/start your response with/i,
 	/click approve/i,
 	/click retry/i,

@@ -30,37 +30,41 @@ Also maintain a \`config.json\` at workspace root with at minimum:
 Approval is conversational. On your **first** turn on a new desk, describe
 the strategy idea in plain text and ask the user to confirm (or adjust) the
 dataset you'd like to pull — exchange, pair, timeframe, range, and a short
-rationale. End the turn with a concrete question and emit **no marker**.
+rationale. End the turn with a concrete question and make **no tool call**.
 Wait for the user to reply affirmatively. On the **next** turn, once the
-user has agreed, emit a \`[DATA_FETCH]\` block with the final parameters;
-the server runs the engine's bundled \`download-data\` tool inside a
-container and posts a "Downloaded …" / "Reusing existing dataset …" system
-comment. **Always start on Path A unless you have empirical evidence from
-the current session that it will fail for this exact venue + mode** (e.g.
-an earlier failure comment in this experiment's history).
+user has agreed, call \`mcp__quantdesk__data_fetch\` with the final
+parameters; the server runs the engine's bundled \`download-data\` tool
+inside a container and the tool returns \`{datasetId, exchange, pairs,
+timeframe, dateRange, path}\`. **Always start on Path A unless you have
+empirical evidence from the current session that it will fail for this
+exact venue + mode** (e.g. an earlier failure comment in this experiment's
+history).
 
 Do **not** infer Path A unsupportedness from your training data — engine
 support evolves. Try first, fail empirically, then switch.
 
-Emit the \`[DATA_FETCH]\` block as a fenced marker at the start of a line
-— the body is strict JSON, not prose. Honour the venue's trade mode in
-pair naming (e.g. perp pairs may use a quoted-margin form like
-\`BTC/USDC:USDC\`):
+Honour the venue's trade mode in pair naming (e.g. perp pairs may use a
+quoted-margin form like \`BTC/USDC:USDC\`):
 
 \`\`\`
-[DATA_FETCH]
-{"exchange": "<venue id>", "pairs": ["<pair>"], "timeframe": "<5m|1h|...>", "days": <integer>, "tradingMode": "spot|futures|margin", "rationale": "<why this dataset>"}
-[/DATA_FETCH]
+mcp__quantdesk__data_fetch({
+  "exchange": "<venue id>",
+  "pairs": ["<pair>"],
+  "timeframe": "<5m|1h|...>",
+  "days": <integer>,
+  "tradingMode": "spot|futures|margin",
+  "rationale": "<why this dataset>"
+})
 \`\`\`
 
-Remember: **do NOT emit \`[DATA_FETCH]\` in the same turn you ask the user**
-— that defeats the approval step. The question turn has no marker; the
-execution turn has the marker and no re-asking.
+Remember: **do NOT call \`data_fetch\` in the same turn you ask the user**
+— that defeats the approval step. The question turn has no tool call; the
+execution turn has the tool call and no re-asking.
 
 **Path B — agent-side fetcher (fallback after a real Path A failure):**
-if Path A fails with "exchange does not support ohlcv", "pair not found",
-"historic data not available", or similar engine-side limitation, **do
-not keep retrying Path A**. Switch to Path B:
+if Path A returns an error like "exchange does not support ohlcv", "pair
+not found", "historic data not available", or similar engine-side
+limitation, **do not keep retrying Path A**. Switch to Path B:
 
   1. Probe first if you are unsure of pair naming, supported markets, or
      trade modes — see the failure escalation block when one is injected.
@@ -73,18 +77,23 @@ not keep retrying Path A**. Switch to Path B:
      fetches and poll with BashOutput so progress streams to the user).
   4. Save the result to \`./data/<exchange>/<pair>-<timeframe>.csv\` or
      \`.json\`. Path is up to you; just be consistent.
-  5. Emit a \`[DATASET]\` marker so the server registers the dataset and
-     the desk can run backtests against it:
+  5. **Call \`mcp__quantdesk__register_dataset\` immediately** so the
+     server registers the dataset and the desk can run backtests against
+     it:
 
 \`\`\`
-[DATASET]
-{"exchange": "<id>", "pairs": ["BTC/USDC:USDC"], "timeframe": "5m", "dateRange": {"start": "2025-10-08", "end": "2026-04-08"}, "path": "<absolute or workspace-relative path>"}
-[/DATASET]
+mcp__quantdesk__register_dataset({
+  "exchange": "<id>",
+  "pairs": ["BTC/USDC:USDC"],
+  "timeframe": "5m",
+  "dateRange": {"start": "2025-10-08", "end": "2026-04-08"},
+  "path": "<workspace-relative or absolute path>"
+})
 \`\`\`
 
-After \`[DATASET]\` is registered the desk satisfies the data requirement
-and you may proceed straight to writing strategy code and emitting
-\`[RUN_BACKTEST]\`.
+After \`register_dataset\` returns, the desk satisfies the data requirement
+and you may proceed straight to writing strategy code and calling
+\`mcp__quantdesk__run_backtest\`.
 
 **Never** sit silent or apologise when Path A fails. Path B is always
 available — the only requirement is that the resulting CSV/JSON has
@@ -92,26 +101,22 @@ columns the engine can read (timestamp + OHLCV for classic mode).
 
 Use pandas-ta or talib for indicators. Think in minutes to hours — not ticks.
 
-### Running backtests and paper trading
+### Running backtests
 
 **Do NOT execute python or freqtrade directly.** The server runs everything
-inside a pinned Freqtrade Docker container. Instead, emit a marker at the
-end of your response when you want a backtest or paper run:
+inside a pinned Freqtrade Docker container. Instead, call the
+\`mcp__quantdesk__run_backtest\` tool when you want a backtest:
 
 \`\`\`
-[RUN_BACKTEST]
-{"strategyName": "QuantDeskStrategy", "configFile": "config.json"}
-[/RUN_BACKTEST]
+mcp__quantdesk__run_backtest({
+  "strategyName": "QuantDeskStrategy",
+  "configFile": "config.json"
+})
 \`\`\`
 
-or, for paper trading a previously-completed backtest run:
-
-\`\`\`
-[RUN_PAPER] <runId>
-\`\`\`
-
-The server will execute the container, capture the result, and post a
-system comment back with the metrics. You will then be triggered again to
-analyse the result — do **not** try to read files or poll for completion
-yourself.`;
+The tool blocks until the container finishes and returns
+\`{runId, runNumber, isBaseline, metrics[]}\` — react to the metrics on the
+same turn. If the tool returns an error (freqtrade stderr), read it
+carefully and fix the specific issue (strategy code, config, pair naming)
+before retrying — don't blindly retry the same call.`;
 }
