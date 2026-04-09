@@ -17,15 +17,32 @@
 
 import type { VenueGuide } from "./types.js";
 
-// Real venue guides are registered here. The registry is intentionally
-// empty at scaffold time — add venues one at a time, each with an
-// empirically verified recipe. Missing venues degrade gracefully: the
-// agent falls back to the generic Path B instructions in the
-// mode-classic prompt block.
+import { binanceGuide } from "./binance.js";
+import { bybitGuide } from "./bybit.js";
+import { okxGuide } from "./okx.js";
+import { krakenGuide } from "./kraken.js";
+import { gateIoGuide } from "./gate_io.js";
+import { kucoinGuide } from "./kucoin.js";
+import { htxGuide } from "./htx.js";
+import { bitgetGuide } from "./bitget.js";
+import { bitmartGuide } from "./bitmart.js";
+import { bingxGuide } from "./bingx.js";
+import { bitvavoGuide } from "./bitvavo.js";
+import { hyperliquidGuide } from "./hyperliquid.js";
+
 const REGISTRY: Record<string, VenueGuide> = {
-	// binance: binanceGuide,
-	// bybit: bybitGuide,
-	// hyperliquid: hyperliquidGuide,
+	binance: binanceGuide,
+	bybit: bybitGuide,
+	okx: okxGuide,
+	kraken: krakenGuide,
+	gate_io: gateIoGuide,
+	kucoin: kucoinGuide,
+	htx: htxGuide,
+	bitget: bitgetGuide,
+	bitmart: bitmartGuide,
+	bingx: bingxGuide,
+	bitvavo: bitvavoGuide,
+	hyperliquid: hyperliquidGuide,
 };
 
 /**
