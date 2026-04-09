@@ -206,6 +206,41 @@ complete_experiment({ summary? })
              starts a new experiment or closes the desk
 ```
 
+### `go_paper`
+
+```
+go_paper({ runId })
+  requires:  run.result.validation.verdict === "approve",
+             desk has no active paper session (one per desk),
+             user has agreed in the preceding exchange
+  effect:    create a paper_sessions row (pending → running),
+             spawn the engine's dry-run container with the desk's
+             strategy, exchange, pairs, and budget as wallet size
+  returns:   { sessionId, status: "running", containerName }
+             on error: { isError: true, content: "…" }
+  postcond:  paper session is running; desk has an active session.
+             The agent does not need to supervise — the container
+             runs independently. Observer turns (future) will wake
+             the agent on notable events.
+  notes:     generic desks do not support paper trading. Only
+             managed-engine desks (classic, realtime) can promote.
+```
+
+### `stop_paper`
+
+```
+stop_paper({})
+  requires:  desk has an active paper session
+  effect:    graceful shutdown of the paper container, remove it,
+             mark session as stopped
+  returns:   { stopped: true, sessionId }
+             on error: { isError: true, content: "…" }
+  postcond:  paper session is stopped; desk can promote a new run.
+             No retrigger — the user explicitly chose to stop.
+  notes:     no user consent required. The user can also stop from
+             the UI directly (REST API).
+```
+
 ## Reading the chain
 
 Trace the lifecycle by matching `postcond` to `requires`:
@@ -214,6 +249,8 @@ Trace the lifecycle by matching `postcond` to `requires`:
 - `register_dataset.postcond` (≥1 desk_datasets link) → `run_backtest.requires`
 - `run_backtest.postcond` (runs row exists) → `request_validation.requires`
 - `submit_rm_verdict` records the verdict on the latest run and wakes the analyst
+- `submit_rm_verdict.postcond` (verdict=approve) → `go_paper.requires`
+- `go_paper.postcond` (active paper session) → `stop_paper.requires`
 
 There is no global state machine — only signatures lining up across turns. Adding a new tool means defining its `requires` and `postcond`; the chain falls out automatically wherever those facts already appear.
 

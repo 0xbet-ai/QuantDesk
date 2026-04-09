@@ -5,7 +5,8 @@
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./docker": "./src/docker.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
