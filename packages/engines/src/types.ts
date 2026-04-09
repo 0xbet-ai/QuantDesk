@@ -125,5 +125,5 @@ export interface EngineAdapter {
 	 * knowledge lives entirely inside each adapter's implementation —
 	 * the server's workspace service must not hard-code any of it.
 	 */
-	workspaceTemplate(): Record<string, string>;
+	workspaceTemplate(opts?: { venue?: string }): Record<string, string>;
 }

@@ -110,6 +110,7 @@ export async function createDesk(input: CreateDeskInput) {
 	// if provided, otherwise write the engine's stock template.
 	const workspacePath = await initWorkspace(desk!.id, engine, WORKSPACES_ROOT, {
 		seedCodePath: input.seedCodePath,
+		venue: input.venues[0],
 	});
 	await db.update(desks).set({ workspacePath }).where(eq(desks.id, desk!.id));
 

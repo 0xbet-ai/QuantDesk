@@ -1,4 +1,4 @@
-import { Bot, Database, ExternalLink, Shield, Square } from "lucide-react";
+import { Bot, ExternalLink, Shield, Square } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/utils.js";
 import { StatusBadge } from "./StatusBadge.js";
@@ -232,30 +232,8 @@ export function TurnCard({
 					</div>
 				)}
 
-				{/* Live container tails — rendered BELOW the transcript so
-				    they read chronologically as "agent called a tool → here
-				    is the live output from that tool". Once the tool returns
-				    these lines stay as the historical tail for the most
-				    recent engine/data-fetch call. */}
-				{dataFetchProgress && dataFetchProgress.length > 0 && (
-					<div className="mt-3 rounded-md border border-emerald-500/25 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.06]">
-						<div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 px-2.5 py-1">
-							<div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
-								<Database className="size-3" />
-								<span>Server · data fetch</span>
-							</div>
-							<span className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-[0.14em] text-emerald-600/80 dark:text-emerald-300/80">
-								<span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-								live
-							</span>
-						</div>
-						<pre className="max-h-48 overflow-y-auto whitespace-pre-wrap px-2.5 py-1.5 font-mono text-[10px] leading-tight text-emerald-950/80 dark:text-emerald-100/80">
-							{dataFetchProgress.slice(-30).join("\n")}
-						</pre>
-					</div>
-				)}
 
-				{/* Meta actions (e.g. transcript toggle) — outside the timeline
+{/* Meta actions (e.g. transcript toggle) — outside the timeline
 				    container so they don't get a timeline icon. */}
 				{footer && <div className="mt-3">{footer}</div>}
 			</section>
