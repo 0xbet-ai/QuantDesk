@@ -223,20 +223,15 @@ function buildClaudeSettingsForTurn(workspacePath: string): string {
 	// the workspace itself — only the siblings above it.
 	const settings = {
 		permissions: {
-			deny: Array.from(denyRoots).flatMap((root) => {
-				// Exclude the workspace so the agent can still operate there
-				// even when the workspace is nested under the repo root.
-				const scope = `${root}/**`;
-				return [
-					`Read(${scope})`,
-					`Edit(${scope})`,
-					`Write(${scope})`,
-					`Bash(cat:${scope})`,
-					`Bash(less:${scope})`,
-					`Bash(head:${scope})`,
-					`Bash(tail:${scope})`,
-				];
-			}),
+			deny: [
+				// Block Bash entirely — the agent must go through MCP tools
+				// (run_script, run_backtest, etc.) instead of shelling out.
+				"Bash",
+				...Array.from(denyRoots).flatMap((root) => {
+					const scope = `${root}/**`;
+					return [`Read(${scope})`, `Edit(${scope})`, `Write(${scope})`];
+				}),
+			],
 			// Re-allow the workspace so nested-dev layouts keep working.
 			allow: [
 				`Read(${workspacePath}/**)`,
