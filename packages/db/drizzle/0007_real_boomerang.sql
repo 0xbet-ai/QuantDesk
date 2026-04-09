@@ -1,0 +1,4 @@
+ALTER TABLE "datasets" ADD COLUMN "created_by_desk_id" uuid;--> statement-breakpoint
+ALTER TABLE "datasets" ADD COLUMN "created_by_experiment_id" uuid;--> statement-breakpoint
+ALTER TABLE "datasets" ADD CONSTRAINT "datasets_created_by_desk_id_desks_id_fk" FOREIGN KEY ("created_by_desk_id") REFERENCES "public"."desks"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "datasets" ADD CONSTRAINT "datasets_created_by_experiment_id_experiments_id_fk" FOREIGN KEY ("created_by_experiment_id") REFERENCES "public"."experiments"("id") ON DELETE set null ON UPDATE no action;

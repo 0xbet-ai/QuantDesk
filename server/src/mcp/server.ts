@@ -37,6 +37,7 @@ import type { NormalizedResult } from "@quantdesk/shared";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { publishExperimentEvent } from "../realtime/live-events.js";
+import { appendAgentLog } from "../services/agent-log.js";
 import { systemComment } from "../services/comments.js";
 import { executeDataFetch } from "../services/data-fetch.js";
 import {
@@ -329,6 +330,14 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 							experimentId: ctx.experimentId,
 							type: "run.log_chunk",
 							payload: { runId, stream, line },
+						});
+						// Persist to the per-experiment jsonl so the transcript
+						// hydrates the docker tail on refresh / navigate-back,
+						// instead of losing it the moment the turn ends.
+						appendAgentLog(ctx.experimentId, {
+							ts: new Date().toISOString(),
+							type: "stdout",
+							content: line,
 						});
 					},
 				});

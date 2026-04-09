@@ -85,6 +85,24 @@ export function GlobalDatasetsView() {
 									<div className="text-xs text-muted-foreground mt-0.5">
 										{d.exchange} · {d.dateRange.start} → {d.dateRange.end}
 									</div>
+									{(d.createdByDeskName || d.createdByExperimentTitle) && (
+										<div className="text-[11px] text-muted-foreground/80 mt-0.5">
+											created by{" "}
+											{d.createdByDeskName ? (
+												<span className="font-medium">{d.createdByDeskName}</span>
+											) : (
+												<span className="italic">deleted desk</span>
+											)}
+											{d.createdByExperimentTitle && (
+												<>
+													{" · "}
+													<span>
+														#{d.createdByExperimentNumber} {d.createdByExperimentTitle}
+													</span>
+												</>
+											)}
+										</div>
+									)}
 									<div className="text-[11px] text-muted-foreground/70 mt-0.5 font-mono truncate">
 										{d.path}
 									</div>

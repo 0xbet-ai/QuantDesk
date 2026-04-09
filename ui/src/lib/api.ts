@@ -213,6 +213,11 @@ export interface Dataset {
 	dateRange: { start: string; end: string };
 	path: string;
 	createdAt: string;
+	createdByDeskId?: string | null;
+	createdByExperimentId?: string | null;
+	createdByDeskName?: string | null;
+	createdByExperimentTitle?: string | null;
+	createdByExperimentNumber?: number | null;
 }
 
 export interface DatasetPreview {
