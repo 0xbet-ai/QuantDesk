@@ -133,7 +133,12 @@ export class ClaudeAdapter implements AgentAdapter {
 					return {
 						type: "tool_result",
 						toolUseId,
-						content: text.slice(0, 500),
+						// Do NOT truncate — the agent needs the full error text
+						// (e.g. freqtrade stderr, MCP tool error bodies) in its
+						// context to diagnose failures and self-recover on the
+						// same turn. The UI transcript renderer handles long
+						// bodies with its own collapsible.
+						content: text,
 						isError,
 					};
 				}
