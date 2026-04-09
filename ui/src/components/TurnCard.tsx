@@ -1,5 +1,5 @@
 import { Bot, ExternalLink, Shield, Square } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "../lib/utils.js";
 import { StatusBadge } from "./StatusBadge.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
@@ -78,6 +78,17 @@ export function TurnCard({
 	footer,
 }: TurnCardProps) {
 	const streaming = status === "running";
+	// Auto-scroll the transcript container to the bottom whenever a new
+	// entry arrives while the turn is live. This keeps the latest tool
+	// call / stdout line in view without the user having to scroll.
+	const transcriptScrollRef = useRef<HTMLDivElement>(null);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: entries.length intentional
+	useEffect(() => {
+		if (!streaming) return;
+		const el = transcriptScrollRef.current;
+		if (!el) return;
+		el.scrollTop = el.scrollHeight;
+	}, [entries.length, streaming]);
 	const isTerminal = !streaming;
 	const isFailed = status === "failed" || status === "stopped";
 	const isAwaitingUser = status === "awaiting_user";
@@ -218,7 +229,7 @@ export function TurnCard({
 				    the transcript is redundant and we hide it to keep the card
 				    focused. */}
 				{(!nestedComments || streaming) && (
-					<div className="max-h-[320px] overflow-y-auto pr-4 mt-3">
+					<div ref={transcriptScrollRef} className="max-h-[320px] overflow-y-auto pr-4 mt-3">
 						<RunTranscriptView
 							entries={entries}
 							density="compact"
