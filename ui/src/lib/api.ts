@@ -261,3 +261,27 @@ export const getCodeFile = async (
 
 export const goPaper = (runId: string) => api<Run>(`/runs/${runId}/go-paper`, { method: "POST" });
 export const stopRun = (runId: string) => api<Run>(`/runs/${runId}/stop`, { method: "POST" });
+
+// Paper trading
+export interface PaperSession {
+	id: string;
+	deskId: string;
+	runId: string;
+	experimentId: string;
+	engine: string;
+	containerName: string | null;
+	status: "pending" | "running" | "stopped" | "failed";
+	apiPort: number | null;
+	meta: Record<string, unknown> | null;
+	error: string | null;
+	startedAt: string;
+	stoppedAt: string | null;
+	lastStatusAt: string | null;
+}
+
+export const getPaperSession = (deskId: string) =>
+	api<PaperSession | null>(`/desks/${deskId}/paper`);
+export const getActivePaperSession = (deskId: string) =>
+	api<PaperSession | null>(`/desks/${deskId}/paper/active`);
+export const stopPaperSession = (deskId: string) =>
+	api<{ stopped: boolean; sessionId: string }>(`/desks/${deskId}/paper/stop`, { method: "POST" });
