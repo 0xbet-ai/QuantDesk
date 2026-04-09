@@ -559,8 +559,21 @@ function ToolCard({ item, compact }: { item: ToolItem; compact: boolean }) {
 	return (
 		<div
 			className={cn(
-				item.status === "error" && "rounded-xl border border-red-500/20 bg-red-500/[0.04] p-3",
+				"group rounded-lg transition-colors",
+				item.status === "error"
+					? "border border-red-500/20 bg-red-500/[0.04] p-3"
+					: "-mx-1 cursor-pointer px-1 py-1 hover:bg-muted/40",
 			)}
+			onClick={() => setOpen((v) => !v)}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					setOpen((v) => !v);
+				}
+			}}
+			role="button"
+			tabIndex={0}
+			aria-expanded={open}
 		>
 			<div className="flex items-start gap-2">
 				<Icon className={cn(iconClass, item.status === "running" && "animate-pulse")} />
@@ -574,6 +587,9 @@ function ToolCard({ item, compact }: { item: ToolItem; compact: boolean }) {
 						>
 							{statusLabel}
 						</span>
+						<span className="ml-auto text-[9px] font-medium uppercase tracking-[0.14em] text-muted-foreground/0 transition-opacity group-hover:text-muted-foreground/60">
+							{open ? "click to collapse" : "click to expand"}
+						</span>
 					</div>
 					<div
 						className={cn(
@@ -584,13 +600,6 @@ function ToolCard({ item, compact }: { item: ToolItem; compact: boolean }) {
 						{summary}
 					</div>
 				</div>
-				<button
-					type="button"
-					className="mt-0.5 inline-flex h-5 w-5 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
-					onClick={() => setOpen((v) => !v)}
-				>
-					{open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-				</button>
 			</div>
 			{open && (
 				<div className="mt-3 space-y-3">
