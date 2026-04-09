@@ -36,8 +36,15 @@ export interface Metric {
 	tone?: "positive" | "negative" | "neutral";
 }
 
+export interface RunValidation {
+	verdict: "approve" | "reject";
+	reason?: string | null;
+	at: string;
+}
+
 export interface RunResult {
 	metrics: Metric[];
+	validation?: RunValidation;
 }
 
 export interface Run {

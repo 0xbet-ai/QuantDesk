@@ -1,4 +1,4 @@
-import { ArrowLeft, GitCommit, Play, TrendingUp } from "lucide-react";
+import { ArrowLeft, CheckCircle2, GitCommit, Play, Shield, TrendingUp, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Experiment, Run } from "../lib/api.js";
@@ -75,6 +75,12 @@ function RunListItem({
 						base
 					</span>
 				)}
+				{run.result?.validation?.verdict === "approve" && (
+					<CheckCircle2 className="size-3 text-green-500 shrink-0" />
+				)}
+				{run.result?.validation?.verdict === "reject" && (
+					<XCircle className="size-3 text-red-500 shrink-0" />
+				)}
 			</div>
 			<div className="text-xs font-mono tabular-nums shrink-0 ml-2">
 				{run.status === "running" ? (
@@ -100,11 +106,15 @@ function RunDetail({
 	run,
 	baseline,
 	onGoPaper,
+	paperStarting,
+	paperError,
 	transcriptEntries,
 }: {
 	run: Run;
 	baseline: Run | null;
 	onGoPaper: (id: string) => void;
+	paperStarting: boolean;
+	paperError: string | null;
 	transcriptEntries: TranscriptEntry[];
 }) {
 	const hasResult = !!run.result;
@@ -215,16 +225,65 @@ function RunDetail({
 				})()}
 			</div>
 
-			{/* Start Paper Trading button */}
-			{run.mode === "backtest" && run.status === "completed" && (
-				<Button
-					className="w-full bg-green-600 hover:bg-green-500"
-					onClick={() => onGoPaper(run.id)}
-				>
-					<Play className="size-4 mr-2" />
-					Start Paper Trading
-				</Button>
-			)}
+			{/* Validation + Paper Trading */}
+			{run.mode === "backtest" && run.status === "completed" && (() => {
+				const validation = run.result?.validation;
+				const isApproved = validation?.verdict === "approve";
+
+				return (
+					<div className="space-y-2">
+						{/* Validation badge */}
+						{validation ? (
+							<div
+								className={cn(
+									"flex items-center gap-2 px-3 py-2 rounded-md border text-xs",
+									isApproved
+										? "border-green-500/30 bg-green-500/[0.06] text-green-700 dark:text-green-300"
+										: "border-red-500/30 bg-red-500/[0.06] text-red-700 dark:text-red-300",
+								)}
+							>
+								{isApproved ? (
+									<CheckCircle2 className="size-3.5 shrink-0" />
+								) : (
+									<XCircle className="size-3.5 shrink-0" />
+								)}
+								<span className="font-medium">
+									Risk Manager: {isApproved ? "Approved" : "Rejected"}
+								</span>
+								{validation.reason && (
+									<span className="text-muted-foreground ml-1 truncate">
+										— {validation.reason}
+									</span>
+								)}
+							</div>
+						) : (
+							<div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-muted/30 text-xs text-muted-foreground">
+								<Shield className="size-3.5 shrink-0" />
+								<span>Not validated yet — request validation from the agent to enable paper trading</span>
+							</div>
+						)}
+
+						{/* Paper Trading button */}
+						{isApproved && (
+							<>
+								<Button
+									className="w-full bg-green-600 hover:bg-green-500"
+									onClick={() => onGoPaper(run.id)}
+									disabled={paperStarting}
+								>
+									<Play className="size-4 mr-2" />
+									{paperStarting ? "Starting…" : "Start Paper Trading"}
+								</Button>
+								{paperError && (
+									<div className="text-xs text-red-600 dark:text-red-400 px-1">
+										{paperError}
+									</div>
+								)}
+							</>
+						)}
+					</div>
+				);
+			})()}
 
 			{/* Agent transcript */}
 			{transcriptEntries.length > 0 && (
@@ -296,11 +355,20 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 		[...runs].sort((a, b) => a.runNumber - b.runNumber).find((r) => r.status === "completed") ??
 		null;
 
+	const [paperError, setPaperError] = useState<string | null>(null);
+	const [paperStarting, setPaperStarting] = useState(false);
+
 	const handleGoPaper = async (runId: string) => {
+		setPaperError(null);
+		setPaperStarting(true);
 		try {
 			await goPaper(runId);
 		} catch (err) {
-			console.error(err);
+			const msg = err instanceof Error ? err.message : String(err);
+			setPaperError(msg);
+			console.error("go_paper failed:", err);
+		} finally {
+			setPaperStarting(false);
 		}
 	};
 
@@ -359,6 +427,8 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 									run={selectedRun}
 									baseline={baseline}
 									onGoPaper={handleGoPaper}
+									paperStarting={paperStarting}
+									paperError={paperError}
 									transcriptEntries={transcriptEntries}
 								/>
 							</div>
