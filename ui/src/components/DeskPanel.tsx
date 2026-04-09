@@ -10,6 +10,7 @@ import {
 	Settings,
 	Shield,
 	User,
+	XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import venues from "../../../strategies/venues.json";
@@ -400,47 +401,55 @@ export function DeskPanel({
 							const verdict = bestRun.result?.validation?.verdict;
 							const isApproved = verdict === "approve";
 							return (
-								<div className="px-3 py-2 space-y-2">
-									<div className="flex items-center justify-between">
-										<div className="text-xs">
-											<span className="text-muted-foreground">Best: </span>
-											<span className="font-medium font-mono">
-												Run #{bestRun.runNumber}
-											</span>
-											{val != null && (
-												<span className={cn("ml-1 font-mono", val > 0 ? "text-green-500" : "text-red-500")}>
-													{val > 0 ? "+" : ""}{val.toFixed(1)}%
-												</span>
-											)}
-										</div>
-										{isApproved ? (
-											<span className="text-[10px] text-green-600 dark:text-green-400 font-medium">Approved</span>
-										) : verdict === "reject" ? (
-											<span className="text-[10px] text-red-500 font-medium">Rejected</span>
-										) : (
-											<span className="text-[10px] text-muted-foreground">Not validated</span>
+								<div className="px-3 py-2">
+									<button
+										type="button"
+										onClick={isApproved ? () => handleStartPaper(bestRun.id) : undefined}
+										disabled={!isApproved || startingPaper}
+										title={
+											isApproved
+												? `Start paper trading with Run #${bestRun.runNumber}`
+												: verdict === "reject"
+													? "Run was rejected by Risk Manager"
+													: "Validate this run first (ask the agent)"
+										}
+										className={cn(
+											"flex items-center gap-2.5 w-full px-2.5 py-2 rounded-md transition-colors",
+											isApproved
+												? "hover:bg-green-500/10 cursor-pointer"
+												: "cursor-default opacity-70",
 										)}
-									</div>
-									{isApproved ? (
-										<>
-											<button
-												type="button"
-												onClick={() => handleStartPaper(bestRun.id)}
-												disabled={startingPaper}
-												className="flex items-center justify-center gap-1.5 w-full px-2 py-1.5 rounded-md text-[11px] font-medium bg-green-600 hover:bg-green-500 text-white transition-colors disabled:opacity-50"
-											>
-												<Play className="size-3" />
-												{startingPaper ? "Starting…" : "Start Paper Trading"}
-											</button>
-											{paperError && (
-												<div className="text-[10px] text-red-500 truncate" title={paperError}>
-													{paperError}
-												</div>
-											)}
-										</>
-									) : (
-										<div className="text-[11px] text-muted-foreground">
-											Ask the agent to validate this run first.
+									>
+										{isApproved ? (
+											<div className="flex size-7 items-center justify-center rounded-md bg-green-500/15">
+												<Play className="size-3.5 text-green-500" />
+											</div>
+										) : verdict === "reject" ? (
+											<div className="flex size-7 items-center justify-center rounded-md bg-red-500/10">
+												<XCircle className="size-3.5 text-red-400" />
+											</div>
+										) : (
+											<div className="flex size-7 items-center justify-center rounded-md bg-muted">
+												<Shield className="size-3.5 text-muted-foreground" />
+											</div>
+										)}
+										<div className="flex-1 min-w-0 text-left">
+											<div className="text-xs font-medium">
+												Run #{bestRun.runNumber}
+												{val != null && (
+													<span className={cn("ml-1 font-mono", val > 0 ? "text-green-500" : "text-red-500")}>
+														{val > 0 ? "+" : ""}{val.toFixed(1)}%
+													</span>
+												)}
+											</div>
+											<div className="text-[10px] text-muted-foreground">
+												{startingPaper ? "Starting…" : isApproved ? "Ready for paper" : verdict === "reject" ? "Rejected" : "Needs validation"}
+											</div>
+										</div>
+									</button>
+									{paperError && (
+										<div className="text-[10px] text-red-500 truncate mt-1 px-2.5" title={paperError}>
+											{paperError}
 										</div>
 									)}
 								</div>
