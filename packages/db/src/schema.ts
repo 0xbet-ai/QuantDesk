@@ -181,6 +181,36 @@ export const memorySummaries = pgTable("memory_summaries", {
 	updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * One row per paper trading session. A desk can have at most one
+ * `running` session at a time (enforced by the paper-sessions service,
+ * not by a DB constraint). States: pending → running → stopped / failed.
+ * Docker is the source of truth for whether the container is alive;
+ * boot reconcile marks orphaned `running` rows as `failed`.
+ */
+export const paperSessions = pgTable("paper_sessions", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	deskId: uuid("desk_id")
+		.notNull()
+		.references(() => desks.id),
+	runId: uuid("run_id")
+		.notNull()
+		.references(() => runs.id),
+	experimentId: uuid("experiment_id")
+		.notNull()
+		.references(() => experiments.id),
+	engine: text("engine").notNull(),
+	containerId: text("container_id"),
+	containerName: text("container_name"),
+	status: text("status").notNull().default("pending"),
+	apiPort: integer("api_port"),
+	meta: jsonb("meta").$type<Record<string, unknown>>(),
+	error: text("error"),
+	startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+	stoppedAt: timestamp("stopped_at", { withTimezone: true }),
+	lastStatusAt: timestamp("last_status_at", { withTimezone: true }),
+});
+
 export const strategyCatalog = pgTable("strategy_catalog", {
 	id: text("id").primaryKey(),
 	name: text("name").notNull(),
