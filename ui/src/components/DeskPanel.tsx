@@ -4,19 +4,22 @@ import {
 	Code,
 	FlaskConical,
 	LineChart,
+	Pause,
 	Plus,
 	Settings,
 	Shield,
 	User,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import venues from "../../../strategies/venues.json";
-import type { Desk, Experiment, Run, Strategy } from "../lib/api.js";
+import type { Desk, Experiment, PaperSession, Run, Strategy } from "../lib/api.js";
 import {
 	completeAndCreateNewExperiment,
+	getActivePaperSession,
 	listActiveExperiments,
 	listRuns,
 	listStrategies,
+	stopPaperSession,
 } from "../lib/api.js";
 import { SidebarNavItem } from "./SidebarNavItem.js";
 import { SidebarSection } from "./SidebarSection.js";
@@ -88,6 +91,34 @@ export function DeskPanel({
 	const [liveAgentExperiments, setLiveAgentExperiments] = useState<Set<string>>(() => new Set());
 
 	const [strategy, setStrategy] = useState<Strategy | null>(null);
+
+	// Paper trading session state
+	const [paperSession, setPaperSession] = useState<PaperSession | null>(null);
+	const [stoppingPaper, setStoppingPaper] = useState(false);
+
+	const refreshPaper = useCallback(() => {
+		getActivePaperSession(desk.id)
+			.then(setPaperSession)
+			.catch(() => setPaperSession(null));
+	}, [desk.id]);
+
+	useEffect(() => {
+		refreshPaper();
+		const id = setInterval(refreshPaper, 5000);
+		return () => clearInterval(id);
+	}, [refreshPaper]);
+
+	const handleStopPaper = async () => {
+		setStoppingPaper(true);
+		try {
+			await stopPaperSession(desk.id);
+			setPaperSession(null);
+		} catch (err) {
+			console.error("Failed to stop paper session:", err);
+		} finally {
+			setStoppingPaper(false);
+		}
+	};
 
 	useEffect(() => {
 		if (!desk.strategyId) {
@@ -292,7 +323,54 @@ export function DeskPanel({
 
 					{/* Paper Trading */}
 					<SidebarSection label="Paper Trading">
-						<div className="px-3 py-2 text-xs text-muted-foreground">No paper runs</div>
+						{paperSession && (paperSession.status === "running" || paperSession.status === "pending") ? (
+							<div className="px-3 py-2 space-y-2">
+								<div className="flex items-center gap-2">
+									<span className="relative flex h-2 w-2">
+										<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-70" />
+										<span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+									</span>
+									<span className="text-xs font-medium text-green-600 dark:text-green-400">
+										{paperSession.status === "pending" ? "Starting…" : "Running"}
+									</span>
+								</div>
+								<div className="text-[11px] text-muted-foreground space-y-0.5">
+									<div>Engine: {paperSession.engine}</div>
+									<div>
+										Started{" "}
+										{new Date(paperSession.startedAt).toLocaleString(undefined, {
+											month: "short",
+											day: "numeric",
+											hour: "2-digit",
+											minute: "2-digit",
+										})}
+									</div>
+								</div>
+								<button
+									type="button"
+									onClick={handleStopPaper}
+									disabled={stoppingPaper}
+									className="flex items-center gap-1.5 w-full px-2 py-1.5 rounded-md text-[11px] font-medium text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+								>
+									<Pause className="size-3" />
+									{stoppingPaper ? "Stopping…" : "Stop Paper Trading"}
+								</button>
+							</div>
+						) : paperSession && paperSession.status === "failed" ? (
+							<div className="px-3 py-2 space-y-1">
+								<div className="flex items-center gap-2">
+									<span className="h-2 w-2 rounded-full bg-destructive" />
+									<span className="text-xs font-medium text-destructive">Failed</span>
+								</div>
+								<div className="text-[11px] text-muted-foreground truncate" title={paperSession.error ?? undefined}>
+									{paperSession.error ?? "Unknown error"}
+								</div>
+							</div>
+						) : (
+							<div className="px-3 py-2 text-xs text-muted-foreground">
+								No active session. Validate a run to start paper trading.
+							</div>
+						)}
 					</SidebarSection>
 				</div>
 			</ScrollArea>
