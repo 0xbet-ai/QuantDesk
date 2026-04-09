@@ -1,63 +1,45 @@
 /**
  * Per-venue Path B fetch-guide loader.
  *
- * Source catalog lives at `packages/venues/<venue>/path-b-fetch.md`
- * (see `packages/venues/README.md`). On desk creation, `initWorkspace`
- * calls `loadVenueGuides(desk.venues)` and writes the returned files
- * into the workspace at `.quantdesk/PATH_B_FETCH_<venue>.md`.
+ * Thin wrapper around `@quantdesk/venues`: for each venue id on a
+ * desk, look up the registered guide (if any) and render it into a
+ * workspace-ready markdown file. Missing venues are silently skipped;
+ * the agent falls back to the generic Path B instructions in the
+ * mode-classic prompt block.
  *
- * Design rules:
- *   - Missing venue = skip, no error. The agent falls back to the
- *     generic Path B instructions in `mode-classic.ts`.
- *   - Directories starting with `_` are ignored (used for templates
- *     and examples).
- *   - Venue IDs are normalized to lowercase for the lookup.
- *   - Pure filesystem read — no DB, no network, no side effects beyond
- *     returning file contents.
+ * Guides are plain TS modules in the `@quantdesk/venues` package so
+ * they ship bundled with the server — no filesystem catalog to
+ * resolve at runtime.
  */
 
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { getVenueGuide, renderVenueGuideMarkdown } from "@quantdesk/venues";
 
-/**
- * Repo-root-relative path to the venue catalog. Detected from this
- * file's own URL so it works in both `src/` (tsx dev) and built
- * output. Layout:
- *   <repoRoot>/server/src/services/venue-guides.ts → climb 4 levels.
- */
-const VENUES_ROOT = resolve(
-	dirname(fileURLToPath(import.meta.url)),
-	"../../../packages/venues",
-);
-
-export interface VenueGuide {
+export interface VenueGuideFile {
 	venue: string;
-	/** Filename to write into the workspace (without directory prefix). */
+	/** Filename to write into `<workspace>/.quantdesk/`. */
 	workspaceFilename: string;
-	/** File contents to write verbatim. */
+	/** Rendered markdown body. */
 	content: string;
 }
 
 /**
- * Load Path B fetch guides for every venue in `venues` that has one in
- * the catalog. Unknown venues are silently skipped. The return order
- * matches the input order; duplicates are collapsed.
+ * Look up Path B fetch guides for every venue on a desk. Returns the
+ * rendered files in the input order; duplicate venue ids are
+ * collapsed. Venues without a registered guide are omitted.
  */
-export function loadVenueGuides(venues: readonly string[]): VenueGuide[] {
+export function loadVenueGuides(venues: readonly string[]): VenueGuideFile[] {
 	const seen = new Set<string>();
-	const out: VenueGuide[] = [];
+	const out: VenueGuideFile[] = [];
 	for (const raw of venues) {
 		const venue = raw.trim().toLowerCase();
-		if (!venue || venue.startsWith("_") || seen.has(venue)) continue;
+		if (!venue || seen.has(venue)) continue;
 		seen.add(venue);
-		const guidePath = join(VENUES_ROOT, venue, "path-b-fetch.md");
-		if (!existsSync(guidePath)) continue;
-		const content = readFileSync(guidePath, "utf8");
+		const guide = getVenueGuide(venue);
+		if (!guide) continue;
 		out.push({
 			venue,
 			workspaceFilename: `PATH_B_FETCH_${venue}.md`,
-			content,
+			content: renderVenueGuideMarkdown(guide),
 		});
 	}
 	return out;

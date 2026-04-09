@@ -15,6 +15,7 @@
     "@quantdesk/db": "workspace:*",
     "@quantdesk/engines": "workspace:*",
     "@quantdesk/shared": "workspace:*",
+    "@quantdesk/venues": "workspace:*",
     "drizzle-orm": "^0.39.3",
     "express": "^5.1.0",
     "ws": "^8.18.1",

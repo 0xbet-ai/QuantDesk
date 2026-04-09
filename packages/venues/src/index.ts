@@ -1,0 +1,100 @@
+/**
+ * `@quantdesk/venues` — Path B fetch-guide registry.
+ *
+ * Consumers (currently only the server's workspace bootstrap) call
+ * `getVenueGuide(venue)` to look up a guide by lowercase venue id,
+ * then `renderVenueGuideMarkdown(guide)` to produce the markdown the
+ * analyst agent reads inside its workspace.
+ *
+ * Guides are plain TS modules so they get bundled alongside the rest
+ * of the server code — no filesystem catalog to ship, no runtime path
+ * resolution, no sandbox carve-outs. Adding a new venue:
+ *
+ *   1. Create `src/<venue>.ts` exporting a `VenueGuide`.
+ *   2. Import it here and register it in `REGISTRY`.
+ *   3. Verify empirically (see README), commit.
+ */
+
+import type { VenueGuide } from "./types.js";
+
+// Real venue guides are registered here. The registry is intentionally
+// empty at scaffold time — add venues one at a time, each with an
+// empirically verified recipe. Missing venues degrade gracefully: the
+// agent falls back to the generic Path B instructions in the
+// mode-classic prompt block.
+const REGISTRY: Record<string, VenueGuide> = {
+	// binance: binanceGuide,
+	// bybit: bybitGuide,
+	// hyperliquid: hyperliquidGuide,
+};
+
+/**
+ * Look up a guide by venue id. Case-insensitive. Returns `null` when
+ * no guide is registered — callers must treat missing guides as
+ * "fall back to the generic prompt instructions", not as an error.
+ */
+export function getVenueGuide(venue: string): VenueGuide | null {
+	const key = venue.trim().toLowerCase();
+	if (!key) return null;
+	return REGISTRY[key] ?? null;
+}
+
+/**
+ * Render a guide as the markdown file that will be seeded into a
+ * desk workspace at `.quantdesk/PATH_B_FETCH_<venue>.md`. The
+ * analyst reads this exact file; the rendering step is the only
+ * place the on-disk format is defined.
+ */
+export function renderVenueGuideMarkdown(guide: VenueGuide): string {
+	const symLines: string[] = [];
+	if (guide.symbolFormat.spot) {
+		symLines.push(`- **Spot:** ${guide.symbolFormat.spot}`);
+	}
+	if (guide.symbolFormat.linearFutures) {
+		symLines.push(`- **Linear futures:** ${guide.symbolFormat.linearFutures}`);
+	}
+	if (guide.symbolFormat.inverseFutures) {
+		symLines.push(`- **Inverse futures:** ${guide.symbolFormat.inverseFutures}`);
+	}
+	const symNotes = guide.symbolFormat.notes ? `\n\n${guide.symbolFormat.notes}` : "";
+
+	const gotchas = guide.knownGotchas.map((g) => `- ${g}`).join("\n");
+
+	return `# Path B fetch guide — ${guide.displayName}
+
+> Venue id: \`${guide.venue}\`
+> Last verified: \`${guide.lastVerified}\` — ${guide.verificationNotes}
+
+This file was seeded into your workspace because your desk uses this
+venue. When the engine's bundled downloader fails (Path A), prefer the
+instructions below over the generic Path B guidance in your system
+prompt — they were written from empirically verified runs against this
+specific venue.
+
+## TL;DR
+
+${guide.tldr}
+
+## Symbol format
+
+${symLines.join("\n")}${symNotes}
+
+## Recommended fetch method
+
+Library: \`${guide.recommendedFetch.library}\`
+
+\`\`\`${guide.recommendedFetch.language}
+${guide.recommendedFetch.code}
+\`\`\`
+
+## Pagination
+
+${guide.pagination}
+
+## Known gotchas
+
+${gotchas}
+`;
+}
+
+export type { VenueGuide } from "./types.js";
