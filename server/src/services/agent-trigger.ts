@@ -224,12 +224,30 @@ function buildClaudeSettingsForTurn(workspacePath: string): string {
 	const settings = {
 		permissions: {
 			deny: [
-				// Block Bash entirely — the agent must go through MCP tools
-				// (run_script, run_backtest, etc.) instead of shelling out.
-				"Bash",
+				// Block script interpreters and network fetchers so the agent
+				// can't bypass MCP tools (run_script, run_backtest) by shelling
+				// out to python/node/curl. Basic navigation commands (ls, cd,
+				// grep, find, cat, head, tail, pwd, echo) remain allowed.
+				"Bash(python:*)",
+				"Bash(python3:*)",
+				"Bash(node:*)",
+				"Bash(npx:*)",
+				"Bash(sh:*)",
+				"Bash(bash:*)",
+				"Bash(zsh:*)",
+				"Bash(curl:*)",
+				"Bash(wget:*)",
 				...Array.from(denyRoots).flatMap((root) => {
 					const scope = `${root}/**`;
-					return [`Read(${scope})`, `Edit(${scope})`, `Write(${scope})`];
+					return [
+						`Read(${scope})`,
+						`Edit(${scope})`,
+						`Write(${scope})`,
+						`Bash(cat:${scope})`,
+						`Bash(less:${scope})`,
+						`Bash(head:${scope})`,
+						`Bash(tail:${scope})`,
+					];
 				}),
 			],
 			// Re-allow the workspace so nested-dev layouts keep working.
