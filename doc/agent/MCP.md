@@ -91,6 +91,32 @@ run_backtest({ strategyName?, configFile?, entrypoint? })
              of emitting a separate result block.
 ```
 
+### `run_script` vs `run_backtest` — when to use which
+
+Both tools execute an agent-authored script inside the `quantdesk/generic` sandbox container (same image, same cache volumes, same entrypoint). The difference is what the server does with the result:
+
+| Aspect | `run_script` | `run_backtest` |
+|---|---|---|
+| Purpose | Fetchers, setup scripts, exploration, any side-effecting script that is NOT the final strategy evaluation | The final strategy evaluation that produces comparable metrics |
+| Stdout contract | Unstructured — whatever your script prints | LAST line MUST be a `NormalizedResult` JSON object (see `run_backtest` docs) |
+| Parsing | None — raw text returned to the agent | Parsed; parse failure → the `runs` row is marked `failed` |
+| DB side effect | None | Inserts a `runs` row with `runNumber`, `isBaseline`, `result.metrics[]`, links it to the latest dataset |
+| WS events | `run.log_chunk` for live tail (no `runId`) | `run.log_chunk` with `runId` + `run.status` on start / completed / failed |
+| Return value | `{ exitCode, stdout, stderr }` | `{ runId, runNumber, isBaseline, metrics[] }` |
+| Engine scope | Generic desks only (freqtrade / nautilus reject it) | All engines — managed engines use their own adapters instead of the generic container |
+| Dataset requirement | None | Desk must have ≥1 registered dataset |
+
+**Typical generic-desk flow**:
+
+1. `Write` `fetch_data.py` (and `requirements.txt` if it needs libraries)
+2. `run_script({ scriptPath: "fetch_data.py" })` → writes data under `/workspace/data/`
+3. `register_dataset({ exchange, pairs, timeframe, dateRange, path })`
+4. `Write` `backtest.py` that reads the data and prints `NormalizedResult` as its last stdout line
+5. `run_backtest({ entrypoint: "backtest.py" })` → `runs` row saved, metrics returned
+6. React to the metrics on the same turn
+
+Agent-authored scripts must ALWAYS go through one of these two tools. The `Bash` tool is for workspace housekeeping only (`ls`, `cat`, `git`, inspecting files) — never for executing scripts the agent wrote.
+
 ### `run_script`
 
 ```
