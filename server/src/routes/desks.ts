@@ -125,7 +125,10 @@ router.get("/:id/datasets", async (req, res, next) => {
 
 router.post("/:id/datasets", async (req, res, next) => {
 	try {
-		const result = await createDataset(req.body);
+		const result = await createDataset({
+			...req.body,
+			createdByDeskId: req.params.id,
+		});
 		res.status(201).json(result);
 	} catch (err) {
 		next(err);
