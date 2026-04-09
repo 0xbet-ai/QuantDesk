@@ -1,4 +1,4 @@
-import { Bot, Database, ExternalLink, Shield, Square, Terminal } from "lucide-react";
+import { Bot, Database, ExternalLink, Shield, Square } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { cn } from "../lib/utils.js";
 import { StatusBadge } from "./StatusBadge.js";
@@ -25,8 +25,6 @@ interface TurnCardProps {
 	hasRun?: boolean;
 	/** Populated when `status` is `failed` or `stopped` — shown in the header as a red reason line. */
 	failureReason?: string | null;
-	/** Phase 27 step 8 — live docker log tail from the engine container, if a backtest is running inside this turn. */
-	runLogLines?: string[];
 	/** Live data-fetch progress lines from the server, if a download is in flight inside this turn. */
 	dataFetchProgress?: string[];
 	mode?: "backtest" | "paper" | "turn";
@@ -77,7 +75,6 @@ export function TurnCard({
 	onOpen,
 	hasRun,
 	failureReason,
-	runLogLines,
 	dataFetchProgress,
 	mode = "turn",
 	nestedComments,
@@ -216,76 +213,8 @@ export function TurnCard({
 			{/* Body */}
 			<section className="px-4 py-3">
 
-				{/* Timeline of nested events — system/analyst/risk_manager
-				    messages, proposal cards, and live engine / data-fetch
-				    logs that belong to this turn. Each row is rendered with
-				    an icon overlapping a vertical line on the left so the
-				    turn looks like a thread of steps. */}
-				{(nestedComments ||
-					(dataFetchProgress && dataFetchProgress.length > 0) ||
-					(runLogLines && runLogLines.length > 0)) && (
-					<div className="relative">
-						{/* Timeline line — absolute positioned so icons can
-						    sit on top of it without border-l fighting the
-						    icon's background. */}
-						<div
-							aria-hidden
-							className="pointer-events-none absolute left-[11px] top-2 bottom-2 w-px bg-neutral-300 dark:bg-neutral-700"
-						/>
-						{nestedComments && <div className="text-[13px]">{nestedComments}</div>}
-						{dataFetchProgress && dataFetchProgress.length > 0 && (
-							<div className="relative pl-8 pb-3">
-								<div className="absolute left-0 top-0 z-10 flex size-6 items-center justify-center rounded-full bg-emerald-100 ring-4 ring-background dark:bg-emerald-900/40">
-									<Database className="size-3 text-emerald-700 dark:text-emerald-300 animate-pulse" />
-								</div>
-								<div className="rounded-md border border-emerald-500/25 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.06]">
-									<div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 px-2.5 py-1">
-										<div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
-											<Database className="size-3" />
-											<span>Server · data fetch</span>
-										</div>
-										<span className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-[0.14em] text-emerald-600/80 dark:text-emerald-300/80">
-											<span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-											live
-										</span>
-									</div>
-									<pre className="max-h-48 overflow-y-auto whitespace-pre-wrap px-2.5 py-1.5 font-mono text-[10px] leading-tight text-emerald-950/80 dark:text-emerald-100/80">
-										{dataFetchProgress.slice(-30).join("\n")}
-									</pre>
-								</div>
-							</div>
-						)}
-						{runLogLines && runLogLines.length > 0 && (
-							<div className="relative pl-8 pb-3">
-								<div className="absolute left-0 top-0 z-10 flex size-6 items-center justify-center rounded-full bg-sky-100 ring-4 ring-background dark:bg-sky-900/40">
-									<Terminal
-										className={cn(
-											"size-3 text-sky-700 dark:text-sky-300",
-											streaming && "animate-pulse",
-										)}
-									/>
-								</div>
-								<div className="rounded-md border border-sky-500/25 bg-sky-950/[0.03] dark:bg-sky-950/40">
-									<div className="flex items-center justify-between gap-2 border-b border-sky-500/20 bg-sky-500/[0.06] px-2.5 py-1">
-										<div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-700 dark:text-sky-300">
-											<Terminal className="size-3" />
-											<span>Docker · engine container</span>
-										</div>
-										{streaming && (
-											<span className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-[0.14em] text-sky-600/80 dark:text-sky-300/80">
-												<span className="size-1.5 rounded-full bg-sky-500 animate-pulse" />
-												live
-											</span>
-										)}
-									</div>
-									<pre className="max-h-48 overflow-y-auto whitespace-pre-wrap px-2.5 py-1.5 font-mono text-[10px] leading-tight text-sky-950/80 dark:text-sky-100/80">
-										{runLogLines.slice(-30).join("\n")}
-									</pre>
-								</div>
-							</div>
-						)}
-					</div>
-				)}
+				{/* Nested comments — finalized agent text from prior turns. */}
+				{nestedComments && <div className="text-[13px]">{nestedComments}</div>}
 
 				{/* Transcript — only useful while streaming or when there's no
 				    persisted comment yet. Once the turn has nested comments
@@ -300,6 +229,29 @@ export function TurnCard({
 							streaming={streaming}
 							emptyMessage="Waiting for agent output..."
 						/>
+					</div>
+				)}
+
+				{/* Live container tails — rendered BELOW the transcript so
+				    they read chronologically as "agent called a tool → here
+				    is the live output from that tool". Once the tool returns
+				    these lines stay as the historical tail for the most
+				    recent engine/data-fetch call. */}
+				{dataFetchProgress && dataFetchProgress.length > 0 && (
+					<div className="mt-3 rounded-md border border-emerald-500/25 bg-emerald-500/[0.04] dark:bg-emerald-500/[0.06]">
+						<div className="flex items-center justify-between gap-2 border-b border-emerald-500/20 px-2.5 py-1">
+							<div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+								<Database className="size-3" />
+								<span>Server · data fetch</span>
+							</div>
+							<span className="flex items-center gap-1 text-[9px] font-medium uppercase tracking-[0.14em] text-emerald-600/80 dark:text-emerald-300/80">
+								<span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+								live
+							</span>
+						</div>
+						<pre className="max-h-48 overflow-y-auto whitespace-pre-wrap px-2.5 py-1.5 font-mono text-[10px] leading-tight text-emerald-950/80 dark:text-emerald-100/80">
+							{dataFetchProgress.slice(-30).join("\n")}
+						</pre>
 					</div>
 				)}
 

@@ -6,12 +6,14 @@
  * block.
  */
 
+import type { StrategyMode } from "@quantdesk/shared";
+
 export interface DeskContext {
 	name: string;
 	budget: string;
 	targetReturn: string;
 	stopLoss: string;
-	strategyMode: "classic" | "realtime";
+	strategyMode: StrategyMode;
 	engine: string;
 	venues: string[];
 	description: string | null;

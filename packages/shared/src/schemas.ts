@@ -48,7 +48,7 @@ export const adapterConfigSchema = z.discriminatedUnion("type", [
 
 export type AdapterConfig = z.infer<typeof adapterConfigSchema>;
 
-export const strategyModeSchema = z.enum(["classic", "realtime"]);
+export const strategyModeSchema = z.enum(["classic", "realtime", "generic"]);
 export type StrategyMode = z.infer<typeof strategyModeSchema>;
 
 export const runStatusSchema = z.enum([

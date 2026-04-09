@@ -1,4 +1,5 @@
 import type { AgentAdapter } from "@quantdesk/adapters";
+import type { StrategyMode } from "@quantdesk/shared";
 import { buildAnalystPrompt, buildRiskManagerPrompt } from "./prompt-builder.js";
 
 interface DeskContext {
@@ -6,7 +7,7 @@ interface DeskContext {
 	budget: string;
 	targetReturn: string;
 	stopLoss: string;
-	strategyMode: "classic" | "realtime";
+	strategyMode: StrategyMode;
 	engine: string;
 	venues: string[];
 	description: string | null;

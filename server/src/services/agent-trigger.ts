@@ -311,11 +311,7 @@ export async function triggerAgent(
 			});
 
 			// 5. Get adapter and build streaming spawn.
-			// `MOCK_AGENT=1` swaps in a deterministic docker-based mock for UI
-			// lifecycle debugging. See packages/adapters/src/mock/adapter.ts.
-			const adapter = getAgentAdapter(
-				process.env.MOCK_AGENT === "1" ? "mock" : session.adapterType,
-			);
+			const adapter = getAgentAdapter(session.adapterType);
 
 			const mcpConfigPath = buildMcpConfigForTurn(experimentId, desk.id);
 			// Phase 27d — track whether the agent invoked any MCP tool during
@@ -378,7 +374,8 @@ export async function triggerAgent(
 					budget: desk.budget!,
 					targetReturn: desk.targetReturn!,
 					stopLoss: desk.stopLoss!,
-					strategyMode: (desk.strategyMode as "classic" | "realtime") ?? "classic",
+					strategyMode:
+						(desk.strategyMode as "classic" | "realtime" | "generic") ?? "classic",
 					engine: desk.engine,
 					venues: desk.venues as string[],
 					description: desk.description,
@@ -509,20 +506,16 @@ export async function triggerAgent(
 				}
 			}
 
-			// 9c. Dead-end guard. Phase 27d — "had action" is now driven by
-			// whether the agent invoked any MCP tool during the turn (tracked
-			// via streaming tool_call chunks on `didCallTool` below). If no
-			// tool call AND the response is a bare acknowledgment, the guard
-			// posts a forcing system comment and retriggers. MOCK_AGENT is
-			// still skipped because its scenarios are deterministic.
-			const shouldRescue =
-				process.env.MOCK_AGENT === "1"
-					? false
-					: await maybeRescueDeadEnd({
-							experimentId,
-							resultText: result.resultText,
-							hadMarker: didCallTool,
-						});
+			// 9c. Dead-end guard. Phase 27d — "had action" is driven by
+			// whether the agent invoked any MCP tool during the turn
+			// (`didCallTool` tracked from streaming tool_call chunks). If no
+			// tool call AND the response is a bare acknowledgment, the
+			// guard posts a forcing system comment and retriggers.
+			const shouldRescue = await maybeRescueDeadEnd({
+				experimentId,
+				resultText: result.resultText,
+				hadMarker: didCallTool,
+			});
 			if (shouldRescue) {
 				publishExperimentEvent({ experimentId, type: "comment.new", payload: {} });
 				void triggerAgent(experimentId).catch((err) => {

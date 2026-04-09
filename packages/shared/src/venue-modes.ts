@@ -29,6 +29,7 @@ export interface VenueEngines {
 const MODE_TO_ENGINE: Record<StrategyMode, string> = {
 	classic: "freqtrade",
 	realtime: "nautilus",
+	generic: "generic",
 };
 
 /**
@@ -42,8 +43,8 @@ export function engineForMode(mode: StrategyMode): string {
 }
 
 /**
- * Return the strategy modes available for a venue. `generic`-only venues
- * return an empty array (backtest only, no managed engine).
+ * Return the strategy modes available for a venue. Derived from
+ * `venue.engines` via the MODE_TO_ENGINE mapping.
  */
 export function availableModes(venue: VenueEngines): StrategyMode[] {
 	const modes: StrategyMode[] = [];
@@ -78,14 +79,11 @@ export function availableModesForVenues(venues: VenueEngines[]): StrategyMode[] 
  * never resolve the engine name itself.
  */
 export function resolveEngine(venue: VenueEngines, mode: StrategyMode): string {
-	if (venue.engines.length === 1 && venue.engines[0] === "generic") {
-		return "generic";
-	}
 	const mapped = MODE_TO_ENGINE[mode];
 	if (venue.engines.includes(mapped)) return mapped;
 	const modes = availableModes(venue);
 	throw new Error(
 		`Venue ${venue.name} does not support ${mode} strategies. ` +
-			`Available modes: ${modes.length > 0 ? modes.join(", ") : "none (backtest-only via generic)"}`,
+			`Available modes: ${modes.length > 0 ? modes.join(", ") : "none"}`,
 	);
 }

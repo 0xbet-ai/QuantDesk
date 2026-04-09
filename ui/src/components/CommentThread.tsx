@@ -162,7 +162,6 @@ export function CommentThread({
 	const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
 	// Phase 27 step 8 — live docker log tail from the engine container for
 	// the run currently running inside the active turn. Capped at 200 lines.
-	const [runLogLines, setRunLogLines] = useState<string[]>([]);
 	// Phase 27 — when a turn reaches `completed` we fade the card out and
 	// then clear state. failed/stopped stay visible because the user must
 	// act on them. Any new turn (`running`) cancels the fade.
@@ -299,7 +298,6 @@ export function CommentThread({
 	}, [
 		turnStatus,
 		streamEntries.length,
-		runLogLines.length,
 		dataFetchProgress.length,
 	]);
 
@@ -316,7 +314,7 @@ export function CommentThread({
 			setFadingOut(false);
 			return;
 		}
-		const workStillHappening = dataFetchProgress.length > 0 || runLogLines.length > 0;
+		const workStillHappening = dataFetchProgress.length > 0;
 		if (workStillHappening) {
 			setFadingOut(false);
 			return;
@@ -326,7 +324,6 @@ export function CommentThread({
 			setTurnStatus(null);
 			setCurrentTurnId(null);
 			setStreamEntries([]);
-			setRunLogLines([]);
 			setRunStartedAt(null);
 			setFadingOut(false);
 		}, 1400);
@@ -334,7 +331,7 @@ export function CommentThread({
 			clearTimeout(holdId);
 			clearTimeout(clearId);
 		};
-	}, [turnStatus, comments, dataFetchProgress.length, runLogLines.length]);
+	}, [turnStatus, comments, dataFetchProgress.length]);
 
 	// Auto-refresh on WebSocket events
 	useLiveUpdates(experiment.id, (event) => {
@@ -348,12 +345,22 @@ export function CommentThread({
 			setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
 		}
 		if (event.type === "run.log_chunk") {
-			const payload = event.payload as { line?: string };
+			const payload = event.payload as { line?: string; runId?: string };
 			if (payload.line) {
-				setRunLogLines((prev) => {
-					const next = [...prev, payload.line as string];
-					return next.length > 200 ? next.slice(-200) : next;
-				});
+				// Inject the docker line as a `stdout` transcript entry so it
+				// appears INSIDE the transcript timeline, right after the
+				// run_backtest tool_call that triggered it. The transcript
+				// normalizer merges consecutive stdout entries into one block
+				// automatically, so the running container tail accumulates in
+				// place and a fresh run_backtest tool_call between two bursts
+				// visibly separates them.
+				setStreamEntries((prev) => [
+					...prev,
+					{
+						type: "stdout",
+						content: `${payload.line}\n`,
+					} as TranscriptEntry,
+				]);
 			}
 		}
 		if (event.type === "turn.status") {
@@ -458,7 +465,6 @@ export function CommentThread({
 			setRunStartedAt(new Date());
 			setTurnStatus("running");
 			setTurnFailureReason(null);
-			setRunLogLines([]);
 		} finally {
 			setSending(false);
 		}
@@ -839,7 +845,6 @@ export function CommentThread({
 				{turnStatus === "running" &&
 					!(
 						streamEntries.length > 0 ||
-						runLogLines.length > 0 ||
 						dataFetchProgress.length > 0 ||
 						(!!currentTurnId && comments.some((c) => c.turnId === currentTurnId))
 					) && (
@@ -860,7 +865,6 @@ export function CommentThread({
 					// appearing between desk creation and the first agent
 					// output.
 					(streamEntries.length > 0 ||
-						runLogLines.length > 0 ||
 						dataFetchProgress.length > 0 ||
 						(!!currentTurnId &&
 							comments.some((c) => c.turnId === currentTurnId))) && (
@@ -898,7 +902,6 @@ export function CommentThread({
 							status={turnStatus}
 							startedAt={runStartedAt ?? undefined}
 							failureReason={turnFailureReason}
-							runLogLines={runLogLines}
 							dataFetchProgress={dataFetchProgress}
 							onStop={async () => {
 								await fetch(`/api/experiments/${experiment.id}/agent/stop`, {
