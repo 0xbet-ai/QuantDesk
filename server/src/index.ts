@@ -18,6 +18,7 @@ import turnsRouter from "./routes/turns.js";
 import {
 	cleanupStaleAgentRuns,
 	reconcileOrphanAgentTurns,
+	reconcilePaperSessions,
 } from "./services/startup-cleanup.js";
 import { startTurnWatchdog } from "./services/turn-watchdog.js";
 
@@ -84,6 +85,11 @@ server.listen(port, () => {
 			await cleanupStaleAgentRuns();
 		} catch (err) {
 			console.error("Startup cleanup failed:", err);
+		}
+		try {
+			await reconcilePaperSessions();
+		} catch (err) {
+			console.error("Paper session reconcile failed:", err);
 		}
 	})();
 	startTurnWatchdog();

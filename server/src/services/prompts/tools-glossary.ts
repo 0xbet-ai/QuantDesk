@@ -22,9 +22,12 @@ react immediately.
 - \`mcp__quantdesk__submit_rm_verdict({verdict:"approve"|"reject", reason?})\` — **Risk Manager only**: attach verdict to the latest run.
 - \`mcp__quantdesk__new_experiment({title, hypothesis?})\` — close this experiment and open a new one. Requires prior user consent.
 - \`mcp__quantdesk__complete_experiment({summary?})\` — mark the current experiment finished. Requires prior user consent.
+- \`mcp__quantdesk__go_paper({runId})\` — promote a validated (Risk Manager approved) run to paper trading. Starts a dry-run container on the desk's engine. One session per desk. Requires prior user consent.
+- \`mcp__quantdesk__stop_paper({})\` — stop the active paper trading session. No retrigger. No consent needed.
+- \`mcp__quantdesk__run_script({scriptPath})\` — execute an agent-authored script in the generic sandbox container. Use for fetchers, exploration, any script — NOT the final backtest (use \`run_backtest\` for that). Available on all desks. No consent needed.
 
 ### Conversational approval
-Tools that need prior user consent in a previous turn: \`data_fetch\`, \`request_validation\`, \`new_experiment\`, \`complete_experiment\`. For these, the ask turn must make **no tool call**; the execution turn (after the user agrees) makes the call.
+Tools that need prior user consent in a previous turn: \`data_fetch\`, \`request_validation\`, \`new_experiment\`, \`complete_experiment\`, \`go_paper\`. For these, the ask turn must make **no tool call**; the execution turn (after the user agrees) makes the call.
 
-Tools that fire directly without asking: \`register_dataset\`, \`run_backtest\`, \`set_experiment_title\`, \`submit_rm_verdict\`.`;
+Tools that fire directly without asking: \`register_dataset\`, \`run_backtest\`, \`set_experiment_title\`, \`submit_rm_verdict\`, \`stop_paper\`, \`run_script\`.`;
 }

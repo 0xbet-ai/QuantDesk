@@ -1,8 +1,10 @@
 import { db } from "@quantdesk/db";
-import { agentTurns, comments, experiments, runs } from "@quantdesk/db/schema";
+import { agentTurns, comments, experiments, paperSessions, runs } from "@quantdesk/db/schema";
+import { listByLabel } from "@quantdesk/engines/docker";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { systemComment } from "./comments.js";
+import { failSession } from "./paper-sessions.js";
 
 /**
  * Boot-time reconcile policy: any `agent_turns` row left in `running`
@@ -152,5 +154,86 @@ export async function reconcileOrphanAgentTurns(): Promise<void> {
 		}
 	} catch (err) {
 		console.error("[startup] Failed to reconcile orphan agent_turns:", err);
+	}
+}
+
+/**
+ * Boot reconcile for paper trading sessions. Docker is the source of
+ * truth: if a container is alive, the session continues; if it's gone,
+ * the DB row is marked `failed`. This runs once at startup.
+ *
+ * Three cases:
+ *   1. DB=running + container alive → keep running (no-op).
+ *   2. DB=running + container gone  → mark failed, post system comment.
+ *   3. Container alive + no DB row  → orphan, stop+remove it.
+ */
+export async function reconcilePaperSessions(): Promise<void> {
+	try {
+		// 1. Get live paper containers from Docker.
+		let liveContainers: Awaited<ReturnType<typeof listByLabel>>;
+		try {
+			liveContainers = await listByLabel("quantdesk.kind=paper");
+		} catch {
+			// Docker not available — can't reconcile. Skip silently; the
+			// paper status polling (if enabled) will detect dead containers.
+			return;
+		}
+		const liveNames = new Set(liveContainers.map((c) => c.name));
+
+		// 2. Get DB sessions that claim to be running.
+		const dbRunning = await db
+			.select()
+			.from(paperSessions)
+			.where(eq(paperSessions.status, "running"));
+
+		let reconciled = 0;
+		let kept = 0;
+
+		for (const session of dbRunning) {
+			if (session.containerName && liveNames.has(session.containerName)) {
+				// Case 1: container is alive — keep it.
+				liveNames.delete(session.containerName);
+				kept++;
+			} else {
+				// Case 2: container vanished — mark failed.
+				await failSession(session.id, "container_vanished_during_downtime");
+				await systemComment({
+					experimentId: session.experimentId,
+					nextAction: "action",
+					content:
+						"Paper trading session ended unexpectedly — the container was not found after a server restart. Reply with a new instruction to investigate or start a new session.",
+				});
+				publishExperimentEvent({
+					experimentId: session.experimentId,
+					type: "paper.status",
+					payload: { sessionId: session.id, status: "failed" },
+				});
+				reconciled++;
+			}
+		}
+
+		// Case 3: orphan containers with no matching DB row.
+		// liveNames still has containers that weren't matched above.
+		if (liveNames.size > 0) {
+			const { stopContainer, removeContainer } = await import("@quantdesk/engines/docker");
+			for (const name of liveNames) {
+				try {
+					await stopContainer(name, 10);
+					await removeContainer(name);
+				} catch {
+					// Already dead or permissions issue — not critical.
+				}
+			}
+			console.log(`[startup] Removed ${liveNames.size} orphan paper container(s)`);
+		}
+
+		if (reconciled > 0) {
+			console.log(`[startup] Reconciled ${reconciled} dead paper session(s)`);
+		}
+		if (kept > 0) {
+			console.log(`[startup] Kept ${kept} live paper session(s)`);
+		}
+	} catch (err) {
+		console.error("[startup] Failed to reconcile paper sessions:", err);
 	}
 }
