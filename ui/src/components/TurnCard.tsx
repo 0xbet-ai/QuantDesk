@@ -104,7 +104,7 @@ export function TurnCard({
 				: status === "awaiting_user"
 					? `${modeLabel} · Awaiting Your Response`
 					: status === "awaiting_validation"
-						? `${modeLabel} · Validating`
+						? "Validating..."
 						: `${modeLabel} Failed`;
 	const isAnalyst = agentRole !== "risk_manager";
 	const roleLabel = isAnalyst ? "Analyst" : "Risk Manager";
@@ -152,9 +152,7 @@ export function TurnCard({
 						<div
 							className={cn(
 								"text-xs font-semibold uppercase tracking-[0.18em]",
-								isFailed
-									? "text-red-700 dark:text-red-300"
-									: "text-cyan-700 dark:text-cyan-300",
+								isFailed ? "text-red-700 dark:text-red-300" : "text-cyan-700 dark:text-cyan-300",
 							)}
 						>
 							{streaming ? modeLabel : terminalLabel}
@@ -228,7 +226,6 @@ export function TurnCard({
 
 			{/* Body */}
 			<section className="px-4 py-3">
-
 				{/* Nested comments — finalized agent text from prior turns. */}
 				{nestedComments && <div className="text-[13px]">{nestedComments}</div>}
 
@@ -247,8 +244,7 @@ export function TurnCard({
 					</div>
 				)}
 
-
-{/* Meta actions (e.g. transcript toggle) — outside the timeline
+				{/* Meta actions (e.g. transcript toggle) — outside the timeline
 				    container so they don't get a timeline icon. */}
 				{footer && <div className="mt-3">{footer}</div>}
 			</section>

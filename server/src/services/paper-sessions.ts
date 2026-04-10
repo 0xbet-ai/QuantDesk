@@ -13,12 +13,7 @@
  */
 
 import { db } from "@quantdesk/db";
-import {
-	desks,
-	experiments,
-	paperSessions,
-	runs,
-} from "@quantdesk/db/schema";
+import { desks, experiments, paperSessions, runs } from "@quantdesk/db/schema";
 import { desc, eq } from "drizzle-orm";
 
 export class PaperSessionError extends Error {
@@ -39,10 +34,7 @@ export async function startPaperSession(input: {
 	experimentId: string;
 }): Promise<typeof paperSessions.$inferSelect> {
 	// 1. Run must exist and belong to this desk via its experiment.
-	const [run] = await db
-		.select()
-		.from(runs)
-		.where(eq(runs.id, input.runId));
+	const [run] = await db.select().from(runs).where(eq(runs.id, input.runId));
 	if (!run) throw new PaperSessionError("Run not found.");
 
 	const [experiment] = await db
@@ -54,10 +46,11 @@ export async function startPaperSession(input: {
 	}
 
 	// 2. Run must have a validation verdict of "approve".
+	// Root cause: paper approval has to stay attached to `input.runId`;
+	// re-checking any newer run would let an unrelated RM approval leak
+	// across runs.
 	const result = run.result as Record<string, unknown> | null;
-	const validation = result?.validation as
-		| { verdict: string }
-		| undefined;
+	const validation = result?.validation as { verdict: string } | undefined;
 	if (!validation || validation.verdict !== "approve") {
 		throw new PaperSessionError(
 			"Run has not been validated (approve). Request validation from the Risk Manager first.",
@@ -129,10 +122,7 @@ export async function stopSession(sessionId: string): Promise<void> {
 /**
  * Mark a session as failed with an error reason.
  */
-export async function failSession(
-	sessionId: string,
-	error: string,
-): Promise<void> {
+export async function failSession(sessionId: string, error: string): Promise<void> {
 	await db
 		.update(paperSessions)
 		.set({
@@ -150,14 +140,8 @@ export async function failSession(
 export async function getActiveSession(
 	deskId: string,
 ): Promise<typeof paperSessions.$inferSelect | null> {
-	const rows = await db
-		.select()
-		.from(paperSessions)
-		.where(eq(paperSessions.deskId, deskId));
-	return (
-		rows.find((r) => r.status === "running" || r.status === "pending") ??
-		null
-	);
+	const rows = await db.select().from(paperSessions).where(eq(paperSessions.deskId, deskId));
+	return rows.find((r) => r.status === "running" || r.status === "pending") ?? null;
 }
 
 /**
@@ -181,10 +165,7 @@ export async function getLatestSession(
 export async function getSession(
 	sessionId: string,
 ): Promise<typeof paperSessions.$inferSelect | null> {
-	const [row] = await db
-		.select()
-		.from(paperSessions)
-		.where(eq(paperSessions.id, sessionId));
+	const [row] = await db.select().from(paperSessions).where(eq(paperSessions.id, sessionId));
 	return row ?? null;
 }
 
@@ -192,11 +173,6 @@ export async function getSession(
  * List all sessions that the DB thinks are running. Used by boot
  * reconcile to cross-check against live Docker containers.
  */
-export async function listRunningSessions(): Promise<
-	Array<typeof paperSessions.$inferSelect>
-> {
-	return db
-		.select()
-		.from(paperSessions)
-		.where(eq(paperSessions.status, "running"));
+export async function listRunningSessions(): Promise<Array<typeof paperSessions.$inferSelect>> {
+	return db.select().from(paperSessions).where(eq(paperSessions.status, "running"));
 }

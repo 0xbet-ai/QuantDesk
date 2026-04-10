@@ -10,7 +10,7 @@
 import type { RiskManagerPromptInput } from "./types.js";
 
 export function buildRiskManagerPrompt(input: RiskManagerPromptInput): string {
-	const { desk, runResult } = input;
+	const { desk, runNumber, runResult } = input;
 
 	return `You are a Risk Manager agent for QuantDesk.
 Validate the backtest results against desk constraints. Flag overfitting, bias, or unrealistic performance.
@@ -22,6 +22,7 @@ Write your response in the same language as the most recent user message in the 
 - Stop loss (max drawdown): ${desk.stopLoss}%
 
 ## Backtest Result to Validate
+- Run: #${runNumber}
 ${runResult.metrics
 	.map((m) => {
 		const v =

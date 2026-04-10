@@ -163,9 +163,10 @@ describe("buildRiskManagerPrompt", () => {
 	};
 
 	it("includes run result + desk constraints", () => {
-		const prompt = buildRiskManagerPrompt({ desk, runResult });
+		const prompt = buildRiskManagerPrompt({ desk, runNumber: 22, runResult });
 		expect(prompt).toContain("15.1");
 		expect(prompt).toContain("-2.8");
+		expect(prompt).toContain("Run: #22");
 		expect(prompt).toContain("Target return");
 		expect(prompt).toContain("Stop loss");
 	});

@@ -180,7 +180,7 @@ export interface AgentTurnRow {
 	deskId: string;
 	agentRole: string;
 	triggerKind: string;
-	status: "running" | "completed" | "failed" | "stopped";
+	status: "running" | "completed" | "failed" | "stopped" | "awaiting_validation";
 	startedAt: string;
 	endedAt: string | null;
 	lastHeartbeatAt: string;
@@ -205,10 +205,14 @@ export const postComment = (
 ) => {
 	const author = metadata?.systemAuthor ? "system" : "user";
 	const cleanMeta = metadata ? { ...metadata } : undefined;
-	if (cleanMeta) delete cleanMeta.systemAuthor;
+	if (cleanMeta) cleanMeta.systemAuthor = undefined;
 	return api<Comment>(`/experiments/${experimentId}/comments`, {
 		method: "POST",
-		body: JSON.stringify({ author, content, ...(cleanMeta && Object.keys(cleanMeta).length > 0 ? { metadata: cleanMeta } : {}) }),
+		body: JSON.stringify({
+			author,
+			content,
+			...(cleanMeta && Object.keys(cleanMeta).length > 0 ? { metadata: cleanMeta } : {}),
+		}),
 	});
 };
 

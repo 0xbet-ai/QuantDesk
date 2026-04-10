@@ -20,8 +20,8 @@ import remarkGfm from "remark-gfm";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import type { Comment, Dataset, Experiment } from "../lib/api.js";
 import { getAgentLogs, listComments, listDatasets, postComment } from "../lib/api.js";
-import { cn } from "../lib/utils.js";
 import { listExperimentTurns } from "../lib/api.js";
+import { cn } from "../lib/utils.js";
 import { DatasetPreviewModal } from "./DatasetView.js";
 import { TurnCard, type TurnLifecycleStatus } from "./TurnCard.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
@@ -141,12 +141,7 @@ function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
 	);
 }
 
-export function CommentThread({
-	experiment,
-	onOpenRun,
-	onOpenTurn,
-	onExperimentUpdated,
-}: Props) {
+export function CommentThread({ experiment, onOpenRun, onOpenTurn, onExperimentUpdated }: Props) {
 	const [comments, setComments] = useState<Comment[]>([]);
 	const [input, setInput] = useState("");
 	const [sending, setSending] = useState(false);
@@ -172,6 +167,7 @@ export function CommentThread({
 	turnStatusRef.current = turnStatus;
 	const [turnFailureReason, setTurnFailureReason] = useState<string | null>(null);
 	const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
+	const [currentTurnRole, setCurrentTurnRole] = useState<string | null>(null);
 	// Phase 27 step 8 — live docker log tail from the engine container for
 	// the run currently running inside the active turn. Capped at 200 lines.
 	// Phase 27 — when a turn reaches `completed` we fade the card out and
@@ -247,6 +243,7 @@ export function CommentThread({
 	// register_dataset tool may have run in between).
 	const [datasetsById, setDatasetsById] = useState<Record<string, Dataset>>({});
 	const [previewDataset, setPreviewDataset] = useState<Dataset | null>(null);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reload dataset chips when comment count changes
 	useEffect(() => {
 		listDatasets(experiment.deskId)
 			.then((list) => {
@@ -261,9 +258,7 @@ export function CommentThread({
 		listComments(experiment.id)
 			.then((data) => {
 				setComments(
-					data.filter(
-						(c) => !(c.metadata && (c.metadata as { hidden?: boolean }).hidden),
-					),
+					data.filter((c) => !(c.metadata && (c.metadata as { hidden?: boolean }).hidden)),
 				);
 				// Show thinking if agent response is expected:
 				// - only 1 comment (desk just created, agent trigger in progress)
@@ -318,12 +313,14 @@ export function CommentThread({
 						if (!latest) {
 							setTurnStatus(null);
 							setCurrentTurnId(null);
+							setCurrentTurnRole(null);
 							setTurnFailureReason(null);
 							setThinkingRole(null);
 							setRunStartedAt(null);
 							return;
 						}
 						setCurrentTurnId(latest.id);
+						setCurrentTurnRole(latest.agentRole);
 						setTurnStatus(latest.status);
 						setTurnFailureReason(latest.failureReason ?? null);
 						if (latest.status === "running") {
@@ -340,6 +337,9 @@ export function CommentThread({
 									}
 								})
 								.catch(() => {});
+						} else if (latest.status === "awaiting_validation") {
+							setThinkingRole("risk_manager");
+							setRunStartedAt(null);
 						} else {
 							// Terminal — wipe anything the heuristic set so
 							// the composer re-enables.
@@ -370,6 +370,7 @@ export function CommentThread({
 
 	// Also scroll when the live TurnCard appears/grows (streamed tokens,
 	// engine log tail, data-fetch progress, or turn status transitions).
+	// biome-ignore lint/correctness/useExhaustiveDependencies: only status/length changes should trigger autoscroll
 	useEffect(() => {
 		bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
 	}, [turnStatus, streamEntries.length]);
@@ -382,6 +383,7 @@ export function CommentThread({
 	//   - no live data-fetch tail, AND
 	//   - no live engine log tail.
 	// failed / stopped stay visible regardless so the user can react.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: comment object identity should not reset the completion fade
 	useEffect(() => {
 		if (turnStatus !== "completed") {
 			setFadingOut(false);
@@ -391,6 +393,7 @@ export function CommentThread({
 		const clearId = setTimeout(() => {
 			setTurnStatus(null);
 			setCurrentTurnId(null);
+			setCurrentTurnRole(null);
 			setStreamEntries([]);
 			setRunStartedAt(null);
 			setFadingOut(false);
@@ -412,6 +415,7 @@ export function CommentThread({
 				setThinkingRole("risk_manager");
 				return;
 			}
+			setCurrentTurnRole(role);
 			setThinkingRole(role);
 			setStreamEntries([]);
 			setRunStartedAt(new Date());
@@ -443,6 +447,7 @@ export function CommentThread({
 				turnId?: string;
 				status?: TurnLifecycleStatus;
 				failureReason?: string | null;
+				agentRole?: string;
 			};
 			// Out-of-order protection: ignore late events targeting a
 			// turn that is NOT the one we are currently tracking. The
@@ -463,6 +468,7 @@ export function CommentThread({
 				return;
 			}
 			if (payload.turnId) setCurrentTurnId(payload.turnId);
+			if (payload.agentRole) setCurrentTurnRole(payload.agentRole);
 			if (payload.status === "running") {
 				// The new turn has begun on the server — the optimistic
 				// send flag is no longer needed.
@@ -470,9 +476,7 @@ export function CommentThread({
 			}
 			if (payload.status) {
 				setTurnStatus(payload.status);
-				const isTerminal =
-					payload.status !== "running" &&
-					payload.status !== "awaiting_validation";
+				const isTerminal = payload.status !== "running" && payload.status !== "awaiting_validation";
 				if (isTerminal) {
 					setTurnFailureReason(payload.failureReason ?? null);
 					// Clear the thinking flag so the comment input re-enables.
@@ -486,6 +490,7 @@ export function CommentThread({
 					// Keep input locked but update the role hint so the UI
 					// can show "Validating..." instead of "Agent is working..."
 					setThinkingRole("risk_manager");
+					setRunStartedAt(null);
 				}
 			}
 		}
@@ -552,6 +557,7 @@ export function CommentThread({
 			setInput("");
 			pendingSendRef.current = true;
 			refresh();
+			setCurrentTurnRole("analyst");
 			setThinkingRole("analyst");
 			setStreamEntries([]);
 			setRunStartedAt(new Date());
@@ -588,480 +594,488 @@ export function CommentThread({
 			<Separator />
 
 			{/* Messages */}
-			<div
-				ref={scrollContainerRef}
-				className="flex-1 overflow-y-auto pl-4 pr-6 py-4"
-			>
+			<div ref={scrollContainerRef} className="flex-1 overflow-y-auto pl-4 pr-6 py-4">
 				<div ref={scrollInnerRef} className="space-y-3">
-				{(() => {
-					// Resolve each comment's effective turnId: a comment's own
-					// turnId if set, otherwise its parent's (recursively).
-					// System comments posted during data-fetch / downstream
-					// work often have no turnId but link back via
-					// `parentCommentId`, and we want them to land in the same
-					// turn-card timeline as the agent comment that triggered
-					// them.
-					const commentById = new Map<string, Comment>();
-					for (const c of comments) commentById.set(c.id, c);
-					const resolveTurnId = (c: Comment): string | null => {
-						if (c.turnId) return c.turnId;
-						let cursor: Comment | undefined = c;
-						const seen = new Set<string>();
-						while (cursor) {
-							if (cursor.turnId) return cursor.turnId;
-							if (seen.has(cursor.id)) break;
-							seen.add(cursor.id);
-							const parentId = (
-								cursor.metadata as { parentCommentId?: string } | null
-							)?.parentCommentId;
-							if (!parentId) break;
-							cursor = commentById.get(parentId);
-						}
-						return null;
-					};
-					// Parent/child nesting is still honoured for legacy
-					// top-level comments (the ones that never make it into a
-					// turn group), so replies can remain threaded outside a
-					// turn card.
-					const childrenByParent = new Map<string, Comment[]>();
-					for (const c of comments) {
-						if (resolveTurnId(c)) continue; // will be flattened into its turn
-						const parentId = (c.metadata as { parentCommentId?: string } | null)?.parentCommentId;
-						if (parentId) {
-							const arr = childrenByParent.get(parentId) ?? [];
-							arr.push(c);
-							childrenByParent.set(parentId, arr);
-						}
-					}
-					const usedAsChild = new Set<string>();
-					for (const arr of childrenByParent.values()) {
-						for (const c of arr) usedAsChild.add(c.id);
-					}
-					type TopItem =
-						| { kind: "comment"; comment: Comment }
-						| { kind: "turn"; turnId: string; comments: Comment[] };
-					const topItems: TopItem[] = [];
-					const turnIndex = new Map<string, number>();
-					for (const c of comments) {
-						if (usedAsChild.has(c.id)) continue;
-						const effectiveTurnId = resolveTurnId(c);
-						if (
-							!effectiveTurnId &&
-							(c.metadata as { parentCommentId?: string } | null)?.parentCommentId
-						) {
-							continue;
-						}
-						if (c.author === "user") {
-							topItems.push({ kind: "comment", comment: c });
-							continue;
-						}
-						if (effectiveTurnId) {
-							const idx = turnIndex.get(effectiveTurnId);
-							if (idx === undefined) {
-								turnIndex.set(effectiveTurnId, topItems.length);
-								topItems.push({
-									kind: "turn",
-									turnId: effectiveTurnId,
-									comments: [c],
-								});
-							} else {
-								(topItems[idx] as { comments: Comment[] }).comments.push(c);
+					{(() => {
+						// Resolve each comment's effective turnId: a comment's own
+						// turnId if set, otherwise its parent's (recursively).
+						// System comments posted during data-fetch / downstream
+						// work often have no turnId but link back via
+						// `parentCommentId`, and we want them to land in the same
+						// turn-card timeline as the agent comment that triggered
+						// them.
+						const commentById = new Map<string, Comment>();
+						for (const c of comments) commentById.set(c.id, c);
+						const resolveTurnId = (c: Comment): string | null => {
+							if (c.turnId) return c.turnId;
+							let cursor: Comment | undefined = c;
+							const seen = new Set<string>();
+							while (cursor) {
+								if (cursor.turnId) return cursor.turnId;
+								if (seen.has(cursor.id)) break;
+								seen.add(cursor.id);
+								const parentId = (cursor.metadata as { parentCommentId?: string } | null)
+									?.parentCommentId;
+								if (!parentId) break;
+								cursor = commentById.get(parentId);
 							}
-							continue;
-						}
-						// Legacy: no turnId. Render as a top-level comment.
-						topItems.push({ kind: "comment", comment: c });
-					}
-					// Merge consecutive turn groups of the same agent role
-					// when no user comment separates them — e.g. a failed
-					// Analyst turn followed by a retrigger from the same
-					// role should read as one continuous card.
-					const turnRole = (cs: Comment[]) =>
-						cs.find((c) => c.author === "risk_manager") ? "risk_manager" : "analyst";
-					const mergedTopItems: TopItem[] = [];
-					for (const it of topItems) {
-						const prev = mergedTopItems[mergedTopItems.length - 1];
-						if (
-							it.kind === "turn" &&
-							prev &&
-							prev.kind === "turn" &&
-							turnRole(prev.comments) === turnRole(it.comments)
-						) {
-							prev.comments.push(...it.comments);
-							continue;
-						}
-						mergedTopItems.push(it);
-					}
-					// Choose a timeline icon for a nested comment based on author
-					// and content heuristics — analyst gets the bot, risk
-					// manager the shield, and system messages are categorized
-					// into success / failure / in-progress / info by keywords.
-					// This is purely cosmetic until we wire real tool_call /
-					// tool_result events from the server.
-					const pickTimelineIcon = (
-						c: Comment,
-					): { Icon: typeof User; tone: string; bg: string; spin?: boolean } => {
-						if (c.author === "analyst") {
-							return {
-								Icon: Bot,
-								tone: "text-purple-700 dark:text-purple-300",
-								bg: "bg-purple-100 dark:bg-purple-900/40",
-							};
-						}
-						if (c.author === "risk_manager") {
-							return {
-								Icon: Shield,
-								tone: "text-orange-700 dark:text-orange-300",
-								bg: "bg-orange-100 dark:bg-orange-900/40",
-							};
-						}
-						if (c.author === "user") {
-							return {
-								Icon: User,
-								tone: "text-blue-600 dark:text-blue-300",
-								bg: "bg-blue-100 dark:bg-blue-900/40",
-							};
-						}
-						// system
-						const text = c.content.toLowerCase();
-						if (/failed|error|exception|cannot/.test(text)) {
-							return {
-								Icon: XCircle,
-								tone: "text-red-700 dark:text-red-300",
-								bg: "bg-red-100 dark:bg-red-900/40",
-							};
-						}
-						if (/downloaded|successfully|completed|finished|approved/.test(text)) {
-							return {
-								Icon: CheckCircle2,
-								tone: "text-green-700 dark:text-green-300",
-								bg: "bg-green-100 dark:bg-green-900/40",
-							};
-						}
-						if (/downloading|loading|fetching|running|in progress/.test(text)) {
-							return {
-								Icon: Database,
-								tone: "text-cyan-700 dark:text-cyan-300",
-								bg: "bg-cyan-100 dark:bg-cyan-900/40",
-								spin: true,
-							};
-						}
-						return {
-							Icon: MessageSquare,
-							tone: "text-muted-foreground",
-							bg: "bg-muted",
+							return null;
 						};
-					};
+						// Parent/child nesting is still honoured for legacy
+						// top-level comments (the ones that never make it into a
+						// turn group), so replies can remain threaded outside a
+						// turn card.
+						const childrenByParent = new Map<string, Comment[]>();
+						for (const c of comments) {
+							if (resolveTurnId(c)) continue; // will be flattened into its turn
+							const parentId = (c.metadata as { parentCommentId?: string } | null)?.parentCommentId;
+							if (parentId) {
+								const arr = childrenByParent.get(parentId) ?? [];
+								arr.push(c);
+								childrenByParent.set(parentId, arr);
+							}
+						}
+						const usedAsChild = new Set<string>();
+						for (const arr of childrenByParent.values()) {
+							for (const c of arr) usedAsChild.add(c.id);
+						}
+						type TopItem =
+							| { kind: "comment"; comment: Comment }
+							| {
+									kind: "turn";
+									turnId: string;
+									comments: Comment[];
+									displayRole: "analyst" | "risk_manager";
+									mergeLocked?: boolean;
+							  };
+						const topItems: TopItem[] = [];
+						const turnIndex = new Map<string, number>();
+						const turnRole = (cs: Comment[]): "analyst" | "risk_manager" =>
+							cs.find((c) => c.author === "analyst" || c.author === "risk_manager")?.author ===
+							"risk_manager"
+								? "risk_manager"
+								: "analyst";
+						for (const c of comments) {
+							if (usedAsChild.has(c.id)) continue;
+							const effectiveTurnId = resolveTurnId(c);
+							if (
+								!effectiveTurnId &&
+								(c.metadata as { parentCommentId?: string } | null)?.parentCommentId
+							) {
+								continue;
+							}
+							if (c.author === "user") {
+								topItems.push({ kind: "comment", comment: c });
+								continue;
+							}
+							if (effectiveTurnId) {
+								const idx = turnIndex.get(effectiveTurnId);
+								if (idx === undefined) {
+									turnIndex.set(effectiveTurnId, topItems.length);
+									topItems.push({
+										kind: "turn",
+										turnId: effectiveTurnId,
+										comments: [c],
+										displayRole: turnRole([c]),
+									});
+								} else {
+									const item = topItems[idx];
+									if (item?.kind === "turn") {
+										item.comments.push(c);
+										item.displayRole = turnRole(item.comments);
+									}
+								}
+								continue;
+							}
+							// Legacy: no turnId. Render as a top-level comment.
+							topItems.push({ kind: "comment", comment: c });
+						}
+						// Merge consecutive turn groups of the same agent role
+						// when no user comment separates them — e.g. a failed
+						// Analyst turn followed by a retrigger from the same
+						// role should read as one continuous card.
+						const mergedTopItems: TopItem[] = [];
+						for (const it of topItems) {
+							const prev = mergedTopItems[mergedTopItems.length - 1];
+							if (it.kind === "turn" && prev && prev.kind === "turn") {
+								const nextRole = it.displayRole;
+								if (!prev.mergeLocked && prev.displayRole === nextRole) {
+									prev.comments.push(...it.comments);
+									prev.displayRole = turnRole(prev.comments);
+									continue;
+								}
+								// Root cause: the validation merge only collapsed
+								// same-role turns, so the RM review was rendered as a
+								// separate top-level card instead of living under the
+								// analyst turn that requested validation.
+								if (prev.displayRole === "analyst" && nextRole === "risk_manager") {
+									prev.comments.push(...it.comments);
+									prev.mergeLocked = true;
+									continue;
+								}
+							}
+							mergedTopItems.push(it);
+						}
+						// Choose a timeline icon for a nested comment based on author
+						// and content heuristics — analyst gets the bot, risk
+						// manager the shield, and system messages are categorized
+						// into success / failure / in-progress / info by keywords.
+						// This is purely cosmetic until we wire real tool_call /
+						// tool_result events from the server.
+						const pickTimelineIcon = (
+							c: Comment,
+						): { Icon: typeof User; tone: string; bg: string; spin?: boolean } => {
+							if (c.author === "analyst") {
+								return {
+									Icon: Bot,
+									tone: "text-purple-700 dark:text-purple-300",
+									bg: "bg-purple-100 dark:bg-purple-900/40",
+								};
+							}
+							if (c.author === "risk_manager") {
+								return {
+									Icon: Shield,
+									tone: "text-orange-700 dark:text-orange-300",
+									bg: "bg-orange-100 dark:bg-orange-900/40",
+								};
+							}
+							if (c.author === "user") {
+								return {
+									Icon: User,
+									tone: "text-blue-600 dark:text-blue-300",
+									bg: "bg-blue-100 dark:bg-blue-900/40",
+								};
+							}
+							// system
+							const text = c.content.toLowerCase();
+							if (/failed|error|exception|cannot/.test(text)) {
+								return {
+									Icon: XCircle,
+									tone: "text-red-700 dark:text-red-300",
+									bg: "bg-red-100 dark:bg-red-900/40",
+								};
+							}
+							if (/downloaded|successfully|completed|finished|approved/.test(text)) {
+								return {
+									Icon: CheckCircle2,
+									tone: "text-green-700 dark:text-green-300",
+									bg: "bg-green-100 dark:bg-green-900/40",
+								};
+							}
+							if (/downloading|loading|fetching|running|in progress/.test(text)) {
+								return {
+									Icon: Database,
+									tone: "text-cyan-700 dark:text-cyan-300",
+									bg: "bg-cyan-100 dark:bg-cyan-900/40",
+									spin: true,
+								};
+							}
+							return {
+								Icon: MessageSquare,
+								tone: "text-muted-foreground",
+								bg: "bg-muted",
+							};
+						};
 
-					const renderComment = (
-						c: Comment,
-						isChild = false,
-						inTurnCard = false,
-					): ReactNode => {
-						// Hide system-generated action messages (e.g. Paper Trade button)
-						if ((c.metadata as Record<string, unknown> | null)?.hidden) return null;
-						const config = authorConfig[c.author] ?? authorConfig.system!;
-						const Icon = config.icon;
-						const cleanContent = stripAuthorPrefixes(c.content).trim();
-						const children = childrenByParent.get(c.id) ?? [];
+						const renderComment = (c: Comment, isChild = false, inTurnCard = false): ReactNode => {
+							// Hide system-generated action messages (e.g. Paper Trade button)
+							if ((c.metadata as Record<string, unknown> | null)?.hidden) return null;
+							const config = authorConfig[c.author] ?? authorConfig.system!;
+							const Icon = config.icon;
+							const cleanContent = stripAuthorPrefixes(c.content).trim();
+							const children = childrenByParent.get(c.id) ?? [];
 
-						// Timeline mode: render as a row in the turn card's
-						// vertical timeline (icon column + content). The icon
-						// sits on top of the parent container's left border so
-						// the rows look like nodes on a thread.
-						if (inTurnCard) {
-							const tl = pickTimelineIcon(c);
-							const TLIcon = tl.Icon;
-							return (
-								<div key={c.id} className="relative pl-8 pb-5 last:pb-0">
-									<div
-										className={cn(
-											"absolute left-0 top-0 z-10 flex size-6 items-center justify-center rounded-full",
-											tl.bg,
-										)}
-									>
-										<TLIcon
-											className={cn("size-3", tl.tone, tl.spin && "animate-pulse")}
-										/>
-									</div>
-									{cleanContent && (
-										<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-strong:text-foreground prose-p:my-0 prose-ul:my-1 prose-li:my-0 prose-headings:my-1 prose-pre:my-1">
-											<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-												{formatAgentMarkersForDisplay(cleanContent)}
-											</Markdown>
+							// Timeline mode: render as a row in the turn card's
+							// vertical timeline (icon column + content). The icon
+							// sits on top of the parent container's left border so
+							// the rows look like nodes on a thread.
+							if (inTurnCard) {
+								const tl = pickTimelineIcon(c);
+								const TLIcon = tl.Icon;
+								return (
+									<div key={c.id} className="relative pl-8 pb-5 last:pb-0">
+										<div
+											className={cn(
+												"absolute left-0 top-0 z-10 flex size-6 items-center justify-center rounded-full",
+												tl.bg,
+											)}
+										>
+											<TLIcon className={cn("size-3", tl.tone, tl.spin && "animate-pulse")} />
 										</div>
-									)}
-									{(() => {
-										// Phase 27 — dataset side-effect chips.
-										// register_dataset tool calls get attached to the
-										// comment's metadata by agent-trigger so we can
-										// render clickable preview pills without needing
-										// a per-chip roundtrip.
-										const regIds = ((c.metadata as { registeredDatasetIds?: unknown } | null)
-											?.registeredDatasetIds ?? []) as string[];
-										if (regIds.length === 0) return null;
-										return (
-											<div className="mt-2 flex flex-wrap gap-1.5">
-												{regIds.map((id) => {
-													const d = datasetsById[id];
-													if (!d) return null;
-													return (
-														<button
-															key={id}
-															type="button"
-															onClick={() => setPreviewDataset(d)}
-															className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px] font-medium text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
-														>
-															<Database className="size-3 text-cyan-600 dark:text-cyan-300" />
-															<span className="font-mono">{d.pairs.join(", ")} · {d.timeframe}</span>
-															<span className="text-foreground/40">{d.exchange}</span>
-														</button>
-													);
-												})}
+										{cleanContent && (
+											<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-strong:text-foreground prose-p:my-0 prose-ul:my-1 prose-li:my-0 prose-headings:my-1 prose-pre:my-1">
+												<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+													{formatAgentMarkersForDisplay(cleanContent)}
+												</Markdown>
 											</div>
-										);
-									})()}
-									{/* In turn-card timeline mode, `children` is always
+										)}
+										{(() => {
+											// Phase 27 — dataset side-effect chips.
+											// register_dataset tool calls get attached to the
+											// comment's metadata by agent-trigger so we can
+											// render clickable preview pills without needing
+											// a per-chip roundtrip.
+											const regIds = ((c.metadata as { registeredDatasetIds?: unknown } | null)
+												?.registeredDatasetIds ?? []) as string[];
+											if (regIds.length === 0) return null;
+											return (
+												<div className="mt-2 flex flex-wrap gap-1.5">
+													{regIds.map((id) => {
+														const d = datasetsById[id];
+														if (!d) return null;
+														return (
+															<button
+																key={id}
+																type="button"
+																onClick={() => setPreviewDataset(d)}
+																className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px] font-medium text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
+															>
+																<Database className="size-3 text-cyan-600 dark:text-cyan-300" />
+																<span className="font-mono">
+																	{d.pairs.join(", ")} · {d.timeframe}
+																</span>
+																<span className="text-foreground/40">{d.exchange}</span>
+															</button>
+														);
+													})}
+												</div>
+											);
+										})()}
+										{/* In turn-card timeline mode, `children` is always
 									    empty (the builder flattens everything into the
 									    turn group as siblings), so we intentionally skip
 									    recursive child rendering here. */}
+									</div>
+								);
+							}
+
+							const isUser = c.author === "user";
+							return (
+								<div
+									key={c.id}
+									id={`comment-${c.id}`}
+									className={cn(isChild && "ml-6 mt-2", !isChild && isUser && "flex justify-end")}
+								>
+									<div
+										className={cn(
+											"rounded-md border p-3",
+											isUser && !isChild
+												? "max-w-[75%] border-blue-500/30 bg-blue-500/[0.06]"
+												: "border-border",
+										)}
+									>
+										{/* Author header row */}
+										<div className="flex items-center gap-2 mb-1.5">
+											<div
+												className={cn(
+													"size-6 rounded-full flex items-center justify-center shrink-0",
+													c.author === "user" ? "bg-blue-500/15" : "bg-muted",
+												)}
+											>
+												<Icon className={cn("size-3", config.color)} />
+											</div>
+											<span className={cn("text-xs font-medium", config.color)}>
+												{config.label}
+											</span>
+											<span className="text-xs text-muted-foreground ml-auto">
+												{new Date(c.createdAt).toLocaleTimeString([], {
+													hour: "2-digit",
+													minute: "2-digit",
+												})}
+											</span>
+										</div>
+										{cleanContent && (
+											<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-strong:text-foreground prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2">
+												<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+													{formatAgentMarkersForDisplay(cleanContent)}
+												</Markdown>
+											</div>
+										)}
+										{(() => {
+											// Dataset side-effect chips — same logic as the
+											// in-turn-card timeline render. Shows a clickable
+											// preview pill for every dataset the agent
+											// registered during this turn. Keeps the
+											// "데이터셋 등록 완료" message clickable whether it
+											// lands inside a turn card or as a top-level comment.
+											const regIds = ((c.metadata as { registeredDatasetIds?: unknown } | null)
+												?.registeredDatasetIds ?? []) as string[];
+											if (regIds.length === 0) return null;
+											return (
+												<div className="mt-2 flex flex-wrap gap-1.5">
+													{regIds.map((id) => {
+														const d = datasetsById[id];
+														if (!d) return null;
+														return (
+															<button
+																key={id}
+																type="button"
+																onClick={() => setPreviewDataset(d)}
+																className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px] font-medium text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
+															>
+																<Database className="size-3 text-cyan-600 dark:text-cyan-300" />
+																<span className="font-mono">
+																	{d.pairs.join(", ")} · {d.timeframe}
+																</span>
+																<span className="text-foreground/40">{d.exchange}</span>
+															</button>
+														);
+													})}
+												</div>
+											);
+										})()}
+										{(c.author === "analyst" || c.author === "risk_manager") && (
+											<AgentTranscriptToggle experimentId={experiment.id} />
+										)}
+									</div>
+									{children.map((child) => renderComment(child, true))}
 								</div>
 							);
-						}
-
-						const isUser = c.author === "user";
-						return (
-							<div
-								key={c.id}
-								id={`comment-${c.id}`}
-								className={cn(
-									isChild && "ml-6 mt-2",
-									!isChild && isUser && "flex justify-end",
-								)}
-							>
-								<div
-									className={cn(
-										"rounded-md border p-3",
-										isUser && !isChild
-											? "max-w-[75%] border-blue-500/30 bg-blue-500/[0.06]"
-											: "border-border",
-									)}
-								>
-									{/* Author header row */}
-									<div className="flex items-center gap-2 mb-1.5">
-										<div
-											className={cn(
-												"size-6 rounded-full flex items-center justify-center shrink-0",
-												c.author === "user" ? "bg-blue-500/15" : "bg-muted",
-											)}
-										>
-											<Icon className={cn("size-3", config.color)} />
+						};
+						// Render. Live active turn (currentTurnId, status === running)
+						// is excluded here — it's drawn as the sticky bottom
+						// TurnCard with streaming entries. Past turns get a static
+						// TurnCard with their nested comments.
+						return mergedTopItems.map((item, idx) => {
+							if (item.kind === "comment") {
+								return renderComment(item.comment);
+							}
+							// Skip the running turn here; the sticky bottom TurnCard
+							// owns it so streaming chunks land in one place. Once
+							// the turn finishes, the inline group takes over and
+							// the sticky bottom card unmounts.
+							if (item.turnId === currentTurnId && turnStatus === "running") {
+								return null;
+							}
+							// If the previous rendered item is ALSO an agent turn
+							// (no user comment between them) we draw a small
+							// connector showing the second turn is a direct
+							// continuation. Without this, two back-to-back agent
+							// cards look like they belong to separate conversations.
+							const prev = idx > 0 ? mergedTopItems[idx - 1] : null;
+							const showContinuationConnector =
+								!!prev &&
+								prev.kind === "turn" &&
+								!(prev.turnId === currentTurnId && turnStatus === "running");
+							// Also skip the persisted active turn if its status is
+							// still in React state but already terminal — the
+							// previous condition handled running, this handles a
+							// transient case where state hasn't cleared yet.
+							// Drop the bottom sticky for terminal states; inline
+							// owns them.
+							const first = item.comments[0]!;
+							const role =
+								item.turnId === currentTurnId
+									? (currentTurnRole ?? item.displayRole)
+									: item.displayRole;
+							// Root cause: only the sticky live card carried the real
+							// turn status, while persisted inline cards were forced to
+							// `completed`. That made an `awaiting_validation` analyst
+							// turn render as "Agent Turn Completed" instead of
+							// "Validating...".
+							const pastStatus: TurnLifecycleStatus =
+								item.turnId === currentTurnId && turnStatus ? turnStatus : "completed";
+							return (
+								<div key={item.turnId}>
+									{showContinuationConnector && (
+										<div className="flex items-center gap-2 px-4 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+											<div className="h-px flex-1 bg-border" />
+											<span>continued (no user reply)</span>
+											<div className="h-px flex-1 bg-border" />
 										</div>
-										<span className={cn("text-xs font-medium", config.color)}>
-											{config.label}
-										</span>
-										<span className="text-xs text-muted-foreground ml-auto">
-											{new Date(c.createdAt).toLocaleTimeString([], {
-												hour: "2-digit",
-												minute: "2-digit",
-											})}
-										</span>
-									</div>
-									{cleanContent && (
-										<div className="text-[13px] text-foreground leading-relaxed prose prose-sm prose-neutral dark:prose-invert max-w-none prose-strong:text-foreground prose-p:my-3 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-5 prose-headings:mb-2">
-											<Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-												{formatAgentMarkersForDisplay(cleanContent)}
-											</Markdown>
-										</div>
 									)}
-									{(() => {
-										// Dataset side-effect chips — same logic as the
-										// in-turn-card timeline render. Shows a clickable
-										// preview pill for every dataset the agent
-										// registered during this turn. Keeps the
-										// "데이터셋 등록 완료" message clickable whether it
-										// lands inside a turn card or as a top-level comment.
-										const regIds = ((c.metadata as { registeredDatasetIds?: unknown } | null)
-											?.registeredDatasetIds ?? []) as string[];
-										if (regIds.length === 0) return null;
-										return (
-											<div className="mt-2 flex flex-wrap gap-1.5">
-												{regIds.map((id) => {
-													const d = datasetsById[id];
-													if (!d) return null;
-													return (
-														<button
-															key={id}
-															type="button"
-															onClick={() => setPreviewDataset(d)}
-															className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px] font-medium text-foreground/80 hover:bg-muted hover:text-foreground transition-colors"
-														>
-															<Database className="size-3 text-cyan-600 dark:text-cyan-300" />
-															<span className="font-mono">
-																{d.pairs.join(", ")} · {d.timeframe}
-															</span>
-															<span className="text-foreground/40">{d.exchange}</span>
-														</button>
-													);
-												})}
-											</div>
-										);
-									})()}
-									{(c.author === "analyst" || c.author === "risk_manager") && (
-										<AgentTranscriptToggle experimentId={experiment.id} />
-									)}
+									<TurnCard
+										experimentNumber={experiment.number}
+										agentRole={role}
+										entries={[]}
+										status={pastStatus}
+										startedAt={new Date(first.createdAt)}
+										onStop={() => {}}
+										onOpen={onOpenTurn ? () => onOpenTurn(item.turnId) : undefined}
+										hasRun
+										failureReason={null}
+										nestedComments={item.comments.map((c) => renderComment(c, false, true))}
+										footer={<AgentTranscriptToggle experimentId={experiment.id} />}
+									/>
 								</div>
-								{children.map((child) => renderComment(child, true))}
-							</div>
-						);
-					};
-					// Render. Live active turn (currentTurnId, status === running)
-					// is excluded here — it's drawn as the sticky bottom
-					// TurnCard with streaming entries. Past turns get a static
-					// TurnCard with their nested comments.
-					return mergedTopItems.map((item, idx) => {
-						if (item.kind === "comment") {
-							return renderComment(item.comment);
-						}
-						// Skip the running turn here; the sticky bottom TurnCard
-						// owns it so streaming chunks land in one place. Once
-						// the turn finishes, the inline group takes over and
-						// the sticky bottom card unmounts.
-						if (item.turnId === currentTurnId && turnStatus === "running") {
-							return null;
-						}
-						// If the previous rendered item is ALSO an agent turn
-						// (no user comment between them) we draw a small
-						// connector showing the second turn is a direct
-						// continuation. Without this, two back-to-back agent
-						// cards look like they belong to separate conversations.
-						const prev = idx > 0 ? mergedTopItems[idx - 1] : null;
-						const showContinuationConnector =
-							!!prev &&
-							prev.kind === "turn" &&
-							!(prev.turnId === currentTurnId && turnStatus === "running");
-						// Also skip the persisted active turn if its status is
-						// still in React state but already terminal — the
-						// previous condition handled running, this handles a
-						// transient case where state hasn't cleared yet.
-						// Drop the bottom sticky for terminal states; inline
-						// owns them.
-						const first = item.comments[0]!;
-						const role =
-							item.comments.find((c) => c.author === "risk_manager")
-								? "risk_manager"
-								: "analyst";
-						// Past-turn cards are always "completed" — approval is
-						// conversational now (CLAUDE.md rule #15), so there's
-						// no "awaiting_user" state encoded in the comments. If
-						// the agent ended with a question, the user just
-						// replies in the composer.
-						const pastStatus: TurnLifecycleStatus = "completed";
-						return (
-							<div key={item.turnId}>
-								{showContinuationConnector && (
-									<div className="flex items-center gap-2 px-4 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
-										<div className="h-px flex-1 bg-border" />
-										<span>continued (no user reply)</span>
-										<div className="h-px flex-1 bg-border" />
-									</div>
-								)}
-								<TurnCard
-									experimentNumber={experiment.number}
-									agentRole={role}
-									entries={[]}
-									status={pastStatus}
-									startedAt={new Date(first.createdAt)}
-									onStop={() => {}}
-									onOpen={onOpenTurn ? () => onOpenTurn(item.turnId) : undefined}
-									hasRun
-									failureReason={null}
-									nestedComments={item.comments.map((c) =>
-										renderComment(c, false, true),
-									)}
-									footer={<AgentTranscriptToggle experimentId={experiment.id} />}
-								/>
-							</div>
-						);
-					});
-				})()}
-				{comments.length === 0 && !thinkingRole && (
-					<div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-						No comments yet
-					</div>
-				)}
-				{turnStatus === "running" &&
-					!(
-						streamEntries.length > 0 ||
-						(!!currentTurnId && comments.some((c) => c.turnId === currentTurnId))
-					) && (
-						// Nothing to render yet — show a small pending shimmer so
-						// the user sees the agent is spinning up instead of an
-						// empty blank gap between desk creation and the first
-						// streamed token.
-						<div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground animate-in fade-in duration-300">
-							<Loader2 className="size-3.5 animate-spin text-cyan-500" />
-							<span>Agent is warming up…</span>
+							);
+						});
+					})()}
+					{comments.length === 0 && !thinkingRole && (
+						<div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
+							No comments yet
 						</div>
 					)}
-				{turnStatus === "running" &&
-					// Don't flash an empty card on brand-new desks: wait until
-					// the running turn has SOMETHING to show (streamed tokens,
-					// engine/data-fetch progress, or a nested comment attached
-					// to this turn). Prevents a phantom TurnCard from briefly
-					// appearing between desk creation and the first agent
-					// output.
-					(streamEntries.length > 0 ||
-						(!!currentTurnId &&
-							comments.some((c) => c.turnId === currentTurnId))) && (
-					<div
-						className={cn(
-							"transition-all duration-500 ease-out",
-							fadingOut
-								? "opacity-0 translate-y-8 scale-90 max-h-0 overflow-hidden origin-top"
-								: "opacity-100 translate-y-0 scale-100 animate-in fade-in slide-in-from-bottom-2 duration-300",
+					{turnStatus === "running" &&
+						!(
+							streamEntries.length > 0 ||
+							(!!currentTurnId && comments.some((c) => c.turnId === currentTurnId))
+						) && (
+							// Nothing to render yet — show a small pending shimmer so
+							// the user sees the agent is spinning up instead of an
+							// empty blank gap between desk creation and the first
+							// streamed token.
+							<div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground animate-in fade-in duration-300">
+								<Loader2 className="size-3.5 animate-spin text-cyan-500" />
+								<span>Agent is warming up…</span>
+							</div>
 						)}
-					>
-						{(() => {
-							// Show the "continued (no user reply)" separator above
-							// the live running card when the most recent comment
-							// before it is not from the user — i.e. an agent turn
-							// just finished and another one started without the
-							// user saying anything in between.
-							const nonCurrent = comments.filter(
-								(c) => !currentTurnId || c.turnId !== currentTurnId,
-							);
-							const lastPrior = nonCurrent[nonCurrent.length - 1];
-							const showConnector = !!lastPrior && lastPrior.author !== "user";
-							return showConnector ? (
-								<div className="flex items-center gap-2 px-4 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
-									<div className="h-px flex-1 bg-border" />
-									<span>continued (no user reply)</span>
-									<div className="h-px flex-1 bg-border" />
-								</div>
-							) : null;
-						})()}
-						<TurnCard
-							experimentNumber={experiment.number}
-							agentRole={thinkingRole ?? "analyst"}
-							entries={streamEntries}
-							status={turnStatus}
-							startedAt={runStartedAt ?? undefined}
-							failureReason={turnFailureReason}
-							onStop={async () => {
-								await fetch(`/api/experiments/${experiment.id}/agent/stop`, {
-									method: "POST",
-								});
-								setThinkingRole(null);
-								setTurnStatus("stopped");
-							}}
-							onOpen={
-								currentTurnId && onOpenTurn ? () => onOpenTurn(currentTurnId) : onOpenRun
-							}
-							hasRun={!!currentTurnId}
-						/>
-					</div>
-				)}
+					{turnStatus === "running" &&
+						// Don't flash an empty card on brand-new desks: wait until
+						// the running turn has SOMETHING to show (streamed tokens,
+						// engine/data-fetch progress, or a nested comment attached
+						// to this turn). Prevents a phantom TurnCard from briefly
+						// appearing between desk creation and the first agent
+						// output.
+						(streamEntries.length > 0 ||
+							(!!currentTurnId && comments.some((c) => c.turnId === currentTurnId))) && (
+							<div
+								className={cn(
+									"transition-all duration-500 ease-out",
+									fadingOut
+										? "opacity-0 translate-y-8 scale-90 max-h-0 overflow-hidden origin-top"
+										: "opacity-100 translate-y-0 scale-100 animate-in fade-in slide-in-from-bottom-2 duration-300",
+								)}
+							>
+								{(() => {
+									// Show the "continued (no user reply)" separator above
+									// the live running card when the most recent comment
+									// before it is not from the user — i.e. an agent turn
+									// just finished and another one started without the
+									// user saying anything in between.
+									const nonCurrent = comments.filter(
+										(c) => !currentTurnId || c.turnId !== currentTurnId,
+									);
+									const lastPrior = nonCurrent[nonCurrent.length - 1];
+									const showConnector = !!lastPrior && lastPrior.author !== "user";
+									return showConnector ? (
+										<div className="flex items-center gap-2 px-4 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
+											<div className="h-px flex-1 bg-border" />
+											<span>continued (no user reply)</span>
+											<div className="h-px flex-1 bg-border" />
+										</div>
+									) : null;
+								})()}
+								<TurnCard
+									experimentNumber={experiment.number}
+									agentRole={currentTurnRole ?? thinkingRole ?? "analyst"}
+									entries={streamEntries}
+									status={turnStatus}
+									startedAt={runStartedAt ?? undefined}
+									failureReason={turnFailureReason}
+									onStop={async () => {
+										await fetch(`/api/experiments/${experiment.id}/agent/stop`, {
+											method: "POST",
+										});
+										setThinkingRole(null);
+										setCurrentTurnRole(null);
+										setTurnStatus("stopped");
+									}}
+									onOpen={currentTurnId && onOpenTurn ? () => onOpenTurn(currentTurnId) : onOpenRun}
+									hasRun={!!currentTurnId}
+								/>
+							</div>
+						)}
 					<div ref={bottomRef} />
 				</div>
 			</div>
@@ -1074,7 +1088,13 @@ export function CommentThread({
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && !thinkingRole && handleSend()}
-						placeholder={thinkingRole ? (turnStatus === "awaiting_validation" ? "Validating..." : "Agent is working...") : "Type a comment..."}
+						placeholder={
+							thinkingRole
+								? turnStatus === "awaiting_validation"
+									? "Validating..."
+									: "Agent is working..."
+								: "Type a comment..."
+						}
 						disabled={!!thinkingRole}
 					/>
 					<Button

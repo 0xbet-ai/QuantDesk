@@ -34,6 +34,7 @@ interface RunInput {
 	sessionId: string | undefined;
 	agentRole: "analyst" | "risk_manager";
 	runResult?: { metrics: MetricEntry[] };
+	validationRunNumber?: number;
 	/** Phase 27b — optional MCP config path passed through to the adapter. */
 	mcpConfigPath?: string;
 	/** Per-turn CLI settings file carrying workspace-sandbox deny rules. */
@@ -57,8 +58,14 @@ export class AgentRunner {
 
 	async run(input: RunInput): Promise<RunResult> {
 		const prompt =
-			input.agentRole === "risk_manager" && input.runResult
-				? buildRiskManagerPrompt({ desk: input.desk, runResult: input.runResult })
+			input.agentRole === "risk_manager" &&
+			input.runResult &&
+			typeof input.validationRunNumber === "number"
+				? buildRiskManagerPrompt({
+						desk: input.desk,
+						runNumber: input.validationRunNumber,
+						runResult: input.runResult,
+					})
 				: buildAnalystPrompt({
 						desk: input.desk,
 						experiment: input.experiment,

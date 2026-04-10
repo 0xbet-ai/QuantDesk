@@ -60,5 +60,6 @@ export interface AnalystPromptInput {
 
 export interface RiskManagerPromptInput {
 	desk: DeskContext;
+	runNumber: number;
 	runResult: { metrics: MetricEntry[] };
 }

@@ -26,6 +26,7 @@ import { McpServer as McpServerCtor } from "@modelcontextprotocol/sdk/server/mcp
 import { db } from "@quantdesk/db";
 import {
 	agentTurns,
+	comments as commentRows,
 	datasets,
 	deskDatasets,
 	desks,
@@ -38,12 +39,10 @@ import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog } from "../services/agent-log.js";
+import type { AgentRole, TriggerAgentOptions } from "../services/agent-trigger.js";
 import { systemComment } from "../services/comments.js";
 import { executeDataFetch } from "../services/data-fetch.js";
-import {
-	completeAndCreateNewExperiment,
-	completeExperiment,
-} from "../services/experiments.js";
+import { completeAndCreateNewExperiment, completeExperiment } from "../services/experiments.js";
 import { autoIncrementRunNumber } from "../services/logic.js";
 import {
 	failSession,
@@ -94,8 +93,9 @@ function normalizedResultToMetrics(normalized: NormalizedResult) {
 
 // Late-bound to break the import cycle with agent-trigger (which imports
 // this factory transitively via the http route). Set in index.ts at boot.
-// biome-ignore lint/suspicious/noExplicitAny: lazy DI
-let lazyTriggerAgent: ((experimentId: string, role?: any) => Promise<void>) | null = null;
+let lazyTriggerAgent:
+	| ((experimentId: string, role?: AgentRole, options?: TriggerAgentOptions) => Promise<void>)
+	| null = null;
 export function setTriggerAgent(fn: typeof lazyTriggerAgent) {
 	lazyTriggerAgent = fn;
 }
@@ -108,6 +108,59 @@ function errorResult(text: string) {
 		isError: true,
 		content: [{ type: "text" as const, text }],
 	};
+}
+
+interface ValidationRequestMetadata {
+	hidden?: boolean;
+	validationRequest?: {
+		runId: string;
+		runNumber: number;
+		requestedByTurnId: string;
+	};
+}
+
+async function findValidationRun(experimentId: string, runId?: string) {
+	if (runId) {
+		const [requestedRun] = await db
+			.select()
+			.from(runs)
+			.where(and(eq(runs.experimentId, experimentId), eq(runs.id, runId)))
+			.limit(1);
+		return requestedRun ?? null;
+	}
+
+	const [latestRun] = await db
+		.select()
+		.from(runs)
+		.where(eq(runs.experimentId, experimentId))
+		.orderBy(desc(runs.runNumber))
+		.limit(1);
+	return latestRun ?? null;
+}
+
+async function findPendingValidationRequest(experimentId: string) {
+	const [awaitingTurn] = await db
+		.select({ id: agentTurns.id })
+		.from(agentTurns)
+		.where(
+			and(eq(agentTurns.experimentId, experimentId), eq(agentTurns.status, "awaiting_validation")),
+		)
+		.orderBy(desc(agentTurns.startedAt))
+		.limit(1);
+	if (!awaitingTurn) return null;
+
+	const turnComments = await db
+		.select({ metadata: commentRows.metadata })
+		.from(commentRows)
+		.where(eq(commentRows.turnId, awaitingTurn.id))
+		.orderBy(desc(commentRows.createdAt));
+	for (const comment of turnComments) {
+		const meta = comment.metadata as ValidationRequestMetadata | null;
+		if (meta?.validationRequest?.runId) {
+			return meta.validationRequest;
+		}
+	}
+	return null;
 }
 
 export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
@@ -201,10 +254,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				// its current working directory, which is the workspace.
 				let resolvedPath = args.path;
 				if (!resolvedPath.startsWith("/")) {
-					const [desk] = await db
-						.select()
-						.from(desks)
-						.where(eq(desks.id, ctx.deskId));
+					const [desk] = await db.select().from(desks).where(eq(desks.id, ctx.deskId));
 					if (desk?.workspacePath) {
 						const { resolve: pathResolve } = await import("node:path");
 						resolvedPath = pathResolve(desk.workspacePath, resolvedPath);
@@ -250,10 +300,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						.select()
 						.from(deskDatasets)
 						.where(
-							and(
-								eq(deskDatasets.deskId, ctx.deskId),
-								eq(deskDatasets.datasetId, dataset.id),
-							),
+							and(eq(deskDatasets.deskId, ctx.deskId), eq(deskDatasets.datasetId, dataset.id)),
 						);
 					if (link.length === 0) {
 						await db.insert(deskDatasets).values({
@@ -267,14 +314,12 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				// Ensure workspace symlink so the engine container finds
 				// the data at the expected path, regardless of where the
 				// agent's fetcher actually wrote the files.
-				const [deskForLink] = await db
-					.select()
-					.from(desks)
-					.where(eq(desks.id, ctx.deskId));
+				const [deskForLink] = await db.select().from(desks).where(eq(desks.id, ctx.deskId));
 				if (deskForLink?.workspacePath) {
 					const { join, dirname } = await import("node:path");
-					const { existsSync, mkdirSync, symlinkSync, unlinkSync, lstatSync } =
-						await import("node:fs");
+					const { existsSync, mkdirSync, symlinkSync, unlinkSync, lstatSync } = await import(
+						"node:fs"
+					);
 					const linkPath = join(deskForLink.workspacePath, "data", args.exchange);
 					if (!existsSync(linkPath)) {
 						try {
@@ -298,13 +343,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					}
 				}
 
-				return textResult(
-					JSON.stringify(
-						{ datasets: registered, path: resolvedPath },
-						null,
-						2,
-					),
-				);
+				return textResult(JSON.stringify({ datasets: registered, path: resolvedPath }, null, 2));
 			} catch (err) {
 				return errorResult(
 					`register_dataset failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -335,8 +374,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 			// vanishing while the agent summarizes docker stdout as success.
 			const [desk] = await db.select().from(desks).where(eq(desks.id, ctx.deskId));
 			if (!desk) return errorResult("run_backtest: desk not found");
-			if (!desk.workspacePath)
-				return errorResult("run_backtest: desk has no workspace path");
+			if (!desk.workspacePath) return errorResult("run_backtest: desk has no workspace path");
 
 			const linked = await db
 				.select({ dataset: datasets })
@@ -483,8 +521,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 			try {
 				const [desk] = await db.select().from(desks).where(eq(desks.id, ctx.deskId));
 				if (!desk) return errorResult("run_script: desk not found");
-				if (!desk.workspacePath)
-					return errorResult("run_script: desk has no workspace path");
+				if (!desk.workspacePath) return errorResult("run_script: desk has no workspace path");
 				// Scripts always run in the generic sandbox image regardless
 				// of the desk's managed engine — the engine container is
 				// reserved for `run_backtest`; agent-authored scripts
@@ -495,7 +532,12 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						scriptPath: string;
 						extraVolumes?: string[];
 						onLogLine?: (line: string, stream: "stdout" | "stderr") => void;
-					}) => Promise<{ stdout: string; stderr: string; exitCode: number; containerName: string }>;
+					}) => Promise<{
+						stdout: string;
+						stderr: string;
+						exitCode: number;
+						containerName: string;
+					}>;
 				};
 				if (typeof adapter.runScript !== "function") {
 					return errorResult("run_script: generic adapter is missing runScript");
@@ -560,9 +602,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					.where(eq(experiments.id, ctx.experimentId));
 				if (!exp) return errorResult("set_experiment_title: experiment not found");
 				if (exp.number === 1)
-					return textResult(
-						JSON.stringify({ applied: false, reason: "baseline pinned" }, null, 2),
-					);
+					return textResult(JSON.stringify({ applied: false, reason: "baseline pinned" }, null, 2));
 				await db
 					.update(experiments)
 					.set({ title: args.title, updatedAt: new Date() })
@@ -586,60 +626,121 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		"request_validation",
 		{
 			description:
-				"Dispatch a Risk Manager turn against the latest run. The RM " +
+				"Dispatch a Risk Manager turn against a specific run (or the latest " +
+				"run when runId is omitted). The RM " +
 				"reads the run metrics, emits an approve/reject verdict via " +
 				"submit_rm_verdict, and the analyst is retriggered with the " +
 				"verdict in context. Requires prior user consent. " +
 				"**Call this exactly once per run.** After calling, end your " +
 				"turn — the RM runs asynchronously and you will be retriggered " +
 				"with the verdict. Do NOT call this again while waiting.",
-			inputSchema: {},
+			inputSchema: {
+				runId: z
+					.string()
+					.uuid()
+					.optional()
+					.describe("Optional explicit run to validate. Defaults to the latest run."),
+			},
 		},
-		async () => {
+		async (args) => {
 			try {
 				if (!lazyTriggerAgent) return errorResult("triggerAgent not wired");
 
-				// Guard: check if the latest run already has a verdict or if
-				// a validation is already in progress (no verdict yet but RM
-				// was already dispatched in this experiment's recent history).
-				const [latestRun] = await db
-					.select()
-					.from(runs)
-					.where(eq(runs.experimentId, ctx.experimentId))
-					.orderBy(desc(runs.runNumber))
-					.limit(1);
-				if (!latestRun) return errorResult("request_validation: no run to validate");
+				// Root cause: validation always walked `latestRun`, so a newer run
+				// could silently steal RM review from the run the analyst named.
+				const targetRun = await findValidationRun(ctx.experimentId, args.runId);
+				if (!targetRun) {
+					return errorResult(
+						args.runId
+							? "request_validation: run not found in this experiment"
+							: "request_validation: no run to validate",
+					);
+				}
 
-				const result = latestRun.result as Record<string, unknown> | null;
+				const result = targetRun.result as Record<string, unknown> | null;
 				const validation = result?.validation as { verdict: string } | undefined;
 				if (validation?.verdict) {
 					return textResult(
-						JSON.stringify({
-							already_validated: true,
-							verdict: validation.verdict,
-							message: `Run #${latestRun.runNumber} already has verdict: ${validation.verdict}. No need to re-validate.`,
-						}, null, 2),
+						JSON.stringify(
+							{
+								already_validated: true,
+								verdict: validation.verdict,
+								runId: targetRun.id,
+								runNumber: targetRun.runNumber,
+								message: `Run #${targetRun.runNumber} already has verdict: ${validation.verdict}. No need to re-validate.`,
+							},
+							null,
+							2,
+						),
+					);
+				}
+
+				const pendingValidation = await findPendingValidationRequest(ctx.experimentId);
+				if (pendingValidation) {
+					return textResult(
+						JSON.stringify(
+							{
+								already_pending: true,
+								runId: pendingValidation.runId,
+								runNumber: pendingValidation.runNumber,
+								message:
+									pendingValidation.runId === targetRun.id
+										? `Run #${targetRun.runNumber} is already awaiting Risk Manager validation.`
+										: `Run #${pendingValidation.runNumber} is already awaiting Risk Manager validation. Wait for that verdict before requesting validation on Run #${targetRun.runNumber}.`,
+							},
+							null,
+							2,
+						),
 					);
 				}
 
 				// Mark the current Analyst turn as awaiting_validation so
 				// the UI keeps the input locked until the RM verdict arrives.
 				const turnId = getCurrentTurnId();
-				if (turnId) {
-					await db
-						.update(agentTurns)
-						.set({ status: "awaiting_validation" })
-						.where(eq(agentTurns.id, turnId));
+				if (!turnId) {
+					return errorResult("request_validation: no active analyst turn context");
 				}
+				await db
+					.update(agentTurns)
+					.set({ status: "awaiting_validation" })
+					.where(eq(agentTurns.id, turnId));
+				publishExperimentEvent({
+					experimentId: ctx.experimentId,
+					type: "turn.status",
+					payload: { turnId, status: "awaiting_validation", agentRole: "analyst" },
+				});
+				await systemComment({
+					experimentId: ctx.experimentId,
+					nextAction: "progress",
+					content: `Validation requested for Run #${targetRun.runNumber}.`,
+					metadata: {
+						hidden: true,
+						validationRequest: {
+							runId: targetRun.id,
+							runNumber: targetRun.runNumber,
+							requestedByTurnId: turnId,
+						},
+					},
+				});
 
-				void lazyTriggerAgent(ctx.experimentId, "risk_manager").catch((err) => {
+				void lazyTriggerAgent(ctx.experimentId, "risk_manager", {
+					validationRunId: targetRun.id,
+					validationRunNumber: targetRun.runNumber,
+				}).catch((err) => {
 					console.error("request_validation dispatch failed:", err);
 				});
 				return textResult(
-					JSON.stringify({
-						dispatched: "risk_manager",
-						message: "Risk Manager is running asynchronously. End your turn now — you will be retriggered with the verdict.",
-					}, null, 2),
+					JSON.stringify(
+						{
+							dispatched: "risk_manager",
+							runId: targetRun.id,
+							runNumber: targetRun.runNumber,
+							message:
+								"Risk Manager is running asynchronously. End your turn now — you will be retriggered with the verdict.",
+						},
+						null,
+						2,
+					),
 				);
 			} catch (err) {
 				return errorResult(
@@ -664,14 +765,10 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		},
 		async (args) => {
 			try {
-				const [latestRun] = await db
-					.select()
-					.from(runs)
-					.where(eq(runs.experimentId, ctx.experimentId))
-					.orderBy(desc(runs.runNumber))
-					.limit(1);
-				if (!latestRun) return errorResult("submit_rm_verdict: no run to validate");
-				const existing = (latestRun.result as Record<string, unknown> | null) ?? {};
+				const pendingValidation = await findPendingValidationRequest(ctx.experimentId);
+				const targetRun = await findValidationRun(ctx.experimentId, pendingValidation?.runId);
+				if (!targetRun) return errorResult("submit_rm_verdict: no run to validate");
+				const existing = (targetRun.result as Record<string, unknown> | null) ?? {};
 				await db
 					.update(runs)
 					.set({
@@ -684,11 +781,11 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 							},
 						},
 					})
-					.where(eq(runs.id, latestRun.id));
+					.where(eq(runs.id, targetRun.id));
 				// Transition any awaiting_validation analyst turn to completed
 				// now that the verdict is in. This unlocks the UI input.
 				const awaitingTurns = await db
-					.select({ id: agentTurns.id })
+					.select({ id: agentTurns.id, agentRole: agentTurns.agentRole })
 					.from(agentTurns)
 					.where(
 						and(
@@ -704,7 +801,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					publishExperimentEvent({
 						experimentId: ctx.experimentId,
 						type: "turn.status",
-						payload: { turnId: t.id, status: "completed" },
+						payload: { turnId: t.id, status: "completed", agentRole: t.agentRole },
 					});
 				}
 
@@ -714,7 +811,16 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					});
 				}
 				return textResult(
-					JSON.stringify({ recorded: true, verdict: args.verdict }, null, 2),
+					JSON.stringify(
+						{
+							recorded: true,
+							runId: targetRun.id,
+							runNumber: targetRun.runNumber,
+							verdict: args.verdict,
+						},
+						null,
+						2,
+					),
 				);
 			} catch (err) {
 				return errorResult(
@@ -748,9 +854,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						console.error("Retrigger on new experiment failed:", err);
 					});
 				}
-				return textResult(
-					JSON.stringify({ newExperimentId: next.id, title: args.title }, null, 2),
-				);
+				return textResult(JSON.stringify({ newExperimentId: next.id, title: args.title }, null, 2));
 			} catch (err) {
 				return errorResult(
 					`new_experiment failed: ${err instanceof Error ? err.message : String(err)}`,
@@ -825,10 +929,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				});
 
 				// 2. Resolve desk + engine adapter.
-				const [desk] = await db
-					.select()
-					.from(desks)
-					.where(eq(desks.id, ctx.deskId));
+				const [desk] = await db.select().from(desks).where(eq(desks.id, ctx.deskId));
 				if (!desk || !desk.workspacePath) {
 					await failSession(session.id, "desk not found or no workspace");
 					return errorResult("go_paper: desk not found or no workspace path");
@@ -836,10 +937,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				const engineAdapter = getEngineAdapter(desk.engine);
 
 				// 3. Resolve run details for the engine adapter.
-				const [run] = await db
-					.select()
-					.from(runs)
-					.where(eq(runs.id, args.runId));
+				const [run] = await db.select().from(runs).where(eq(runs.id, args.runId));
 				if (!run) {
 					await failSession(session.id, "run not found");
 					return errorResult("go_paper: run not found");
@@ -888,9 +986,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					),
 				);
 			} catch (err) {
-				return errorResult(
-					`go_paper failed: ${err instanceof Error ? err.message : String(err)}`,
-				);
+				return errorResult(`go_paper failed: ${err instanceof Error ? err.message : String(err)}`);
 			}
 		},
 	);
@@ -912,10 +1008,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				}
 
 				// Stop via engine adapter.
-				const [desk] = await db
-					.select()
-					.from(desks)
-					.where(eq(desks.id, ctx.deskId));
+				const [desk] = await db.select().from(desks).where(eq(desks.id, ctx.deskId));
 				if (desk) {
 					const engineAdapter = getEngineAdapter(desk.engine);
 					try {
