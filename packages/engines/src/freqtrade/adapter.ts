@@ -20,9 +20,11 @@ import type {
 	DataRef,
 	EngineAdapter,
 	NormalizedResult,
+	PaperCandle,
 	PaperConfig,
 	PaperHandle,
 	PaperStatus,
+	PaperTrade,
 	TradeEntry,
 } from "../types.js";
 
@@ -354,6 +356,61 @@ export class FreqtradeAdapter implements EngineAdapter {
 			} catch {
 				return blankStatus(false);
 			}
+		}
+	}
+
+	async getPaperTrades(handle: PaperHandle): Promise<PaperTrade[]> {
+		const apiUrl = handle.meta?.apiUrl as string | undefined;
+		if (!apiUrl) return [];
+		const auth = `Basic ${Buffer.from("quantdesk:quantdesk").toString("base64")}`;
+		try {
+			const res = await fetch(`${apiUrl}/api/v1/trades?limit=100`, {
+				headers: { Authorization: auth },
+				signal: AbortSignal.timeout(5000),
+			});
+			if (!res.ok) return [];
+			const data = (await res.json()) as { trades: FreqtradeTrade[] };
+			return (data.trades ?? []).map((t, i) => ({
+				id: String(i),
+				pair: t.pair,
+				side: t.is_short ? "short" as const : "long" as const,
+				openDate: t.open_date,
+				closeDate: t.close_date || null,
+				openRate: t.open_rate,
+				closeRate: t.close_rate ?? null,
+				profitAbs: t.profit_abs ?? 0,
+				profitPct: t.profit_abs != null && t.open_rate > 0 && t.amount > 0
+					? (t.profit_abs / (t.open_rate * t.amount)) * 100
+					: 0,
+				isOpen: !t.close_date,
+			}));
+		} catch {
+			return [];
+		}
+	}
+
+	async getPaperCandles(handle: PaperHandle, pair: string, timeframe: string): Promise<PaperCandle[]> {
+		const apiUrl = handle.meta?.apiUrl as string | undefined;
+		if (!apiUrl) return [];
+		const auth = `Basic ${Buffer.from("quantdesk:quantdesk").toString("base64")}`;
+		try {
+			const params = new URLSearchParams({ pair, timeframe, limit: "500" });
+			const res = await fetch(`${apiUrl}/api/v1/pair_candles?${params}`, {
+				headers: { Authorization: auth },
+				signal: AbortSignal.timeout(5000),
+			});
+			if (!res.ok) return [];
+			const data = (await res.json()) as { data: number[][] };
+			return (data.data ?? []).map((c) => ({
+				time: Math.floor(c[0]! / 1000),
+				open: c[1]!,
+				high: c[2]!,
+				low: c[3]!,
+				close: c[4]!,
+				volume: c[5]!,
+			}));
+		} catch {
+			return [];
 		}
 	}
 

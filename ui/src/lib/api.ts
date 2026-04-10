@@ -324,3 +324,30 @@ export interface PaperStatusData {
 
 export const getPaperStatus = (deskId: string) =>
 	api<PaperStatusData | null>(`/desks/${deskId}/paper/status`);
+
+export interface PaperTradeItem {
+	id: string;
+	pair: string;
+	side: "long" | "short";
+	openDate: string;
+	closeDate: string | null;
+	openRate: number;
+	closeRate: number | null;
+	profitAbs: number;
+	profitPct: number;
+	isOpen: boolean;
+}
+
+export interface PaperCandleItem {
+	time: number;
+	open: number;
+	high: number;
+	low: number;
+	close: number;
+	volume: number;
+}
+
+export const getPaperTrades = (deskId: string) =>
+	api<PaperTradeItem[]>(`/desks/${deskId}/paper/trades`);
+export const getPaperCandles = (deskId: string, pair: string, timeframe: string) =>
+	api<PaperCandleItem[]>(`/desks/${deskId}/paper/candles?pair=${encodeURIComponent(pair)}&timeframe=${encodeURIComponent(timeframe)}`);
