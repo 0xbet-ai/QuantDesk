@@ -47,6 +47,7 @@ function formatUSD(value: string | number): string {
 
 function bestReturn(runs: Run[]): number | null {
 	const values = runs
+		.filter((r) => r.mode !== "paper")
 		.map((r) => r.result?.metrics?.[0]?.value)
 		.filter((v): v is number => typeof v === "number");
 	if (values.length === 0) return null;
