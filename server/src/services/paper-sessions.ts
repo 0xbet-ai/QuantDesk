@@ -14,7 +14,7 @@
 
 import { db } from "@quantdesk/db";
 import { desks, experiments, paperSessions, runs } from "@quantdesk/db/schema";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 export class PaperSessionError extends Error {
 	constructor(message: string) {
@@ -110,6 +110,10 @@ export async function markSessionRunning(
  * container before calling this.
  */
 export async function stopSession(sessionId: string): Promise<void> {
+	const [session] = await db
+		.select()
+		.from(paperSessions)
+		.where(eq(paperSessions.id, sessionId));
 	await db
 		.update(paperSessions)
 		.set({
@@ -117,6 +121,20 @@ export async function stopSession(sessionId: string): Promise<void> {
 			stoppedAt: new Date(),
 		})
 		.where(eq(paperSessions.id, sessionId));
+	// Also mark any paper runs linked to this session's runId as stopped
+	// so they don't show as "running" in the RUNS table forever.
+	if (session) {
+		await db
+			.update(runs)
+			.set({ status: "stopped", completedAt: new Date() })
+			.where(
+				and(
+					eq(runs.experimentId, session.experimentId),
+					eq(runs.mode, "paper"),
+					eq(runs.status, "running"),
+				),
+			);
+	}
 }
 
 /**
