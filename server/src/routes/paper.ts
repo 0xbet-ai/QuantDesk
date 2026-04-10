@@ -25,6 +25,36 @@ router.get("/desks/:deskId/paper", async (req, res) => {
 	}
 });
 
+/** GET /api/desks/:deskId/paper/status — live PnL/position status from the engine container. */
+router.get("/desks/:deskId/paper/status", async (req, res) => {
+	try {
+		const session = await getActiveSession(req.params.deskId);
+		if (!session || session.status !== "running" || !session.containerName) {
+			res.json(null);
+			return;
+		}
+		const [desk] = await db
+			.select()
+			.from(desks)
+			.where(eq(desks.id, req.params.deskId));
+		if (!desk) {
+			res.json(null);
+			return;
+		}
+		const engineAdapter = getEngineAdapter(desk.engine);
+		const status = await engineAdapter.getPaperStatus({
+			containerName: session.containerName,
+			runId: session.runId,
+			meta: (session.meta as Record<string, unknown>) ?? {},
+		});
+		res.json(status);
+	} catch (err) {
+		// Container might be temporarily unreachable — return null
+		// rather than 500 so the UI degrades gracefully.
+		res.json(null);
+	}
+});
+
 /** GET /api/desks/:deskId/paper/active — get the active (running/pending) session, or null. */
 router.get("/desks/:deskId/paper/active", async (req, res) => {
 	try {
