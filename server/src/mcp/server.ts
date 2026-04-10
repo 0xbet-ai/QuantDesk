@@ -148,7 +148,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				});
 				if (!result || result.length === 0) {
 					return errorResult(
-						"data_fetch: no dataset produced (download failed or this strategy mode has no server-side fetcher). Read the system comment for details and try a different exchange / pair / mode, or fall back to writing fetch_data.py yourself and calling register_dataset.",
+						"data_fetch: no dataset produced (download may have failed or this engine has no server-side fetcher). Write a fetcher script yourself and run it with run_script, then call register_dataset. See the Data acquisition section in your prompt.",
 					);
 				}
 				return textResult(
@@ -181,9 +181,9 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		{
 			description:
 				"Register a dataset that already exists on disk (e.g. produced " +
-				"by a workspace-local fetch_data.py) and link it to the current " +
-				"desk. MUST be called before run_backtest whenever you downloaded " +
-				"data yourself instead of calling data_fetch.",
+				"by your fetcher script via run_script) and link it to the current " +
+				"desk. MUST be called before run_backtest after you fetch data " +
+				"yourself.",
 			inputSchema: {
 				exchange: z.string().min(1),
 				pairs: z.array(z.string().min(1)).min(1),
@@ -346,7 +346,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				.orderBy(desc(deskDatasets.createdAt));
 			if (linked.length === 0) {
 				return errorResult(
-					"run_backtest: no dataset is registered for this desk. Call data_fetch (if you want the server to download) or register_dataset (if you already downloaded the data yourself) before calling run_backtest.",
+					"run_backtest: no dataset is registered for this desk. Fetch the data first (write a fetcher script and use run_script), then call register_dataset before calling run_backtest.",
 				);
 			}
 
@@ -470,8 +470,8 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				"raw stdout / stderr / exit code. Available on every desk — the " +
 				"script always runs in the sandbox image, not in the desk's " +
 				"managed engine container. Use this for fetchers, setup, and " +
-				"exploration — anything that is NOT the managed data fetch or " +
-				"final backtest (those go through data_fetch / run_backtest).",
+				"exploration — anything that is NOT the final backtest (use " +
+				"run_backtest for that).",
 			inputSchema: {
 				scriptPath: z
 					.string()
@@ -487,8 +487,8 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					return errorResult("run_script: desk has no workspace path");
 				// Scripts always run in the generic sandbox image regardless
 				// of the desk's managed engine — the engine container is
-				// reserved for `data_fetch` and `run_backtest`, everything
-				// the agent writes lives in `quantdesk/generic`.
+				// reserved for `run_backtest`; agent-authored scripts
+				// (fetchers, exploration, etc.) run in `quantdesk/generic`.
 				const adapter = getEngineAdapter("generic") as unknown as {
 					runScript: (input: {
 						workspacePath: string;

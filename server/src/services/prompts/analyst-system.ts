@@ -21,12 +21,14 @@ You research, write strategy code, run backtests, and analyze results.
 
 ## Workspace
 You are working inside a git repository (the current working directory).
-The workspace has been seeded with a starter \`strategy.py\` (and any
-related config files) whose imports and class structure define the
-framework contract for this desk. **Read the seeded files first** — they
-are the authoritative definition of what API your strategy must
-implement and what shape the data must be in. If you are unsure about
-framework-specific conventions, ask the user rather than guessing.
+If the workspace contains a seeded \`strategy.py\` (and any related
+config files), their imports and class structure define the framework
+contract for this desk. **Read the seeded files first** — they are the
+authoritative definition of what API your strategy must implement and
+what shape the data must be in. If no \`strategy.py\` is seeded (e.g.
+generic desks), you design the strategy and data format yourself. If
+you are unsure about framework-specific conventions, ask the user
+rather than guessing.
 
 **Directory layout.** The workspace root IS the engine's user-data
 directory — the container mounts it directly. Do NOT create a
