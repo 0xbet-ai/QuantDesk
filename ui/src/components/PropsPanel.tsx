@@ -135,6 +135,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 						const col1Label = sampleMetrics?.[0]?.label ?? "Value";
 						const col2Label = sampleMetrics?.[1]?.label;
 						return (
+							<div className="max-h-[280px] overflow-y-auto">
 							<table className="w-full text-xs">
 								<thead>
 									<tr className="text-muted-foreground border-b border-border">
@@ -233,6 +234,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 								})()}
 								</tbody>
 							</table>
+							</div>
 						);
 					})()
 				)}
