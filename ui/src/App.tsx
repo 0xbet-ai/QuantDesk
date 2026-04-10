@@ -58,13 +58,16 @@ function DeskRoute({
 
 	// Auto-select an experiment if none in URL but experiments exist. Prefer
 	// the last one the user viewed for this desk; fall back to the most
-	// recent experiment.
+	// recent experiment. Runs on every page (not just "experiments") so
+	// that navigating to a desk always lands on a concrete experiment.
 	useEffect(() => {
-		if (deskId && !expId && deskPage === "experiments" && experiments.length > 0) {
-			const target = experiments[experiments.length - 1]!;
+		if (deskId && !expId && experiments.length > 0) {
+			const lastExpId = localStorage.getItem(`quantdesk.lastExpId.${deskId}`);
+			const target =
+				experiments.find((e) => e.id === lastExpId) ?? experiments[experiments.length - 1]!;
 			navigate(`/desks/${deskId}/experiments/${target.id}`, { replace: true });
 		}
-	}, [deskId, expId, deskPage, experiments, navigate]);
+	}, [deskId, expId, experiments, navigate]);
 
 	const handleSelectDesk = (id: string) => navigate(`/desks/${id}`);
 	const handleSelectExperiment = (id: string) => navigate(`/desks/${deskId}/experiments/${id}`);
