@@ -149,7 +149,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 			nextAction: "action",
 			content:
 				`Data-fetch failed for ${proposal.pairs.join(", ")} on ${proposal.exchange}. ` +
-				"Check the pair naming and trade mode, then ask the user about a corrected fetch and call mcp__quantdesk__data_fetch again once they agree. " +
+				"Check the pair naming and trade mode, then write a fetcher script yourself and use run_script. Call register_dataset after the data is downloaded. " +
 				`Last log lines:\n\`\`\`log\n${tail || "(no output)"}\n\`\`\``,
 			metadata: threadMeta,
 		});
@@ -167,7 +167,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 			nextAction: "action",
 			content:
 				`Data-fetch for ${proposal.pairs.join(", ")} on ${proposal.exchange} produced no files. ` +
-				"Adjust the pair naming or trade mode and call mcp__quantdesk__data_fetch again once the user agrees.",
+				"Adjust the pair naming or trade mode. Write a fetcher script yourself and use run_script, then call register_dataset.",
 			metadata: threadMeta,
 		});
 		return null;

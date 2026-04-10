@@ -15,8 +15,10 @@ venue (Python for most quant work, Node/bun if the venue has a strong
 JS SDK, Rust/Go for perf-sensitive or native-SDK cases).
 
 ### Data acquisition
-There is no server-side downloader for generic desks; \`data_fetch\`
-will return an error. Go directly to Path B (see the Tools glossary).
+Follow the "Data acquisition" steps in the Tools glossary: design your
+strategy approach first, determine the data format it needs, describe
+your data plan to the user, wait for confirmation, then fetch and
+register.
 
 ### Backtest execution
 Write a standalone entrypoint that loads the fetched data (always

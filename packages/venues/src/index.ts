@@ -1,5 +1,5 @@
 /**
- * `@quantdesk/venues` — Path B fetch-guide registry.
+ * `@quantdesk/venues` — per-venue data-fetch guide registry.
  *
  * Consumers (currently only the server's workspace bootstrap) call
  * `getVenueGuide(venue)` to look up a guide by lowercase venue id,
@@ -91,35 +91,36 @@ export function renderVenueGuideMarkdown(guide: VenueGuide): string {
 
 	// Build fetch priority section
 	const priorities: string[] = [];
-	priorities.push("1. **Engine downloader** (Path A) — already attempted, failed");
+	let num = 1;
 
 	if (guide.bulkDownload) {
 		const bd = guide.bulkDownload;
 		const bdNotes = bd.notes ? ` — ${bd.notes}` : "";
 		priorities.push(
-			`2. **Bulk portal** → ${bd.url} (${bd.format}: ${bd.dataTypes}${bdNotes})`,
+			`${num}. **Bulk portal** → ${bd.url} (${bd.format}: ${bd.dataTypes}${bdNotes})`,
 		);
+		num++;
 	}
 
-	const nextNum = guide.bulkDownload ? 3 : 2;
 	priorities.push(
-		`${nextNum}. **${guide.recommendedFetch.library}** — paginated fetch (see snippet below)`,
+		`${num}. **${guide.recommendedFetch.library}** — paginated fetch (see snippet below)`,
 	);
+	num++;
 
 	const apiDocs = Array.isArray(guide.apiDocs) ? guide.apiDocs : [guide.apiDocs];
 	const apiDocsStr = apiDocs.map((d) => `  - ${d}`).join("\n");
-	priorities.push(`${nextNum + 1}. **Direct REST API** — last resort\n${apiDocsStr}`);
-	priorities.push(`${nextNum + 2}. **Report to user** if all above fail`);
+	priorities.push(`${num}. **Direct REST API** — last resort\n${apiDocsStr}`);
+	num++;
+	priorities.push(`${num}. **Report to user** if all above fail`);
 
-	return `# Path B fetch guide — ${guide.displayName}
+	return `# Data fetch guide — ${guide.displayName}
 
 > Venue id: \`${guide.venue}\`
 > Last verified: \`${guide.lastVerified}\` — ${guide.verificationNotes}
 
 This file was seeded into your workspace because your desk uses this
-venue. When the engine's bundled downloader fails (Path A), follow the
-priority order below — try each tier in sequence, advance to the next
-only on failure.
+venue. Use it when writing your fetcher script. Try each method in
+priority order — advance to the next only on failure.
 
 ## Data fetch priority
 
