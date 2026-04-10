@@ -15,9 +15,11 @@ Realtime mode is for strategies that react to individual market events
 (trades, quotes, order-book deltas) rather than closed candles.
 
 ### Data acquisition
-There is no server-side downloader for realtime desks — \`data_fetch\`
-will return an error. Go directly to Path B (see the Tools glossary).
-Tick-level data or book deltas are typical for this mode.
+Read the seeded \`strategy.py\` and config files to understand what data
+format the framework expects (tick data, book deltas, Parquet catalog,
+etc.). Then follow the "Data acquisition" steps in the Tools glossary:
+describe your data plan to the user, wait for confirmation, fetch, and
+register. Tick-level data or book deltas are typical for this mode.
 
 ### Execution
 Write / refine your strategy in \`strategy.py\` (preserving the seeded
