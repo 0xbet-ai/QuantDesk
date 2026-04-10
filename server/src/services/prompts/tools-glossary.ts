@@ -36,7 +36,7 @@ react immediately.
 - \`mcp__quantdesk__register_dataset({exchange, pairs, timeframe, dateRange:{start,end}, path})\` — register an already-downloaded dataset (workspace-local fetch). **Call this immediately after you fetch data yourself, BEFORE calling run_backtest.** No consent needed — it is a metadata insert.
 - \`mcp__quantdesk__run_backtest({strategyName?, configFile?, entrypoint?})\` — execute the strategy and return normalized metrics. Requires at least one registered dataset. Returns \`{runId, runNumber, metrics[]}\` — react to the metrics directly on the same turn.
 - \`mcp__quantdesk__set_experiment_title({title})\` — rename the current experiment. No-op for Experiment #1. No consent needed.
-- \`mcp__quantdesk__request_validation({})\` — dispatch Risk Manager validation on the latest run. Requires prior user consent.
+- \`mcp__quantdesk__request_validation({})\` — dispatch Risk Manager validation on the latest run. Requires prior user consent. **Call once, then end your turn.** The RM runs asynchronously; you will be retriggered with the verdict. Do not call again while waiting.
 - \`mcp__quantdesk__submit_rm_verdict({verdict:"approve"|"reject", reason?})\` — **Risk Manager only**: attach verdict to the latest run.
 - \`mcp__quantdesk__new_experiment({title, hypothesis?})\` — close this experiment and open a new one. Requires prior user consent.
 - \`mcp__quantdesk__complete_experiment({summary?})\` — mark the current experiment finished. Requires prior user consent.
@@ -50,7 +50,7 @@ whether the workspace already has example strategy code.
 
 **Case 1 — seeded \`strategy.py\` exists (managed engine with template):**
 Read \`strategy.py\`, config files, and any
-\`.quantdesk/PATH_B_FETCH_<venue>.md\` guide. These define the data
+\`.quantdesk/VENUE_FETCH_GUIDE_<venue>.md\` guide. These define the data
 format and directory layout your strategy expects. Plan your data
 fetch to match.
 
@@ -71,7 +71,7 @@ match.
    data until the user confirms.** This is a hard rule — treat data
    fetching the same as any approval-gated action.
 3. **Fetch** — write a fetcher script and run it with \`run_script\`.
-   Prefer the venue guide (\`.quantdesk/PATH_B_FETCH_<venue>.md\`) when
+   Prefer the venue guide (\`.quantdesk/VENUE_FETCH_GUIDE_<venue>.md\`) when
    available; otherwise use ccxt or the venue's SDK/REST API.
 4. **Register** — call \`register_dataset\` so the server records the
    metadata before you call \`run_backtest\`.

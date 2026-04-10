@@ -550,7 +550,7 @@ export function CommentThread({
 	useEffect(() => {
 		const handler = (e: Event) => {
 			const text = (e as CustomEvent<string>).detail;
-			if (text) sendMessageRef.current(text, { hidden: true, systemAuthor: true });
+			if (text) sendMessageRef.current(text, { hidden: false });
 		};
 		window.addEventListener("quantdesk:send-chat", handler);
 		return () => window.removeEventListener("quantdesk:send-chat", handler);
