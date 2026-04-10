@@ -1,15 +1,15 @@
-import { Play, TrendingUp } from "lucide-react";
+import { Pause, Play, Shield, TrendingUp, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
-import type { Experiment, Run } from "../lib/api.js";
-import { goPaper, listRuns } from "../lib/api.js";
+import type { Experiment, PaperSession, Run } from "../lib/api.js";
+import { getActivePaperSession, goPaper, listRuns, stopPaperSession } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { StatusDot } from "./StatusDot.js";
-import { Button } from "./ui/button.js";
 
 interface Props {
 	experiment: Experiment | null;
 	experimentId: string;
+	deskId: string;
 }
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -21,9 +21,52 @@ function PropRow({ label, children }: { label: string; children: React.ReactNode
 	);
 }
 
-export function PropsPanel({ experiment, experimentId }: Props) {
+export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 	const [runs, setRuns] = useState<Run[]>([]);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+
+	// Paper trading
+	const [paperSession, setPaperSession] = useState<PaperSession | null>(null);
+	const [startingPaper, setStartingPaper] = useState(false);
+	const [stoppingPaper, setStoppingPaper] = useState(false);
+	const [paperError, setPaperError] = useState<string | null>(null);
+
+	const refreshPaper = useCallback(() => {
+		getActivePaperSession(deskId)
+			.then(setPaperSession)
+			.catch(() => setPaperSession(null));
+	}, [deskId]);
+
+	useEffect(() => {
+		refreshPaper();
+		const id = setInterval(refreshPaper, 5000);
+		return () => clearInterval(id);
+	}, [refreshPaper]);
+
+	const handleStartPaper = async (runId: string) => {
+		setStartingPaper(true);
+		setPaperError(null);
+		try {
+			await goPaper(runId);
+			refreshPaper();
+		} catch (err) {
+			setPaperError(err instanceof Error ? err.message : String(err));
+		} finally {
+			setStartingPaper(false);
+		}
+	};
+
+	const handleStopPaper = async () => {
+		setStoppingPaper(true);
+		try {
+			await stopPaperSession(deskId);
+			setPaperSession(null);
+		} catch (err) {
+			console.error("Failed to stop paper:", err);
+		} finally {
+			setStoppingPaper(false);
+		}
+	};
 
 	const refreshRuns = useCallback(() => {
 		listRuns(experimentId)
@@ -54,14 +97,6 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 	// attempt. Early failed runs shouldn't become the baseline just
 	// because they were the first row in the DB.
 	const baseline = visibleRuns.find((r) => r.status === "completed") ?? null;
-
-	const handleGoPaper = async (runId: string) => {
-		try {
-			await goPaper(runId);
-		} catch (err) {
-			console.error(err);
-		}
-	};
 
 	return (
 		<div className="px-4 py-3 space-y-0">
@@ -255,19 +290,118 @@ export function PropsPanel({ experiment, experimentId }: Props) {
 							);
 						})()}
 
-						{selectedRun.mode === "backtest" && selectedRun.status === "completed" && (
-							<Button
-								size="sm"
-								className="w-full mt-3 bg-green-600 hover:bg-green-500"
-								onClick={() => handleGoPaper(selectedRun.id)}
-							>
-								<Play className="size-4" />
-								Start Paper Trading
-							</Button>
-						)}
 					</div>
 				</>
 			)}
+
+			{/* Paper Trading section */}
+			{(() => {
+				const isActive = paperSession && (paperSession.status === "running" || paperSession.status === "pending");
+				const isFailed = paperSession && paperSession.status === "failed";
+				const completedRuns = runs.filter((r) => r.mode === "backtest" && r.status === "completed" && r.result?.metrics?.[0]?.value != null);
+				const bestRun = completedRuns.length > 0
+					? completedRuns.reduce((best, r) =>
+						(r.result?.metrics?.[0]?.value ?? -Infinity) > (best.result?.metrics?.[0]?.value ?? -Infinity) ? r : best)
+					: null;
+
+				if (!isActive && !isFailed && !bestRun) return null;
+
+				return (
+					<>
+						<div className="border-b border-border my-2" />
+						<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+							Paper Trading
+						</div>
+						{isActive ? (
+							<div className="space-y-1.5">
+								<div className="flex items-center gap-2">
+									<span className="relative flex h-2 w-2">
+										<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-70" />
+										<span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+									</span>
+									<span className="text-xs font-medium text-green-600 dark:text-green-400">
+										{paperSession.status === "pending" ? "Starting…" : "Running"}
+									</span>
+								</div>
+								<div className="text-[11px] text-muted-foreground">
+									Started {new Date(paperSession.startedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+								</div>
+								<button
+									type="button"
+									onClick={handleStopPaper}
+									disabled={stoppingPaper}
+									className="flex items-center gap-1.5 w-full px-2 py-1 rounded-md text-[11px] font-medium text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+								>
+									<Pause className="size-3" />
+									{stoppingPaper ? "Stopping…" : "Stop"}
+								</button>
+							</div>
+						) : isFailed ? (
+							<div className="space-y-1">
+								<div className="flex items-center gap-2">
+									<span className="h-2 w-2 rounded-full bg-destructive" />
+									<span className="text-xs font-medium text-destructive">Failed</span>
+								</div>
+								<div className="text-[10px] text-muted-foreground truncate" title={paperSession.error ?? undefined}>
+									{paperSession.error ?? "Unknown error"}
+								</div>
+							</div>
+						) : bestRun ? (() => {
+							const val = bestRun.result?.metrics?.[0]?.value;
+							const verdict = bestRun.result?.validation?.verdict;
+							const isApproved = verdict === "approve";
+							return (
+								<button
+									type="button"
+									onClick={
+										isApproved
+											? () => handleStartPaper(bestRun.id)
+											: !verdict
+												? () => window.dispatchEvent(new CustomEvent("quantdesk:prefill-chat", { detail: `Run #${bestRun.runNumber} 검증해줘` }))
+												: undefined
+									}
+									disabled={startingPaper || verdict === "reject"}
+									title={isApproved ? "Start paper trading" : verdict === "reject" ? "Rejected" : "Click to request validation"}
+									className={cn(
+										"flex items-center gap-2.5 w-full px-2 py-1.5 rounded-md transition-colors",
+										isApproved ? "hover:bg-green-500/10" : verdict === "reject" ? "opacity-50" : "hover:bg-muted",
+									)}
+								>
+									{isApproved ? (
+										<div className="flex size-6 items-center justify-center rounded-md bg-green-500/15">
+											<Play className="size-3 text-green-500" />
+										</div>
+									) : verdict === "reject" ? (
+										<div className="flex size-6 items-center justify-center rounded-md bg-red-500/10">
+											<XCircle className="size-3 text-red-400" />
+										</div>
+									) : (
+										<div className="flex size-6 items-center justify-center rounded-md bg-muted">
+											<Shield className="size-3 text-muted-foreground" />
+										</div>
+									)}
+									<div className="text-left">
+										<div className="text-xs font-medium">
+											Run #{bestRun.runNumber}
+											{val != null && (
+												<span className={cn("ml-1 font-mono", val > 0 ? "text-green-500" : "text-red-500")}>
+													{val > 0 ? "+" : ""}{val.toFixed(1)}%
+												</span>
+											)}
+										</div>
+										<div className="text-[10px] text-muted-foreground">
+											{startingPaper ? "Starting…" : isApproved ? "Ready" : verdict === "reject" ? "Rejected" : "Validate"}
+										</div>
+									</div>
+								</button>
+							);
+						})() : null}
+						{paperError && (
+							<div className="text-[10px] text-red-500 truncate mt-1" title={paperError}>{paperError}</div>
+						)}
+					</>
+				);
+			})()}
 		</div>
 	);
 }
