@@ -461,7 +461,10 @@ export function CommentThread({
 			}
 			if (payload.status) {
 				setTurnStatus(payload.status);
-				if (payload.status !== "running") {
+				const isTerminal =
+					payload.status !== "running" &&
+					payload.status !== "awaiting_validation";
+				if (isTerminal) {
 					setTurnFailureReason(payload.failureReason ?? null);
 					// Clear the thinking flag so the comment input re-enables.
 					// `agent.done` is supposed to do this too, but the two
@@ -470,6 +473,10 @@ export function CommentThread({
 					// card is already showing "completed".
 					setThinkingRole(null);
 					setRunStartedAt(null);
+				} else if (payload.status === "awaiting_validation") {
+					// Keep input locked but update the role hint so the UI
+					// can show "Validating..." instead of "Agent is working..."
+					setThinkingRole("risk_manager");
 				}
 			}
 		}
@@ -1052,7 +1059,7 @@ export function CommentThread({
 						value={input}
 						onChange={(e) => setInput(e.target.value)}
 						onKeyDown={(e) => e.key === "Enter" && !thinkingRole && handleSend()}
-						placeholder={thinkingRole ? "Agent is working..." : "Type a comment..."}
+						placeholder={thinkingRole ? (turnStatus === "awaiting_validation" ? "Validating..." : "Agent is working...") : "Type a comment..."}
 						disabled={!!thinkingRole}
 					/>
 					<Button

@@ -627,11 +627,25 @@ export async function triggerAgent(
 			}
 			throw err;
 		} finally {
+			// Check if the MCP handler already set awaiting_validation
+			// (request_validation was called during this turn). If so,
+			// preserve that status — the RM verdict handler will transition
+			// it to completed later.
+			const [currentTurn] = await db
+				.select({ status: agentTurns.status })
+				.from(agentTurns)
+				.where(eq(agentTurns.id, turnId))
+				.catch(() => [{ status: "completed" as const }]);
+			const finalStatus =
+				currentTurn?.status === "awaiting_validation" && turnStatus === "completed"
+					? "awaiting_validation"
+					: turnStatus;
+
 			await db
 				.update(agentTurns)
 				.set({
-					status: turnStatus,
-					endedAt: new Date(),
+					status: finalStatus,
+					endedAt: finalStatus === "awaiting_validation" ? null : new Date(),
 					failureReason: turnFailureReason,
 				})
 				.where(eq(agentTurns.id, turnId))
@@ -643,8 +657,9 @@ export async function triggerAgent(
 				type: "turn.status",
 				payload: {
 					turnId,
-					status: turnStatus,
+					status: finalStatus,
 					failureReason: turnFailureReason,
+					agentRole: session.agentRole,
 				},
 			});
 		}
