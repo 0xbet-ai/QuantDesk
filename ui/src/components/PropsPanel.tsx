@@ -1,8 +1,8 @@
 import { Pause, Play, TrendingUp, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
-import type { Experiment, PaperSession, Run } from "../lib/api.js";
-import { getActivePaperSession, goPaper, listRuns, stopPaperSession } from "../lib/api.js";
+import type { Experiment, PaperSession, PaperStatusData, Run } from "../lib/api.js";
+import { getActivePaperSession, getPaperStatus, goPaper, listRuns, stopPaperSession } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { StatusDot } from "./StatusDot.js";
 
@@ -31,6 +31,21 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 	const [stoppingPaper, setStoppingPaper] = useState(false);
 	const [paperError, setPaperError] = useState<string | null>(null);
 	const [paperSent, setPaperSent] = useState(false);
+	const [paperStatus, setPaperStatus] = useState<PaperStatusData | null>(null);
+
+	// Poll live PnL/position data while paper session is running
+	useEffect(() => {
+		if (!paperSession || paperSession.status !== "running") {
+			setPaperStatus(null);
+			return;
+		}
+		const tick = () => {
+			getPaperStatus(deskId).then(setPaperStatus).catch(() => {});
+		};
+		tick();
+		const id = setInterval(tick, 5000);
+		return () => clearInterval(id);
+	}, [deskId, paperSession?.status]);
 
 	const refreshPaper = useCallback(() => {
 		getActivePaperSession(deskId)
@@ -317,7 +332,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 							Paper Trading
 						</div>
 						{isActive ? (
-							<div className="space-y-1.5">
+							<div className="space-y-2">
 								<div className="flex items-center gap-2">
 									<span className="relative flex h-2 w-2">
 										<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-70" />
@@ -326,8 +341,39 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 									<span className="text-xs font-medium text-green-600 dark:text-green-400">
 										{paperSession.status === "pending" ? "Starting…" : "Running"}
 									</span>
+									{paperStatus && (
+										<span className="text-[11px] text-muted-foreground ml-auto tabular-nums">
+											{formatUptime(paperStatus.uptime)}
+										</span>
+									)}
 								</div>
-								<div className="text-[11px] text-muted-foreground">
+								{paperStatus && paperSession.status === "running" && (
+									<div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] tabular-nums">
+										<div>
+											<div className="text-muted-foreground">Unrealized</div>
+											<div className={cn("font-mono font-medium", paperStatus.unrealizedPnl >= 0 ? "text-green-500" : "text-red-500")}>
+												{paperStatus.unrealizedPnl >= 0 ? "+" : ""}{paperStatus.unrealizedPnl.toFixed(2)}
+											</div>
+										</div>
+										<div>
+											<div className="text-muted-foreground">Realized</div>
+											<div className={cn("font-mono font-medium", paperStatus.realizedPnl >= 0 ? "text-green-500" : "text-red-500")}>
+												{paperStatus.realizedPnl >= 0 ? "+" : ""}{paperStatus.realizedPnl.toFixed(2)}
+											</div>
+										</div>
+										<div>
+											<div className="text-muted-foreground">Positions</div>
+											<div className="font-mono font-medium">{paperStatus.openPositions}</div>
+										</div>
+										<div>
+											<div className="text-muted-foreground">Total PnL</div>
+											<div className={cn("font-mono font-medium", (paperStatus.unrealizedPnl + paperStatus.realizedPnl) >= 0 ? "text-green-500" : "text-red-500")}>
+												{(paperStatus.unrealizedPnl + paperStatus.realizedPnl) >= 0 ? "+" : ""}{(paperStatus.unrealizedPnl + paperStatus.realizedPnl).toFixed(2)}
+											</div>
+										</div>
+									</div>
+								)}
+								<div className="text-[10px] text-muted-foreground">
 									Started {new Date(paperSession.startedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
 								</div>
 								<button
@@ -357,7 +403,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 								setPaperSent(true);
 								window.dispatchEvent(
 									new CustomEvent("quantdesk:send-chat", {
-										detail: `[Paper Trade] Run #${bestRun.runNumber}`,
+										detail: `Run paper trading with #${bestRun.runNumber}`,
 									}),
 								);
 							};
@@ -406,4 +452,14 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 			})()}
 		</div>
 	);
+}
+
+function formatUptime(seconds: number): string {
+	if (seconds < 60) return `${seconds}s`;
+	const min = Math.floor(seconds / 60);
+	if (min < 60) return `${min}m`;
+	const hr = Math.floor(min / 60);
+	if (hr < 24) return `${hr}h ${min % 60}m`;
+	const day = Math.floor(hr / 24);
+	return `${day}d ${hr % 24}h`;
 }

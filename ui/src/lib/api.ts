@@ -309,3 +309,14 @@ export const getActivePaperSession = (deskId: string) =>
 	api<PaperSession | null>(`/desks/${deskId}/paper/active`);
 export const stopPaperSession = (deskId: string) =>
 	api<{ stopped: boolean; sessionId: string }>(`/desks/${deskId}/paper/stop`, { method: "POST" });
+
+export interface PaperStatusData {
+	running: boolean;
+	unrealizedPnl: number;
+	realizedPnl: number;
+	openPositions: number;
+	uptime: number;
+}
+
+export const getPaperStatus = (deskId: string) =>
+	api<PaperStatusData | null>(`/desks/${deskId}/paper/status`);
