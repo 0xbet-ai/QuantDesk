@@ -232,10 +232,15 @@ export class FreqtradeAdapter implements EngineAdapter {
 		// everything else the agent wrote.
 		const configPath = join(workspaceAbs, "config.json");
 		const baseConfig = existsSync(configPath) ? JSON.parse(readFileSync(configPath, "utf-8")) : {};
+		// Auto-detect futures mode: if any pair has a `:settle` suffix
+		// (CCXT perp format like "BTC/USDC:USDC"), set trading_mode=futures.
+		// Freqtrade rejects perp pairs in spot mode silently.
+		const hasPerp = config.pairs.some((p) => p.includes(":"));
 		const patched = {
 			...baseConfig,
 			dry_run: true,
 			dry_run_wallet: config.wallet,
+			...(hasPerp ? { trading_mode: "futures", margin_mode: "isolated" } : {}),
 			exchange: {
 				...(baseConfig.exchange ?? {}),
 				name: config.exchange,
