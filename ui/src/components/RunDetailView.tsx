@@ -323,9 +323,10 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 		setLoading(true);
 		listRuns(experiment.id)
 			.then((data) => {
-				setRuns(data);
-				if (!activeRunId && data.length > 0) {
-					setActiveRunId(data[data.length - 1]!.id);
+				const backtestRuns = data.filter((r) => r.mode !== "paper");
+				setRuns(backtestRuns);
+				if (!activeRunId && backtestRuns.length > 0) {
+					setActiveRunId(backtestRuns[backtestRuns.length - 1]!.id);
 				}
 			})
 			.catch(() => {})
