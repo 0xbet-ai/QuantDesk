@@ -66,6 +66,10 @@ function DeskRoute({
 	// that navigating to a desk always lands on a concrete experiment.
 	useEffect(() => {
 		if (!deskId || experiments.length === 0) return;
+		// Only auto-select on experiment-centric pages. Non-experiment pages
+		// (paper, code, activity, settings) have their own routes and must
+		// not be overwritten by an experiment redirect.
+		if (deskPage !== "experiments" && deskPage !== "runs") return;
 		// No expId in URL, or expId doesn't match any experiment in this desk
 		const needsRedirect = !expId || !experiments.find((e) => e.id === expId);
 		if (needsRedirect) {
@@ -74,7 +78,7 @@ function DeskRoute({
 				experiments.find((e) => e.id === lastExpId) ?? experiments[experiments.length - 1]!;
 			navigate(`/desks/${deskId}/experiments/${target.id}`, { replace: true });
 		}
-	}, [deskId, expId, experiments, navigate]);
+	}, [deskId, expId, deskPage, experiments, navigate]);
 
 	const handleSelectDesk = (id: string) => navigate(`/desks/${id}`);
 	const handleSelectExperiment = (id: string) => navigate(`/desks/${deskId}/experiments/${id}`);
