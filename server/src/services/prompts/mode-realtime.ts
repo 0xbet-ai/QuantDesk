@@ -15,11 +15,11 @@ Realtime mode is for strategies that react to individual market events
 (trades, quotes, order-book deltas) rather than closed candles.
 
 ### Data acquisition
-Read the seeded \`strategy.py\` and config files to understand what data
-format the framework expects (tick data, book deltas, Parquet catalog,
-etc.). Then follow the "Data acquisition" steps in the Tools glossary:
-describe your data plan to the user, wait for confirmation, fetch, and
-register. Tick-level data or book deltas are typical for this mode.
+If the workspace has a seeded \`strategy.py\`, read it to understand
+what data format the framework expects. If not, first decide how you
+will structure the strategy for this engine, then determine the data
+format it needs. Tick-level data or book deltas are typical for this
+mode. Follow the "Data acquisition" steps in the Tools glossary.
 
 ### Execution
 Write / refine your strategy in \`strategy.py\` (preserving the seeded

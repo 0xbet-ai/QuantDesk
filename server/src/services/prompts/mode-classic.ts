@@ -15,11 +15,11 @@ Classic mode is for strategies that react to closed candles (OHLCV bars)
 on a fixed timeframe.
 
 ### Data acquisition
-Read the seeded \`strategy.py\` and config files to understand what data
-format the framework expects. Then follow the "Data acquisition" steps
-in the Tools glossary: describe your data plan to the user, wait for
-confirmation, fetch, and register. Classic mode uses OHLCV data on the
-desk's configured timeframe.
+If the workspace has a seeded \`strategy.py\`, read it to understand
+what data format the framework expects. If not, first decide how you
+will structure the strategy for this engine, then determine the data
+format it needs. Classic mode uses OHLCV data on the desk's configured
+timeframe. Follow the "Data acquisition" steps in the Tools glossary.
 
 ### Execution
 Write / refine your strategy in \`strategy.py\` (preserving the seeded

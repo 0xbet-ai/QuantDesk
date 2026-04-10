@@ -45,12 +45,27 @@ react immediately.
 - \`mcp__quantdesk__run_script({scriptPath})\` — execute an agent-authored script in the generic sandbox container. Use for fetchers, exploration, any script — NOT the final backtest (use \`run_backtest\` for that). Available on all desks. No consent needed.
 
 ### Data acquisition
-Data fetching is always your responsibility. Follow this order:
+Data fetching is always your responsibility. The exact steps depend on
+whether the workspace already has example strategy code.
 
-1. **Read the seeded files** — \`strategy.py\`, config files, and any
-   \`.quantdesk/PATH_B_FETCH_<venue>.md\` guide in the workspace. These
-   define the data format your strategy expects (OHLCV, tick, book
-   deltas, Parquet catalog, etc.).
+**Case 1 — seeded \`strategy.py\` exists (managed engine with template):**
+Read \`strategy.py\`, config files, and any
+\`.quantdesk/PATH_B_FETCH_<venue>.md\` guide. These define the data
+format and directory layout your strategy expects. Plan your data
+fetch to match.
+
+**Case 2 — managed engine but no seeded strategy code:**
+First decide how you will structure the strategy for this engine (read
+framework docs / examples if available). Then determine the data
+format the strategy will need. Plan your data fetch to match.
+
+**Case 3 — generic engine (no managed engine, no template):**
+First design the strategy approach (language, libraries, backtest
+logic). Then determine what data it needs. Plan your data fetch to
+match.
+
+**In all cases, follow this order:**
+1. **Plan** — know what data format you need before fetching anything.
 2. **Ask the user** — describe what data you plan to fetch (exchange,
    pairs, timeframe / data type, date range) and how. **Do not fetch
    data until the user confirms.** This is a hard rule — treat data
