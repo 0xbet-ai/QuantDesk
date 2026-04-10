@@ -18,6 +18,7 @@ import { listDesks, listExperiments } from "./lib/api.js";
 interface RouteState {
 	desks: Desk[];
 	experiments: Experiment[];
+	experimentsLoaded: boolean;
 	refreshDesks: () => Promise<void>;
 	refreshExperiments: () => Promise<void>;
 	setShowWizard: (v: boolean) => void;
@@ -34,6 +35,7 @@ function pageFromPath(path: string): DeskPage {
 function DeskRoute({
 	desks,
 	experiments,
+	experimentsLoaded,
 	refreshDesks,
 	refreshExperiments,
 	setShowWizard,
@@ -152,7 +154,7 @@ function DeskRoute({
 					/>
 				) : selectedDesk ? (
 					<div className="flex-1 flex items-center justify-center text-[13px] text-foreground/50">
-						{expId || experiments.length === 0 ? "Loading..." : "No experiments yet"}
+						{!experimentsLoaded ? "Loading..." : "No experiments yet"}
 					</div>
 				) : (
 					<div className="flex-1 flex items-center justify-center text-[13px] text-foreground/50">
@@ -210,6 +212,7 @@ function HomeRoute({
 export function App() {
 	const [desks, setDesks] = useState<Desk[]>([]);
 	const [experiments, setExperiments] = useState<Experiment[]>([]);
+	const [experimentsLoaded, setExperimentsLoaded] = useState(false);
 	const [showWizard, setShowWizard] = useState(false);
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -228,6 +231,7 @@ export function App() {
 	const refreshExperiments = useCallback(async () => {
 		if (!deskId) {
 			setExperiments([]);
+			setExperimentsLoaded(true);
 			return;
 		}
 		try {
@@ -235,6 +239,8 @@ export function App() {
 			setExperiments(data);
 		} catch {
 			/* ignore */
+		} finally {
+			setExperimentsLoaded(true);
 		}
 	}, [deskId]);
 
@@ -246,6 +252,7 @@ export function App() {
 	useEffect(() => {
 		if (deskId !== prevDeskIdRef.current) {
 			setExperiments([]);
+			setExperimentsLoaded(false);
 			prevDeskIdRef.current = deskId;
 		}
 	}, [deskId]);
@@ -261,6 +268,7 @@ export function App() {
 	const routeState: RouteState = {
 		desks,
 		experiments,
+		experimentsLoaded,
 		refreshDesks,
 		refreshExperiments,
 		setShowWizard,
