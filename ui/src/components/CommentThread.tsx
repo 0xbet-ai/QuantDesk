@@ -151,14 +151,29 @@ export function CommentThread({
 	const [input, setInput] = useState("");
 	const [sending, setSending] = useState(false);
 
-	// Listen for prefill-chat events (e.g. "Validate" button in sidebar)
+	// Listen for prefill-chat events (e.g. sidebar buttons)
 	useEffect(() => {
-		const handler = (e: Event) => {
+		const handlePrefill = (e: Event) => {
 			const text = (e as CustomEvent<string>).detail;
 			if (text) setInput(text);
 		};
-		window.addEventListener("quantdesk:prefill-chat", handler);
-		return () => window.removeEventListener("quantdesk:prefill-chat", handler);
+		const handleAutoSend = (e: Event) => {
+			const text = (e as CustomEvent<string>).detail;
+			if (text) {
+				setInput(text);
+				// Defer so the state update lands before handleSend reads it
+				setTimeout(() => {
+					const btn = document.querySelector<HTMLButtonElement>("[data-send-btn]");
+					btn?.click();
+				}, 50);
+			}
+		};
+		window.addEventListener("quantdesk:prefill-chat", handlePrefill);
+		window.addEventListener("quantdesk:send-chat", handleAutoSend);
+		return () => {
+			window.removeEventListener("quantdesk:prefill-chat", handlePrefill);
+			window.removeEventListener("quantdesk:send-chat", handleAutoSend);
+		};
 	}, []);
 	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
 	const [streamEntries, setStreamEntries] = useState<TranscriptEntry[]>([]);
@@ -1039,6 +1054,7 @@ export function CommentThread({
 					/>
 					<Button
 						size="sm"
+						data-send-btn
 						onClick={handleSend}
 						disabled={sending || !input.trim() || !!thinkingRole}
 					>

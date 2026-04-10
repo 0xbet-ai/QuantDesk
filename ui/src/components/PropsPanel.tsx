@@ -350,9 +350,9 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 							const val = bestRun.result?.metrics?.[0]?.value;
 							const verdict = bestRun.result?.validation?.verdict;
 							const isApproved = verdict === "approve";
-							const prefillPaper = () =>
+							const sendPaper = () =>
 								window.dispatchEvent(
-									new CustomEvent("quantdesk:prefill-chat", {
+									new CustomEvent("quantdesk:send-chat", {
 										detail: `I'd like to paper trade Run #${bestRun.runNumber}. Should we validate first or start directly?`,
 									}),
 								);
@@ -364,7 +364,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 											? () => handleStartPaper(bestRun.id)
 											: verdict === "reject"
 												? undefined
-												: prefillPaper
+												: sendPaper
 									}
 									disabled={startingPaper || verdict === "reject"}
 									title={isApproved ? "Start paper trading" : verdict === "reject" ? "Rejected" : "Discuss paper trading with agent"}
