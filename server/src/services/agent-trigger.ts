@@ -433,7 +433,7 @@ export async function triggerAgent(
 							appendAgentLog(experimentId, {
 								ts: ts(),
 								...chunk,
-							});
+							}, { role: session.agentRole });
 
 							// Save sessionId immediately on init event so timeout/crash
 							// can be recovered with --resume on the next message.

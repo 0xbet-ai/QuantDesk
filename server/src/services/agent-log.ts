@@ -30,7 +30,11 @@ export function clearAgentLog(experimentId: string): void {
 }
 
 /** Append a single entry to the log */
-export function appendAgentLog(experimentId: string, entry: AgentLogEntry): void {
+export function appendAgentLog(
+	experimentId: string,
+	entry: AgentLogEntry,
+	options?: { role?: string },
+): void {
 	ensureDir();
 	const line = `${JSON.stringify(entry)}\n`;
 	appendFileSync(logPath(experimentId), line, "utf-8");
@@ -40,7 +44,8 @@ export function appendAgentLog(experimentId: string, entry: AgentLogEntry): void
 	if (process.env.NODE_ENV !== "production") {
 		const summary = summarizeEntry(entry);
 		if (summary) {
-			const prefix = color(`[agent ${experimentId.slice(0, 8)}]`, "gray");
+			const roleTag = options?.role === "risk_manager" ? "RM" : "agent";
+			const prefix = color(`[${roleTag} ${experimentId.slice(0, 8)}]`, "gray");
 			process.stdout.write(`${prefix} ${summary}\n`);
 		}
 	}
