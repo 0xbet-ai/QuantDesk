@@ -135,7 +135,20 @@ export async function goPaper(runId: string) {
 	// 2. Spawn the engine's dry-run container.
 	const engineAdapter = getEngineAdapter(desk.engine);
 	const venue = (desk.venues as string[])[0] ?? "binance";
-	const config = run.config as Record<string, unknown> | null;
+	const runConfig = run.config as Record<string, unknown> | null;
+
+	// Read pairs from the workspace config.json (the agent wrote it
+	// during backtest setup and it has the correct venue-specific pair
+	// format, e.g. "BTC/USDC:USDC" for Hyperliquid perps).
+	let wsPairs: string[] | null = null;
+	let wsTimeframe: string | null = null;
+	try {
+		const { readFileSync } = await import("node:fs");
+		const { join } = await import("node:path");
+		const wsConfig = JSON.parse(readFileSync(join(desk.workspacePath, "config.json"), "utf-8"));
+		wsPairs = wsConfig?.exchange?.pair_whitelist ?? null;
+		wsTimeframe = wsConfig?.timeframe ?? null;
+	} catch { /* no config.json or unreadable */ }
 
 	let handle: Awaited<ReturnType<typeof engineAdapter.startPaper>>;
 	try {
@@ -144,8 +157,8 @@ export async function goPaper(runId: string) {
 			runId,
 			workspacePath: desk.workspacePath,
 			exchange: venue,
-			pairs: (config?.pairs as string[]) ?? ["BTC/USDT"],
-			timeframe: (config?.timeframe as string) ?? "5m",
+			pairs: wsPairs ?? (runConfig?.pairs as string[]) ?? ["BTC/USDT"],
+			timeframe: wsTimeframe ?? (runConfig?.timeframe as string) ?? "5m",
 			wallet: Number(desk.budget) || 10000,
 			extraVolumes: (desk.externalMounts ?? []).map(
 				(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
