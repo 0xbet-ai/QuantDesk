@@ -353,7 +353,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 							const sendPaper = () =>
 								window.dispatchEvent(
 									new CustomEvent("quantdesk:send-chat", {
-										detail: `I'd like to paper trade Run #${bestRun.runNumber}. Should we validate first or start directly?`,
+										detail: `[Paper Trade] Run #${bestRun.runNumber}`,
 									}),
 								);
 							return (
