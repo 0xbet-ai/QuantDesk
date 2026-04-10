@@ -238,6 +238,13 @@ export function App() {
 		}
 	}, [deskId]);
 
+	// Clear stale experiments immediately when switching desks so the
+	// auto-select effect doesn't navigate to an experiment id that
+	// belongs to the previous desk.
+	useEffect(() => {
+		setExperiments([]);
+	}, [deskId]);
+
 	useEffect(() => {
 		refreshDesks();
 	}, [refreshDesks]);
