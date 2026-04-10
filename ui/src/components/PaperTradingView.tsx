@@ -51,16 +51,18 @@ export function PaperTradingView({ desk }: Props) {
 	const chartRef = useRef<IChartApi | null>(null);
 	const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
 
-	const pair = (desk.venues as string[])?.[0]
-		? "BTC/USDT"
-		: "BTC/USDT";
+	// Derive pair + timeframe from the paper runs row config (set by
+	// startPaper from config.json) so we request the right candles.
+	const sessionConfig = (session?.meta ?? {}) as Record<string, unknown>;
+	const pair = (sessionConfig.pairs as string[] | undefined)?.[0] ?? "BTC/USDT";
+	const timeframe = (sessionConfig.timeframe as string) ?? "5m";
 
 	const refresh = useCallback(() => {
 		getActivePaperSession(desk.id).then(setSession).catch(() => {});
 		getPaperStatus(desk.id).then(setStatus).catch(() => {});
 		getPaperTrades(desk.id).then(setTrades).catch(() => {});
-		getPaperCandles(desk.id, pair, "5m").then(setCandles).catch(() => {});
-	}, [desk.id, pair]);
+		getPaperCandles(desk.id, pair, timeframe).then(setCandles).catch(() => {});
+	}, [desk.id, pair, timeframe]);
 
 	useEffect(() => {
 		refresh();

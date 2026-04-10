@@ -292,6 +292,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 		// is configured — it waits for an explicit /api/v1/start call.
 		const apiUrl = `http://127.0.0.1:${hostApiPort}`;
 		const auth = `Basic ${Buffer.from("quantdesk:quantdesk").toString("base64")}`;
+		let apiReady = false;
 		for (let attempt = 0; attempt < 30; attempt++) {
 			try {
 				const res = await fetch(`${apiUrl}/api/v1/ping`, {
@@ -299,18 +300,27 @@ export class FreqtradeAdapter implements EngineAdapter {
 					signal: AbortSignal.timeout(2000),
 				});
 				if (res.ok) {
+					apiReady = true;
 					// API is ready — start the bot
-					await fetch(`${apiUrl}/api/v1/start`, {
+					const startRes = await fetch(`${apiUrl}/api/v1/start`, {
 						method: "POST",
 						headers: { Authorization: auth },
 						signal: AbortSignal.timeout(3000),
 					});
+					if (!startRes.ok) {
+						throw new Error(`/api/v1/start returned ${startRes.status}`);
+					}
 					break;
 				}
-			} catch {
-				// API not ready yet
+			} catch (err) {
+				if (apiReady) throw err; // API was ready but /start failed
 			}
 			await new Promise((r) => setTimeout(r, 1000));
+		}
+		if (!apiReady) {
+			throw new Error(
+				`Freqtrade API did not become ready within 30s on port ${hostApiPort}. Container may have crashed.`,
+			);
 		}
 
 		return {

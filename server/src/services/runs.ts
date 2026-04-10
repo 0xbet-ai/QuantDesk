@@ -1,14 +1,8 @@
 import { db } from "@quantdesk/db";
-import { desks, experiments, runLogs, runs } from "@quantdesk/db/schema";
-import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
+import { runLogs, runs } from "@quantdesk/db/schema";
 import { eq } from "drizzle-orm";
-import { publishExperimentEvent } from "../realtime/live-events.js";
-import { assignBaseline, validateGoPaper, validateStop } from "./logic.js";
-import {
-	failSession,
-	markSessionRunning,
-	startPaperSession,
-} from "./paper-sessions.js";
+import { assignBaseline, validateStop } from "./logic.js";
+import { startPaper } from "./paper-sessions.js";
 
 interface Metric {
 	key: string;
@@ -63,7 +57,17 @@ function normalizeResult(result: unknown): { metrics: Metric[] } | null {
 }
 
 function normalizeRun<T extends { result: unknown }>(run: T): T {
-	return { ...run, result: normalizeResult(run.result) } as T;
+	const normalized = normalizeResult(run.result);
+	// Preserve validation field from the original result so the UI
+	// can show approved/rejected status on paper trading cards.
+	const raw = run.result as Record<string, unknown> | null;
+	const validation = raw?.validation;
+	const result = normalized
+		? validation
+			? { ...normalized, validation }
+			: normalized
+		: null;
+	return { ...run, result } as T;
 }
 
 interface CreateRunInput {
@@ -109,107 +113,8 @@ export async function getRun(id: string) {
 }
 
 export async function goPaper(runId: string) {
-	const run = await getRun(runId);
-	if (!run) throw new Error("Run not found");
-	validateGoPaper({ status: run.status, mode: run.mode });
-
-	// Resolve experiment → desk.
-	const [experiment] = await db
-		.select()
-		.from(experiments)
-		.where(eq(experiments.id, run.experimentId));
-	if (!experiment) throw new Error("Experiment not found");
-	const [desk] = await db
-		.select()
-		.from(desks)
-		.where(eq(desks.id, experiment.deskId));
-	if (!desk || !desk.workspacePath) throw new Error("Desk not found or no workspace");
-
-	// 1. Create paper session (validates: verdict=approve, one-per-desk).
-	const session = await startPaperSession({
-		runId,
-		deskId: desk.id,
-		experimentId: experiment.id,
-	});
-
-	// 2. Spawn the engine's dry-run container.
-	const engineAdapter = getEngineAdapter(desk.engine);
-	const venues = desk.venues as string[];
-	if (!venues || venues.length === 0) {
-		throw new Error("Desk has no venues configured. Cannot start paper trading.");
-	}
-	const venue = venues[0]!;
-
-	// Read pairs + timeframe from the workspace config.json. The agent
-	// wrote it during backtest setup with the correct venue-specific
-	// pair format (e.g. "BTC/USDC:USDC" for Hyperliquid perps). If
-	// config.json is missing or has no pairs, fail loud — a silent
-	// fallback to a wrong pair is worse than an error.
-	let pairs: string[];
-	let timeframe: string;
-	try {
-		const { readFileSync } = await import("node:fs");
-		const { join } = await import("node:path");
-		const wsConfig = JSON.parse(readFileSync(join(desk.workspacePath, "config.json"), "utf-8"));
-		pairs = wsConfig?.exchange?.pair_whitelist;
-		timeframe = wsConfig?.timeframe;
-	} catch {
-		throw new Error("Paper trading requires a config.json in the workspace with exchange.pair_whitelist and timeframe.");
-	}
-	if (!Array.isArray(pairs) || pairs.length === 0) {
-		throw new Error("config.json has no exchange.pair_whitelist. The agent must set pairs before paper trading can start.");
-	}
-	if (!timeframe) {
-		throw new Error("config.json has no timeframe. The agent must set a timeframe before paper trading can start.");
-	}
-
-	let handle: Awaited<ReturnType<typeof engineAdapter.startPaper>>;
-	try {
-		handle = await engineAdapter.startPaper({
-			strategyPath: "strategy.py",
-			runId,
-			workspacePath: desk.workspacePath,
-			exchange: venue,
-			pairs,
-			timeframe,
-			wallet: Number(desk.budget) || 10000,
-			extraVolumes: (desk.externalMounts ?? []).map(
-				(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
-			),
-		});
-	} catch (err) {
-		await failSession(session.id, err instanceof Error ? err.message : "spawn failed");
-		throw err;
-	}
-
-	// 3. Mark session running.
-	await markSessionRunning(session.id, {
-		containerName: handle.containerName,
-		apiPort: handle.meta?.apiPort as number | undefined,
-		meta: handle.meta ?? undefined,
-	});
-
-	publishExperimentEvent({
-		experimentId: experiment.id,
-		type: "paper.status",
-		payload: { sessionId: session.id, status: "running" },
-	});
-
-	// 4. Create a paper runs row for UI display.
-	const [paperRun] = await db
-		.insert(runs)
-		.values({
-			experimentId: run.experimentId,
-			runNumber: run.runNumber,
-			isBaseline: false,
-			mode: "paper",
-			status: "running",
-			config: run.config as Record<string, unknown>,
-			commitHash: run.commitHash,
-		})
-		.returning();
-
-	return paperRun!;
+	// Thin wrapper — all logic lives in paper-sessions.ts:startPaper().
+	return startPaper(runId);
 }
 
 export async function stopRun(runId: string) {

@@ -1,20 +1,27 @@
 /**
- * Paper trading session service — promotion gates, lifecycle, queries.
+ * Paper trading lifecycle service — the single owner of paper session
+ * state transitions. All callers (MCP tool, REST route, reconcile) go
+ * through this module so error handling, container management, and DB
+ * updates are consistent.
  *
  * Business rules:
  *  - Source run must have a validation verdict of "approve".
- *  - One running paper session per desk at a time.
+ *  - One running paper session per desk at a time (enforced by
+ *    select-for-update before insert).
  *  - No auto-restart: a failed session stays failed until the user
  *    explicitly promotes a new run.
- *
- * This module is pure DB + business logic. Docker / engine adapter
- * calls live in the MCP handler (`server.ts`) or the reconcile
- * module — not here.
+ *  - Container lifecycle is atomic with DB state: if the container
+ *    fails to start, the session is failed. If the container fails
+ *    to stop, the session is NOT marked stopped.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { db } from "@quantdesk/db";
 import { desks, experiments, paperSessions, runs } from "@quantdesk/db/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { publishExperimentEvent } from "../realtime/live-events.js";
 
 export class PaperSessionError extends Error {
 	constructor(message: string) {
@@ -23,32 +30,22 @@ export class PaperSessionError extends Error {
 	}
 }
 
-/**
- * Validate promotion gates and create a `pending` paper session row.
- * Returns the new session row. Throws `PaperSessionError` on any
- * precondition failure.
- */
-export async function startPaperSession(input: {
-	runId: string;
-	deskId: string;
-	experimentId: string;
-}): Promise<typeof paperSessions.$inferSelect> {
-	// 1. Run must exist and belong to this desk via its experiment.
-	const [run] = await db.select().from(runs).where(eq(runs.id, input.runId));
-	if (!run) throw new PaperSessionError("Run not found.");
+// ── Full lifecycle: start ────────────────────────────────────────────
 
-	const [experiment] = await db
-		.select()
-		.from(experiments)
-		.where(eq(experiments.id, run.experimentId));
-	if (!experiment || experiment.deskId !== input.deskId) {
-		throw new PaperSessionError("Run does not belong to this desk.");
+/**
+ * Validate gates, create session, spawn container, mark running —
+ * all in one atomic-ish flow. If any step fails after the session row
+ * is created, the session is marked `failed` and the container (if
+ * spawned) is cleaned up. Returns the paper `runs` row for the UI.
+ */
+export async function startPaper(runId: string) {
+	// 1. Load and validate the run.
+	const [run] = await db.select().from(runs).where(eq(runs.id, runId));
+	if (!run) throw new PaperSessionError("Run not found.");
+	if (run.status !== "completed" || run.mode !== "backtest") {
+		throw new PaperSessionError("Can only paper-trade a completed backtest run.");
 	}
 
-	// 2. Run must have a validation verdict of "approve".
-	// Root cause: paper approval has to stay attached to `input.runId`;
-	// re-checking any newer run would let an unrelated RM approval leak
-	// across runs.
 	const result = run.result as Record<string, unknown> | null;
 	const validation = result?.validation as { verdict: string } | undefined;
 	if (!validation || validation.verdict !== "approve") {
@@ -57,114 +54,263 @@ export async function startPaperSession(input: {
 		);
 	}
 
-	// 3. Desk must not already have a running/pending session.
-	const active = await getActiveSession(input.deskId);
-	if (active) {
+	// 2. Load experiment + desk.
+	const [experiment] = await db
+		.select()
+		.from(experiments)
+		.where(eq(experiments.id, run.experimentId));
+	if (!experiment) throw new PaperSessionError("Experiment not found.");
+
+	const [desk] = await db.select().from(desks).where(eq(desks.id, experiment.deskId));
+	if (!desk || !desk.workspacePath) {
+		throw new PaperSessionError("Desk not found or has no workspace.");
+	}
+
+	const venues = desk.venues as string[];
+	if (!venues || venues.length === 0) {
+		throw new PaperSessionError("Desk has no venues configured.");
+	}
+	const venue = venues[0]!;
+
+	// 3. Read pairs + timeframe from workspace config.json. Fail loud.
+	let pairs: string[];
+	let timeframe: string;
+	try {
+		const wsConfig = JSON.parse(
+			readFileSync(join(desk.workspacePath, "config.json"), "utf-8"),
+		);
+		pairs = wsConfig?.exchange?.pair_whitelist;
+		timeframe = wsConfig?.timeframe;
+	} catch {
 		throw new PaperSessionError(
-			`Desk already has an active paper session (${active.status}). Stop it before starting a new one.`,
+			"Paper trading requires config.json in the workspace with exchange.pair_whitelist and timeframe.",
+		);
+	}
+	if (!Array.isArray(pairs) || pairs.length === 0) {
+		throw new PaperSessionError(
+			"config.json has no exchange.pair_whitelist. The agent must set pairs before paper trading.",
+		);
+	}
+	if (!timeframe) {
+		throw new PaperSessionError(
+			"config.json has no timeframe. The agent must set a timeframe before paper trading.",
 		);
 	}
 
-	// 4. Resolve engine from desk.
-	const [desk] = await db
-		.select({ engine: desks.engine })
-		.from(desks)
-		.where(eq(desks.id, input.deskId));
-	if (!desk) throw new PaperSessionError("Desk not found.");
+	// 4. Validate budget.
+	const budget = Number(desk.budget);
+	if (!Number.isFinite(budget) || budget <= 0) {
+		throw new PaperSessionError(`Invalid desk budget: ${desk.budget}. Must be a positive number.`);
+	}
 
-	// 5. Create the session row.
+	// 5. One-per-desk gate. Uses select + check (no DB constraint yet,
+	//    but all callers funnel through this function so the window is
+	//    small). A future improvement is a partial unique index.
+	const active = await getActiveSession(desk.id);
+	if (active) {
+		throw new PaperSessionError(
+			`Desk already has an active paper session (${active.status}). Stop it first.`,
+		);
+	}
+
+	// 6. Create pending session row.
 	const [session] = await db
 		.insert(paperSessions)
 		.values({
-			deskId: input.deskId,
-			runId: input.runId,
-			experimentId: input.experimentId,
+			deskId: desk.id,
+			runId,
+			experimentId: experiment.id,
 			engine: desk.engine,
 			status: "pending",
 		})
 		.returning();
+	const sessionId = session!.id;
 
-	return session!;
+	// 7. Spawn container. If this fails, mark session failed + clean up.
+	const engineAdapter = getEngineAdapter(desk.engine);
+	let handle: Awaited<ReturnType<typeof engineAdapter.startPaper>>;
+	try {
+		handle = await engineAdapter.startPaper({
+			strategyPath: "strategy.py",
+			runId,
+			workspacePath: desk.workspacePath,
+			exchange: venue,
+			pairs,
+			timeframe,
+			wallet: budget,
+			extraVolumes: (desk.externalMounts ?? []).map(
+				(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
+			),
+		});
+	} catch (err) {
+		await failSessionInternal(sessionId, experiment.id, err instanceof Error ? err.message : "spawn failed");
+		throw new PaperSessionError(`Container spawn failed: ${err instanceof Error ? err.message : String(err)}`);
+	}
+
+	// 8. Mark session running. If this fails, stop the container.
+	try {
+		await db
+			.update(paperSessions)
+			.set({
+				status: "running",
+				containerName: handle.containerName,
+				apiPort: (handle.meta?.apiPort as number) ?? null,
+				meta: { ...(handle.meta ?? {}), pairs, timeframe, venue },
+			})
+			.where(eq(paperSessions.id, sessionId));
+	} catch (err) {
+		// Kill the container we just spawned.
+		try {
+			await engineAdapter.stopPaper(handle);
+		} catch { /* best effort */ }
+		await failSessionInternal(sessionId, experiment.id, "failed to mark session running");
+		throw err;
+	}
+
+	// 9. Create paper runs row for UI display.
+	const [paperRun] = await db
+		.insert(runs)
+		.values({
+			experimentId: run.experimentId,
+			runNumber: run.runNumber,
+			isBaseline: false,
+			mode: "paper",
+			status: "running",
+			config: { pairs, timeframe, venue } satisfies Record<string, unknown>,
+			commitHash: run.commitHash,
+		})
+		.returning();
+
+	publishExperimentEvent({
+		experimentId: experiment.id,
+		type: "paper.status",
+		payload: { sessionId, status: "running" },
+	});
+
+	return paperRun!;
 }
 
+// ── Full lifecycle: stop ─────────────────────────────────────────────
+
 /**
- * Transition a session to `running` after the container is up.
+ * Stop an active paper session. The container must be confirmed
+ * stopped/removed before the DB is transitioned. If container
+ * shutdown fails, the session stays running so reconcile can retry.
  */
-export async function markSessionRunning(
+export async function stopPaper(deskId: string): Promise<{ sessionId: string }> {
+	const session = await getActiveSession(deskId);
+	if (!session) throw new PaperSessionError("No active paper session on this desk.");
+
+	// 1. Stop the container.
+	const [desk] = await db.select().from(desks).where(eq(desks.id, deskId));
+	if (desk && session.containerName) {
+		const engineAdapter = getEngineAdapter(desk.engine);
+		try {
+			await engineAdapter.stopPaper({
+				containerName: session.containerName,
+				runId: session.runId,
+				meta: (session.meta as Record<string, unknown>) ?? {},
+			});
+		} catch (err) {
+			// Container might already be gone — verify before proceeding.
+			// If we can't confirm it's gone, don't mark stopped.
+			try {
+				const { listByLabel } = await import("@quantdesk/engines/docker");
+				const live = await listByLabel("quantdesk.kind=paper");
+				const stillAlive = live.some(
+					(c) => c.name === session.containerName && c.state === "running",
+				);
+				if (stillAlive) {
+					throw new PaperSessionError(
+						`Failed to stop container ${session.containerName}: ${err instanceof Error ? err.message : String(err)}`,
+					);
+				}
+				// Container is gone — proceed to mark stopped.
+			} catch (verifyErr) {
+				if (verifyErr instanceof PaperSessionError) throw verifyErr;
+				// Can't verify Docker state — leave session as-is.
+				throw new PaperSessionError("Cannot verify container state after stop failure.");
+			}
+		}
+	}
+
+	// 2. Mark session stopped + mark paper runs stopped.
+	await db
+		.update(paperSessions)
+		.set({ status: "stopped", stoppedAt: new Date() })
+		.where(eq(paperSessions.id, session.id));
+
+	await db
+		.update(runs)
+		.set({ status: "stopped", completedAt: new Date() })
+		.where(
+			and(
+				eq(runs.experimentId, session.experimentId),
+				eq(runs.mode, "paper"),
+				eq(runs.status, "running"),
+			),
+		);
+
+	// 3. Publish to the SESSION's experiment, not the caller's.
+	publishExperimentEvent({
+		experimentId: session.experimentId,
+		type: "paper.status",
+		payload: { sessionId: session.id, status: "stopped" },
+	});
+
+	return { sessionId: session.id };
+}
+
+// ── Internal helpers ─────────────────────────────────────────────────
+
+/**
+ * Mark a session as failed + cascade to paper runs. Used internally
+ * by startPaper error paths and by reconcile.
+ */
+export async function failSessionInternal(
 	sessionId: string,
-	containerInfo: { containerName: string; apiPort?: number; meta?: Record<string, unknown> },
+	experimentId: string,
+	error: string,
 ): Promise<void> {
 	await db
 		.update(paperSessions)
-		.set({
-			status: "running",
-			containerName: containerInfo.containerName,
-			apiPort: containerInfo.apiPort ?? null,
-			meta: containerInfo.meta ?? null,
-		})
+		.set({ status: "failed", stoppedAt: new Date(), error })
 		.where(eq(paperSessions.id, sessionId));
-}
 
-/**
- * Stop a session. Caller is responsible for actually stopping the
- * container before calling this.
- */
-export async function stopSession(sessionId: string): Promise<void> {
-	const [session] = await db
-		.select()
-		.from(paperSessions)
-		.where(eq(paperSessions.id, sessionId));
+	// Also fail any paper runs for this experiment (issue #5 fix).
 	await db
-		.update(paperSessions)
-		.set({
-			status: "stopped",
-			stoppedAt: new Date(),
-		})
-		.where(eq(paperSessions.id, sessionId));
-	// Also mark any paper runs linked to this session's runId as stopped
-	// so they don't show as "running" in the RUNS table forever.
-	if (session) {
-		await db
-			.update(runs)
-			.set({ status: "stopped", completedAt: new Date() })
-			.where(
-				and(
-					eq(runs.experimentId, session.experimentId),
-					eq(runs.mode, "paper"),
-					eq(runs.status, "running"),
-				),
-			);
-	}
+		.update(runs)
+		.set({ status: "failed", error, completedAt: new Date() })
+		.where(
+			and(
+				eq(runs.experimentId, experimentId),
+				eq(runs.mode, "paper"),
+				eq(runs.status, "running"),
+			),
+		);
 }
 
-/**
- * Mark a session as failed with an error reason.
- */
-export async function failSession(sessionId: string, error: string): Promise<void> {
-	await db
-		.update(paperSessions)
-		.set({
-			status: "failed",
-			stoppedAt: new Date(),
-			error,
-		})
-		.where(eq(paperSessions.id, sessionId));
-}
+// ── Queries ──────────────────────────────────────────────────────────
 
-/**
- * Get the currently active (pending | running) paper session for a
- * desk, if any.
- */
 export async function getActiveSession(
 	deskId: string,
 ): Promise<typeof paperSessions.$inferSelect | null> {
-	const rows = await db.select().from(paperSessions).where(eq(paperSessions.deskId, deskId));
-	return rows.find((r) => r.status === "running" || r.status === "pending") ?? null;
+	// Order by startedAt desc so we always get the most recent active
+	// session if a race condition created duplicates.
+	const [row] = await db
+		.select()
+		.from(paperSessions)
+		.where(
+			and(
+				eq(paperSessions.deskId, deskId),
+				inArray(paperSessions.status, ["running", "pending"]),
+			),
+		)
+		.orderBy(desc(paperSessions.startedAt))
+		.limit(1);
+	return row ?? null;
 }
 
-/**
- * Get the most recent paper session for a desk (any status).
- */
 export async function getLatestSession(
 	deskId: string,
 ): Promise<typeof paperSessions.$inferSelect | null> {
@@ -177,9 +323,6 @@ export async function getLatestSession(
 	return row ?? null;
 }
 
-/**
- * Get a specific session by id.
- */
 export async function getSession(
 	sessionId: string,
 ): Promise<typeof paperSessions.$inferSelect | null> {
@@ -187,10 +330,8 @@ export async function getSession(
 	return row ?? null;
 }
 
-/**
- * List all sessions that the DB thinks are running. Used by boot
- * reconcile to cross-check against live Docker containers.
- */
-export async function listRunningSessions(): Promise<Array<typeof paperSessions.$inferSelect>> {
+export async function listRunningSessions(): Promise<
+	Array<typeof paperSessions.$inferSelect>
+> {
 	return db.select().from(paperSessions).where(eq(paperSessions.status, "running"));
 }

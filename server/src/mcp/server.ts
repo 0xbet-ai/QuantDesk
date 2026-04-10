@@ -44,10 +44,7 @@ import { systemComment } from "../services/comments.js";
 import { executeDataFetch } from "../services/data-fetch.js";
 import { completeAndCreateNewExperiment, completeExperiment } from "../services/experiments.js";
 import { autoIncrementRunNumber } from "../services/logic.js";
-import {
-	getActiveSession,
-	stopSession,
-} from "../services/paper-sessions.js";
+import { stopPaper as stopPaperService } from "../services/paper-sessions.js";
 import { goPaper as goPaperService } from "../services/runs.js";
 import { getCurrentTurnId } from "../services/turn-context.js";
 
@@ -940,35 +937,8 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		},
 		async () => {
 			try {
-				const session = await getActiveSession(ctx.deskId);
-				if (!session) {
-					return errorResult("stop_paper: no active paper session on this desk.");
-				}
-
-				// Stop via engine adapter.
-				const [desk] = await db.select().from(desks).where(eq(desks.id, ctx.deskId));
-				if (desk) {
-					const engineAdapter = getEngineAdapter(desk.engine);
-					try {
-						await engineAdapter.stopPaper({
-							containerName: session.containerName ?? "",
-							runId: session.runId,
-							meta: (session.meta as Record<string, unknown>) ?? {},
-						});
-					} catch {
-						// Container may already be gone — continue to mark DB.
-					}
-				}
-
-				await stopSession(session.id);
-
-				publishExperimentEvent({
-					experimentId: ctx.experimentId,
-					type: "paper.status",
-					payload: { sessionId: session.id, status: "stopped" },
-				});
-
-				return textResult(JSON.stringify({ stopped: true, sessionId: session.id }, null, 2));
+				const result = await stopPaperService(ctx.deskId);
+				return textResult(JSON.stringify({ stopped: true, sessionId: result.sessionId }, null, 2));
 			} catch (err) {
 				return errorResult(
 					`stop_paper failed: ${err instanceof Error ? err.message : String(err)}`,
