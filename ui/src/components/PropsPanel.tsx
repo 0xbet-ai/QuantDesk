@@ -389,11 +389,6 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 									<div className="text-left">
 										<div className="text-xs font-medium">
 											Run #{bestRun.runNumber}
-											{val != null && (
-												<span className={cn("ml-1 font-mono", val > 0 ? "text-green-500" : "text-red-500")}>
-													{val > 0 ? "+" : ""}{val.toFixed(1)}%
-												</span>
-											)}
 										</div>
 										<div className="text-[10px] text-muted-foreground">
 											{startingPaper ? "Starting…" : isApproved ? "Ready" : verdict === "reject" ? "Rejected" : "Paper Trade"}
