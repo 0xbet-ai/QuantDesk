@@ -159,7 +159,7 @@ function DeskRoute({
 			}
 			panel={
 				deskPage === "experiments" && expId ? (
-					<PropsPanel experiment={selectedExperiment} experimentId={expId} />
+					<PropsPanel experiment={selectedExperiment} experimentId={expId} deskId={selectedDesk!.id} />
 				) : null
 			}
 		/>
