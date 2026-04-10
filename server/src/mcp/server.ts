@@ -45,12 +45,10 @@ import { executeDataFetch } from "../services/data-fetch.js";
 import { completeAndCreateNewExperiment, completeExperiment } from "../services/experiments.js";
 import { autoIncrementRunNumber } from "../services/logic.js";
 import {
-	failSession,
 	getActiveSession,
-	markSessionRunning,
-	startPaperSession,
 	stopSession,
 } from "../services/paper-sessions.js";
+import { goPaper as goPaperService } from "../services/runs.js";
 import { getCurrentTurnId } from "../services/turn-context.js";
 
 export interface McpServerContext {
@@ -921,69 +919,9 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		},
 		async (args) => {
 			try {
-				// 1. Create pending session (gates: validated run, one-per-desk).
-				const session = await startPaperSession({
-					runId: args.runId,
-					deskId: ctx.deskId,
-					experimentId: ctx.experimentId,
-				});
-
-				// 2. Resolve desk + engine adapter.
-				const [desk] = await db.select().from(desks).where(eq(desks.id, ctx.deskId));
-				if (!desk || !desk.workspacePath) {
-					await failSession(session.id, "desk not found or no workspace");
-					return errorResult("go_paper: desk not found or no workspace path");
-				}
-				const engineAdapter = getEngineAdapter(desk.engine);
-
-				// 3. Resolve run details for the engine adapter.
-				const [run] = await db.select().from(runs).where(eq(runs.id, args.runId));
-				if (!run) {
-					await failSession(session.id, "run not found");
-					return errorResult("go_paper: run not found");
-				}
-				const venue = (desk.venues as string[])[0] ?? "binance";
-				const config = run.config as Record<string, unknown> | null;
-				const pairs = config?.pairs as string[] | undefined;
-				const timeframe = config?.timeframe as string | undefined;
-
-				// 4. Spawn paper container via engine adapter.
-				const handle = await engineAdapter.startPaper({
-					strategyPath: "strategy.py",
-					runId: args.runId,
-					workspacePath: desk.workspacePath,
-					exchange: venue,
-					pairs: pairs ?? ["BTC/USDT"],
-					timeframe: timeframe ?? "5m",
-					wallet: Number(desk.budget) || 10000,
-					extraVolumes: (desk.externalMounts ?? []).map(
-						(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
-					),
-				});
-
-				// 5. Mark running.
-				await markSessionRunning(session.id, {
-					containerName: handle.containerName,
-					apiPort: handle.meta?.apiPort as number | undefined,
-					meta: handle.meta ?? undefined,
-				});
-
-				publishExperimentEvent({
-					experimentId: ctx.experimentId,
-					type: "paper.status",
-					payload: { sessionId: session.id, status: "running" },
-				});
-
+				const paperRun = await goPaperService(args.runId);
 				return textResult(
-					JSON.stringify(
-						{
-							sessionId: session.id,
-							status: "running",
-							containerName: handle.containerName,
-						},
-						null,
-						2,
-					),
+					JSON.stringify({ runId: paperRun.id, status: "running" }, null, 2),
 				);
 			} catch (err) {
 				return errorResult(`go_paper failed: ${err instanceof Error ? err.message : String(err)}`);
