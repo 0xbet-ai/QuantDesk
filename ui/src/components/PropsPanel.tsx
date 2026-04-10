@@ -1,4 +1,4 @@
-import { Pause, Play, Shield, TrendingUp, XCircle } from "lucide-react";
+import { Pause, Play, TrendingUp, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import type { Experiment, PaperSession, Run } from "../lib/api.js";
@@ -350,34 +350,36 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 							const val = bestRun.result?.metrics?.[0]?.value;
 							const verdict = bestRun.result?.validation?.verdict;
 							const isApproved = verdict === "approve";
+							const prefillPaper = () =>
+								window.dispatchEvent(
+									new CustomEvent("quantdesk:prefill-chat", {
+										detail: `I'd like to paper trade Run #${bestRun.runNumber}. Should we validate first or start directly?`,
+									}),
+								);
 							return (
 								<button
 									type="button"
 									onClick={
 										isApproved
 											? () => handleStartPaper(bestRun.id)
-											: !verdict
-												? () => window.dispatchEvent(new CustomEvent("quantdesk:prefill-chat", { detail: `Validate Run #${bestRun.runNumber}` }))
-												: undefined
+											: verdict === "reject"
+												? undefined
+												: prefillPaper
 									}
 									disabled={startingPaper || verdict === "reject"}
-									title={isApproved ? "Start paper trading" : verdict === "reject" ? "Rejected" : "Click to request validation"}
+									title={isApproved ? "Start paper trading" : verdict === "reject" ? "Rejected" : "Discuss paper trading with agent"}
 									className={cn(
 										"flex items-center gap-2.5 w-full px-2 py-1.5 rounded-md transition-colors",
-										isApproved ? "hover:bg-green-500/10" : verdict === "reject" ? "opacity-50" : "hover:bg-muted",
+										isApproved ? "hover:bg-green-500/10" : verdict === "reject" ? "opacity-50" : "hover:bg-green-500/10",
 									)}
 								>
-									{isApproved ? (
-										<div className="flex size-6 items-center justify-center rounded-md bg-green-500/15">
-											<Play className="size-3 text-green-500" />
-										</div>
-									) : verdict === "reject" ? (
+									{verdict === "reject" ? (
 										<div className="flex size-6 items-center justify-center rounded-md bg-red-500/10">
 											<XCircle className="size-3 text-red-400" />
 										</div>
 									) : (
-										<div className="flex size-6 items-center justify-center rounded-md bg-muted">
-											<Shield className="size-3 text-muted-foreground" />
+										<div className="flex size-6 items-center justify-center rounded-md bg-green-500/15">
+											<Play className="size-3 text-green-500" />
 										</div>
 									)}
 									<div className="text-left">
@@ -390,7 +392,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 											)}
 										</div>
 										<div className="text-[10px] text-muted-foreground">
-											{startingPaper ? "Starting…" : isApproved ? "Ready" : verdict === "reject" ? "Rejected" : "Validate"}
+											{startingPaper ? "Starting…" : isApproved ? "Ready" : verdict === "reject" ? "Rejected" : "Paper Trade"}
 										</div>
 									</div>
 								</button>
