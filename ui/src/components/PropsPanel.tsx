@@ -30,6 +30,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 	const [startingPaper, setStartingPaper] = useState(false);
 	const [stoppingPaper, setStoppingPaper] = useState(false);
 	const [paperError, setPaperError] = useState<string | null>(null);
+	const [paperSent, setPaperSent] = useState(false);
 
 	const refreshPaper = useCallback(() => {
 		getActivePaperSession(deskId)
@@ -85,6 +86,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 	useLiveUpdates(experimentId, (event) => {
 		if (event.type === "run.status" || event.type === "comment.new") {
 			refreshRuns();
+			setPaperSent(false);
 		}
 	});
 
@@ -350,12 +352,14 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 							const val = bestRun.result?.metrics?.[0]?.value;
 							const verdict = bestRun.result?.validation?.verdict;
 							const isApproved = verdict === "approve";
-							const sendPaper = () =>
+							const sendPaper = () => {
+								setPaperSent(true);
 								window.dispatchEvent(
 									new CustomEvent("quantdesk:send-chat", {
 										detail: `[Paper Trade] Run #${bestRun.runNumber}`,
 									}),
 								);
+							};
 							return (
 								<button
 									type="button"
@@ -366,7 +370,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 												? undefined
 												: sendPaper
 									}
-									disabled={startingPaper || verdict === "reject"}
+									disabled={startingPaper || verdict === "reject" || paperSent}
 									title={isApproved ? "Start paper trading" : verdict === "reject" ? "Rejected" : "Discuss paper trading with agent"}
 									className={cn(
 										"flex items-center gap-2.5 w-full px-2 py-1.5 rounded-md transition-colors",
