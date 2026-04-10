@@ -622,6 +622,16 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					);
 				}
 
+				// Mark the current Analyst turn as awaiting_validation so
+				// the UI keeps the input locked until the RM verdict arrives.
+				const turnId = getCurrentTurnId();
+				if (turnId) {
+					await db
+						.update(agentTurns)
+						.set({ status: "awaiting_validation" })
+						.where(eq(agentTurns.id, turnId));
+				}
+
 				void lazyTriggerAgent(ctx.experimentId, "risk_manager").catch((err) => {
 					console.error("request_validation dispatch failed:", err);
 				});
@@ -675,6 +685,29 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						},
 					})
 					.where(eq(runs.id, latestRun.id));
+				// Transition any awaiting_validation analyst turn to completed
+				// now that the verdict is in. This unlocks the UI input.
+				const awaitingTurns = await db
+					.select({ id: agentTurns.id })
+					.from(agentTurns)
+					.where(
+						and(
+							eq(agentTurns.experimentId, ctx.experimentId),
+							eq(agentTurns.status, "awaiting_validation"),
+						),
+					);
+				for (const t of awaitingTurns) {
+					await db
+						.update(agentTurns)
+						.set({ status: "completed", endedAt: new Date() })
+						.where(eq(agentTurns.id, t.id));
+					publishExperimentEvent({
+						experimentId: ctx.experimentId,
+						type: "turn.status",
+						payload: { turnId: t.id, status: "completed" },
+					});
+				}
+
 				if (lazyTriggerAgent) {
 					void lazyTriggerAgent(ctx.experimentId, "analyst").catch((err) => {
 						console.error("Analyst retrigger after verdict failed:", err);

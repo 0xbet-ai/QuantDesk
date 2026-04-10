@@ -10,7 +10,8 @@ export type TurnLifecycleStatus =
 	| "completed"
 	| "failed"
 	| "stopped"
-	| "awaiting_user";
+	| "awaiting_user"
+	| "awaiting_validation";
 
 interface TurnCardProps {
 	experimentNumber: number;
@@ -89,9 +90,10 @@ export function TurnCard({
 		if (!el) return;
 		el.scrollTop = el.scrollHeight;
 	}, [entries.length, streaming]);
-	const isTerminal = !streaming;
+	const isTerminal = !streaming && status !== "awaiting_validation";
 	const isFailed = status === "failed" || status === "stopped";
 	const isAwaitingUser = status === "awaiting_user";
+	const isAwaitingValidation = status === "awaiting_validation";
 	const modeLabel =
 		mode === "paper" ? "Paper Trading Run" : mode === "backtest" ? "Backtest Run" : "Agent Turn";
 	const terminalLabel =
@@ -101,7 +103,9 @@ export function TurnCard({
 				? `${modeLabel} Stopped`
 				: status === "awaiting_user"
 					? `${modeLabel} · Awaiting Your Response`
-					: `${modeLabel} Failed`;
+					: status === "awaiting_validation"
+						? `${modeLabel} · Validating`
+						: `${modeLabel} Failed`;
 	const isAnalyst = agentRole !== "risk_manager";
 	const roleLabel = isAnalyst ? "Analyst" : "Risk Manager";
 	const RoleIcon = isAnalyst ? Bot : Shield;
@@ -162,7 +166,9 @@ export function TurnCard({
 									? `Agent finished Experiment #${experimentNumber}`
 									: status === "awaiting_user"
 										? `Agent is waiting on you — Experiment #${experimentNumber}`
-										: `Agent did not finish cleanly — Experiment #${experimentNumber}`}
+										: status === "awaiting_validation"
+											? `Risk Manager is validating — Experiment #${experimentNumber}`
+											: `Agent did not finish cleanly — Experiment #${experimentNumber}`}
 						</div>
 						{isTerminal && isFailed && failureReason && (
 							<div className="mt-1 text-[11px] font-mono text-red-600 dark:text-red-400">
@@ -181,7 +187,9 @@ export function TurnCard({
 										? "failed"
 										: isAwaitingUser
 											? "awaiting_user"
-											: "completed"
+											: isAwaitingValidation
+												? "running"
+												: "completed"
 							}
 						/>
 						{streaming && startedAt && <ElapsedTimer startedAt={startedAt} />}
