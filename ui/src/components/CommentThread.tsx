@@ -157,23 +157,8 @@ export function CommentThread({
 			const text = (e as CustomEvent<string>).detail;
 			if (text) setInput(text);
 		};
-		const handleAutoSend = (e: Event) => {
-			const text = (e as CustomEvent<string>).detail;
-			if (text) {
-				setInput(text);
-				// Defer so the state update lands before handleSend reads it
-				setTimeout(() => {
-					const btn = document.querySelector<HTMLButtonElement>("[data-send-btn]");
-					btn?.click();
-				}, 50);
-			}
-		};
 		window.addEventListener("quantdesk:prefill-chat", handlePrefill);
-		window.addEventListener("quantdesk:send-chat", handleAutoSend);
-		return () => {
-			window.removeEventListener("quantdesk:prefill-chat", handlePrefill);
-			window.removeEventListener("quantdesk:send-chat", handleAutoSend);
-		};
+		return () => window.removeEventListener("quantdesk:prefill-chat", handlePrefill);
 	}, []);
 	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
 	const [streamEntries, setStreamEntries] = useState<TranscriptEntry[]>([]);
@@ -537,11 +522,11 @@ export function CommentThread({
 		}
 	});
 
-	const handleSend = async () => {
-		if (!input.trim() || sending) return;
+	const sendMessage = async (text: string, metadata?: Record<string, unknown>) => {
+		if (!text.trim() || sending) return;
 		setSending(true);
 		try {
-			await postComment(experiment.id, input.trim());
+			await postComment(experiment.id, text.trim(), metadata);
 			setInput("");
 			pendingSendRef.current = true;
 			refresh();
@@ -554,6 +539,22 @@ export function CommentThread({
 			setSending(false);
 		}
 	};
+
+	const handleSend = () => sendMessage(input);
+
+	// Auto-send from external events (e.g. Paper Trade button).
+	// Posted as system author with hidden metadata so it doesn't
+	// affect the agent's language detection.
+	const sendMessageRef = useRef(sendMessage);
+	sendMessageRef.current = sendMessage;
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const text = (e as CustomEvent<string>).detail;
+			if (text) sendMessageRef.current(text, { hidden: true, systemAuthor: true });
+		};
+		window.addEventListener("quantdesk:send-chat", handler);
+		return () => window.removeEventListener("quantdesk:send-chat", handler);
+	}, []);
 
 	return (
 		<div className="flex flex-col h-full">
@@ -735,6 +736,8 @@ export function CommentThread({
 						isChild = false,
 						inTurnCard = false,
 					): ReactNode => {
+						// Hide system-generated action messages (e.g. Paper Trade button)
+						if ((c.metadata as Record<string, unknown> | null)?.hidden) return null;
 						const config = authorConfig[c.author] ?? authorConfig.system!;
 						const Icon = config.icon;
 						const cleanContent = stripAuthorPrefixes(c.content).trim();

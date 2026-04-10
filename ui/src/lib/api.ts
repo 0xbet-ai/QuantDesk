@@ -198,11 +198,19 @@ export const listExperimentTurns = (experimentId: string) =>
 	api<AgentTurnRow[]>(`/experiments/${experimentId}/turns`);
 export const listComments = (experimentId: string) =>
 	api<Comment[]>(`/experiments/${experimentId}/comments`);
-export const postComment = (experimentId: string, content: string) =>
-	api<Comment>(`/experiments/${experimentId}/comments`, {
+export const postComment = (
+	experimentId: string,
+	content: string,
+	metadata?: Record<string, unknown>,
+) => {
+	const author = metadata?.systemAuthor ? "system" : "user";
+	const cleanMeta = metadata ? { ...metadata } : undefined;
+	if (cleanMeta) delete cleanMeta.systemAuthor;
+	return api<Comment>(`/experiments/${experimentId}/comments`, {
 		method: "POST",
-		body: JSON.stringify({ author: "user", content }),
+		body: JSON.stringify({ author, content, ...(cleanMeta && Object.keys(cleanMeta).length > 0 ? { metadata: cleanMeta } : {}) }),
 	});
+};
 
 export const listStrategies = (engine?: string) =>
 	api<Strategy[]>(`/strategies${engine ? `?engine=${engine}` : ""}`);
