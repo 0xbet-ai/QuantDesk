@@ -108,7 +108,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 	// Hide failed/stopped runs from the Properties panel — users care
 	// about runs that produced a usable result. `running` is kept so the
 	// user sees the live one appear immediately.
-	const visibleRuns = runs.filter((r) => r.status !== "failed" && r.status !== "stopped");
+	const visibleRuns = runs.filter((r) => r.status !== "failed" && r.status !== "stopped" && r.mode !== "paper");
 	const selectedRun = visibleRuns.find((r) => r.id === selectedRunId) ?? null;
 	// Baseline = first COMPLETED run in runNumber order, not the first
 	// attempt. Early failed runs shouldn't become the baseline just
