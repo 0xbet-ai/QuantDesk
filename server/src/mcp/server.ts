@@ -589,16 +589,48 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				"Dispatch a Risk Manager turn against the latest run. The RM " +
 				"reads the run metrics, emits an approve/reject verdict via " +
 				"submit_rm_verdict, and the analyst is retriggered with the " +
-				"verdict in context. Requires prior user consent.",
+				"verdict in context. Requires prior user consent. " +
+				"**Call this exactly once per run.** After calling, end your " +
+				"turn — the RM runs asynchronously and you will be retriggered " +
+				"with the verdict. Do NOT call this again while waiting.",
 			inputSchema: {},
 		},
 		async () => {
 			try {
 				if (!lazyTriggerAgent) return errorResult("triggerAgent not wired");
+
+				// Guard: check if the latest run already has a verdict or if
+				// a validation is already in progress (no verdict yet but RM
+				// was already dispatched in this experiment's recent history).
+				const [latestRun] = await db
+					.select()
+					.from(runs)
+					.where(eq(runs.experimentId, ctx.experimentId))
+					.orderBy(desc(runs.runNumber))
+					.limit(1);
+				if (!latestRun) return errorResult("request_validation: no run to validate");
+
+				const result = latestRun.result as Record<string, unknown> | null;
+				const validation = result?.validation as { verdict: string } | undefined;
+				if (validation?.verdict) {
+					return textResult(
+						JSON.stringify({
+							already_validated: true,
+							verdict: validation.verdict,
+							message: `Run #${latestRun.runNumber} already has verdict: ${validation.verdict}. No need to re-validate.`,
+						}, null, 2),
+					);
+				}
+
 				void lazyTriggerAgent(ctx.experimentId, "risk_manager").catch((err) => {
 					console.error("request_validation dispatch failed:", err);
 				});
-				return textResult(JSON.stringify({ dispatched: "risk_manager" }, null, 2));
+				return textResult(
+					JSON.stringify({
+						dispatched: "risk_manager",
+						message: "Risk Manager is running asynchronously. End your turn now — you will be retriggered with the verdict.",
+					}, null, 2),
+				);
 			} catch (err) {
 				return errorResult(
 					`request_validation failed: ${err instanceof Error ? err.message : String(err)}`,
