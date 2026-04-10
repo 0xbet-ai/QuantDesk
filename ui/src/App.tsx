@@ -285,7 +285,8 @@ export function App() {
 						/>
 					}
 				/>
-				<Route path="/desks/:deskId" element={<DeskRoute {...routeState} />} />
+				<Route path="/desks" element={<HomeRoute desks={desks} setShowWizard={setShowWizard} />} />
+			<Route path="/desks/:deskId" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/experiments/:expId" element={<DeskRoute {...routeState} />} />
 				<Route
 					path="/desks/:deskId/experiments/:expId/runs"
