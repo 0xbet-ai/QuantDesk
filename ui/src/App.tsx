@@ -9,6 +9,7 @@ import type { DeskPage } from "./components/DeskPanel.js";
 import { DeskPanel } from "./components/DeskPanel.js";
 import { DeskSettings } from "./components/DeskSettings.js";
 import { Layout } from "./components/Layout.js";
+import { PaperTradingView } from "./components/PaperTradingView.js";
 import { PropsPanel } from "./components/PropsPanel.js";
 import { RunDetailView } from "./components/RunDetailView.js";
 import { TurnDetailPage } from "./pages/TurnDetailPage.js";
@@ -25,6 +26,7 @@ interface RouteState {
 }
 
 function pageFromPath(path: string): DeskPage {
+	if (path.includes("/paper")) return "paper";
 	if (path.includes("/code")) return "code";
 	if (path.includes("/activity")) return "activity";
 	if (path.includes("/settings")) return "settings";
@@ -133,6 +135,8 @@ function DeskRoute({
 							refreshDesks();
 						}}
 					/>
+				) : selectedDesk && deskPage === "paper" ? (
+					<PaperTradingView desk={selectedDesk} />
 				) : selectedDesk && deskPage === "code" ? (
 					<CodeView desk={selectedDesk} />
 				) : selectedDesk && deskPage === "activity" ? (
@@ -307,7 +311,8 @@ export function App() {
 					path="/desks/:deskId/experiments/:expId/runs/:runId"
 					element={<DeskRoute {...routeState} />}
 				/>
-				<Route path="/desks/:deskId/code" element={<DeskRoute {...routeState} />} />
+				<Route path="/desks/:deskId/paper" element={<DeskRoute {...routeState} />} />
+			<Route path="/desks/:deskId/code" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/activity" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/settings" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/turns/:turnId" element={<TurnDetailPage />} />

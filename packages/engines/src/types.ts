@@ -108,6 +108,28 @@ export interface PaperStatus {
 	uptime: number;
 }
 
+export interface PaperTrade {
+	id: string;
+	pair: string;
+	side: "long" | "short";
+	openDate: string;
+	closeDate: string | null;
+	openRate: number;
+	closeRate: number | null;
+	profitAbs: number;
+	profitPct: number;
+	isOpen: boolean;
+}
+
+export interface PaperCandle {
+	time: number; // unix seconds
+	open: number;
+	high: number;
+	low: number;
+	close: number;
+	volume: number;
+}
+
 export interface EngineAdapter {
 	readonly name: string;
 	ensureImage(): Promise<void>;
@@ -116,6 +138,8 @@ export interface EngineAdapter {
 	startPaper(config: PaperConfig): Promise<PaperHandle>;
 	stopPaper(handle: PaperHandle): Promise<void>;
 	getPaperStatus(handle: PaperHandle): Promise<PaperStatus>;
+	getPaperTrades?(handle: PaperHandle): Promise<PaperTrade[]>;
+	getPaperCandles?(handle: PaperHandle, pair: string, timeframe: string): Promise<PaperCandle[]>;
 	parseResult(raw: string): NormalizedResult;
 	/**
 	 * Files to seed into a freshly-created workspace for this engine.

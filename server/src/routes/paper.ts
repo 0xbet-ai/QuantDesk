@@ -55,6 +55,53 @@ router.get("/desks/:deskId/paper/status", async (req, res) => {
 	}
 });
 
+/** GET /api/desks/:deskId/paper/trades — trade history from the running paper session. */
+router.get("/desks/:deskId/paper/trades", async (req, res) => {
+	try {
+		const session = await getActiveSession(req.params.deskId);
+		if (!session || session.status !== "running" || !session.containerName) {
+			res.json([]);
+			return;
+		}
+		const [desk] = await db.select().from(desks).where(eq(desks.id, req.params.deskId));
+		if (!desk) { res.json([]); return; }
+		const adapter = getEngineAdapter(desk.engine);
+		if (typeof adapter.getPaperTrades !== "function") { res.json([]); return; }
+		const trades = await adapter.getPaperTrades({
+			containerName: session.containerName,
+			runId: session.runId,
+			meta: (session.meta as Record<string, unknown>) ?? {},
+		});
+		res.json(trades);
+	} catch {
+		res.json([]);
+	}
+});
+
+/** GET /api/desks/:deskId/paper/candles?pair=X&timeframe=Y — candle data from the running paper session. */
+router.get("/desks/:deskId/paper/candles", async (req, res) => {
+	try {
+		const session = await getActiveSession(req.params.deskId);
+		if (!session || session.status !== "running" || !session.containerName) {
+			res.json([]);
+			return;
+		}
+		const [desk] = await db.select().from(desks).where(eq(desks.id, req.params.deskId));
+		if (!desk) { res.json([]); return; }
+		const adapter = getEngineAdapter(desk.engine);
+		if (typeof adapter.getPaperCandles !== "function") { res.json([]); return; }
+		const pair = (req.query.pair as string) || "BTC/USDT";
+		const timeframe = (req.query.timeframe as string) || "5m";
+		const candles = await adapter.getPaperCandles(
+			{ containerName: session.containerName, runId: session.runId, meta: (session.meta as Record<string, unknown>) ?? {} },
+			pair, timeframe,
+		);
+		res.json(candles);
+	} catch {
+		res.json([]);
+	}
+});
+
 /** GET /api/desks/:deskId/paper/active — get the active (running/pending) session, or null. */
 router.get("/desks/:deskId/paper/active", async (req, res) => {
 	try {
