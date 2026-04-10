@@ -96,10 +96,9 @@ export class NautilusAdapter implements EngineAdapter {
 	}
 
 	async downloadData(_config: DataConfig): Promise<DataRef> {
-		// Nautilus has no managed server-side downloader. Realtime strategies
-		// fetch their own tick/book data from within the workspace (see
-		// mode-realtime prompt). Throwing here lets the MCP data_fetch tool
-		// return a clear error so the agent falls through to Path B.
+		// Nautilus has no managed server-side downloader. The agent writes
+		// its own fetcher script and runs it via run_script. Throwing here
+		// lets the MCP data_fetch tool return a clear error.
 		throw new Error(
 			"nautilus engine has no server-side downloader. Fetch data yourself and call register_dataset.",
 		);

@@ -115,7 +115,7 @@ Both tools execute an agent-authored script inside the `quantdesk/generic` sandb
 5. `run_backtest({ ... })` → `runs` row saved, metrics returned
 6. React to the metrics on the same turn
 
-On managed-engine desks, step 1-3 is only needed as the Path B fallback when the server-side `data_fetch` downloader fails for the venue. Path A (`data_fetch`) is the default.
+Data fetching (steps 1-3) is always the agent's responsibility. The agent must ask the user for confirmation before fetching. See the "Data acquisition" section in the tools-glossary prompt.
 
 Agent-authored scripts must ALWAYS go through one of these two tools. The `Bash` tool is for workspace housekeeping only (`ls`, `cat`, `git`, inspecting files) — never for executing scripts the agent wrote.
 

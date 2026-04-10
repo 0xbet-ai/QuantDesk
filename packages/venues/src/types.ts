@@ -1,10 +1,9 @@
 /**
- * Schema for a per-venue Path B fetch guide.
+ * Schema for a per-venue data-fetch guide.
  *
  * A guide is a small, opinionated cheatsheet the analyst agent consults
- * when the engine's bundled downloader (Path A) fails and the agent has
- * to fetch OHLCV data itself. One guide = one venue = one verified
- * recipe.
+ * when writing a fetcher script for a venue. One guide = one venue =
+ * one verified recipe.
  *
  * See `packages/venues/README.md` for the editorial guidelines and
  * `src/_example.ts` for a starting template.
@@ -24,9 +23,9 @@ export interface VenueGuide {
 	displayName: string;
 
 	/**
-	 * One paragraph. The shortest known-good route to OHLCV data when
-	 * Path A fails. Be prescriptive — the agent will follow this
-	 * literally. Do NOT hedge with "you could also try X".
+	 * One paragraph. The shortest known-good route to data for this
+	 * venue. Be prescriptive — the agent will follow this literally.
+	 * Do NOT hedge with "you could also try X".
 	 */
 	tldr: string;
 

@@ -70,7 +70,7 @@ export function getVenueGuide(venue: string): VenueGuide | null {
 
 /**
  * Render a guide as the markdown file that will be seeded into a
- * desk workspace at `.quantdesk/PATH_B_FETCH_<venue>.md`. The
+ * desk workspace at `.quantdesk/VENUE_FETCH_GUIDE_<venue>.md`. The
  * analyst reads this exact file; the rendering step is the only
  * place the on-disk format is defined.
  */

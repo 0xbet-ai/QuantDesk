@@ -28,8 +28,8 @@ export interface InitWorkspaceOptions {
 	 */
 	venue?: string;
 	/**
-	 * Full venue list for the desk. Used to seed per-venue Path B fetch
-	 * guides from `packages/venues/` into `<workspace>/.quantdesk/`.
+	 * Full venue list for the desk. Used to seed per-venue fetch guides
+	 * from `packages/venues/` into `<workspace>/.quantdesk/`.
 	 * Falls back to `[venue]` when omitted.
 	 */
 	venues?: readonly string[];
@@ -70,9 +70,9 @@ export async function initWorkspace(
 		await git(dir, "commit", "-m", '"Initial workspace setup"');
 	}
 
-	// Seed per-venue Path B fetch guides (optional reference catalog).
+	// Seed per-venue fetch guides (optional reference catalog).
 	// Missing guides are silently skipped; the agent falls back to the
-	// generic Path B instructions in the mode-classic prompt block.
+	// generic data acquisition instructions in the tools-glossary block.
 	const venueList = options.venues ?? (options.venue ? [options.venue] : []);
 	const guides = loadVenueGuides(venueList);
 	if (guides.length > 0) {
@@ -82,7 +82,7 @@ export async function initWorkspace(
 			await writeFile(join(guideDir, guide.workspaceFilename), guide.content);
 		}
 		await git(dir, "add", "-A");
-		await git(dir, "commit", "-m", '"chore: seed venue Path B guides"');
+		await git(dir, "commit", "-m", '"chore: seed venue fetch guides"');
 	}
 
 	return dir;
