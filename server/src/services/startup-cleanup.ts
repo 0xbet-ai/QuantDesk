@@ -84,13 +84,20 @@ export async function cleanupStaleAgentRuns(): Promise<void> {
  */
 export async function reconcileOrphanAgentTurns(): Promise<void> {
 	try {
-		// Every row still in `running` at boot belongs to a subprocess
-		// from the previous server process — see the module header for
-		// why we don't try to preserve "fresh heartbeat" turns.
+		// Every row still in `running` or `awaiting_validation` at boot
+		// belongs to a subprocess from the previous server process — see
+		// the module header for why we don't try to preserve them.
+		// `awaiting_validation` turns had an RM dispatch in-flight that
+		// died with the server; leaving them blocks future analyst triggers.
 		const toMark = await db
 			.select()
 			.from(agentTurns)
-			.where(and(eq(agentTurns.status, "running"), isNull(agentTurns.endedAt)));
+			.where(
+				and(
+					inArray(agentTurns.status, ["running", "awaiting_validation"]),
+					isNull(agentTurns.endedAt),
+				),
+			);
 		for (const row of toMark) {
 			await db
 				.update(agentTurns)
