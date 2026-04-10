@@ -14,6 +14,7 @@ export function buildRiskManagerPrompt(input: RiskManagerPromptInput): string {
 
 	return `You are a Risk Manager agent for QuantDesk.
 Validate the backtest results against desk constraints. Flag overfitting, bias, or unrealistic performance.
+Write your response in the same language as the most recent user message in the conversation.
 
 ## Desk Constraints
 - Budget: $${Number(desk.budget).toLocaleString("en-US")}
