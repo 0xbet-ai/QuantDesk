@@ -287,6 +287,11 @@ function buildMcpConfigForTurn(experimentId: string, deskId: string): string {
 
 export type AgentRole = "analyst" | "risk_manager";
 
+export interface TriggerAgentOptions {
+	validationRunId?: string;
+	validationRunNumber?: number;
+}
+
 /**
  * Trigger the agent for a given experiment, optionally as a non-default
  * role. Defaults to `"analyst"` for backward compatibility — every existing
@@ -301,6 +306,7 @@ export type AgentRole = "analyst" | "risk_manager";
 export async function triggerAgent(
 	experimentId: string,
 	role: AgentRole = "analyst",
+	options: TriggerAgentOptions = {},
 ): Promise<void> {
 	// 0. Honour an explicit Stop. stoppedExperiments gets cleared on the
 	// next user comment, so this blocks server-side auto-retriggers (dead-
@@ -308,6 +314,21 @@ export async function triggerAgent(
 	// without requiring every caller to remember the check.
 	if (stoppedExperiments.has(experimentId)) {
 		return;
+	}
+	if (role === "analyst") {
+		const [awaitingValidationTurn] = await db
+			.select({ id: agentTurns.id })
+			.from(agentTurns)
+			.where(
+				and(
+					eq(agentTurns.experimentId, experimentId),
+					eq(agentTurns.status, "awaiting_validation"),
+				),
+			)
+			.limit(1);
+		if (awaitingValidationTurn) {
+			return;
+		}
 	}
 
 	// 1. Load experiment + desk
@@ -435,6 +456,30 @@ export async function triggerAgent(
 				});
 
 			const runner = new AgentRunner(adapter, streamingSpawn);
+			const validationRun =
+				role === "risk_manager"
+					? ((options.validationRunId
+							? expRuns.find((run) => run.id === options.validationRunId)
+							: undefined) ?? [...expRuns].sort((a, b) => b.runNumber - a.runNumber)[0])
+					: undefined;
+			const validationRunResult = validationRun?.result as {
+				metrics: {
+					key: string;
+					label: string;
+					value: number;
+					format: string;
+					tone?: string;
+				}[];
+			} | null;
+			// Root cause: RM turns were launched without the selected run's
+			// metrics, so the runner fell back to the analyst prompt instead of
+			// a validation prompt for the requested run.
+			if (
+				role === "risk_manager" &&
+				(!validationRunResult || !Array.isArray(validationRunResult.metrics))
+			) {
+				throw new Error("Risk Manager triggered without a valid run to validate.");
+			}
 
 			const result = await runner.run({
 				desk: {
@@ -465,6 +510,8 @@ export async function triggerAgent(
 				memorySummaries: memories.map((m) => ({ level: m.level, content: m.content })),
 				sessionId: session.sessionId ?? undefined,
 				agentRole: session.agentRole as "analyst" | "risk_manager",
+				runResult: validationRunResult ?? undefined,
+				validationRunNumber: validationRun?.runNumber,
 				mcpConfigPath: mcpConfigPath ?? undefined,
 				settingsPath,
 			});
@@ -486,10 +533,7 @@ export async function triggerAgent(
 				try {
 					const changed = await hasChanges(desk.workspacePath);
 					if (changed) {
-						const ts = new Date()
-							.toISOString()
-							.replace("T", " ")
-							.slice(0, 16);
+						const ts = new Date().toISOString().replace("T", " ").slice(0, 16);
 						await commitCode(
 							desk.workspacePath,
 							`Agent: Experiment #${experiment.number} — ${experiment.title} (${ts})`,
@@ -534,10 +578,7 @@ export async function triggerAgent(
 						.from(deskDatasets)
 						.innerJoin(datasets, eq(deskDatasets.datasetId, datasets.id))
 						.where(
-							and(
-								eq(deskDatasets.deskId, desk.id),
-								gte(deskDatasets.createdAt, turn!.startedAt),
-							),
+							and(eq(deskDatasets.deskId, desk.id), gte(deskDatasets.createdAt, turn!.startedAt)),
 						);
 					const runsThisTurn = await db
 						.select({ id: runs.id, runNumber: runs.runNumber })
@@ -583,11 +624,23 @@ export async function triggerAgent(
 			// (`didCallTool` tracked from streaming tool_call chunks). If no
 			// tool call AND the response is a bare acknowledgment, the
 			// guard posts a forcing system comment and retriggers.
-			const shouldRescue = await maybeRescueDeadEnd({
-				experimentId,
-				resultText: result.resultText,
-				hadMarker: didCallTool,
-			});
+			const [currentTurnBeforeRescue] = await db
+				.select({ status: agentTurns.status })
+				.from(agentTurns)
+				.where(eq(agentTurns.id, turnId))
+				.limit(1);
+			// Root cause: dead-end rescue only trusted streamed tool-call
+			// chunks. When `request_validation` did not surface as a parsed
+			// chunk, the analyst was retriggered even though the turn had
+			// already transitioned into `awaiting_validation`.
+			const shouldRescue =
+				currentTurnBeforeRescue?.status === "awaiting_validation"
+					? false
+					: await maybeRescueDeadEnd({
+							experimentId,
+							resultText: result.resultText,
+							hadMarker: didCallTool,
+						});
 			if (shouldRescue) {
 				publishExperimentEvent({ experimentId, type: "comment.new", payload: {} });
 				void triggerAgent(experimentId).catch((err) => {
@@ -617,9 +670,7 @@ export async function triggerAgent(
 				await systemComment({
 					experimentId,
 					nextAction: "action",
-					content:
-						`Agent turn failed: ${turnFailureReason}. ` +
-						"Reply with a new instruction to continue.",
+					content: `Agent turn failed: ${turnFailureReason}. Reply with a new instruction to continue.`,
 				});
 				publishExperimentEvent({ experimentId, type: "comment.new", payload: {} });
 			} catch (commentErr) {
