@@ -168,6 +168,8 @@ export function CommentThread({
 	// Only a new turn (next `agent.thinking` / `turn.status=running`) or an
 	// explicit user send resets it.
 	const [turnStatus, setTurnStatus] = useState<TurnLifecycleStatus | null>(null);
+	const turnStatusRef = useRef(turnStatus);
+	turnStatusRef.current = turnStatus;
 	const [turnFailureReason, setTurnFailureReason] = useState<string | null>(null);
 	const [currentTurnId, setCurrentTurnId] = useState<string | null>(null);
 	// Phase 27 step 8 — live docker log tail from the engine container for
@@ -403,6 +405,13 @@ export function CommentThread({
 	useLiveUpdates(experiment.id, (event) => {
 		if (event.type === "agent.thinking") {
 			const role = (event.payload as { agentRole?: string }).agentRole ?? "analyst";
+			// During awaiting_validation, the RM turn runs silently —
+			// don't replace the Analyst's "Validating" card with a new
+			// RM running card. Just keep thinkingRole so input stays locked.
+			if (turnStatusRef.current === "awaiting_validation" && role === "risk_manager") {
+				setThinkingRole("risk_manager");
+				return;
+			}
 			setThinkingRole(role);
 			setStreamEntries([]);
 			setRunStartedAt(new Date());
@@ -516,9 +525,15 @@ export function CommentThread({
 			// card into a terminal visual state, but it stays mounted so the
 			// user can see "the agent finished" rather than watch the widget
 			// vanish and wonder if it died.
-			setThinkingRole(null);
-			setRunStartedAt(null);
-			setTurnStatus((prev) => (prev && prev !== "running" ? prev : "completed"));
+			// If the turn is awaiting_validation, do NOT clear thinkingRole —
+			// the input must stay locked until the RM verdict arrives.
+			if (turnStatusRef.current === "awaiting_validation") {
+				// RM's agent.done — keep input locked, don't touch status.
+			} else {
+				setTurnStatus((prev) => (prev && prev !== "running" ? prev : "completed"));
+				setThinkingRole(null);
+				setRunStartedAt(null);
+			}
 			refresh();
 		}
 		if (event.type === "comment.new") {
