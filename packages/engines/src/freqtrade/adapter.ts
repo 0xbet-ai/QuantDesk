@@ -284,10 +284,36 @@ export class FreqtradeAdapter implements EngineAdapter {
 			],
 		});
 
+		// Wait for the API server to be ready, then tell the bot to start
+		// trading. Freqtrade launches with state=STOPPED when an api_server
+		// is configured — it waits for an explicit /api/v1/start call.
+		const apiUrl = `http://127.0.0.1:${hostApiPort}`;
+		const auth = `Basic ${Buffer.from("quantdesk:quantdesk").toString("base64")}`;
+		for (let attempt = 0; attempt < 30; attempt++) {
+			try {
+				const res = await fetch(`${apiUrl}/api/v1/ping`, {
+					headers: { Authorization: auth },
+					signal: AbortSignal.timeout(2000),
+				});
+				if (res.ok) {
+					// API is ready — start the bot
+					await fetch(`${apiUrl}/api/v1/start`, {
+						method: "POST",
+						headers: { Authorization: auth },
+						signal: AbortSignal.timeout(3000),
+					});
+					break;
+				}
+			} catch {
+				// API not ready yet
+			}
+			await new Promise((r) => setTimeout(r, 1000));
+		}
+
 		return {
 			containerName,
 			runId: config.runId,
-			meta: { apiPort: hostApiPort, apiUrl: `http://127.0.0.1:${hostApiPort}` },
+			meta: { apiPort: hostApiPort, apiUrl },
 		};
 	}
 
