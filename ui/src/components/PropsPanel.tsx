@@ -357,7 +357,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 										isApproved
 											? () => handleStartPaper(bestRun.id)
 											: !verdict
-												? () => window.dispatchEvent(new CustomEvent("quantdesk:prefill-chat", { detail: `Run #${bestRun.runNumber} 검증해줘` }))
+												? () => window.dispatchEvent(new CustomEvent("quantdesk:prefill-chat", { detail: `Validate Run #${bestRun.runNumber}` }))
 												: undefined
 									}
 									disabled={startingPaper || verdict === "reject"}
