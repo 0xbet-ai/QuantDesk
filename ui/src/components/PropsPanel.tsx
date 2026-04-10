@@ -170,8 +170,8 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 										return (
 											<tr
 												key={run.id}
-												onClick={() => setSelectedRunId(run.id)}
-												onKeyDown={(e) => e.key === "Enter" && setSelectedRunId(run.id)}
+												onClick={() => setSelectedRunId((prev) => prev === run.id ? null : run.id)}
+												onKeyDown={(e) => e.key === "Enter" && setSelectedRunId((prev) => prev === run.id ? null : run.id)}
 												className={cn(
 													"cursor-pointer transition-colors border-b border-border/50",
 													run.id === selectedRunId
