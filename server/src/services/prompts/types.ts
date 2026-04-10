@@ -62,4 +62,6 @@ export interface RiskManagerPromptInput {
 	desk: DeskContext;
 	runNumber: number;
 	runResult: { metrics: MetricEntry[] };
+	/** Language hint derived from the last user comment, e.g. "Korean", "English". */
+	userLanguageHint?: string;
 }
