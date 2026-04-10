@@ -3,11 +3,10 @@ import { db } from "@quantdesk/db";
 import { desks } from "@quantdesk/db/schema";
 import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
 import { eq } from "drizzle-orm";
-import { publishExperimentEvent } from "../realtime/live-events.js";
 import {
 	getActiveSession,
 	getLatestSession,
-	stopSession,
+	stopPaper,
 } from "../services/paper-sessions.js";
 import { goPaper } from "../services/runs.js";
 
@@ -130,40 +129,12 @@ router.post("/desks/:deskId/paper/start", async (req, res) => {
 /** POST /api/desks/:deskId/paper/stop — stop the active paper session. */
 router.post("/desks/:deskId/paper/stop", async (req, res) => {
 	try {
-		const session = await getActiveSession(req.params.deskId);
-		if (!session) {
-			res.status(404).json({ error: "no active paper session" });
-			return;
-		}
-
-		const [desk] = await db
-			.select()
-			.from(desks)
-			.where(eq(desks.id, req.params.deskId));
-		if (desk) {
-			const engineAdapter = getEngineAdapter(desk.engine);
-			try {
-				await engineAdapter.stopPaper({
-					containerName: session.containerName ?? "",
-					runId: session.runId,
-					meta: (session.meta as Record<string, unknown>) ?? {},
-				});
-			} catch {
-				// Container may already be gone.
-			}
-		}
-
-		await stopSession(session.id);
-
-		publishExperimentEvent({
-			experimentId: session.experimentId,
-			type: "paper.status",
-			payload: { sessionId: session.id, status: "stopped" },
-		});
-
-		res.json({ stopped: true, sessionId: session.id });
+		const result = await stopPaper(req.params.deskId);
+		res.json({ stopped: true, sessionId: result.sessionId });
 	} catch (err) {
-		res.status(500).json({ error: (err as Error).message });
+		const msg = (err as Error).message;
+		const status = msg.includes("No active") ? 404 : 500;
+		res.status(status).json({ error: msg });
 	}
 });
 

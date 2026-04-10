@@ -4,7 +4,7 @@ import { listByLabel } from "@quantdesk/engines/docker";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { systemComment } from "./comments.js";
-import { failSession } from "./paper-sessions.js";
+import { failSessionInternal } from "./paper-sessions.js";
 
 /**
  * Boot-time reconcile policy: any `agent_turns` row left in `running`
@@ -185,7 +185,20 @@ export async function reconcilePaperSessions(): Promise<void> {
 			// paper status polling (if enabled) will detect dead containers.
 			return;
 		}
-		const liveNames = new Set(liveContainers.map((c) => c.name));
+		// Only truly running containers count as "alive". Exited containers
+		// should not keep a DB session in "running" state (issue #4).
+		const runningContainers = liveContainers.filter((c) => c.state === "running");
+		const liveNames = new Set(runningContainers.map((c) => c.name));
+
+		// Remove exited/dead paper containers (they won't restart).
+		const exitedContainers = liveContainers.filter((c) => c.state !== "running");
+		if (exitedContainers.length > 0) {
+			const { removeContainer } = await import("@quantdesk/engines/docker");
+			for (const c of exitedContainers) {
+				try { await removeContainer(c.name); } catch { /* already gone */ }
+			}
+			console.log(`[startup] Cleaned ${exitedContainers.length} exited paper container(s)`);
+		}
 
 		// 2. Get DB sessions that claim to be running.
 		const dbRunning = await db
@@ -203,7 +216,7 @@ export async function reconcilePaperSessions(): Promise<void> {
 				kept++;
 			} else {
 				// Case 2: container vanished — mark failed.
-				await failSession(session.id, "container_vanished_during_downtime");
+				await failSessionInternal(session.id, session.experimentId, "container_vanished_during_downtime");
 				await systemComment({
 					experimentId: session.experimentId,
 					nextAction: "action",
