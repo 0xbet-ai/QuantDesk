@@ -349,7 +349,6 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 								</div>
 							</div>
 						) : bestRun ? (() => {
-							const val = bestRun.result?.metrics?.[0]?.value;
 							const verdict = bestRun.result?.validation?.verdict;
 							const isApproved = verdict === "approve";
 							const sendPaper = () => {
