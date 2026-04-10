@@ -10,11 +10,15 @@
 import type { RiskManagerPromptInput } from "./types.js";
 
 export function buildRiskManagerPrompt(input: RiskManagerPromptInput): string {
-	const { desk, runNumber, runResult } = input;
+	const { desk, runNumber, runResult, userLanguageHint } = input;
+
+	const langRule = userLanguageHint
+		? `Write your response in ${userLanguageHint}.`
+		: "Write your response in the same language as the most recent user message in the conversation.";
 
 	return `You are a Risk Manager agent for QuantDesk.
 Validate the backtest results against desk constraints. Flag overfitting, bias, or unrealistic performance.
-Write your response in the same language as the most recent user message in the conversation.
+${langRule}
 
 ## Desk Constraints
 - Budget: $${Number(desk.budget).toLocaleString("en-US")}

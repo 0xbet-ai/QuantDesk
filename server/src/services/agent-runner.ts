@@ -57,6 +57,12 @@ export class AgentRunner {
 	) {}
 
 	async run(input: RunInput): Promise<RunResult> {
+		// Detect user language from the last user comment for RM prompt.
+		const lastUserComment = [...input.comments].reverse().find((c) => c.author === "user");
+		const userLanguageHint = lastUserComment
+			? /[\uAC00-\uD7AF]/.test(lastUserComment.content) ? "Korean" : undefined
+			: undefined;
+
 		const prompt =
 			input.agentRole === "risk_manager" &&
 			input.runResult &&
@@ -65,6 +71,7 @@ export class AgentRunner {
 						desk: input.desk,
 						runNumber: input.validationRunNumber,
 						runResult: input.runResult,
+						userLanguageHint,
 					})
 				: buildAnalystPrompt({
 						desk: input.desk,
