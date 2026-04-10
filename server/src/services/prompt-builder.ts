@@ -155,7 +155,7 @@ ${desk.description ?? ""}
 		// agent was away. Previously this branch filtered out `system`
 		// authors and kept only the last user comment, which meant the agent
 		// resumed blind after every approval/failure and had no way to react
-		// (e.g. pivot to Path B on a data-fetch failure).
+		// (e.g. pivot to a different fetch approach on a data failure).
 		let lastAnalystIdx = -1;
 		for (let i = comments.length - 1; i >= 0; i--) {
 			if (comments[i]!.author === "analyst") {

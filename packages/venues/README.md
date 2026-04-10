@@ -1,11 +1,10 @@
-# `@quantdesk/venues` — Path B fetch guide registry
+# `@quantdesk/venues` — per-venue data-fetch guide registry
 
 This package holds optional, venue-specific cheatsheets that an analyst
-agent consults when the engine's bundled downloader (**Path A**) fails
-and the agent has to fetch OHLCV data itself (**Path B**). Each guide
-is a TypeScript module; the server renders it to markdown at desk
-creation and seeds the rendered file into the workspace at
-`.quantdesk/PATH_B_FETCH_<venue>.md`.
+agent consults when writing a fetcher script to download market data.
+Each guide is a TypeScript module; the server renders it to markdown at
+desk creation and seeds the rendered file into the workspace at
+`.quantdesk/VENUE_FETCH_GUIDE_<venue>.md`.
 
 Guides live as TS (not `.md`) so they ship as ordinary compiled code
 with the rest of the server — no filesystem catalog to bundle, no
@@ -54,15 +53,15 @@ calls `loadVenueGuides(desk.venues)`, which:
    `getVenueGuide(venue)` from `@quantdesk/venues`.
 2. For any venue that returns a guide, renders it with
    `renderVenueGuideMarkdown(...)` and writes the result to
-   `<workspace>/.quantdesk/PATH_B_FETCH_<venue>.md`.
+   `<workspace>/.quantdesk/VENUE_FETCH_GUIDE_<venue>.md`.
 3. Commits the file into the desk's workspace git repo so the
    seed-file timeline is reproducible.
 
-The analyst's `mode-classic` prompt block tells the agent: *"Before
-following the generic Path B steps, check whether
-`.quantdesk/PATH_B_FETCH_<venue>.md` exists and prefer its
-venue-specific instructions."* Missing venues degrade silently — the
-agent follows the generic fallback as before.
+The tools-glossary prompt block tells the agent: *"Read any
+`.quantdesk/VENUE_FETCH_GUIDE_<venue>.md` guide in the workspace —
+prefer its venue-specific instructions when writing your fetcher
+script."* Missing venues degrade silently — the agent follows the
+generic data acquisition steps as before.
 
 Critically, the agent reads the guide from **inside its workspace**,
 never from this package directly. The per-turn Claude settings file
@@ -141,7 +140,7 @@ the file rather than commit unverified placeholder text.**
 ```bash
 pnpm -r typecheck
 git add packages/venues/src/<venue-id>.ts packages/venues/src/index.ts
-git commit -m "feat(venues): add <venue> Path B fetch guide"
+git commit -m "feat(venues): add <venue> data-fetch guide"
 ```
 
 No migration, no prompt edit, no server restart handling — the server
@@ -153,14 +152,13 @@ Create a new desk that uses the venue, then check:
 
 ```bash
 ls ~/.quantdesk/workspaces/<deskId>/.quantdesk/
-# expect: PATH_B_FETCH_<venue>.md
+# expect: VENUE_FETCH_GUIDE_<venue>.md
 
-cat ~/.quantdesk/workspaces/<deskId>/.quantdesk/PATH_B_FETCH_<venue>.md
+cat ~/.quantdesk/workspaces/<deskId>/.quantdesk/VENUE_FETCH_GUIDE_<venue>.md
 ```
 
 The file should contain your rendered guide. To confirm the agent
-actually reads it during a Path B scenario, tail the experiment log
-while triggering a Path A failure:
+actually reads it, tail the experiment log:
 
 ```bash
 tail -f "$(ls -t ~/.quantdesk/logs/*.jsonl | head -1)" \
@@ -174,7 +172,7 @@ tail -f "$(ls -t ~/.quantdesk/logs/*.jsonl | head -1)" \
   not here. A venue guide describes *how to fetch*, not *where to save*.
 - **This is not a whitelist.** Desks with venues that have no guide
   still work exactly as before — the agent falls back to the generic
-  Path B text in `mode-classic.ts`.
+  data acquisition text in the tools-glossary.
 - **This is not a live data source.** Guides are static hints. The
   agent still runs actual fetch code and handles runtime failures.
 - **Existing desks don't retro-receive new guides.** A desk's
@@ -189,9 +187,9 @@ tail -f "$(ls -t ~/.quantdesk/logs/*.jsonl | head -1)" \
 - Building a universal venue adapter layer. If that's needed one day,
   it'll live somewhere else — this package stays focused on
   human-authored cheatsheets for the agent to read.
-- Mapping venue × engine combinations. The engine side of Path B
-  (where to save fetched data so the framework picks it up) is the
-  engine adapter's concern.
+- Mapping venue × engine combinations. The engine side of data
+  fetching (where to save fetched data so the framework picks it up)
+  is the engine adapter's concern.
 - Auto-generating guides from ccxt metadata. Generated text isn't
   verified text, and the whole point of this catalog is that every
   guide has been run against the live venue.
