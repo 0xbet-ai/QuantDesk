@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ActivityView } from "./components/ActivityView.js";
 import { CodeView } from "./components/CodeView.js";
@@ -152,7 +152,7 @@ function DeskRoute({
 					/>
 				) : selectedDesk ? (
 					<div className="flex-1 flex items-center justify-center text-[13px] text-foreground/50">
-						{experiments.length === 0 ? "No experiments yet" : "Loading..."}
+						{expId || experiments.length === 0 ? "Loading..." : "No experiments yet"}
 					</div>
 				) : (
 					<div className="flex-1 flex items-center justify-center text-[13px] text-foreground/50">
@@ -238,11 +238,16 @@ export function App() {
 		}
 	}, [deskId]);
 
-	// Clear stale experiments immediately when switching desks so the
+	// Clear stale experiments when switching to a DIFFERENT desk so the
 	// auto-select effect doesn't navigate to an experiment id that
-	// belongs to the previous desk.
+	// belongs to the previous desk. Skips the clear on same-desk
+	// refreshes (deskId unchanged) to avoid a flash of "Loading...".
+	const prevDeskIdRef = useRef(deskId);
 	useEffect(() => {
-		setExperiments([]);
+		if (deskId !== prevDeskIdRef.current) {
+			setExperiments([]);
+			prevDeskIdRef.current = deskId;
+		}
 	}, [deskId]);
 
 	useEffect(() => {
