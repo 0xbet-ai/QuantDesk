@@ -63,7 +63,10 @@ function DeskRoute({
 	// recent experiment. Runs on every page (not just "experiments") so
 	// that navigating to a desk always lands on a concrete experiment.
 	useEffect(() => {
-		if (deskId && !expId && experiments.length > 0) {
+		if (!deskId || experiments.length === 0) return;
+		// No expId in URL, or expId doesn't match any experiment in this desk
+		const needsRedirect = !expId || !experiments.find((e) => e.id === expId);
+		if (needsRedirect) {
 			const lastExpId = localStorage.getItem(`quantdesk.lastExpId.${deskId}`);
 			const target =
 				experiments.find((e) => e.id === lastExpId) ?? experiments[experiments.length - 1]!;
