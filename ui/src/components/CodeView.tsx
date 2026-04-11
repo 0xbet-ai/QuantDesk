@@ -5,7 +5,6 @@ import { useTheme } from "../context/ThemeContext.js";
 import type { CommitInfo, Desk } from "../lib/api.js";
 import { getCodeDiff, getCodeFile, getCodeFiles, getCodeLog } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
-import { ScrollArea } from "./ui/scroll-area.js";
 
 interface Props {
 	desk: Desk;
@@ -138,7 +137,7 @@ function DiffView({ rawDiff }: { rawDiff: string }) {
 
 					{/* Hunks */}
 					<div className="overflow-x-auto">
-						<table className="w-full text-[12px] leading-5 font-mono border-collapse">
+						<table className="min-w-full text-[12px] leading-5 font-mono border-collapse">
 							<tbody>
 								{file.hunks.map((hunk, hi) => (
 									<HunkRows key={`hunk-${hi}`} hunk={hunk} />
@@ -177,7 +176,7 @@ function HunkRows({ hunk }: { hunk: DiffHunk }) {
 					<td className="w-10 text-right pr-1 select-none text-muted-foreground/40 text-[11px] align-top border-r border-border/20">
 						{line.newNum ?? ""}
 					</td>
-					<td className="px-3 whitespace-pre-wrap">
+					<td className="px-3 whitespace-pre">
 						<span
 							className={cn(
 								"select-none mr-2",
@@ -358,40 +357,59 @@ export function CodeView({ desk }: Props) {
 							<History className="size-3" />
 							Commits
 						</div>
-						<ScrollArea className="max-h-[40%] border-b border-border">
-							{commits.map((c) => (
-								<button
-									key={c.hash}
-									type="button"
-									onClick={() => {
-										setSelectedCommit(c.hash);
-										setSelectedFile(null);
-									}}
-									className={cn(
-										"w-full text-left px-3 py-2 border-b border-border/30 transition-colors",
-										c.hash === selectedCommit ? "bg-accent" : "hover:bg-accent/50",
-									)}
-								>
-									<div className="flex items-center gap-1.5">
-										<GitCommit className="size-3 text-muted-foreground shrink-0" />
-										<span className="text-[11px] font-mono text-muted-foreground">
-											{c.hash.slice(0, 7)}
-										</span>
-										<span className="text-[11px] text-muted-foreground ml-auto shrink-0">
-											{formatRelativeTime(c.date)}
-										</span>
-									</div>
-									<div className="text-xs text-foreground mt-0.5 truncate">{c.message}</div>
-								</button>
-							))}
-						</ScrollArea>
+						<div className="max-h-[40%] overflow-y-auto overflow-x-hidden border-b border-border">
+							{commits.map((c) => {
+								// Extract "run #N" suffix so it can render as a
+								// shrink-0 badge pinned to the right edge instead of
+								// being hidden by `truncate` on the message line.
+								const runMatch = c.message.match(/run #\d+/i);
+								const runLabel = runMatch?.[0];
+								const messageWithoutRun = runLabel
+									? c.message.replace(/\s*·\s*run #\d+/i, "").replace(/\s*run #\d+$/i, "")
+									: c.message;
+								return (
+									<button
+										key={c.hash}
+										type="button"
+										onClick={() => {
+											setSelectedCommit(c.hash);
+											setSelectedFile(null);
+										}}
+										className={cn(
+											"w-full text-left px-3 py-2 border-b border-border/30 transition-colors",
+											c.hash === selectedCommit ? "bg-accent" : "hover:bg-accent/50",
+										)}
+									>
+										<div className="flex items-center gap-1.5 min-w-0">
+											<GitCommit className="size-3 text-muted-foreground shrink-0" />
+											<span className="text-[11px] font-mono text-muted-foreground">
+												{c.hash.slice(0, 7)}
+											</span>
+											<span className="text-[11px] text-muted-foreground ml-auto shrink-0">
+												{formatRelativeTime(c.date)}
+											</span>
+										</div>
+										<div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+											<span className="text-xs text-foreground truncate min-w-0 flex-1">
+												{messageWithoutRun}
+											</span>
+											{runLabel && (
+												<span className="text-[10px] font-mono text-muted-foreground shrink-0 bg-muted/60 rounded px-1 py-0.5">
+													{runLabel}
+												</span>
+											)}
+										</div>
+									</button>
+								);
+							})}
+						</div>
 
 						{/* Files section */}
 						<div className="px-3 py-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
 							<FileCode2 className="size-3" />
 							Files
 						</div>
-						<ScrollArea className="flex-1">
+						<div className="flex-1 overflow-y-auto overflow-x-hidden">
 							{files.map((f) => (
 								<button
 									key={f}
@@ -401,7 +419,7 @@ export function CodeView({ desk }: Props) {
 										setViewMode("files");
 									}}
 									className={cn(
-										"w-full text-left px-3 py-1.5 text-xs font-mono transition-colors",
+										"w-full text-left px-3 py-1.5 text-xs font-mono truncate transition-colors",
 										f === selectedFile && viewMode === "files"
 											? "bg-accent text-foreground"
 											: "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -410,11 +428,11 @@ export function CodeView({ desk }: Props) {
 									{f}
 								</button>
 							))}
-						</ScrollArea>
+						</div>
 					</div>
 
 					{/* Right: diff or file content */}
-					<div className="flex-1 min-w-0 flex flex-col">
+					<div className="flex-1 min-w-0 overflow-hidden flex flex-col">
 						{viewMode === "files" && selectedFile && (
 							<div className="px-4 h-10 flex items-center gap-2 text-xs text-muted-foreground border-b border-border shrink-0 bg-muted/30">
 								<FileCode2 className="size-3" />
@@ -427,7 +445,7 @@ export function CodeView({ desk }: Props) {
 								<span className="truncate">{activeCommit.message}</span>
 							</div>
 						)}
-						<ScrollArea className="flex-1">
+						<div className="flex-1 overflow-auto">
 							{viewMode === "diff" ? (
 								diffContent != null ? (
 									<DiffView rawDiff={diffContent} />
@@ -473,7 +491,7 @@ export function CodeView({ desk }: Props) {
 									Select a file to view
 								</div>
 							)}
-						</ScrollArea>
+						</div>
 					</div>
 				</div>
 			)}

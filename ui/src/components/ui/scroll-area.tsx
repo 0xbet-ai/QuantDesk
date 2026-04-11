@@ -18,6 +18,13 @@ function ScrollArea({
 			>
 				<ScrollAreaPrimitive.Thumb className="relative flex-1 rounded-full bg-border" />
 			</ScrollAreaPrimitive.Scrollbar>
+			<ScrollAreaPrimitive.Scrollbar
+				orientation="horizontal"
+				className="flex touch-none select-none p-0.5 transition-colors data-[orientation=horizontal]:h-2 data-[orientation=horizontal]:flex-col"
+			>
+				<ScrollAreaPrimitive.Thumb className="relative flex-1 rounded-full bg-border" />
+			</ScrollAreaPrimitive.Scrollbar>
+			<ScrollAreaPrimitive.Corner />
 		</ScrollAreaPrimitive.Root>
 	);
 }
