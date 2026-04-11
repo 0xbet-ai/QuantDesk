@@ -453,13 +453,18 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				);
 
 				const backtestResult = await engineAdapter.runBacktest({
-					strategyPath: args.entrypoint ?? "strategy.py",
+					// Pass agent args through verbatim. Managed adapters
+					// (freqtrade, nautilus) fall back to their own seeded
+					// conventions when these are undefined; the generic
+					// adapter throws when strategyPath is missing because
+					// it has no framework contract.
+					strategyPath: args.entrypoint,
 					workspacePath: desk.workspacePath,
 					runId,
 					dataRef: { datasetId: "", path: `${desk.workspacePath}/data` },
 					extraParams: {
-						strategy: args.strategyName ?? "QuantDeskStrategy",
-						configFile: args.configFile ?? "config.json",
+						strategy: args.strategyName,
+						configFile: args.configFile,
 					},
 					extraVolumes: externalMountVolumes,
 					onLogLine: (line, stream) => {

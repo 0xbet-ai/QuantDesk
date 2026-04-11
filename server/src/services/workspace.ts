@@ -56,12 +56,24 @@ export async function initWorkspace(
 	} else {
 		// Delegate the template to the engine adapter — the server must
 		// not hard-code per-engine file contents (CLAUDE.md rule #6).
+		// Venue is required: adapters must not invent a default exchange
+		// when one is missing, so fail loud here if the caller forgot.
+		if (!options.venue) {
+			throw new Error(
+				"initWorkspace: `venue` is required when no seedCodePath is provided — the engine adapter needs it to stamp exchange fields into the seeded config.",
+			);
+		}
+		const venue = options.venue;
 		let template: Record<string, string>;
 		try {
-			template = getEngineAdapter(engine).workspaceTemplate({ venue: options.venue });
-		} catch {
+			template = getEngineAdapter(engine).workspaceTemplate({ venue });
+		} catch (err) {
 			// Unknown engine → fall back to the generic adapter's template.
-			template = getEngineAdapter("generic").workspaceTemplate({ venue: options.venue });
+			// A real adapter failure (e.g. missing venue) should propagate —
+			// but `getEngineAdapter` throws only on unknown engine names, so
+			// catching this here is narrow and intentional.
+			if (err instanceof Error && err.message.includes("venue")) throw err;
+			template = getEngineAdapter("generic").workspaceTemplate({ venue });
 		}
 		for (const [filename, content] of Object.entries(template)) {
 			await writeFile(join(dir, filename), content);

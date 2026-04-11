@@ -174,6 +174,14 @@ export class GenericAdapter implements EngineAdapter {
 
 	async runBacktest(config: BacktestConfig): Promise<BacktestResult> {
 		await this.ensureImage();
+		if (!config.strategyPath) {
+			// The generic adapter has no framework contract and no seeded
+			// entrypoint — the agent MUST have written a script and passed
+			// its path. Silently defaulting would run nothing.
+			throw new Error(
+				"generic.runBacktest: `strategyPath` is required — the agent must pass the script path (e.g. `fetch_data.py`).",
+			);
+		}
 		const ext = extname(config.strategyPath).toLowerCase();
 		const runtime = RUNTIME_BY_EXT[ext];
 		if (!runtime) {
@@ -254,7 +262,7 @@ export class GenericAdapter implements EngineAdapter {
 		};
 	}
 
-	workspaceTemplate(_opts?: { venue?: string }): Record<string, string> {
+	workspaceTemplate(_opts: { venue: string }): Record<string, string> {
 		return {
 			"README.md": `# QuantDesk generic workspace
 
