@@ -4,7 +4,7 @@ import { listByLabel } from "@quantdesk/engines/docker";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { systemComment } from "./comments.js";
-import { failSessionInternal } from "./paper-sessions.js";
+import { attachLogStreamForReconcile, failSessionInternal } from "./paper-sessions.js";
 
 /**
  * Boot-time reconcile policy: any `agent_turns` row left in `running`
@@ -215,8 +215,16 @@ export async function reconcilePaperSessions(): Promise<void> {
 
 		for (const session of dbRunning) {
 			if (session.containerName && liveNames.has(session.containerName)) {
-				// Case 1: container is alive — keep it.
+				// Case 1: container is alive — keep it, and re-attach the
+				// freqtrade log tail so the user sees live output again
+				// after the server restart (the previous tail subprocess
+				// died with the old server process).
 				liveNames.delete(session.containerName);
+				attachLogStreamForReconcile({
+					sessionId: session.id,
+					experimentId: session.experimentId,
+					containerName: session.containerName,
+				});
 				kept++;
 			} else {
 				// Case 2: container vanished — mark failed.

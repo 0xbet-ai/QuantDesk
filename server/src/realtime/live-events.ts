@@ -14,7 +14,10 @@ export interface LiveEvent {
 		| "data_fetch.progress"
 		| "turn.status"
 		| "run.log_chunk"
-		| "paper.status";
+		| "paper.status"
+		// Line-buffered freqtrade stdout/stderr forwarded from the paper
+		// container. Payload: { sessionId, stream: "stdout"|"stderr", line }.
+		| "paper.log";
 	payload: Record<string, unknown>;
 	createdAt: string;
 }

@@ -22,15 +22,108 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { db } from "@quantdesk/db";
 import { desks, experiments, paperSessions, runs } from "@quantdesk/db/schema";
-import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
+import {
+	type LogStreamHandle,
+	followLogs,
+	getAdapter as getEngineAdapter,
+} from "@quantdesk/engines";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
+import { appendAgentLog } from "./agent-log.js";
+import { systemComment } from "./comments.js";
 
 export class PaperSessionError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = "PaperSessionError";
 	}
+}
+
+// ── Log streaming registry ─────────────────────────────────────────
+//
+// One tail subprocess per running paper session, keyed by sessionId.
+// Populated by startPaper / reconcilePaperSessions and drained by
+// stopPaper / failSessionInternal. Kept in-memory because tails don't
+// survive a server restart anyway — the boot reconcile re-attaches them
+// for every session it finds still running.
+//
+// Rationale: freqtrade writes critical signals (entry/exit RPC messages,
+// "Bot heartbeat", "Pair X not compatible" warnings, ccxt errors) to
+// stdout. Without this tail the user stares at a silent "running" badge
+// and has no way to tell a healthy bot from a zombie one — exactly the
+// failure mode that masked the BTC/USDT venue-mismatch bug for a full
+// day of paper trading.
+const paperLogStreams = new Map<string, LogStreamHandle>();
+
+/**
+ * Attach a `docker logs -f` tail to a running paper container and
+ * forward each line as a `paper.log` WebSocket event. Safe to call
+ * multiple times — the previous handle (if any) is stopped first so
+ * we never end up with duplicated output.
+ */
+function attachPaperLogStream(params: {
+	sessionId: string;
+	experimentId: string;
+	containerName: string;
+}): void {
+	const { sessionId, experimentId, containerName } = params;
+	// Tear down any leftover tail from a previous attach.
+	const prev = paperLogStreams.get(sessionId);
+	if (prev) {
+		prev.stop();
+		paperLogStreams.delete(sessionId);
+	}
+
+	const emitLine = (stream: "stdout" | "stderr", line: string) => {
+		publishExperimentEvent({
+			experimentId,
+			type: "paper.log",
+			payload: { sessionId, stream, line },
+		});
+		// Also persist into the experiment's agent log so the next
+		// agent turn can read "new since your last turn" and react to
+		// container errors without a separate tool call.
+		appendAgentLog(experimentId, {
+			ts: new Date().toISOString(),
+			type: stream === "stderr" ? "stderr" : "stdout",
+			content: line,
+		});
+	};
+
+	const handle = followLogs(containerName, {
+		tail: 0, // live only — don't re-emit history on every reconnect
+		onStdoutLine: (line) => emitLine("stdout", line),
+		onStderrLine: (line) => emitLine("stderr", line),
+		onExit: (code) => {
+			paperLogStreams.delete(sessionId);
+			if (code !== 0) {
+				emitLine("stderr", `[quantdesk] docker logs -f exited with code ${code} — tail detached`);
+			}
+		},
+	});
+	paperLogStreams.set(sessionId, handle);
+}
+
+function detachPaperLogStream(sessionId: string): void {
+	const handle = paperLogStreams.get(sessionId);
+	if (!handle) return;
+	handle.stop();
+	paperLogStreams.delete(sessionId);
+}
+
+/**
+ * Public hook for the boot reconcile (`startup-cleanup.ts`) to re-attach
+ * the log tail for a paper session that survived a server restart. The
+ * previous tail subprocess died with the parent server process, so
+ * without this the user would never see any more stdout from a
+ * container that kept running across a restart.
+ */
+export function attachLogStreamForReconcile(params: {
+	sessionId: string;
+	experimentId: string;
+	containerName: string;
+}): void {
+	attachPaperLogStream(params);
 }
 
 // ── Full lifecycle: start ────────────────────────────────────────────
@@ -141,14 +234,23 @@ export async function startPaper(runId: string) {
 			),
 		});
 	} catch (err) {
-		await failSessionInternal(
-			sessionId,
-			experiment.id,
-			err instanceof Error ? err.message : "spawn failed",
-		);
-		throw new PaperSessionError(
-			`Container spawn failed: ${err instanceof Error ? err.message : String(err)}`,
-		);
+		const msg = err instanceof Error ? err.message : String(err);
+		await failSessionInternal(sessionId, experiment.id, msg);
+		// Surface the failure to the agent as a rule #12 system comment
+		// so the next analyst turn sees "why" and can self-heal (fix
+		// config.json, retry, or escalate to the user). Without this,
+		// a failed paper start is silent — the agent just sees a
+		// vanished session row on its next fetch.
+		try {
+			await systemComment({
+				experimentId: experiment.id,
+				nextAction: "action",
+				content: `Paper trading failed to start: ${msg} Reply with how you want to proceed (fix config.json and retry, pick a different run, or investigate the container logs).`,
+			});
+		} catch {
+			/* best effort — never let comment failure mask the real error */
+		}
+		throw new PaperSessionError(`Container spawn failed: ${msg}`);
 	}
 
 	// 8. Mark session running. If this fails, stop the container.
@@ -186,6 +288,14 @@ export async function startPaper(runId: string) {
 			commitHash: run.commitHash,
 		})
 		.returning();
+
+	// 10. Attach the freqtrade log tail so every line (heartbeat, entry
+	//     signals, errors, ccxt warnings) reaches the UI in real time.
+	attachPaperLogStream({
+		sessionId,
+		experimentId: experiment.id,
+		containerName: handle.containerName,
+	});
 
 	publishExperimentEvent({
 		experimentId: experiment.id,
@@ -240,7 +350,10 @@ export async function stopPaper(deskId: string): Promise<{ sessionId: string }> 
 		}
 	}
 
-	// 2. Mark session stopped + mark paper runs stopped.
+	// 2. Detach the log tail — the container is gone or will be shortly.
+	detachPaperLogStream(session.id);
+
+	// 3. Mark session stopped + mark paper runs stopped.
 	await db
 		.update(paperSessions)
 		.set({ status: "stopped", stoppedAt: new Date() })
@@ -257,7 +370,7 @@ export async function stopPaper(deskId: string): Promise<{ sessionId: string }> 
 			),
 		);
 
-	// 3. Publish to the SESSION's experiment, not the caller's.
+	// 4. Publish to the SESSION's experiment, not the caller's.
 	publishExperimentEvent({
 		experimentId: session.experimentId,
 		type: "paper.status",
@@ -278,6 +391,9 @@ export async function failSessionInternal(
 	experimentId: string,
 	error: string,
 ): Promise<void> {
+	// Detach any attached log tail — the container is dead or about to be.
+	detachPaperLogStream(sessionId);
+
 	await db
 		.update(paperSessions)
 		.set({ status: "failed", stoppedAt: new Date(), error })
