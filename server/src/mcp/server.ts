@@ -114,7 +114,11 @@ interface ValidationRequestMetadata {
 	};
 }
 
-async function findValidationRun(experimentId: string, runId?: string) {
+async function findValidationRun(
+	experimentId: string,
+	runId?: string,
+	runNumber?: number,
+) {
 	if (runId) {
 		const [requestedRun] = await db
 			.select()
@@ -122,6 +126,15 @@ async function findValidationRun(experimentId: string, runId?: string) {
 			.where(and(eq(runs.experimentId, experimentId), eq(runs.id, runId)))
 			.limit(1);
 		return requestedRun ?? null;
+	}
+
+	if (runNumber != null) {
+		const [byNumber] = await db
+			.select()
+			.from(runs)
+			.where(and(eq(runs.experimentId, experimentId), eq(runs.runNumber, runNumber)))
+			.limit(1);
+		return byNumber ?? null;
 	}
 
 	const [latestRun] = await db
@@ -622,19 +635,28 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		{
 			description:
 				"Dispatch a Risk Manager turn against a specific run (or the latest " +
-				"run when runId is omitted). The RM " +
+				"run when neither runId nor runNumber is given). The RM " +
 				"reads the run metrics, emits an approve/reject verdict via " +
 				"submit_rm_verdict, and the analyst is retriggered with the " +
 				"verdict in context. Requires prior user consent. " +
 				"**Call this exactly once per run.** After calling, end your " +
 				"turn — the RM runs asynchronously and you will be retriggered " +
-				"with the verdict. Do NOT call this again while waiting.",
+				"with the verdict. Do NOT call this again while waiting. " +
+				"Prefer `runNumber` (the human-readable Run #N from Run History) " +
+				"when the user names a specific run; UUIDs are not exposed in " +
+				"the prompt.",
 			inputSchema: {
 				runId: z
 					.string()
 					.uuid()
 					.optional()
-					.describe("Optional explicit run to validate. Defaults to the latest run."),
+					.describe("Optional explicit run UUID. Usually unavailable from prompt context."),
+				runNumber: z
+					.number()
+					.int()
+					.positive()
+					.optional()
+					.describe("Optional run number (Run #N) — preferred way to target a specific run."),
 			},
 		},
 		async (args) => {
@@ -643,10 +665,14 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 
 				// Root cause: validation always walked `latestRun`, so a newer run
 				// could silently steal RM review from the run the analyst named.
-				const targetRun = await findValidationRun(ctx.experimentId, args.runId);
+				const targetRun = await findValidationRun(
+					ctx.experimentId,
+					args.runId,
+					args.runNumber,
+				);
 				if (!targetRun) {
 					return errorResult(
-						args.runId
+						args.runId || args.runNumber != null
 							? "request_validation: run not found in this experiment"
 							: "request_validation: no run to validate",
 					);
@@ -777,6 +803,20 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						},
 					})
 					.where(eq(runs.id, targetRun.id));
+				// Notify the UI that this run's metadata changed so the
+				// PropsPanel refetches and the Validate column re-renders
+				// the verdict icon (ShieldCheck/ShieldX) immediately. Without
+				// this the panel stays on the last fetched snapshot until the
+				// user navigates away or hard-refreshes.
+				publishExperimentEvent({
+					experimentId: ctx.experimentId,
+					type: "run.status",
+					payload: {
+						runId: targetRun.id,
+						status: targetRun.status,
+						validation: { verdict: args.verdict },
+					},
+				});
 				// Transition any awaiting_validation analyst turn to completed
 				// now that the verdict is in. This unlocks the UI input.
 				const awaitingTurns = await db
@@ -800,9 +840,30 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					});
 				}
 
-				if (lazyTriggerAgent) {
-					void lazyTriggerAgent(ctx.experimentId, "analyst").catch((err) => {
-						console.error("Analyst retrigger after verdict failed:", err);
+				if (args.verdict === "approve") {
+					// Approved: hand control back to the analyst so it can ask
+					// the user about paper trading. The verdict is visible to
+					// the analyst via the run's `result.validation` metadata in
+					// its next prompt.
+					if (lazyTriggerAgent) {
+						void lazyTriggerAgent(ctx.experimentId, "analyst").catch((err) => {
+							console.error("Analyst retrigger after verdict failed:", err);
+						});
+					}
+				} else {
+					// Rejected: do NOT auto-retrigger the analyst. The user's
+					// original consent for `request_validation` is still
+					// implicit, so retriggering here causes the analyst to
+					// immediately re-ask the RM on the same run and loop.
+					// Surface a clear next action (CLAUDE.md rule #12) and
+					// wait for the user to choose how to proceed.
+					await systemComment({
+						experimentId: ctx.experimentId,
+						nextAction: "action",
+						content:
+							`Risk Manager rejected Run #${targetRun.runNumber}` +
+							(args.reason ? `: ${args.reason}` : ".") +
+							" Reply with how to proceed (modify the strategy, adjust parameters, or try a different approach).",
 					});
 				}
 				return textResult(
@@ -906,10 +967,11 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		"go_paper",
 		{
 			description:
-				"Promote a validated backtest run to paper trading. The source " +
-				"run must have a Risk Manager verdict of 'approve' and the desk " +
-				"must have no active paper session. Requires prior user consent. " +
-				"Returns { sessionId, status } on success.",
+				"Promote a completed backtest run to paper trading. Risk Manager " +
+				"approval is recommended but not enforced — if the run was rejected, " +
+				"surface that to the user explicitly and obtain consent before " +
+				"calling this tool. The desk must have no active paper session. " +
+				"Requires prior user consent. Returns { sessionId, status } on success.",
 			inputSchema: {
 				runId: z.string().uuid().describe("The validated run to promote."),
 			},
