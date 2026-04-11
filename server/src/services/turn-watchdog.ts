@@ -1,6 +1,7 @@
 import { db } from "@quantdesk/db";
 import { agentTurns, runs } from "@quantdesk/db/schema";
 import { and, eq, inArray, lt } from "drizzle-orm";
+import { getConfig } from "../config-file.js";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { systemComment } from "./comments.js";
 
@@ -10,12 +11,15 @@ import { systemComment } from "./comments.js";
  * subprocess that has gone silent (crashed, hung, or lost its pipe). Mark
  * them `failed` with `failure_reason='heartbeat_timeout'` and post a rule #12
  * system comment on the owning experiment so the user has a clear next move.
+ *
+ * Both the stale-turn threshold (`agent.heartbeatThresholdMs`) and the scan
+ * cadence (`agent.watchdogIntervalMs`) are tunable through the global config
+ * file — see `packages/shared/src/config-schema.ts`.
  */
-const HEARTBEAT_TIMEOUT_MS = 90_000; // 90s of silence = dead
-const WATCHDOG_INTERVAL_MS = 30_000; // check every 30s
 
 export async function scanStaleTurns(now: Date = new Date()): Promise<number> {
-	const cutoff = new Date(now.getTime() - HEARTBEAT_TIMEOUT_MS);
+	const heartbeatThresholdMs = getConfig().agent.heartbeatThresholdMs;
+	const cutoff = new Date(now.getTime() - heartbeatThresholdMs);
 	const stale = await db
 		.update(agentTurns)
 		.set({
@@ -86,11 +90,12 @@ let timer: NodeJS.Timeout | null = null;
 
 export function startTurnWatchdog(): void {
 	if (timer) return;
+	const intervalMs = getConfig().agent.watchdogIntervalMs;
 	timer = setInterval(() => {
 		scanStaleTurns().catch((err) => {
 			console.error("[watchdog] scanStaleTurns failed:", err);
 		});
-	}, WATCHDOG_INTERVAL_MS);
+	}, intervalMs);
 	// Don't block process exit on the interval
 	timer.unref?.();
 }

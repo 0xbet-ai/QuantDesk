@@ -38,12 +38,40 @@ type LogLevel = "trace" | "debug" | "info" | "warn" | "error";
 const DEFAULT_PORT = 3000;
 const DEFAULT_HOST = "0.0.0.0";
 const DEFAULT_LOG_LEVEL: LogLevel = "info";
-const DEFAULT_HEARTBEAT_MS = 90_000;
-const DEFAULT_AGENT_MODEL = "claude-opus-4-6";
 
+// Agent
+const DEFAULT_AGENT_MODEL = "claude-opus-4-6";
+const DEFAULT_HEARTBEAT_MS = 90_000;
+const DEFAULT_WATCHDOG_INTERVAL_MS = 30_000;
+const DEFAULT_ADAPTER_TEST_TIMEOUT_MS = 5_000;
+
+// Database
 const DEFAULT_DATABASE_URL = "postgresql://quantdesk:quantdesk@localhost:5432/quantdesk";
 
+// Engine — shared resource defaults matching the previous hardcoded
+// Docker limits in `packages/engines/src/**/adapter.ts`.
+const DEFAULT_BACKTEST_CPUS = "2";
+const DEFAULT_BACKTEST_MEMORY_GB = 2;
+const DEFAULT_PAPER_CPUS = "1";
+const DEFAULT_PAPER_MEMORY_GB = 1;
+const DEFAULT_GENERIC_CPUS = "2";
+const DEFAULT_GENERIC_MEMORY_GB = 2;
+
+// Engine — freqtrade-specific
+const DEFAULT_FREQTRADE_STARTUP_MAX_ATTEMPTS = 30;
+const DEFAULT_FREQTRADE_STARTUP_RETRY_DELAY_MS = 1_000;
+const DEFAULT_FREQTRADE_API_TIMEOUT_MS = 5_000;
+
+// Paper
+const DEFAULT_PAPER_MARKET_TICK_INTERVAL_MS = 5_000;
+const DEFAULT_PAPER_CONTAINER_STOP_GRACEFUL_SEC = 10;
+
 // ── Resolved shape (no `undefined` anywhere) ─────────────────────────
+
+export interface EngineResources {
+	cpus: string;
+	memoryGb: number;
+}
 
 export interface ResolvedConfig {
 	source: "default" | "file" | "env-override";
@@ -63,9 +91,23 @@ export interface ResolvedConfig {
 	agent: {
 		defaultModel: string;
 		heartbeatThresholdMs: number;
+		watchdogIntervalMs: number;
+		adapterTestTimeoutMs: number;
 	};
 	engine: {
 		imageOverrides: Record<string, string>;
+		backtest: EngineResources;
+		paper: EngineResources;
+		generic: EngineResources;
+		freqtrade: {
+			startupMaxAttempts: number;
+			startupRetryDelayMs: number;
+			apiTimeoutMs: number;
+		};
+	};
+	paper: {
+		marketTickIntervalMs: number;
+		containerStopGracefulTimeoutSec: number;
 	};
 }
 
@@ -134,6 +176,18 @@ export function readConfigFile(): QuantDeskConfig | null {
 
 // ── Merge ────────────────────────────────────────────────────────────
 
+function pickResources(
+	fileResources: { cpus?: string; memoryGb?: number } | undefined,
+	fallbackCpus: string,
+	fallbackMemoryGb: number,
+	inherit?: EngineResources,
+): EngineResources {
+	return {
+		cpus: fileResources?.cpus ?? inherit?.cpus ?? fallbackCpus,
+		memoryGb: fileResources?.memoryGb ?? inherit?.memoryGb ?? fallbackMemoryGb,
+	};
+}
+
 /**
  * Compose defaults → file → env vars into a fully-resolved config.
  * Every field is guaranteed non-undefined on return so downstream code
@@ -173,9 +227,47 @@ export function loadConfig(): ResolvedConfig {
 		process.env.AGENT_MODEL ?? file?.agent?.defaultModel ?? DEFAULT_AGENT_MODEL;
 	const heartbeatThresholdMs =
 		file?.agent?.heartbeatThresholdMs ?? DEFAULT_HEARTBEAT_MS;
+	const watchdogIntervalMs =
+		file?.agent?.watchdogIntervalMs ?? DEFAULT_WATCHDOG_INTERVAL_MS;
+	const adapterTestTimeoutMs =
+		file?.agent?.adapterTestTimeoutMs ?? DEFAULT_ADAPTER_TEST_TIMEOUT_MS;
 
 	// ── engine ───────────────────────────────────────────────────────
 	const imageOverrides = file?.engine?.imageOverrides ?? {};
+	const backtest = pickResources(
+		file?.engine?.backtest,
+		DEFAULT_BACKTEST_CPUS,
+		DEFAULT_BACKTEST_MEMORY_GB,
+	);
+	const paperRes = pickResources(
+		file?.engine?.paper,
+		DEFAULT_PAPER_CPUS,
+		DEFAULT_PAPER_MEMORY_GB,
+	);
+	// Generic falls back to backtest if unspecified — they share the
+	// same default shape (2 CPU / 2 GB) and operators usually want a
+	// single knob unless they hit a specific generic workload.
+	const generic = pickResources(
+		file?.engine?.generic,
+		DEFAULT_GENERIC_CPUS,
+		DEFAULT_GENERIC_MEMORY_GB,
+		backtest,
+	);
+	const freqtrade = {
+		startupMaxAttempts:
+			file?.engine?.freqtrade?.startupMaxAttempts ?? DEFAULT_FREQTRADE_STARTUP_MAX_ATTEMPTS,
+		startupRetryDelayMs:
+			file?.engine?.freqtrade?.startupRetryDelayMs ?? DEFAULT_FREQTRADE_STARTUP_RETRY_DELAY_MS,
+		apiTimeoutMs: file?.engine?.freqtrade?.apiTimeoutMs ?? DEFAULT_FREQTRADE_API_TIMEOUT_MS,
+	};
+
+	// ── paper ────────────────────────────────────────────────────────
+	const paperSection = {
+		marketTickIntervalMs:
+			file?.paper?.marketTickIntervalMs ?? DEFAULT_PAPER_MARKET_TICK_INTERVAL_MS,
+		containerStopGracefulTimeoutSec:
+			file?.paper?.containerStopGracefulTimeoutSec ?? DEFAULT_PAPER_CONTAINER_STOP_GRACEFUL_SEC,
+	};
 
 	const configPath = resolveConfigPath();
 	const source: ResolvedConfig["source"] = configPath
@@ -190,8 +282,20 @@ export function loadConfig(): ResolvedConfig {
 		database: { mode: databaseMode, connectionString: databaseConnectionString },
 		server: { port, host },
 		logging: { level, logDir },
-		agent: { defaultModel, heartbeatThresholdMs },
-		engine: { imageOverrides },
+		agent: {
+			defaultModel,
+			heartbeatThresholdMs,
+			watchdogIntervalMs,
+			adapterTestTimeoutMs,
+		},
+		engine: {
+			imageOverrides,
+			backtest,
+			paper: paperRes,
+			generic,
+			freqtrade,
+		},
+		paper: paperSection,
 	};
 }
 

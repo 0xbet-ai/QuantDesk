@@ -75,13 +75,33 @@ const agentSchema = z
 		defaultModel: z.string().optional(),
 		/**
 		 * Max ms between stream chunks before the turn watchdog marks the
-		 * turn as dead. Defaults to 90_000 (90s) in the watchdog.
+		 * turn as dead. Defaults to 90_000 (90s).
 		 */
 		heartbeatThresholdMs: z.number().int().positive().optional(),
+		/**
+		 * How often the turn watchdog wakes up to scan for stale turns.
+		 * Defaults to 30_000 (30s). Faster catches stale turns sooner at
+		 * the cost of a few more DB reads per minute.
+		 */
+		watchdogIntervalMs: z.number().int().positive().optional(),
+		/**
+		 * Timeout for the `claude --version` / `codex --version` adapter
+		 * probe at `GET /api/agent/test`. Defaults to 5_000 (5s).
+		 */
+		adapterTestTimeoutMs: z.number().int().positive().optional(),
 	})
 	.optional();
 
 // ── engine ───────────────────────────────────────────────────────────
+const engineResourcesSchema = z
+	.object({
+		/** Docker `--cpus` value, e.g. `"2"` or `"0.5"`. */
+		cpus: z.string().optional(),
+		/** Memory in GiB. Converted to Docker `--memory` as `<n>g`. */
+		memoryGb: z.number().positive().optional(),
+	})
+	.optional();
+
 const engineSchema = z
 	.object({
 		/**
@@ -91,6 +111,58 @@ const engineSchema = z
 		 * full image refs. Unknown engines are ignored.
 		 */
 		imageOverrides: z.record(z.string(), z.string()).optional(),
+		/**
+		 * Resource limits shared across all managed engines for backtest
+		 * containers. Defaults: `{ cpus: "2", memoryGb: 2 }`.
+		 */
+		backtest: engineResourcesSchema,
+		/**
+		 * Resource limits shared across all managed engines for paper
+		 * containers. Defaults: `{ cpus: "1", memoryGb: 1 }`.
+		 */
+		paper: engineResourcesSchema,
+		/**
+		 * Generic-engine-specific resource override (also applies to
+		 * `run_script` sandbox containers). Falls back to `backtest`
+		 * when absent. Defaults: `{ cpus: "2", memoryGb: 2 }`.
+		 */
+		generic: engineResourcesSchema,
+		/** Freqtrade-specific runtime knobs. */
+		freqtrade: z
+			.object({
+				/**
+				 * Max attempts to wait for the freqtrade REST API to come up
+				 * after spawning a paper container. Defaults to 30 (≈ 30s
+				 * total with the default 1 s retry delay).
+				 */
+				startupMaxAttempts: z.number().int().positive().optional(),
+				/** Delay between startup attempts, in ms. Defaults to 1_000. */
+				startupRetryDelayMs: z.number().int().positive().optional(),
+				/**
+				 * Timeout applied to every fetch() against the freqtrade REST
+				 * API (ping, start, status, trades, profit). Defaults to 5_000.
+				 */
+				apiTimeoutMs: z.number().int().positive().optional(),
+			})
+			.optional(),
+	})
+	.optional();
+
+// ── paper ────────────────────────────────────────────────────────────
+const paperSchema = z
+	.object({
+		/**
+		 * How often to poll the freqtrade REST API and emit a synthetic
+		 * "market tick" into the paper log stream. Defaults to 5_000
+		 * (5s). Raise on slow networks or to lower API load; lower for
+		 * HFT-style monitoring.
+		 */
+		marketTickIntervalMs: z.number().int().positive().optional(),
+		/**
+		 * Grace period in seconds before forcefully killing a paper
+		 * container on `stop_paper`. Defaults to 10 s.
+		 */
+		containerStopGracefulTimeoutSec: z.number().int().positive().optional(),
 	})
 	.optional();
 
@@ -103,6 +175,7 @@ export const quantdeskConfigSchema = z
 		logging: loggingSchema,
 		agent: agentSchema,
 		engine: engineSchema,
+		paper: paperSchema,
 	})
 	.strict();
 
