@@ -19,6 +19,7 @@ import {
 } from "@quantdesk/db/schema";
 import { stripAgentMarkers } from "@quantdesk/shared";
 import { and, eq, gte } from "drizzle-orm";
+import { getConfig } from "../config-file.js";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog, clearAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
@@ -267,7 +268,7 @@ function buildClaudeSettingsForTurn(workspacePath: string): string {
 }
 
 function buildMcpConfigForTurn(experimentId: string, deskId: string): string {
-	const port = Number(process.env.PORT ?? 3000);
+	const port = getConfig().server.port;
 	const url = `http://127.0.0.1:${port}/mcp`;
 	const config = {
 		mcpServers: {

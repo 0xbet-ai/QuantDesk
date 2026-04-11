@@ -1,24 +1,28 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join } from "node:path";
+import { getConfig } from "../config-file.js";
 
 /**
  * Persist agent streaming chunks as JSONL files.
- * Stored at ~/.quantdesk/logs/{experimentId}.jsonl (Paperclip-style home dir storage).
- * Each line is a timestamped StreamChunk from the adapter.
+ * Stored at `<config.logging.logDir>/{experimentId}.jsonl` — defaults to
+ * `~/.quantdesk/logs/` (Paperclip-style home dir storage) when nothing
+ * overrides it. Each line is a timestamped StreamChunk from the adapter.
  */
 
 export type AgentLogEntry = { ts: string } & Record<string, unknown>;
 
-const LOGS_DIR = join(homedir(), ".quantdesk", "logs");
+function logsDir(): string {
+	return getConfig().logging.logDir;
+}
 
 function logPath(experimentId: string): string {
-	return join(LOGS_DIR, `${experimentId}.jsonl`);
+	return join(logsDir(), `${experimentId}.jsonl`);
 }
 
 function ensureDir(): void {
-	if (!existsSync(LOGS_DIR)) {
-		mkdirSync(LOGS_DIR, { recursive: true });
+	const dir = logsDir();
+	if (!existsSync(dir)) {
+		mkdirSync(dir, { recursive: true });
 	}
 }
 
