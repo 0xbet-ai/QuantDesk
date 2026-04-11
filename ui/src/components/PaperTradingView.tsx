@@ -540,7 +540,10 @@ export function PaperTradingView({ desk }: Props) {
 										: l.level === "warning"
 											? "text-yellow-400"
 											: l.level === "info"
-												? "text-green-400"
+												? // green-400 washed out on the light-theme bg-muted/20
+													// background — drop to green-600 (light) /
+													// green-500 (dark) so INFO stays readable on both.
+													"text-green-600 dark:text-green-500"
 												: l.level === "debug"
 													? "text-muted-foreground/60"
 													: "text-foreground/80";
