@@ -30,13 +30,36 @@ interface Props {
 	desk: Desk;
 }
 
+type LogLevel = "info" | "warning" | "error" | "debug" | null;
 interface PaperLogLine {
 	id: number;
 	stream: "stdout" | "stderr";
 	line: string;
+	level: LogLevel;
 	at: string;
 }
 const MAX_LOG_LINES = 500;
+
+/**
+ * Parse a Python-logging-style level out of a freqtrade stdout/stderr
+ * line. Freqtrade (and most python libs) writes ALL log levels to
+ * stderr by default — INFO included — so colouring by stream alone
+ * paints every heartbeat message red. Anchor instead on the ` - LEVEL - `
+ * fragment that freqtrade's default formatter emits.
+ *
+ * Lines without a detectable level (our own synthetic `[market]` ticks,
+ * ccxt raw exceptions, startup banners) return null so the caller can
+ * fall back to the default foreground colour.
+ */
+function detectLogLevel(line: string): LogLevel {
+	const m = line.match(/ - (DEBUG|INFO|WARNING|WARN|ERROR|CRITICAL) - /);
+	if (!m) return null;
+	const raw = m[1];
+	if (raw === "ERROR" || raw === "CRITICAL") return "error";
+	if (raw === "WARNING" || raw === "WARN") return "warning";
+	if (raw === "DEBUG") return "debug";
+	return "info";
+}
 
 function formatPnl(v: number): string {
 	return `${v >= 0 ? "+" : ""}${v.toFixed(2)}`;
@@ -162,6 +185,7 @@ export function PaperTradingView({ desk }: Props) {
 			id: nextId,
 			stream: payload.stream === "stderr" ? "stderr" : "stdout",
 			line: payload.line,
+			level: detectLogLevel(payload.line),
 			at: event.createdAt,
 		};
 		setLogs((prev) => {
@@ -449,17 +473,26 @@ export function PaperTradingView({ desk }: Props) {
 								strategy triggers)
 							</div>
 						) : (
-							logs.map((l) => (
-								<div
-									key={l.id}
-									className={cn(
-										"whitespace-pre-wrap break-all",
-										l.stream === "stderr" ? "text-red-400" : "text-foreground/80",
-									)}
-								>
-									{l.line}
-								</div>
-							))
+							logs.map((l) => {
+								// Colour by parsed log level (not by stdout/stderr) —
+								// freqtrade writes every level to stderr, so the
+								// stream itself is useless as a signal.
+								const colour =
+									l.level === "error"
+										? "text-red-400"
+										: l.level === "warning"
+											? "text-yellow-400"
+											: l.level === "info"
+												? "text-green-400"
+												: l.level === "debug"
+													? "text-muted-foreground/60"
+													: "text-foreground/80";
+								return (
+									<div key={l.id} className={cn("whitespace-pre-wrap break-all", colour)}>
+										{l.line}
+									</div>
+								);
+							})
 						)}
 					</div>
 				</div>
