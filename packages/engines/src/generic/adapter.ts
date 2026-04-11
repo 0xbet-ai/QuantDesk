@@ -273,6 +273,37 @@ repeat runs are fast.
 
 The last line of stdout MUST be a NormalizedResult JSON object.
 `,
+			// Keep engine outputs, caches, and dependency folders out of git.
+			// The generic engine doesn't dictate output paths, so this is a
+			// conservative list covering common defaults across Python / Node /
+			// Rust / Go. The agent can extend this file if a script uses a
+			// non-standard output dir.
+			".gitignore": [
+				"# engine outputs (common defaults)",
+				"backtest_results/",
+				"results/",
+				"output/",
+				"logs/",
+				"",
+				"# market data cache (datasets are global, not per-desk)",
+				"data/",
+				"",
+				"# python",
+				"__pycache__/",
+				"*.pyc",
+				".venv/",
+				"venv/",
+				"",
+				"# node / bun",
+				"node_modules/",
+				"",
+				"# rust",
+				"target/",
+				"",
+				"# go",
+				"bin/",
+				"",
+			].join("\n"),
 		};
 	}
 }

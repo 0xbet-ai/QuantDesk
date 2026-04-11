@@ -277,6 +277,23 @@ config = StrategyConfig(
     strategy_id="QuantDesk-001",
 )
 `,
+			// Keep engine outputs and heavy caches out of git. Every run
+			// commit should capture only reproducible *inputs* (strategy.py,
+			// config.py, agent scripts), not engine-generated artifacts.
+			".gitignore": [
+				"# engine outputs",
+				"backtest_results/",
+				"logs/",
+				"catalog/",
+				"",
+				"# market data cache (datasets are global, not per-desk)",
+				"data/",
+				"",
+				"# python",
+				"__pycache__/",
+				"*.pyc",
+				"",
+			].join("\n"),
 		};
 	}
 }

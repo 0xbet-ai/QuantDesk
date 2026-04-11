@@ -47,6 +47,7 @@ import { autoIncrementRunNumber } from "../services/logic.js";
 import { stopPaper as stopPaperService } from "../services/paper-sessions.js";
 import { goPaper as goPaperService } from "../services/runs.js";
 import { getCurrentTurnId } from "../services/turn-context.js";
+import { ensureCommit } from "../services/workspace.js";
 
 export interface McpServerContext {
 	experimentId: string;
@@ -405,6 +406,28 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 			const runId = crypto.randomUUID();
 			const latestDatasetId = linked[0]?.dataset.id ?? null;
 
+			// Snapshot the workspace into a commit BEFORE running the engine so
+			// `runs.commit_hash` points at the exact strategy + config that
+			// produced this backtest. CLAUDE.md invariant: "each run links to
+			// its exact commit hash". If the workspace is clean (agent
+			// re-ran with no edits since the previous backtest), we reuse the
+			// current HEAD, so multiple runs can legitimately share a hash.
+			// Failure here is non-fatal — we fall back to null so the run
+			// still executes and the user isn't blocked by a git glitch.
+			let commitHash: string | null = null;
+			try {
+				const [exp] = await db
+					.select({ number: experiments.number, title: experiments.title })
+					.from(experiments)
+					.where(eq(experiments.id, ctx.experimentId));
+				const label = exp
+					? `Experiment #${exp.number} — ${exp.title} · run #${runNumber}`
+					: `run #${runNumber}`;
+				commitHash = await ensureCommit(desk.workspacePath, `Agent: pre-run ${label}`);
+			} catch {
+				/* non-fatal — run proceeds with commit_hash = NULL */
+			}
+
 			await db.insert(runs).values({
 				id: runId,
 				experimentId: ctx.experimentId,
@@ -414,6 +437,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				mode: "backtest",
 				status: "running",
 				datasetId: latestDatasetId,
+				commitHash,
 			});
 			publishExperimentEvent({
 				experimentId: ctx.experimentId,

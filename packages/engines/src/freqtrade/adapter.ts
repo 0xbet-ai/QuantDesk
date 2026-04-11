@@ -507,6 +507,27 @@ class QuantDeskStrategy:
 				null,
 				2,
 			),
+			// Keep engine outputs and heavy caches out of the per-desk git
+			// workspace so every commit captures only reproducible *inputs*
+			// (strategy.py, config.json, agent-written scripts). Without
+			// this, `git add -A` in commitCode() pulls in backtest_results
+			// zips and bloats every commit with non-reproducible outputs.
+			".gitignore": [
+				"# engine outputs",
+				"backtest_results/",
+				"hyperopt_results/",
+				"logs/",
+				"freqaimodels/",
+				".last_result.json",
+				"",
+				"# market data cache (datasets are global, not per-desk)",
+				"data/",
+				"",
+				"# python",
+				"__pycache__/",
+				"*.pyc",
+				"",
+			].join("\n"),
 		};
 	}
 }
