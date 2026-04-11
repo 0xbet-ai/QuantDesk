@@ -111,19 +111,126 @@ function detachPaperLogStream(sessionId: string): void {
 	paperLogStreams.delete(sessionId);
 }
 
+// ── Market tick registry ───────────────────────────────────────────
+//
+// One setInterval handle per running paper session. Every MARKET_TICK_MS
+// we ask the engine adapter for a one-line "current price + indicators"
+// summary and publish it onto the paper.log stream. Without this the
+// only live signal the user sees is "Bot heartbeat. state='RUNNING'"
+// once a minute — which proves the process is alive but NOT that it's
+// actually processing market data. A fresh close price every 30s is
+// the cheapest possible "yes, data is flowing" indicator.
+const paperMarketTickers = new Map<string, ReturnType<typeof setInterval>>();
+const MARKET_TICK_MS = 30_000;
+
+/**
+ * Start periodic market ticks for a running paper session. The ticks
+ * are emitted as synthetic lines on the same paper.log stream the
+ * freqtrade container writes to, so the UI log panel shows them inline
+ * with heartbeats / signals / errors.
+ *
+ * No-op if the engine adapter doesn't implement `getPaperMarketTickLine`
+ * (generic engine has no notion of "current market state").
+ */
+function attachPaperMarketTicker(params: {
+	sessionId: string;
+	experimentId: string;
+	engine: string;
+	handle: { containerName: string; runId: string; meta: Record<string, unknown> };
+	pair: string;
+	timeframe: string;
+}): void {
+	const adapter = getEngineAdapter(params.engine);
+	if (typeof adapter.getPaperMarketTickLine !== "function") return;
+
+	// Tear down any leftover ticker from a previous attach (e.g. a boot
+	// reconcile after a session was already running).
+	const prev = paperMarketTickers.get(params.sessionId);
+	if (prev) clearInterval(prev);
+
+	const tick = async () => {
+		try {
+			const line = await adapter.getPaperMarketTickLine!(
+				params.handle,
+				params.pair,
+				params.timeframe,
+			);
+			if (!line) return;
+			publishExperimentEvent({
+				experimentId: params.experimentId,
+				type: "paper.log",
+				payload: { sessionId: params.sessionId, stream: "stdout", line },
+			});
+			appendAgentLog(params.experimentId, {
+				ts: new Date().toISOString(),
+				type: "stdout",
+				content: line,
+			});
+		} catch {
+			// Best-effort — a transient fetch failure shouldn't kill the
+			// interval. The next tick will retry.
+		}
+	};
+
+	// Fire once immediately so the user sees a price line the moment
+	// the log panel mounts, then every MARKET_TICK_MS after that.
+	void tick();
+	const interval = setInterval(tick, MARKET_TICK_MS);
+	paperMarketTickers.set(params.sessionId, interval);
+}
+
+function detachPaperMarketTicker(sessionId: string): void {
+	const id = paperMarketTickers.get(sessionId);
+	if (!id) return;
+	clearInterval(id);
+	paperMarketTickers.delete(sessionId);
+}
+
 /**
  * Public hook for the boot reconcile (`startup-cleanup.ts`) to re-attach
- * the log tail for a paper session that survived a server restart. The
- * previous tail subprocess died with the parent server process, so
- * without this the user would never see any more stdout from a
- * container that kept running across a restart.
+ * the log tail AND market ticker for a paper session that survived a
+ * server restart. The previous tail subprocess died with the parent
+ * server process, so without this the user would never see any more
+ * stdout (or market ticks) from a container that kept running across
+ * a restart.
  */
 export function attachLogStreamForReconcile(params: {
 	sessionId: string;
 	experimentId: string;
 	containerName: string;
+	engine?: string;
+	runId?: string;
+	apiPort?: number | null;
+	meta?: Record<string, unknown> | null;
+	pair?: string | null;
+	timeframe?: string | null;
 }): void {
-	attachPaperLogStream(params);
+	attachPaperLogStream({
+		sessionId: params.sessionId,
+		experimentId: params.experimentId,
+		containerName: params.containerName,
+	});
+	if (
+		params.engine &&
+		params.runId &&
+		params.pair &&
+		params.timeframe &&
+		params.meta &&
+		typeof (params.meta as Record<string, unknown>).apiUrl === "string"
+	) {
+		attachPaperMarketTicker({
+			sessionId: params.sessionId,
+			experimentId: params.experimentId,
+			engine: params.engine,
+			handle: {
+				containerName: params.containerName,
+				runId: params.runId,
+				meta: params.meta as Record<string, unknown>,
+			},
+			pair: params.pair,
+			timeframe: params.timeframe,
+		});
+	}
 }
 
 // ── Full lifecycle: start ────────────────────────────────────────────
@@ -296,6 +403,23 @@ export async function startPaper(runId: string) {
 		experimentId: experiment.id,
 		containerName: handle.containerName,
 	});
+	// 11. Attach the periodic market tick so the log panel shows a live
+	//     "close=..., adx=..., signal=..." summary every 30 seconds even
+	//     when freqtrade itself has nothing to say. This is the cheapest
+	//     proof that the bot is actually processing market data instead
+	//     of sitting idle on a stopped state.
+	attachPaperMarketTicker({
+		sessionId,
+		experimentId: experiment.id,
+		engine: desk.engine,
+		handle: {
+			containerName: handle.containerName,
+			runId: handle.runId,
+			meta: (handle.meta ?? {}) as Record<string, unknown>,
+		},
+		pair: pairs[0]!,
+		timeframe,
+	});
 
 	publishExperimentEvent({
 		experimentId: experiment.id,
@@ -350,8 +474,10 @@ export async function stopPaper(deskId: string): Promise<{ sessionId: string }> 
 		}
 	}
 
-	// 2. Detach the log tail — the container is gone or will be shortly.
+	// 2. Detach the log tail + market ticker — the container is gone
+	//    or will be shortly.
 	detachPaperLogStream(session.id);
+	detachPaperMarketTicker(session.id);
 
 	// 3. Mark session stopped + mark paper runs stopped.
 	await db
@@ -391,8 +517,9 @@ export async function failSessionInternal(
 	experimentId: string,
 	error: string,
 ): Promise<void> {
-	// Detach any attached log tail — the container is dead or about to be.
+	// Detach log tail + market ticker — the container is dead or about to be.
 	detachPaperLogStream(sessionId);
+	detachPaperMarketTicker(sessionId);
 
 	await db
 		.update(paperSessions)

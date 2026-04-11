@@ -140,6 +140,20 @@ export interface EngineAdapter {
 	getPaperStatus(handle: PaperHandle): Promise<PaperStatus>;
 	getPaperTrades?(handle: PaperHandle): Promise<PaperTrade[]>;
 	getPaperCandles?(handle: PaperHandle, pair: string, timeframe: string): Promise<PaperCandle[]>;
+	/**
+	 * Return a single pre-formatted "market tick" log line for the given
+	 * pair, or null if the engine has no data to report yet. Used by the
+	 * paper-sessions service to inject periodic synthetic lines into the
+	 * paper.log stream so the user can see live price + indicator values
+	 * alongside the engine's own output — "Bot heartbeat" alone doesn't
+	 * prove the bot is actually processing market data, but a line with
+	 * a fresh close price and updated indicators does.
+	 */
+	getPaperMarketTickLine?(
+		handle: PaperHandle,
+		pair: string,
+		timeframe: string,
+	): Promise<string | null>;
 	parseResult(raw: string): NormalizedResult;
 	/**
 	 * Files to seed into a freshly-created workspace for this engine.

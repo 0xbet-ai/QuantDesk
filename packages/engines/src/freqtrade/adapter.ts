@@ -593,6 +593,79 @@ export class FreqtradeAdapter implements EngineAdapter {
 		}
 	}
 
+	/**
+	 * Build a one-line "market tick" summary from the current forming
+	 * candle so the paper.log stream shows live price + indicator state
+	 * alongside freqtrade's own heartbeat.
+	 *
+	 * Index by column name (not position) because the indicator set
+	 * depends on what the strategy populated — `adx`, `fastd`, `fastk`,
+	 * `rsi`, `macd`, etc. We opportunistically surface the ones we
+	 * recognise; anything else is ignored to keep the line terse.
+	 *
+	 * Returns null on network error / empty response so the caller can
+	 * distinguish "engine isn't ready yet" from a real tick.
+	 */
+	async getPaperMarketTickLine(
+		handle: PaperHandle,
+		pair: string,
+		timeframe: string,
+	): Promise<string | null> {
+		const apiUrl = handle.meta?.apiUrl as string | undefined;
+		if (!apiUrl) return null;
+		const auth = `Basic ${Buffer.from("quantdesk:quantdesk").toString("base64")}`;
+		try {
+			const params = new URLSearchParams({ pair, timeframe, limit: "1" });
+			const res = await fetch(`${apiUrl}/api/v1/pair_candles?${params}`, {
+				headers: { Authorization: auth },
+				signal: AbortSignal.timeout(3000),
+			});
+			if (!res.ok) return null;
+			const body = (await res.json()) as {
+				columns?: string[];
+				data?: (string | number | null)[][];
+			};
+			const cols = body.columns ?? [];
+			const row = body.data?.[body.data.length - 1];
+			if (!row) return null;
+			const get = (name: string): number | string | null => {
+				const i = cols.indexOf(name);
+				if (i < 0) return null;
+				const v = row[i];
+				return v === undefined ? null : v;
+			};
+			const rawDate = get("date");
+			const close = get("close");
+			const adx = get("adx");
+			const fastd = get("fastd");
+			const fastk = get("fastk");
+			const rsi = get("rsi");
+			const macd = get("macd");
+			const enterLong = get("enter_long");
+			const exitLong = get("exit_long");
+
+			const fmtNum = (v: number | string | null, digits: number): string => {
+				if (typeof v !== "number" || !Number.isFinite(v)) return "—";
+				return v.toFixed(digits);
+			};
+			const parts: string[] = [];
+			parts.push(`close=${typeof close === "number" ? close.toFixed(close >= 1000 ? 2 : 4) : "—"}`);
+			if (adx !== null) parts.push(`adx=${fmtNum(adx, 1)}`);
+			if (fastd !== null) parts.push(`fastd=${fmtNum(fastd, 1)}`);
+			if (fastk !== null) parts.push(`fastk=${fmtNum(fastk, 1)}`);
+			if (rsi !== null) parts.push(`rsi=${fmtNum(rsi, 1)}`);
+			if (macd !== null) parts.push(`macd=${fmtNum(macd, 4)}`);
+			const signals: string[] = [];
+			if (enterLong === 1 || enterLong === 1.0) signals.push("ENTRY");
+			if (exitLong === 1 || exitLong === 1.0) signals.push("EXIT");
+			parts.push(`signal=${signals.length ? signals.join("+") : "—"}`);
+			const dateStr = typeof rawDate === "string" ? rawDate : "—";
+			return `[market] ${pair} ${timeframe} ${dateStr} ${parts.join(" ")}`;
+		} catch {
+			return null;
+		}
+	}
+
 	parseResult(raw: string): NormalizedResult {
 		let data: LegacyFreqtradeResult | FreqtradeBacktestRaw;
 		try {
