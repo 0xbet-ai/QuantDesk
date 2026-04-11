@@ -111,13 +111,56 @@ function errorResult(text: string) {
 	};
 }
 
+/**
+ * Distinguishes the two ways a Risk Manager turn gets dispatched.
+ *
+ * - `user_request` — the user explicitly asked to validate a run.
+ *   Typical path: the Validate button on the Runs panel posts
+ *   "Validate Run #N" into the chat; the analyst reads it and calls
+ *   `request_validation`. Rejection hands control back to the user
+ *   (they initiated the ask, they read the verdict).
+ *
+ * - `forced_loop` — the analyst was blocked by the `run_backtest`
+ *   sequencing gate ("Run #N has not been reviewed yet") and called
+ *   `request_validation` on its own to unblock the iteration budget.
+ *   Rejection here retriggers the analyst with the rejection reason
+ *   in-context so the Analyst ↔ RM loop can keep negotiating without
+ *   pulling the user into every round trip.
+ *
+ * The detection heuristic lives in `detectValidationSource` and
+ * works by reading the most recent user comment before the
+ * `request_validation` call. The Validate button emits a literal
+ * "Validate Run #N" message, and freeform user messages that start
+ * with "validate" are treated the same way.
+ */
+export type ValidationSource = "user_request" | "forced_loop";
+
 interface ValidationRequestMetadata {
 	hidden?: boolean;
 	validationRequest?: {
 		runId: string;
 		runNumber: number;
 		requestedByTurnId: string;
+		source: ValidationSource;
 	};
+}
+
+async function detectValidationSource(experimentId: string): Promise<ValidationSource> {
+	// Look at the most recent user comment in the experiment. The
+	// button path posts a literal "Validate Run #N" — that's the
+	// only reliable server-side signal that the user, not the
+	// analyst, initiated the validation. Anything else is assumed
+	// to be a forced-loop call (the analyst ran into the sequencing
+	// gate and is self-unblocking).
+	const [latest] = await db
+		.select({ content: commentRows.content })
+		.from(commentRows)
+		.where(and(eq(commentRows.experimentId, experimentId), eq(commentRows.author, "user")))
+		.orderBy(desc(commentRows.createdAt))
+		.limit(1);
+	if (!latest) return "forced_loop";
+	if (/^\s*validate\b/i.test(latest.content)) return "user_request";
+	return "forced_loop";
 }
 
 async function findValidationRun(experimentId: string, runId?: string, runNumber?: number) {
@@ -428,7 +471,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				if (iterationsUsed >= maxIterations) {
 					return errorResult(
 						`This experiment has exhausted its iteration budget ` +
-							`(${maxIterations} RM↔Analyst cycles after the baseline — the ` +
+							`(${maxIterations} Risk Manager ↔ Analyst cycles after the baseline — the ` +
 							`baseline itself is free). Reply with how to proceed: call ` +
 							`mcp__quantdesk__go_paper on the best run, ` +
 							`mcp__quantdesk__new_experiment to test a different hypothesis, ` +
@@ -453,7 +496,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 							`mcp__quantdesk__request_validation({runNumber: ${latest.runNumber}}) ` +
 							`and wait for the Risk Manager's verdict before starting another ` +
 							`backtest. Baseline is free, but every subsequent iteration must ` +
-							`go through RM review — that's the overfitting guardrail.`,
+							`go through Risk Manager review — that's the overfitting guardrail.`,
 					);
 				}
 			}
@@ -721,12 +764,12 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		{
 			description:
 				"Dispatch a Risk Manager turn against a specific run (or the latest " +
-				"run when neither runId nor runNumber is given). The RM " +
+				"run when neither runId nor runNumber is given). The Risk Manager " +
 				"reads the run metrics, emits an approve/reject verdict via " +
 				"submit_rm_verdict, and the analyst is retriggered with the " +
 				"verdict in context. Requires prior user consent. " +
 				"**Call this exactly once per run.** After calling, end your " +
-				"turn — the RM runs asynchronously and you will be retriggered " +
+				"turn — the Risk Manager runs asynchronously and you will be retriggered " +
 				"with the verdict. Do NOT call this again while waiting. " +
 				"Prefer `runNumber` (the human-readable Run #N from Run History) " +
 				"when the user names a specific run; UUIDs are not exposed in " +
@@ -831,6 +874,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					type: "turn.status",
 					payload: { turnId, status: "awaiting_validation", agentRole: "analyst" },
 				});
+				const validationSource = await detectValidationSource(ctx.experimentId);
 				await systemComment({
 					experimentId: ctx.experimentId,
 					nextAction: "progress",
@@ -841,6 +885,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 							runId: targetRun.id,
 							runNumber: targetRun.runNumber,
 							requestedByTurnId: turnId,
+							source: validationSource,
 						},
 					},
 				});
@@ -891,6 +936,16 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				const targetRun = await findValidationRun(ctx.experimentId, pendingValidation?.runId);
 				if (!targetRun) return errorResult("submit_rm_verdict: no run to validate");
 				const existing = (targetRun.result as Record<string, unknown> | null) ?? {};
+				// Carry a rejection counter so the forced-loop auto-retrigger
+				// can bail out after repeated rejects on the SAME run. Reading
+				// the prior value lets us distinguish "analyst just got
+				// rejected once, let it try again" from "analyst is stuck on
+				// this run, kick it back to the user".
+				const priorValidation = (existing as Record<string, unknown>).validation as
+					| { verdict?: string; rejectionCount?: number }
+					| undefined;
+				const rejectionCount =
+					args.verdict === "reject" ? (priorValidation?.rejectionCount ?? 0) + 1 : 0;
 				await db
 					.update(runs)
 					.set({
@@ -900,6 +955,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 								verdict: args.verdict,
 								reason: args.reason ?? null,
 								at: new Date().toISOString(),
+								rejectionCount,
 							},
 						},
 					})
@@ -952,21 +1008,73 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						});
 					}
 				} else {
-					// Rejected: do NOT auto-retrigger the analyst. The user's
-					// original consent for `request_validation` is still
-					// implicit, so retriggering here causes the analyst to
-					// immediately re-ask the RM on the same run and loop.
-					// Surface a clear next action (CLAUDE.md rule #12) and
-					// wait for the user to choose how to proceed.
-					// Collapsed into a single template literal (instead of
-					// a `+` concatenation with a ternary) so the rule #12
-					// static lint can see the inline action phrase.
-					const rejectionReason = args.reason ? `: ${args.reason}` : ".";
-					await systemComment({
-						experimentId: ctx.experimentId,
-						nextAction: "action",
-						content: `Risk Manager rejected Run #${targetRun.runNumber}${rejectionReason} Reply with how to proceed (modify the strategy, adjust parameters, or try a different approach).`,
-					});
+					// Rejected. The next step depends on who asked for the
+					// validation in the first place:
+					//
+					// - **Forced loop** (the analyst self-dispatched to unblock
+					//   the sequencing gate between iterations): auto-retrigger
+					//   the analyst with the rejection reason in a forcing
+					//   system comment so the Analyst ↔ RM loop can keep
+					//   negotiating without pulling the user into every round
+					//   trip. Gated on `rejectionCount < 2` — after two
+					//   consecutive rejects on the SAME run we concede that
+					//   the analyst is stuck and fall back to the user-
+					//   handoff path, so the loop can't run away on its own.
+					//
+					// - **User request** (the user clicked Validate or typed
+					//   "validate …"): keep the original hand-back-to-user
+					//   flow. The user owned the ask and should see the
+					//   verdict; re-triggering the analyst here would silently
+					//   bypass the user's intent.
+					const rejectionReason = args.reason ?? "(no reason given)";
+					const source = pendingValidation?.source ?? "forced_loop";
+					const STRIKE_LIMIT = 2;
+
+					if (source === "forced_loop" && rejectionCount < STRIKE_LIMIT && lazyTriggerAgent) {
+						// Auto-negotiate path. The forcing phrase must include
+						// an action phrase that satisfies rule #12 so the
+						// dead-end lint accepts it — `mcp__quantdesk__` is the
+						// approved marker for "go call this tool".
+						await systemComment({
+							experimentId: ctx.experimentId,
+							nextAction: "action",
+							content:
+								`Risk Manager rejected Run #${targetRun.runNumber}: ${rejectionReason} ` +
+								`This is iteration rejection ${rejectionCount} of ${STRIKE_LIMIT}. ` +
+								`Adjust your strategy to address the rejection reason above, then call ` +
+								`mcp__quantdesk__run_backtest with the new approach. Do NOT call ` +
+								`mcp__quantdesk__request_validation again on Run #${targetRun.runNumber} — ` +
+								`that run is decided. Ship a materially different change for the next run.`,
+							metadata: {
+								hidden: true,
+								rmRejection: {
+									runId: targetRun.id,
+									runNumber: targetRun.runNumber,
+									reason: args.reason ?? null,
+									rejectionCount,
+									source,
+								},
+							},
+						});
+						void lazyTriggerAgent(ctx.experimentId, "analyst").catch((err) => {
+							console.error("Analyst auto-retrigger after RM reject failed:", err);
+						});
+					} else {
+						// User-handoff path (original behavior). Also the
+						// landing spot when the forced-loop 2-strike limit is
+						// exceeded — at that point the loop has drifted far
+						// enough that the user should weigh in.
+						const rejectionSuffix = args.reason ? `: ${args.reason}` : ".";
+						const stuckNote =
+							source === "forced_loop" && rejectionCount >= STRIKE_LIMIT
+								? ` (Run #${targetRun.runNumber} has been rejected ${rejectionCount} times — the auto-loop gave up and is handing back to you.)`
+								: "";
+						await systemComment({
+							experimentId: ctx.experimentId,
+							nextAction: "action",
+							content: `Risk Manager rejected Run #${targetRun.runNumber}${rejectionSuffix}${stuckNote} Reply with how to proceed (modify the strategy, adjust parameters, or try a different approach).`,
+						});
+					}
 				}
 				return textResult(
 					JSON.stringify(

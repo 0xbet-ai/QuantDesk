@@ -1,7 +1,7 @@
 import type { AgentAdapter } from "@quantdesk/adapters";
 import type { StrategyMode } from "@quantdesk/shared";
 import { buildAnalystPrompt, buildRiskManagerPrompt } from "./prompt-builder.js";
-import type { PaperSessionContext } from "./prompts/types.js";
+import type { AnalystTrailChunk, CodeDiffContext, PaperSessionContext } from "./prompts/types.js";
 
 interface DeskContext {
 	name: string;
@@ -37,6 +37,10 @@ interface RunInput {
 	agentRole: "analyst" | "risk_manager";
 	runResult?: { metrics: MetricEntry[] };
 	validationRunNumber?: number;
+	/** Strategy code diff for the run under validation. RM only. */
+	codeDiff?: CodeDiffContext | null;
+	/** Analyst reasoning trail leading up to the validated run. RM only. */
+	analystTrail?: AnalystTrailChunk[] | null;
 	/** Phase 27b — optional MCP config path passed through to the adapter. */
 	mcpConfigPath?: string;
 	/** Per-turn CLI settings file carrying workspace-sandbox deny rules. */
@@ -79,6 +83,8 @@ export class AgentRunner {
 						runs: input.runs,
 						comments: input.comments,
 						memorySummaries: input.memorySummaries,
+						codeDiff: input.codeDiff ?? null,
+						analystTrail: input.analystTrail ?? null,
 						userLanguageHint,
 					})
 				: buildAnalystPrompt({

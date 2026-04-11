@@ -280,9 +280,9 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 																		: isOtherValidating
 																			? `Another validation in progress — wait until it finishes`
 																			: verdict === "approve"
-																				? `RM approved — click to re-validate Run #${run.runNumber}`
+																				? `Risk Manager approved — click to re-validate Run #${run.runNumber}`
 																				: verdict === "reject"
-																					? `RM rejected — click to re-validate Run #${run.runNumber}`
+																					? `Risk Manager rejected — click to re-validate Run #${run.runNumber}`
 																					: `Validate Run #${run.runNumber} with Risk Manager`;
 																	return (
 																		<button
@@ -549,7 +549,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 											isApproved
 												? "Start paper trading"
 												: isRejected
-													? "RM rejected — click to start anyway"
+													? "Risk Manager rejected — click to start anyway"
 													: "Discuss paper trading with agent"
 										}
 										className={cn(

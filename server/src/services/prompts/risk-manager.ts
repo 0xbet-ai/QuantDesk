@@ -13,7 +13,13 @@
  * metric table can't surface.
  */
 
-import type { CommentContext, RiskManagerPromptInput, RunContext } from "./types.js";
+import type {
+	AnalystTrailChunk,
+	CodeDiffContext,
+	CommentContext,
+	RiskManagerPromptInput,
+	RunContext,
+} from "./types.js";
 
 const RM_COMMENT_TOKEN_BUDGET = 4000;
 
@@ -53,6 +59,59 @@ function formatRunLine(r: RunContext): string | null {
 	return `- Run #${r.runNumber}${tag}: ${metricsStr}`;
 }
 
+function formatCodeDiffBlock(diff: CodeDiffContext | null | undefined): string | null {
+	if (!diff) return null;
+	// Nothing to compare against — baseline with no prior run, or the
+	// only commit in the repo. Still emit a short note so the RM knows
+	// the absence isn't a bug.
+	if (!diff.againstPrevious && !diff.againstBaseline) {
+		if (!diff.targetCommit) return null;
+		return `## Strategy Code Changes
+_No code diff available for this run — it is the baseline (or the only commit in the workspace). Judge the strategy as a whole from the analyst reasoning trail + conversation below._`;
+	}
+
+	const parts: string[] = ["## Strategy Code Changes"];
+	parts.push(
+		"The backtest metrics above came out of the code below. Read the diff and use it when you apply checks #9 (sudden jump) and #11 (cherry-picking) — a big metric swing with a one-line parameter tweak is very different from a big swing with a structural rewrite.",
+	);
+
+	if (diff.againstPrevious) {
+		parts.push(
+			`### ${diff.previousLabel ?? "vs previous run"}\n\`\`\`diff\n${diff.againstPrevious}\n\`\`\``,
+		);
+	}
+	if (diff.againstBaseline) {
+		parts.push(
+			`### ${diff.baselineLabel ?? "vs baseline"}\n\`\`\`diff\n${diff.againstBaseline}\n\`\`\``,
+		);
+	}
+	if (diff.truncated) {
+		parts.push(
+			"_One or both diffs were truncated to fit the prompt budget. If you need to see a specific file in full, reject with a `reason` that names the file so the analyst can resubmit a smaller change._",
+		);
+	}
+	return parts.join("\n\n");
+}
+
+function formatAnalystTrailBlock(trail: AnalystTrailChunk[] | null | undefined): string | null {
+	if (!trail || trail.length === 0) return null;
+
+	const lines: string[] = [
+		"## Analyst Reasoning Trail",
+		"These are the analyst's most recent `thinking`, `tool_call`, and `text` chunks pulled from this turn's JSONL transcript — what it was working on *right before* it asked you to validate. Use it to judge intent (was this a deliberate edit or a flailing parameter sweep?) and to apply checks #10 (repeat submission) and #11 (cherry-picking).",
+	];
+	for (const chunk of trail) {
+		if (chunk.type === "thinking") {
+			lines.push(`- **[thinking]** ${chunk.content}`);
+		} else if (chunk.type === "tool_call") {
+			lines.push(`- **[tool_call ${chunk.name ?? "?"}]** ${chunk.content}`);
+		} else {
+			lines.push(`- **[text]** ${chunk.content}`);
+		}
+	}
+	return lines.join("\n");
+}
+
 export function buildRiskManagerPrompt(input: RiskManagerPromptInput): string {
 	const {
 		desk,
@@ -62,6 +121,8 @@ export function buildRiskManagerPrompt(input: RiskManagerPromptInput): string {
 		runs,
 		comments,
 		memorySummaries,
+		codeDiff,
+		analystTrail,
 		userLanguageHint,
 	} = input;
 
@@ -110,15 +171,21 @@ Experiment #${experiment.number} — ${experiment.title}`,
 ${targetMetricsBlock}`);
 
 	// ── Run history (ALL runs in this experiment, incl. target) ──────
-	const runLines = runs
-		.map(formatRunLine)
-		.filter((l): l is string => l !== null);
+	const runLines = runs.map(formatRunLine).filter((l): l is string => l !== null);
 	if (runLines.length > 0) {
 		sections.push(`## Run History (all runs in this experiment)
 ${runLines.join("\n")}
 
 Use this to place Run #${runNumber} in the distribution. A sudden jump in return that no prior run shows is a much stronger overfit signal than a single metric table in isolation.`);
 	}
+
+	// ── Strategy code diff (what changed between this run and prior) ─
+	const codeDiffBlock = formatCodeDiffBlock(codeDiff);
+	if (codeDiffBlock) sections.push(codeDiffBlock);
+
+	// ── Analyst reasoning trail (last turn's thinking + tool calls) ──
+	const analystTrailBlock = formatAnalystTrailBlock(analystTrail);
+	if (analystTrailBlock) sections.push(analystTrailBlock);
 
 	// ── Conversation (hypothesis + prior verdicts in context) ────────
 	const trimmedComments = trimComments(comments, RM_COMMENT_TOKEN_BUDGET);
@@ -154,10 +221,10 @@ Write one line per check: \`ok\` / \`fail\` / \`n/a\` + one short phrase naming 
 7. **Stop-loss compliance** — if max drawdown exceeds desk stop_loss, that is a hard constraint violation. REJECT.
 8. **Target alignment** — if return is negative or far below target, reject as "does not meet desk objective". It is not unsafe, but it is not promotable either.
 
-### Historical consistency (compare against Run History above)
-9. **Sudden jump** — if Run #${runNumber}'s return is dramatically better than the median of the prior runs and nothing in the Conversation explains the code change that caused the jump, treat this as an overfit red flag. REJECT and ask the analyst to show the diff + rerun on a different time window.
-10. **Repeat submission** — if a previous RM verdict in the Conversation already rejected a very similar strategy (same metrics shape, same pair, same timeframe) and the analyst did not materially change the approach, REJECT with "same class of strategy already rejected in verdict <turnRef>" and refuse to re-relitigate.
-11. **Cherry-picking** — if the experiment has many failed or much-worse runs and this one is the outlier, the analyst may have tuned parameters on the test set. REJECT unless the analyst showed an out-of-sample validation (different period or pair).
+### Historical consistency (compare against Run History + Strategy Code Changes + Analyst Reasoning Trail above)
+9. **Sudden jump** — if Run #${runNumber}'s return is dramatically better than the median of the prior runs, read the **Strategy Code Changes** block: a one-line threshold tweak cannot plausibly explain a 3× return jump, so that pattern = overfit red flag → REJECT. A structural change (new indicator, new gate, risk-model swap) CAN justify a jump, but only if the **Analyst Reasoning Trail** shows the analyst understood why — a diff with no matching reasoning is still a reject. If the diff is empty / unchanged, the jump is almost always a sim or data artefact → REJECT.
+10. **Repeat submission** — if a previous Risk Manager verdict in the Conversation already rejected a very similar strategy (same metrics shape, same pair, same timeframe), cross-check with the **Analyst Reasoning Trail** and the **Strategy Code Changes** diff: if neither shows a materially different approach, REJECT with "same class of strategy already rejected in verdict <turnRef>" and refuse to re-relitigate. A rename / formatting refactor is NOT a material change.
+11. **Cherry-picking** — if the experiment has many failed or much-worse runs and this one is the outlier, read the **Analyst Reasoning Trail** for evidence of out-of-sample validation (different period or pair). If the trail shows the analyst only tuned parameters against the same backtest window, REJECT. If the diff adds parameter tweaks *without* any out-of-sample check, REJECT.
 
 ## Verdict (required)
 
