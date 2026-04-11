@@ -216,14 +216,22 @@ export async function reconcilePaperSessions(): Promise<void> {
 		for (const session of dbRunning) {
 			if (session.containerName && liveNames.has(session.containerName)) {
 				// Case 1: container is alive — keep it, and re-attach the
-				// freqtrade log tail so the user sees live output again
-				// after the server restart (the previous tail subprocess
-				// died with the old server process).
+				// freqtrade log tail + market ticker so the user sees
+				// live output again after the server restart (the
+				// previous tail subprocess + tick interval both died
+				// with the old server process).
 				liveNames.delete(session.containerName);
+				const meta = (session.meta as Record<string, unknown> | null) ?? null;
 				attachLogStreamForReconcile({
 					sessionId: session.id,
 					experimentId: session.experimentId,
 					containerName: session.containerName,
+					engine: session.engine,
+					runId: session.runId,
+					apiPort: session.apiPort,
+					meta,
+					pair: (meta?.pairs as string[] | undefined)?.[0] ?? null,
+					timeframe: (meta?.timeframe as string | undefined) ?? null,
 				});
 				kept++;
 			} else {
