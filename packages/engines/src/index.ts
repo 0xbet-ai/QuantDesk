@@ -13,6 +13,7 @@ export {
 	runDetached,
 	execInContainer,
 	logsFrom,
+	followLogs,
 	stopContainer,
 	removeContainer,
 	listByLabel,
@@ -21,6 +22,8 @@ export {
 	DockerError,
 	type DockerRunOptions,
 	type ContainerSummary,
+	type LogStreamHandle,
+	type LogStreamOptions,
 	type RunResult as DockerRunResult,
 } from "./docker.js";
 export type {

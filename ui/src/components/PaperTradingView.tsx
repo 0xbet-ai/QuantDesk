@@ -8,6 +8,7 @@ import {
 } from "lightweight-charts";
 import { ArrowDownRight, ArrowUpRight, Pause } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import { useTheme } from "../context/ThemeContext.js";
 import type {
 	Desk,
@@ -28,6 +29,14 @@ import { cn } from "../lib/utils.js";
 interface Props {
 	desk: Desk;
 }
+
+interface PaperLogLine {
+	id: number;
+	stream: "stdout" | "stderr";
+	line: string;
+	at: string;
+}
+const MAX_LOG_LINES = 500;
 
 function formatPnl(v: number): string {
 	return `${v >= 0 ? "+" : ""}${v.toFixed(2)}`;
@@ -58,17 +67,25 @@ export function PaperTradingView({ desk }: Props) {
 	const [status, setStatus] = useState<PaperStatusData | null>(null);
 	const [trades, setTrades] = useState<PaperTradeItem[]>([]);
 	const [candles, setCandles] = useState<PaperCandleItem[]>([]);
+	const [logs, setLogs] = useState<PaperLogLine[]>([]);
 	const [stopping, setStopping] = useState(false);
+	const logIdRef = useRef(0);
+	const logContainerRef = useRef<HTMLDivElement>(null);
 
 	const chartContainerRef = useRef<HTMLDivElement>(null);
 	const chartRef = useRef<IChartApi | null>(null);
 	const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
 
 	// Derive pair + timeframe from the paper runs row config (set by
-	// startPaper from config.json) so we request the right candles.
+	// startPaper from config.json) — the session row is the single
+	// source of truth. Previously this fell back to `"BTC/USDT"` if
+	// meta.pairs was missing, which is the exact class of hardcoded
+	// default that corrupted the 8a31276e desk via the old paper-sessions
+	// bug. No fallback: if the meta is missing, candles are simply not
+	// requested until the session row arrives.
 	const sessionConfig = (session?.meta ?? {}) as Record<string, unknown>;
-	const pair = (sessionConfig.pairs as string[] | undefined)?.[0] ?? "BTC/USDT";
-	const timeframe = (sessionConfig.timeframe as string) ?? "5m";
+	const pair = (sessionConfig.pairs as string[] | undefined)?.[0] ?? null;
+	const timeframe = (sessionConfig.timeframe as string) ?? null;
 
 	const refresh = useCallback(() => {
 		getActivePaperSession(desk.id)
@@ -80,9 +97,11 @@ export function PaperTradingView({ desk }: Props) {
 		getPaperTrades(desk.id)
 			.then(setTrades)
 			.catch(() => {});
-		getPaperCandles(desk.id, pair, timeframe)
-			.then(setCandles)
-			.catch(() => {});
+		if (pair && timeframe) {
+			getPaperCandles(desk.id, pair, timeframe)
+				.then(setCandles)
+				.catch(() => {});
+		}
 	}, [desk.id, pair, timeframe]);
 
 	useEffect(() => {
@@ -90,6 +109,47 @@ export function PaperTradingView({ desk }: Props) {
 		const id = setInterval(refresh, 10000);
 		return () => clearInterval(id);
 	}, [refresh]);
+
+	// Subscribe to live paper.log events pushed from the freqtrade
+	// container's stdout. The server spawns `docker logs -f` and
+	// forwards each line; we keep the most recent MAX_LOG_LINES in a
+	// ring buffer so the console doesn't grow unbounded.
+	useLiveUpdates(session?.experimentId ?? null, (event) => {
+		if (event.type !== "paper.log") return;
+		const payload = event.payload as {
+			sessionId?: string;
+			stream?: "stdout" | "stderr";
+			line?: string;
+		};
+		if (!payload.line) return;
+		if (session && payload.sessionId && payload.sessionId !== session.id) return;
+		const nextId = logIdRef.current + 1;
+		logIdRef.current = nextId;
+		const lineEntry: PaperLogLine = {
+			id: nextId,
+			stream: payload.stream === "stderr" ? "stderr" : "stdout",
+			line: payload.line,
+			at: event.createdAt,
+		};
+		setLogs((prev) => {
+			const next = [...prev, lineEntry];
+			return next.length > MAX_LOG_LINES ? next.slice(-MAX_LOG_LINES) : next;
+		});
+	});
+
+	// Auto-scroll the log panel to the bottom whenever new lines arrive,
+	// but only if the user is already near the bottom — so they can
+	// pause to read without being yanked away. The `logs` dependency is
+	// the signal for "new line arrived"; the effect body reads the DOM
+	// via ref, not logs, so biome's exhaustive-deps would otherwise
+	// flag the dep as unused.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `logs` triggers the scroll, even though the body only touches the DOM ref
+	useEffect(() => {
+		const el = logContainerRef.current;
+		if (!el) return;
+		const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+		if (nearBottom) el.scrollTop = el.scrollHeight;
+	}, [logs]);
 
 	const handleStop = async () => {
 		setStopping(true);
@@ -246,7 +306,7 @@ export function PaperTradingView({ desk }: Props) {
 			</div>
 
 			{/* Trade history */}
-			<div className="flex-1 overflow-y-auto">
+			<div className="flex-1 overflow-y-auto border-b border-border">
 				<div className="px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
 					Trades ({trades.length})
 				</div>
@@ -309,6 +369,42 @@ export function PaperTradingView({ desk }: Props) {
 						</tbody>
 					</table>
 				)}
+			</div>
+
+			{/* Live log console — freqtrade container stdout streamed via
+			    paper.log events. Shows "Bot heartbeat" / entry signals /
+			    errors so the user can tell a healthy bot from a zombie
+			    one without leaving the app. */}
+			<div className="h-48 shrink-0 flex flex-col">
+				<div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+					<span>Container log</span>
+					<span className="text-muted-foreground/60 normal-case tracking-normal">
+						{logs.length} lines
+					</span>
+				</div>
+				<div
+					ref={logContainerRef}
+					className="flex-1 overflow-y-auto bg-muted/20 font-mono text-[11px] leading-relaxed px-4 py-2"
+				>
+					{logs.length === 0 ? (
+						<div className="text-muted-foreground/70">
+							Waiting for freqtrade output... (bot heartbeat every minute, entry signals when
+							strategy triggers)
+						</div>
+					) : (
+						logs.map((l) => (
+							<div
+								key={l.id}
+								className={cn(
+									"whitespace-pre-wrap break-all",
+									l.stream === "stderr" ? "text-red-400" : "text-foreground/80",
+								)}
+							>
+								{l.line}
+							</div>
+						))
+					)}
+				</div>
 			</div>
 		</div>
 	);

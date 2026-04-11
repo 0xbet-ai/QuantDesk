@@ -1,4 +1,12 @@
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	readdirSync,
+	unlinkSync,
+	writeFileSync,
+} from "node:fs";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import AdmZip from "adm-zip";
 import {
@@ -224,13 +232,32 @@ export class FreqtradeAdapter implements EngineAdapter {
 		const containerName = `quantdesk-paper-${config.runId}`;
 		const hostApiPort = await pickFreePort();
 
-		// Rewrite config.json with dry_run + api_server enabled, preserving
-		// everything else the agent wrote.
-		const configPath = join(workspaceAbs, "config.json");
-		const baseConfig = existsSync(configPath) ? JSON.parse(readFileSync(configPath, "utf-8")) : {};
+		// Read the agent-owned workspace config as the base. We never
+		// write back to this file — the previous implementation
+		// overwrote `workspace/config.json` with server-authored fields
+		// (dry_run, api_server, pair_whitelist override) and the
+		// commit-per-turn loop baked those mutations into workspace git
+		// history. Before the `cf38239` hardcoded BTC/USDT was fixed,
+		// this mechanism permanently corrupted the 8a31276e desk's
+		// config.json on paper start — and the corruption survived the
+		// fix because the bad value was already in git.
+		//
+		// Today: read workspace/config.json as source-of-truth, build
+		// the overlay in memory, and write it to a scratch host path
+		// OUTSIDE the workspace. The scratch file is bind-mounted
+		// read-only into the container, so workspace/config.json is
+		// never touched by the server and can never again be
+		// accidentally committed.
+		const sourceConfigPath = join(workspaceAbs, "config.json");
+		const baseConfig = existsSync(sourceConfigPath)
+			? JSON.parse(readFileSync(sourceConfigPath, "utf-8"))
+			: {};
 		// Preserve whatever trading_mode the agent set in config.json.
 		// If the agent wrote perp pairs with spot mode, freqtrade will
-		// reject them with a clear error — don't silently override.
+		// reject them with a clear error — don't silently override. The
+		// fail-fast whitelist check after /api/v1/start catches any
+		// resulting empty whitelist and refuses to return a healthy
+		// handle.
 		const patched = {
 			...baseConfig,
 			dry_run: true,
@@ -253,9 +280,20 @@ export class FreqtradeAdapter implements EngineAdapter {
 			},
 		};
 		if (config.timeframe) patched.timeframe = config.timeframe;
-		writeFileSync(configPath, JSON.stringify(patched, null, 2));
+
+		// Scratch location for the paper overlay config — outside the
+		// workspace so it can never be picked up by the commit-per-turn
+		// loop. Path is keyed by runId so the boot reconcile can find
+		// the right file for each surviving paper container on restart.
+		const scratchDir = join(homedir(), ".quantdesk", "paper-configs");
+		mkdirSync(scratchDir, { recursive: true });
+		const scratchConfigPath = join(scratchDir, `${config.runId}.json`);
+		writeFileSync(scratchConfigPath, JSON.stringify(patched, null, 2));
 
 		const strategyName = "QuantDeskStrategy";
+		// The paper overlay lives outside user_data so freqtrade's
+		// entrypoint doesn't try to chown it to ftuser.
+		const PAPER_CONFIG_IN_CONTAINER = "/freqtrade/paper-config.json";
 
 		await runDetached({
 			image: ENGINE_IMAGES.freqtrade,
@@ -265,7 +303,14 @@ export class FreqtradeAdapter implements EngineAdapter {
 				engine: "freqtrade",
 				kind: "paper",
 			}),
-			volumes: [`${workspaceAbs}:${USERDIR_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
+			volumes: [
+				`${workspaceAbs}:${USERDIR_IN_CONTAINER}`,
+				// Single-file read-only bind mount: server-authored paper
+				// overlay, never touched by the agent, never mutated by
+				// the container.
+				`${scratchConfigPath}:${PAPER_CONFIG_IN_CONTAINER}:ro`,
+				...(config.extraVolumes ?? []),
+			],
 			tmpfs: GIT_SHADOW_TMPFS,
 			ports: [`127.0.0.1:${hostApiPort}:${DEFAULT_PAPER_API_PORT}`],
 			cpus: "1",
@@ -275,7 +320,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 				"--userdir",
 				USERDIR_IN_CONTAINER,
 				"--config",
-				`${USERDIR_IN_CONTAINER}/config.json`,
+				PAPER_CONFIG_IN_CONTAINER,
 				"--strategy",
 				strategyName,
 				"--strategy-path",
@@ -319,6 +364,74 @@ export class FreqtradeAdapter implements EngineAdapter {
 			);
 		}
 
+		// Fail-fast whitelist validation.
+		// freqtrade silently strips pairs from `pair_whitelist` that aren't
+		// compatible with the exchange — e.g. `BTC/USDT` on Hyperliquid (which
+		// is USDC-native). The bot then runs happily with an empty whitelist,
+		// doing absolutely nothing, and the server previously marked the
+		// session as "running" because the health check only asked the API
+		// for its heartbeat. That masked the BTC/USDT / Hyperliquid mismatch
+		// for a full day of paper trading.
+		//
+		// Query `/api/v1/whitelist` immediately after /start and refuse to
+		// return a "healthy" handle if the configured pairs got dropped.
+		// The caller (paper-sessions) will then mark the session failed
+		// with a clear error the agent can react to.
+		try {
+			const wlRes = await fetch(`${apiUrl}/api/v1/whitelist`, {
+				headers: { Authorization: auth },
+				signal: AbortSignal.timeout(3000),
+			});
+			if (wlRes.ok) {
+				const wlJson = (await wlRes.json()) as { whitelist?: string[] };
+				const effective = wlJson.whitelist ?? [];
+				if (effective.length === 0) {
+					// Stop + remove the container we just started so we don't
+					// leave zombies behind when paper-sessions catches this.
+					try {
+						await stopContainer(containerName, 5);
+					} catch {
+						/* best effort */
+					}
+					try {
+						await removeContainer(containerName);
+					} catch {
+						/* best effort */
+					}
+					const requested = config.pairs.join(", ");
+					throw new Error(
+						`Freqtrade accepted ${requested} on ${config.exchange} but then dropped every pair — the effective whitelist is empty. Hyperliquid is USDC-native (no USDT); other venues may reject unsupported quote currencies or spot/futures mismatches. Fix \`exchange.pair_whitelist\` (and \`trading_mode\` if needed) in workspace/config.json and retry.`,
+					);
+				}
+				const missing = config.pairs.filter((p) => !effective.includes(p));
+				if (missing.length > 0) {
+					try {
+						await stopContainer(containerName, 5);
+					} catch {
+						/* best effort */
+					}
+					try {
+						await removeContainer(containerName);
+					} catch {
+						/* best effort */
+					}
+					throw new Error(
+						`Freqtrade dropped ${missing.join(", ")} from the effective whitelist on ${config.exchange} (kept: ${effective.join(", ") || "none"}). Check pair naming and trading_mode in workspace/config.json.`,
+					);
+				}
+			}
+			// If the whitelist endpoint returned non-200, don't block the start
+			// — freqtrade versions vary and we'd rather have a working session
+			// than a false negative. The paper.log stream will still surface
+			// any real problem.
+		} catch (err) {
+			if (err instanceof Error && err.message.startsWith("Freqtrade")) {
+				throw err;
+			}
+			// Network / timeout — don't treat as a hard failure, same reasoning
+			// as above.
+		}
+
 		return {
 			containerName,
 			runId: config.runId,
@@ -345,6 +458,15 @@ export class FreqtradeAdapter implements EngineAdapter {
 		}
 		await stopContainer(handle.containerName, 10);
 		await removeContainer(handle.containerName);
+		// Clean up the scratch paper overlay for this session. Best-effort:
+		// if the file was already deleted or was never created (pre-redesign
+		// session on an older server), ignore the error.
+		try {
+			const scratchPath = join(homedir(), ".quantdesk", "paper-configs", `${handle.runId}.json`);
+			unlinkSync(scratchPath);
+		} catch {
+			/* already gone or never existed */
+		}
 	}
 
 	async getPaperStatus(handle: PaperHandle): Promise<PaperStatus> {
@@ -375,10 +497,23 @@ export class FreqtradeAdapter implements EngineAdapter {
 				unrealizedPnl,
 				realizedPnl: profitJson.profit_closed_coin ?? profitJson.profit_all_coin ?? 0,
 				openPositions: statusJson.length,
+				// `bot_start_date` from /api/v1/profit is a timezone-naive
+				// datetime string ("2026-04-11 12:22:59") in UTC. JS
+				// `new Date(naiveString)` parses it as *local* time, which
+				// on a KST host produces a value 9h behind UTC → uptime
+				// inflates by 9h. Force UTC by appending "Z".
 				uptime: profitJson.bot_start_date
 					? Math.max(
 							0,
-							Math.floor((Date.now() - new Date(profitJson.bot_start_date).getTime()) / 1000),
+							Math.floor(
+								(Date.now() -
+									new Date(
+										profitJson.bot_start_date.endsWith("Z")
+											? profitJson.bot_start_date
+											: `${profitJson.bot_start_date.replace(" ", "T")}Z`,
+									).getTime()) /
+									1000,
+							),
 						)
 					: 0,
 			};
@@ -440,14 +575,18 @@ export class FreqtradeAdapter implements EngineAdapter {
 				signal: AbortSignal.timeout(5000),
 			});
 			if (!res.ok) return [];
-			const data = (await res.json()) as { data: number[][] };
+			// Freqtrade returns column 0 as an ISO date STRING
+			// ("2026-04-11T12:15:00Z"), not a unix number. Previously we did
+			// `c[0] / 1000` which produced NaN → JSON null → lightweight-charts
+			// silently rendered nothing. Parse the string into seconds.
+			const data = (await res.json()) as { data: (string | number)[][] };
 			return (data.data ?? []).map((c) => ({
-				time: Math.floor(c[0]! / 1000),
-				open: c[1]!,
-				high: c[2]!,
-				low: c[3]!,
-				close: c[4]!,
-				volume: c[5]!,
+				time: Math.floor(new Date(c[0] as string).getTime() / 1000),
+				open: c[1] as number,
+				high: c[2] as number,
+				low: c[3] as number,
+				close: c[4] as number,
+				volume: c[5] as number,
 			}));
 		} catch {
 			return [];

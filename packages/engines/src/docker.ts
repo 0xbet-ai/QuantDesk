@@ -230,6 +230,90 @@ export async function logsFrom(
 }
 
 /**
+ * Follow (`docker logs -f`) a running container, forwarding each line as
+ * it arrives via the provided callbacks. Returns a handle with `stop()`
+ * that terminates the tail (sends SIGTERM to the docker subprocess).
+ *
+ * Used by paper-sessions to pipe freqtrade stdout/stderr into the
+ * experiment's WebSocket channel so the user can see "bot heartbeat",
+ * entry signals, and errors in real time instead of staring at a
+ * silent "running" badge.
+ *
+ * The tail is best-effort:
+ *   - if docker cannot find the container, `onExit` fires with the
+ *     stderr tail so the caller can decide what to do
+ *   - if the container exits cleanly, `docker logs -f` exits too, and
+ *     `onExit` fires with exitCode 0
+ *   - stop() is idempotent — calling it twice is a no-op
+ */
+export interface LogStreamHandle {
+	stop: () => void;
+}
+export interface LogStreamOptions extends ExecStreamOptions {
+	/** Start offset — e.g. "1m" or an ISO timestamp. Omit for "from now". */
+	since?: string;
+	/** How many historical lines to show before tailing. Default 0 (live only). */
+	tail?: number;
+	/** Called when the tail subprocess exits (container gone or stop()). */
+	onExit?: (code: number, stderr: string) => void;
+}
+export function followLogs(containerName: string, opts: LogStreamOptions): LogStreamHandle {
+	const args = ["logs", "-f"];
+	args.push("--tail", String(opts.tail ?? 0));
+	if (opts.since) args.push("--since", opts.since);
+	args.push(containerName);
+
+	const child = spawn("docker", args, { stdio: ["ignore", "pipe", "pipe"] });
+	let stopped = false;
+	let stdoutBuffer = "";
+	let stderrBuffer = "";
+	let stderrTail = ""; // keep last ~2KB for diagnostics
+
+	const flushLines = (buffer: string, cb: ((line: string) => void) | undefined): string => {
+		if (!cb) return "";
+		let remainder = buffer;
+		let idx = remainder.indexOf("\n");
+		while (idx !== -1) {
+			const line = remainder.slice(0, idx).replace(/\r$/, "");
+			if (line) cb(line);
+			remainder = remainder.slice(idx + 1);
+			idx = remainder.indexOf("\n");
+		}
+		return remainder;
+	};
+
+	child.stdout.on("data", (chunk) => {
+		stdoutBuffer = flushLines(stdoutBuffer + chunk.toString(), opts.onStdoutLine);
+	});
+	child.stderr.on("data", (chunk) => {
+		const text = chunk.toString();
+		stderrTail = (stderrTail + text).slice(-2048);
+		stderrBuffer = flushLines(stderrBuffer + text, opts.onStderrLine);
+	});
+	child.on("error", () => {
+		// `docker` binary missing or similar — surface via onExit with code -1.
+		if (opts.onExit) opts.onExit(-1, stderrTail);
+	});
+	child.on("close", (code) => {
+		if (opts.onStdoutLine && stdoutBuffer) opts.onStdoutLine(stdoutBuffer.trimEnd());
+		if (opts.onStderrLine && stderrBuffer) opts.onStderrLine(stderrBuffer.trimEnd());
+		if (!stopped && opts.onExit) opts.onExit(code ?? 0, stderrTail);
+	});
+
+	return {
+		stop: () => {
+			if (stopped) return;
+			stopped = true;
+			try {
+				child.kill("SIGTERM");
+			} catch {
+				/* already dead */
+			}
+		},
+	};
+}
+
+/**
  * Send SIGTERM and wait for graceful shutdown, escalating to SIGKILL after
  * `timeoutSec` seconds. Mirrors `docker stop -t` semantics.
  */
