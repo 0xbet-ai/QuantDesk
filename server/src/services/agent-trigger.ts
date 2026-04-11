@@ -445,6 +445,19 @@ export async function triggerAgent(
 			// the guard only cares that the agent took a concrete action.
 			let didCallTool = false;
 
+			// Collect every assistant text block the agent emits during this
+			// turn. Claude's final `result` event only carries the LAST text
+			// block (the one the agent wrote right before stopping), so the
+			// previous implementation silently dropped any intermediate
+			// `[text] → [tool_call] → [text]` interleaving. That's how the
+			// baseline analysis disappeared: the agent wrote "Run #N baseline
+			// 완료. metrics: ..." as block 1, called request_validation as
+			// block 2, then wrote "검증 진행 중" as block 3 — the server
+			// persisted block 3 as the turn's comment and threw blocks 1+2
+			// away. Accumulating the blocks here and joining them at turn end
+			// preserves the full assistant transcript in the chat thread.
+			const assistantTextChunks: string[] = [];
+
 			const streamingSpawn = (args: string[], stdin: string) =>
 				spawnCli(args, stdin, {
 					cwd: desk.workspacePath ?? undefined,
@@ -454,6 +467,10 @@ export async function triggerAgent(
 						if (chunk) {
 							if (chunk.type === "tool_call") {
 								didCallTool = true;
+							}
+							if (chunk.type === "text" && typeof chunk.content === "string") {
+								const trimmed = chunk.content.trim();
+								if (trimmed) assistantTextChunks.push(trimmed);
 							}
 							// Phase 27 — heartbeat: any chunk proves the subprocess is
 							// alive, so bump `last_heartbeat_at`. Watchdog (future
@@ -653,8 +670,35 @@ export async function triggerAgent(
 			// the UI can render a small chip next to the comment. The
 			// chip is informational only — no buttons, no pending
 			// proposal state.
+			// Prefer the full accumulated transcript (every assistant
+			// text block the agent emitted during this turn) over the
+			// single `result.resultText` carried by Claude's final event.
+			// The final event only holds the LAST text block; joining the
+			// accumulated chunks with a double newline preserves every
+			// block in the order the agent wrote them — so a
+			// "metrics analysis → tool call → short status line" sequence
+			// renders as a single chat bubble containing BOTH the metrics
+			// analysis and the status line, instead of silently losing the
+			// analysis the way the old single-field path did.
+			//
+			// Dedupe the last chunk against `result.resultText` so we don't
+			// double-print the final line in the common case where the
+			// last `[text]` chunk and Claude's `result.content` contain
+			// identical text.
+			let assembledText = assistantTextChunks.join("\n\n");
 			if (result.resultText) {
-				const cleanText = stripAgentMarkers(result.resultText);
+				const finalText = result.resultText.trim();
+				if (finalText) {
+					const lastChunk = assistantTextChunks[assistantTextChunks.length - 1]?.trim();
+					if (lastChunk !== finalText) {
+						assembledText = assembledText
+							? `${assembledText}\n\n${finalText}`
+							: finalText;
+					}
+				}
+			}
+			if (assembledText) {
+				const cleanText = stripAgentMarkers(assembledText);
 				if (cleanText) {
 					// Phase 27 — scan for side-effects produced during this turn
 					// and attach them to the comment metadata so the UI can
