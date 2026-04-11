@@ -21,6 +21,7 @@ import {
 	stopContainer,
 } from "../docker.js";
 import { ENGINE_IMAGES } from "../images.js";
+import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
 import type {
 	BacktestConfig,
 	BacktestResult,
@@ -88,9 +89,13 @@ interface LegacyFreqtradeResult {
 export class FreqtradeAdapter implements EngineAdapter {
 	readonly name = "freqtrade";
 
+	private get image(): string {
+		return resolveImage("freqtrade", ENGINE_IMAGES.freqtrade);
+	}
+
 	async ensureImage(): Promise<void> {
 		await ensureDockerAvailable();
-		await pullImage(ENGINE_IMAGES.freqtrade);
+		await pullImage(this.image);
 	}
 
 	async downloadData(config: DataConfig): Promise<DataRef> {
@@ -117,7 +122,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 		}
 		const result = await runContainer(
 			{
-				image: ENGINE_IMAGES.freqtrade,
+				image: this.image,
 				rm: true,
 				volumes: [`${userDirHost}:${USERDIR_IN_CONTAINER}`],
 				tmpfs: GIT_SHADOW_TMPFS,
@@ -171,15 +176,16 @@ export class FreqtradeAdapter implements EngineAdapter {
 		}
 
 		const containerName = `quantdesk-ft-backtest-${config.runId.slice(0, 8)}`;
+		const runtime = getEngineRuntimeConfig();
 		const result = await runContainer(
 			{
-				image: ENGINE_IMAGES.freqtrade,
+				image: this.image,
 				name: containerName,
 				rm: true,
 				volumes: [`${workspaceAbs}:${USERDIR_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
 				tmpfs: GIT_SHADOW_TMPFS,
-				cpus: "2",
-				memory: "2g",
+				cpus: runtime.backtest.cpus,
+				memory: formatMemory(runtime.backtest.memoryGb),
 				command: [
 					"backtesting",
 					"--userdir",
@@ -295,8 +301,9 @@ export class FreqtradeAdapter implements EngineAdapter {
 		// entrypoint doesn't try to chown it to ftuser.
 		const PAPER_CONFIG_IN_CONTAINER = "/freqtrade/paper-config.json";
 
+		const runtime = getEngineRuntimeConfig();
 		await runDetached({
-			image: ENGINE_IMAGES.freqtrade,
+			image: this.image,
 			name: containerName,
 			labels: quantdeskLabels({
 				runId: config.runId,
@@ -313,8 +320,8 @@ export class FreqtradeAdapter implements EngineAdapter {
 			],
 			tmpfs: GIT_SHADOW_TMPFS,
 			ports: [`127.0.0.1:${hostApiPort}:${DEFAULT_PAPER_API_PORT}`],
-			cpus: "1",
-			memory: "1g",
+			cpus: runtime.paper.cpus,
+			memory: formatMemory(runtime.paper.memoryGb),
 			command: [
 				"trade",
 				"--userdir",
@@ -333,12 +340,13 @@ export class FreqtradeAdapter implements EngineAdapter {
 		// is configured — it waits for an explicit /api/v1/start call.
 		const apiUrl = `http://127.0.0.1:${hostApiPort}`;
 		const auth = `Basic ${Buffer.from("quantdesk:quantdesk").toString("base64")}`;
+		const ftRuntime = runtime.freqtrade;
 		let apiReady = false;
-		for (let attempt = 0; attempt < 30; attempt++) {
+		for (let attempt = 0; attempt < ftRuntime.startupMaxAttempts; attempt++) {
 			try {
 				const res = await fetch(`${apiUrl}/api/v1/ping`, {
 					headers: { Authorization: auth },
-					signal: AbortSignal.timeout(2000),
+					signal: AbortSignal.timeout(ftRuntime.apiTimeoutMs),
 				});
 				if (res.ok) {
 					apiReady = true;
@@ -346,7 +354,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 					const startRes = await fetch(`${apiUrl}/api/v1/start`, {
 						method: "POST",
 						headers: { Authorization: auth },
-						signal: AbortSignal.timeout(3000),
+						signal: AbortSignal.timeout(ftRuntime.apiTimeoutMs),
 					});
 					if (!startRes.ok) {
 						throw new Error(`/api/v1/start returned ${startRes.status}`);
@@ -356,11 +364,14 @@ export class FreqtradeAdapter implements EngineAdapter {
 			} catch (err) {
 				if (apiReady) throw err; // API was ready but /start failed
 			}
-			await new Promise((r) => setTimeout(r, 1000));
+			await new Promise((r) => setTimeout(r, ftRuntime.startupRetryDelayMs));
 		}
 		if (!apiReady) {
+			const totalWaitSec = Math.round(
+				(ftRuntime.startupMaxAttempts * ftRuntime.startupRetryDelayMs) / 1000,
+			);
 			throw new Error(
-				`Freqtrade API did not become ready within 30s on port ${hostApiPort}. Container may have crashed.`,
+				`Freqtrade API did not become ready within ${totalWaitSec}s on port ${hostApiPort}. Container may have crashed.`,
 			);
 		}
 
@@ -380,7 +391,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 		try {
 			const wlRes = await fetch(`${apiUrl}/api/v1/whitelist`, {
 				headers: { Authorization: auth },
-				signal: AbortSignal.timeout(3000),
+				signal: AbortSignal.timeout(getEngineRuntimeConfig().freqtrade.apiTimeoutMs),
 			});
 			if (wlRes.ok) {
 				const wlJson = (await wlRes.json()) as { whitelist?: string[] };
@@ -389,7 +400,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 					// Stop + remove the container we just started so we don't
 					// leave zombies behind when paper-sessions catches this.
 					try {
-						await stopContainer(containerName, 5);
+						await stopContainer(containerName, getEngineRuntimeConfig().paperStopGracefulSec);
 					} catch {
 						/* best effort */
 					}
@@ -406,7 +417,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 				const missing = config.pairs.filter((p) => !effective.includes(p));
 				if (missing.length > 0) {
 					try {
-						await stopContainer(containerName, 5);
+						await stopContainer(containerName, getEngineRuntimeConfig().paperStopGracefulSec);
 					} catch {
 						/* best effort */
 					}
@@ -450,13 +461,13 @@ export class FreqtradeAdapter implements EngineAdapter {
 					headers: {
 						Authorization: `Basic ${Buffer.from("quantdesk:quantdesk").toString("base64")}`,
 					},
-					signal: AbortSignal.timeout(3000),
+					signal: AbortSignal.timeout(getEngineRuntimeConfig().freqtrade.apiTimeoutMs),
 				});
 			} catch {
 				// graceful stop failed — fall through to docker stop
 			}
 		}
-		await stopContainer(handle.containerName, 10);
+		await stopContainer(handle.containerName, getEngineRuntimeConfig().paperStopGracefulSec);
 		await removeContainer(handle.containerName);
 		// Clean up the scratch paper overlay for this session. Best-effort:
 		// if the file was already deleted or was never created (pre-redesign
@@ -479,11 +490,11 @@ export class FreqtradeAdapter implements EngineAdapter {
 			const [statusRes, profitRes] = await Promise.all([
 				fetch(`${apiUrl}/api/v1/status`, {
 					headers: { Authorization: auth },
-					signal: AbortSignal.timeout(3000),
+					signal: AbortSignal.timeout(getEngineRuntimeConfig().freqtrade.apiTimeoutMs),
 				}),
 				fetch(`${apiUrl}/api/v1/profit`, {
 					headers: { Authorization: auth },
-					signal: AbortSignal.timeout(3000),
+					signal: AbortSignal.timeout(getEngineRuntimeConfig().freqtrade.apiTimeoutMs),
 				}),
 			]);
 			if (!statusRes.ok || !profitRes.ok) {
@@ -536,7 +547,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 		try {
 			const res = await fetch(`${apiUrl}/api/v1/trades?limit=100`, {
 				headers: { Authorization: auth },
-				signal: AbortSignal.timeout(5000),
+				signal: AbortSignal.timeout(getEngineRuntimeConfig().freqtrade.apiTimeoutMs),
 			});
 			if (!res.ok) return [];
 			const data = (await res.json()) as { trades: FreqtradeTrade[] };
@@ -572,7 +583,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 			const params = new URLSearchParams({ pair, timeframe, limit: "500" });
 			const res = await fetch(`${apiUrl}/api/v1/pair_candles?${params}`, {
 				headers: { Authorization: auth },
-				signal: AbortSignal.timeout(5000),
+				signal: AbortSignal.timeout(getEngineRuntimeConfig().freqtrade.apiTimeoutMs),
 			});
 			if (!res.ok) return [];
 			// Freqtrade returns column 0 as an ISO date STRING
@@ -618,7 +629,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 			const params = new URLSearchParams({ pair, timeframe, limit: "1" });
 			const res = await fetch(`${apiUrl}/api/v1/pair_candles?${params}`, {
 				headers: { Authorization: auth },
-				signal: AbortSignal.timeout(3000),
+				signal: AbortSignal.timeout(getEngineRuntimeConfig().freqtrade.apiTimeoutMs),
 			});
 			if (!res.ok) return null;
 			const body = (await res.json()) as {

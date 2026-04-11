@@ -28,6 +28,7 @@ import {
 	getAdapter as getEngineAdapter,
 } from "@quantdesk/engines";
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { getConfig } from "../config-file.js";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog } from "./agent-log.js";
 import { systemComment } from "./comments.js";
@@ -121,12 +122,13 @@ function detachPaperLogStream(sessionId: string): void {
 // actually processing market data. A fresh close price every 30s is
 // the cheapest possible "yes, data is flowing" indicator.
 const paperMarketTickers = new Map<string, ReturnType<typeof setInterval>>();
-// 5-second cadence: freqtrade updates its in-memory forming candle as
-// new ticks arrive from the exchange, so even in the middle of a 5m
-// candle the close price can move. A 5s tick makes the log feel "live"
-// without hammering freqtrade's REST API (the endpoint returns a tiny
-// 1-row payload, so ~200 QPH per paper session is negligible).
-const MARKET_TICK_MS = 5_000;
+// Default 5-second cadence: freqtrade updates its in-memory forming
+// candle as new ticks arrive from the exchange, so even in the middle
+// of a 5m candle the close price can move. A 5s tick makes the log
+// feel "live" without hammering freqtrade's REST API (the endpoint
+// returns a tiny 1-row payload, so ~200 QPH per paper session is
+// negligible). Operators can raise or lower this via
+// `paper.marketTickIntervalMs` in the global config.
 
 /**
  * Start periodic market ticks for a running paper session. The ticks
@@ -178,9 +180,9 @@ function attachPaperMarketTicker(params: {
 	};
 
 	// Fire once immediately so the user sees a price line the moment
-	// the log panel mounts, then every MARKET_TICK_MS after that.
+	// the log panel mounts, then every tick interval after that.
 	void tick();
-	const interval = setInterval(tick, MARKET_TICK_MS);
+	const interval = setInterval(tick, getConfig().paper.marketTickIntervalMs);
 	paperMarketTickers.set(params.sessionId, interval);
 }
 

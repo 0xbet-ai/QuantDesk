@@ -39,3 +39,11 @@ export type {
 	TradeEntry,
 } from "./types.js";
 export { GenericImageMissingError, UnsupportedRuntimeError } from "./generic/adapter.js";
+export {
+	setEngineRuntimeConfig,
+	getEngineRuntimeConfig,
+	resolveImage,
+	formatMemory,
+	type EngineResources,
+	type EngineRuntimeConfig,
+} from "./runtime-config.js";

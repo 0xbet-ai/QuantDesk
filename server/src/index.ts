@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { initDb } from "@quantdesk/db";
+import { setEngineRuntimeConfig } from "@quantdesk/engines";
 import express from "express";
 import { getConfig } from "./config-file.js";
 import { handleMcpRequest } from "./mcp/http-route.js";
@@ -31,6 +32,19 @@ const config = getConfig();
 if (config.configPath) {
 	console.log(`[config] Loaded from ${config.configPath}`);
 }
+
+// Bridge the engine-specific subset of the config into the @quantdesk/engines
+// package so adapters (freqtrade, nautilus, generic) can pick up image
+// overrides, resource limits, freqtrade startup knobs, and the paper stop
+// grace period without importing from the server (circular dep).
+setEngineRuntimeConfig({
+	imageOverrides: config.engine.imageOverrides,
+	backtest: config.engine.backtest,
+	paper: config.engine.paper,
+	generic: config.engine.generic,
+	freqtrade: config.engine.freqtrade,
+	paperStopGracefulSec: config.paper.containerStopGracefulTimeoutSec,
+});
 
 // Initialise database (starts embedded Postgres on first run if DATABASE_URL is unset)
 await initDb();
@@ -67,7 +81,7 @@ app.get("/api/agent/test", async (req, res) => {
 	const execAsync = promisify(exec);
 	const cmd = adapter === "codex" ? "codex --version" : "claude --version";
 	try {
-		const { stdout } = await execAsync(cmd, { timeout: 5000 });
+		const { stdout } = await execAsync(cmd, { timeout: config.agent.adapterTestTimeoutMs });
 		res.json({ ok: true, version: stdout.trim() });
 	} catch {
 		res.status(503).json({ ok: false, error: `${adapter} CLI not found` });

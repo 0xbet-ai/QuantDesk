@@ -4,6 +4,7 @@ import { homedir } from "node:os";
 import { extname, join, resolve } from "node:path";
 import { DockerError, hasImage, quantdeskLabels, runContainer } from "../docker.js";
 import { ENGINE_IMAGES } from "../images.js";
+import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
 import type {
 	BacktestConfig,
 	BacktestResult,
@@ -97,10 +98,13 @@ function cacheVolumes(): string[] {
 export class GenericAdapter implements EngineAdapter {
 	readonly name = "generic";
 
+	private get image(): string {
+		return resolveImage("generic", ENGINE_IMAGES.generic);
+	}
+
 	async ensureImage(): Promise<void> {
-		const image = ENGINE_IMAGES.generic;
-		if (!(await hasImage(image))) {
-			throw new GenericImageMissingError(image);
+		if (!(await hasImage(this.image))) {
+			throw new GenericImageMissingError(this.image);
 		}
 	}
 
@@ -140,13 +144,14 @@ export class GenericAdapter implements EngineAdapter {
 		const workspaceAbs = resolve(input.workspacePath);
 		const scriptId = crypto.randomUUID().slice(0, 8);
 		const containerName = `quantdesk-script-${scriptId}`;
+		const rc = getEngineRuntimeConfig();
 		const result = await runContainer(
 			{
-				image: ENGINE_IMAGES.generic,
+				image: this.image,
 				name: containerName,
 				rm: true,
-				cpus: "2",
-				memory: "2g",
+				cpus: rc.generic.cpus,
+				memory: formatMemory(rc.generic.memoryGb),
 				// Labels let startup-cleanup reconcile any script container
 				// orphaned by a server crash mid-runScript. Without these, a
 				// hung / infinite-loop script survives forever and wastes CPU
@@ -191,14 +196,15 @@ export class GenericAdapter implements EngineAdapter {
 		const workspaceAbs = resolve(config.workspacePath);
 		const externalMountVolumes = config.extraVolumes ?? [];
 		const containerName = `quantdesk-backtest-${config.runId.slice(0, 8)}`;
+		const rc = getEngineRuntimeConfig();
 
 		const result = await runContainer(
 			{
-				image: ENGINE_IMAGES.generic,
+				image: this.image,
 				name: containerName,
 				rm: true,
-				cpus: "2",
-				memory: "2g",
+				cpus: rc.generic.cpus,
+				memory: formatMemory(rc.generic.memoryGb),
 				volumes: [`${workspaceAbs}:/workspace`, ...cacheVolumes(), ...externalMountVolumes],
 				command: [runtime, config.strategyPath],
 			},

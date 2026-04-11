@@ -12,6 +12,7 @@ import {
 	stopContainer,
 } from "../docker.js";
 import { ENGINE_IMAGES } from "../images.js";
+import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
 import type {
 	BacktestConfig,
 	BacktestResult,
@@ -90,9 +91,13 @@ interface LegacyNautilusResult {
 export class NautilusAdapter implements EngineAdapter {
 	readonly name = "nautilus";
 
+	private get image(): string {
+		return resolveImage("nautilus", ENGINE_IMAGES.nautilus);
+	}
+
 	async ensureImage(): Promise<void> {
 		await ensureDockerAvailable();
-		await pullImage(ENGINE_IMAGES.nautilus);
+		await pullImage(this.image);
 	}
 
 	async downloadData(_config: DataConfig): Promise<DataRef> {
@@ -108,13 +113,14 @@ export class NautilusAdapter implements EngineAdapter {
 		const workspaceAbs = resolve(config.workspacePath);
 		ensureRunnerPy(workspaceAbs);
 
+		const runtime = getEngineRuntimeConfig();
 		const result = await runContainer({
-			image: ENGINE_IMAGES.nautilus,
+			image: this.image,
 			rm: true,
 			volumes: [`${workspaceAbs}:${WORKSPACE_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
 			workdir: WORKSPACE_IN_CONTAINER,
-			cpus: "2",
-			memory: "2g",
+			cpus: runtime.backtest.cpus,
+			memory: formatMemory(runtime.backtest.memoryGb),
 			command: ["python", "runner.py", "--mode", "backtest"],
 		});
 
@@ -156,8 +162,9 @@ export class NautilusAdapter implements EngineAdapter {
 			),
 		);
 
+		const runtime = getEngineRuntimeConfig();
 		await runDetached({
-			image: ENGINE_IMAGES.nautilus,
+			image: this.image,
 			name: containerName,
 			labels: quantdeskLabels({
 				runId: config.runId,
@@ -166,8 +173,8 @@ export class NautilusAdapter implements EngineAdapter {
 			}),
 			volumes: [`${workspaceAbs}:${WORKSPACE_IN_CONTAINER}`, ...(config.extraVolumes ?? [])],
 			workdir: WORKSPACE_IN_CONTAINER,
-			cpus: "1",
-			memory: "1g",
+			cpus: runtime.paper.cpus,
+			memory: formatMemory(runtime.paper.memoryGb),
 			command: ["python", "-u", "runner.py", "--mode", "paper"],
 		});
 
@@ -179,7 +186,7 @@ export class NautilusAdapter implements EngineAdapter {
 	}
 
 	async stopPaper(handle: PaperHandle): Promise<void> {
-		await stopContainer(handle.containerName, 10);
+		await stopContainer(handle.containerName, getEngineRuntimeConfig().paperStopGracefulSec);
 		await removeContainer(handle.containerName);
 	}
 

@@ -20,12 +20,36 @@
 
   "agent": {
     "defaultModel": "claude-opus-4-6",
-    "heartbeatThresholdMs": 90000
+    "heartbeatThresholdMs": 90000,
+    "watchdogIntervalMs": 30000,
+    "adapterTestTimeoutMs": 5000
   },
 
   "engine": {
     "imageOverrides": {
       "freqtrade": "my-mirror/freqtrade:2026.3"
+    },
+    "backtest": {
+      "cpus": "2",
+      "memoryGb": 2
+    },
+    "paper": {
+      "cpus": "1",
+      "memoryGb": 1
+    },
+    "generic": {
+      "cpus": "2",
+      "memoryGb": 2
+    },
+    "freqtrade": {
+      "startupMaxAttempts": 30,
+      "startupRetryDelayMs": 1000,
+      "apiTimeoutMs": 5000
     }
+  },
+
+  "paper": {
+    "marketTickIntervalMs": 5000,
+    "containerStopGracefulTimeoutSec": 10
   }
 }
