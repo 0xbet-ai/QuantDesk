@@ -4,6 +4,7 @@ import {
 	autoIncrementExperimentNumber,
 	calculateRunDelta,
 	filterStrategiesByEngine,
+	shouldAssignBaseline,
 	validateGoPaper,
 	validateStop,
 } from "../services/logic.js";
@@ -17,6 +18,43 @@ describe("baseline assignment", () => {
 	it("subsequent runs get is_baseline=false", () => {
 		expect(assignBaseline(1)).toBe(false);
 		expect(assignBaseline(5)).toBe(false);
+	});
+});
+
+describe("shouldAssignBaseline (status-aware)", () => {
+	it("returns true when there are no runs yet", () => {
+		expect(shouldAssignBaseline([])).toBe(true);
+	});
+
+	it("returns true when every prior backtest failed (including 0-trade)", () => {
+		expect(
+			shouldAssignBaseline([
+				{ mode: "backtest", status: "failed" },
+				{ mode: "backtest", status: "failed" },
+			]),
+		).toBe(true);
+	});
+
+	it("returns false once any prior backtest reached status=completed", () => {
+		expect(
+			shouldAssignBaseline([
+				{ mode: "backtest", status: "failed" },
+				{ mode: "backtest", status: "completed" },
+			]),
+		).toBe(false);
+	});
+
+	it("ignores paper / non-backtest rows when deciding", () => {
+		expect(
+			shouldAssignBaseline([
+				{ mode: "paper", status: "completed" },
+				{ mode: "paper", status: "running" },
+			]),
+		).toBe(true);
+	});
+
+	it("ignores running backtests — only completed ones lock the slot", () => {
+		expect(shouldAssignBaseline([{ mode: "backtest", status: "running" }])).toBe(true);
 	});
 });
 

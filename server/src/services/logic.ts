@@ -2,6 +2,27 @@ export function assignBaseline(existingRunCount: number): boolean {
 	return existingRunCount === 0;
 }
 
+/**
+ * Decide whether a NEW backtest should be stamped `is_baseline = true`.
+ *
+ * The baseline slot belongs to the first **completed** backtest in an
+ * experiment — not the first row inserted. Failed runs (engine crashes,
+ * 0-trade no-ops, etc.) must NOT capture the slot permanently, otherwise
+ * a broken first attempt would lock the experiment out of ever
+ * establishing a legitimate baseline and the iteration-budget /
+ * Risk Manager sequencing logic (which keys off `is_baseline`) would
+ * silently drift.
+ *
+ * The counter-example `assignBaseline` above is kept for the legacy
+ * `createRun` helper that still assumes "first row wins"; new call
+ * sites should use this function instead.
+ */
+export function shouldAssignBaseline(
+	existingRuns: ReadonlyArray<{ mode: string; status: string }>,
+): boolean {
+	return !existingRuns.some((r) => r.mode === "backtest" && r.status === "completed");
+}
+
 export function autoIncrementExperimentNumber(existingCount: number): number {
 	return existingCount + 1;
 }

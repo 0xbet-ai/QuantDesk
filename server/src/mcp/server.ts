@@ -44,7 +44,7 @@ import type { AgentRole, TriggerAgentOptions } from "../services/agent-trigger.j
 import { systemComment } from "../services/comments.js";
 import { executeDataFetch } from "../services/data-fetch.js";
 import { completeAndCreateNewExperiment, completeExperiment } from "../services/experiments.js";
-import { autoIncrementRunNumber } from "../services/logic.js";
+import { autoIncrementRunNumber, shouldAssignBaseline } from "../services/logic.js";
 import {
 	getActiveSession as getActivePaperSession,
 	getLatestSession as getLatestPaperSession,
@@ -502,7 +502,9 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 			}
 
 			const runNumber = autoIncrementRunNumber(existingRuns.length);
-			const isBaseline = existingRuns.length === 0;
+			// Baseline is the first COMPLETED backtest, not the first row in
+			// the runs table — see `shouldAssignBaseline` for the reasoning.
+			const isBaseline = shouldAssignBaseline(existingRuns);
 			const runId = crypto.randomUUID();
 			const latestDatasetId = linked[0]?.dataset.id ?? null;
 
@@ -584,6 +586,39 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				});
 
 				const resultPayload = normalizedResultToMetrics(backtestResult.normalized);
+
+				// A 0-trade backtest is not a valid result — the strategy
+				// never entered a position, so the return/drawdown/win-rate
+				// numbers are artefacts of an empty trade list, not a
+				// tested edge. Mark the row as failed (freeing the baseline
+				// slot for the next attempt) and return an error so the
+				// analyst fixes the strategy instead of treating -2.8% as
+				// a comparable baseline.
+				if (backtestResult.normalized.totalTrades === 0) {
+					const zeroTradeReason =
+						"Backtest produced 0 trades — the strategy never entered a position. " +
+						"Check entry conditions, indicator thresholds, and that the dataset " +
+						"date range overlaps with the strategy's active window. Fix the code " +
+						"and rerun; this row will not count as a baseline.";
+					await db
+						.update(runs)
+						.set({
+							status: "failed",
+							// Keep the 0-trade metric payload around so the UI can
+							// still surface "why did this fail" in the Runs list
+							// without a separate query.
+							result: resultPayload,
+							error: zeroTradeReason,
+							completedAt: new Date(),
+						})
+						.where(eq(runs.id, runId));
+					publishExperimentEvent({
+						experimentId: ctx.experimentId,
+						type: "run.status",
+						payload: { runId, status: "failed", error: zeroTradeReason },
+					});
+					return errorResult(`run_backtest failed: ${zeroTradeReason}`);
+				}
 
 				const [run] = await db
 					.update(runs)
