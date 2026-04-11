@@ -645,7 +645,6 @@ export class FreqtradeAdapter implements EngineAdapter {
 				const v = row[i];
 				return v === undefined ? null : v;
 			};
-			const rawDate = get("date");
 			const close = get("close");
 			const adx = get("adx");
 			const fastd = get("fastd");
