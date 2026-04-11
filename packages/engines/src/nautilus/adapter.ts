@@ -263,7 +263,7 @@ export class NautilusAdapter implements EngineAdapter {
 		};
 	}
 
-	workspaceTemplate(_opts?: { venue?: string }): Record<string, string> {
+	workspaceTemplate(_opts: { venue: string }): Record<string, string> {
 		return {
 			"strategy.py": `# Nautilus Trader Strategy
 class QuantDeskStrategy:

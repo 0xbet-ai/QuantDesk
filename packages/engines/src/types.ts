@@ -29,7 +29,14 @@ export interface DataRef {
 }
 
 export interface BacktestConfig {
-	strategyPath: string;
+	/**
+	 * Path to the strategy file inside the workspace. Optional because
+	 * managed engines (freqtrade, nautilus) ignore it and resolve the
+	 * strategy by class name via `extraParams.strategy` — they only seed
+	 * one file (`strategy.py`) so the path is implicit. The generic
+	 * adapter requires it (it has no framework contract).
+	 */
+	strategyPath?: string;
 	dataRef: DataRef;
 	workspacePath: string;
 	runId: string;
@@ -163,5 +170,11 @@ export interface EngineAdapter {
 	 * knowledge lives entirely inside each adapter's implementation —
 	 * the server's workspace service must not hard-code any of it.
 	 */
-	workspaceTemplate(opts?: { venue?: string }): Record<string, string>;
+	/**
+	 * Seed the workspace. `venue` is required at the type level — the
+	 * adapter uses it to stamp exchange-specific fields into config files.
+	 * Passing an unknown venue is the caller's job to handle upstream; a
+	 * missing venue is a programming error and adapters should throw.
+	 */
+	workspaceTemplate(opts: { venue: string }): Record<string, string>;
 }

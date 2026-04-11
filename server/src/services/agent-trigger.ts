@@ -509,13 +509,23 @@ export async function triggerAgent(
 				throw new Error("Risk Manager triggered without a valid run to validate.");
 			}
 
+			// CLAUDE.md rule #8: strategyMode is immutable per-desk and
+			// enforced at desk creation. If the row is missing one, the
+			// desk was created through a broken path and the analyst
+			// prompt would be mis-rendered — fail loud instead of
+			// silently picking "classic".
+			if (desk.strategyMode !== "classic" && desk.strategyMode !== "realtime") {
+				throw new Error(
+					`triggerAgent: desk ${desk.id} has invalid strategyMode=${JSON.stringify(desk.strategyMode)} — expected "classic" or "realtime". Desk creation path is broken.`,
+				);
+			}
 			const result = await runner.run({
 				desk: {
 					name: desk.name,
 					budget: desk.budget!,
 					targetReturn: desk.targetReturn!,
 					stopLoss: desk.stopLoss!,
-					strategyMode: (desk.strategyMode as "classic" | "realtime") ?? "classic",
+					strategyMode: desk.strategyMode,
 					engine: desk.engine,
 					venues: desk.venues as string[],
 					description: desk.description,

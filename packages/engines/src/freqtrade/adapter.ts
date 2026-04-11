@@ -688,8 +688,17 @@ export class FreqtradeAdapter implements EngineAdapter {
 		return normaliseFreqtradeResult(data as unknown as FreqtradeStrategyResult);
 	}
 
-	workspaceTemplate(opts?: { venue?: string }): Record<string, string> {
-		const exchangeName = opts?.venue ?? "binance";
+	workspaceTemplate(opts: { venue: string }): Record<string, string> {
+		// Fail loud if the caller forgot to pass a venue. The freqtrade
+		// adapter has no authority to pick an exchange — that's a desk
+		// configuration decision made at `createDesk` time. Silently
+		// defaulting here would mask a broken desk init path.
+		if (!opts?.venue) {
+			throw new Error(
+				"freqtrade.workspaceTemplate: `venue` is required — the caller must supply the exchange name (e.g. 'binance', 'hyperliquid').",
+			);
+		}
+		const exchangeName = opts.venue;
 		return {
 			"strategy.py": `# Freqtrade Strategy
 class QuantDeskStrategy:

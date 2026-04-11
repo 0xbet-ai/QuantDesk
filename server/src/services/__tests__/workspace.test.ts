@@ -23,7 +23,7 @@ afterEach(async () => {
 
 describe("initWorkspace", () => {
 	it("engine=freqtrade → creates strategy.py + config.json", async () => {
-		const dir = await initWorkspace("desk-1", "freqtrade", workspacesRoot);
+		const dir = await initWorkspace("desk-1", "freqtrade", workspacesRoot, { venue: "binance" });
 		const strategy = await readFile(join(dir, "strategy.py"), "utf-8");
 		const config = await readFile(join(dir, "config.json"), "utf-8");
 		expect(strategy).toContain("class");
@@ -31,7 +31,7 @@ describe("initWorkspace", () => {
 	});
 
 	it("engine=nautilus → creates strategy.py + config.py", async () => {
-		const dir = await initWorkspace("desk-3", "nautilus", workspacesRoot);
+		const dir = await initWorkspace("desk-3", "nautilus", workspacesRoot, { venue: "binance" });
 		const strategy = await readFile(join(dir, "strategy.py"), "utf-8");
 		const config = await readFile(join(dir, "config.py"), "utf-8");
 		expect(strategy).toBeDefined();
@@ -39,7 +39,7 @@ describe("initWorkspace", () => {
 	});
 
 	it("engine=generic → creates empty workspace with README", async () => {
-		const dir = await initWorkspace("desk-4", "generic", workspacesRoot);
+		const dir = await initWorkspace("desk-4", "generic", workspacesRoot, { venue: "binance" });
 		const readme = await readFile(join(dir, "README.md"), "utf-8");
 		expect(readme).toContain("generic");
 	});
@@ -47,7 +47,7 @@ describe("initWorkspace", () => {
 
 describe("commitCode", () => {
 	it("returns valid 40-char hash after modifying strategy file", async () => {
-		const dir = await initWorkspace("desk-5", "freqtrade", workspacesRoot);
+		const dir = await initWorkspace("desk-5", "freqtrade", workspacesRoot, { venue: "binance" });
 		await writeFile(join(dir, "strategy.py"), "# modified strategy\nclass MyStrategy:\n    pass\n");
 		const hash = await commitCode(dir, "update strategy");
 		expect(hash).toMatch(/^[0-9a-f]{40}$/);
@@ -56,7 +56,7 @@ describe("commitCode", () => {
 
 describe("getCode", () => {
 	it("returns exact content at commit hash", async () => {
-		const dir = await initWorkspace("desk-6", "freqtrade", workspacesRoot);
+		const dir = await initWorkspace("desk-6", "freqtrade", workspacesRoot, { venue: "binance" });
 
 		await writeFile(join(dir, "strategy.py"), "# v2\nclass V2:\n    pass\n");
 		const hash1 = await commitCode(dir, "v2");
@@ -71,7 +71,7 @@ describe("getCode", () => {
 
 describe("getDiff", () => {
 	it("shows only changed lines between two commits", async () => {
-		const dir = await initWorkspace("desk-7", "freqtrade", workspacesRoot);
+		const dir = await initWorkspace("desk-7", "freqtrade", workspacesRoot, { venue: "binance" });
 
 		await writeFile(join(dir, "strategy.py"), "line1\nline2\n");
 		const hash1 = await commitCode(dir, "first");
@@ -87,7 +87,7 @@ describe("getDiff", () => {
 
 describe("getHead", () => {
 	it("returns the current HEAD hash", async () => {
-		const dir = await initWorkspace("desk-head", "freqtrade", workspacesRoot);
+		const dir = await initWorkspace("desk-head", "freqtrade", workspacesRoot, { venue: "binance" });
 		const head = await getHead(dir);
 		expect(head).toMatch(/^[0-9a-f]{40}$/);
 
@@ -99,7 +99,7 @@ describe("getHead", () => {
 
 describe("ensureCommit", () => {
 	it("commits when the workspace is dirty and returns the new hash", async () => {
-		const dir = await initWorkspace("desk-ensure-dirty", "freqtrade", workspacesRoot);
+		const dir = await initWorkspace("desk-ensure-dirty", "freqtrade", workspacesRoot, { venue: "binance" });
 		const before = await getHead(dir);
 
 		await writeFile(join(dir, "config.json"), '{"timeframe":"1h"}');
@@ -111,7 +111,7 @@ describe("ensureCommit", () => {
 	});
 
 	it("returns the current HEAD unchanged when the workspace is clean", async () => {
-		const dir = await initWorkspace("desk-ensure-clean", "freqtrade", workspacesRoot);
+		const dir = await initWorkspace("desk-ensure-clean", "freqtrade", workspacesRoot, { venue: "binance" });
 		const before = await getHead(dir);
 
 		const hash1 = await ensureCommit(dir, "pre-run #1");
@@ -125,7 +125,7 @@ describe("ensureCommit", () => {
 		// Simulates a freqtrade run dropping backtest_results/*.zip into the
 		// workspace between two agent edits. A subsequent ensureCommit() must
 		// ignore the output artifacts and only snapshot reproducible inputs.
-		const dir = await initWorkspace("desk-ignore", "freqtrade", workspacesRoot);
+		const dir = await initWorkspace("desk-ignore", "freqtrade", workspacesRoot, { venue: "binance" });
 
 		// Engine writes an output file.
 		const { mkdir } = await import("node:fs/promises");
@@ -145,8 +145,8 @@ describe("ensureCommit", () => {
 
 describe("workspace isolation", () => {
 	it("two desks get isolated workspaces", async () => {
-		const dir1 = await initWorkspace("desk-a", "freqtrade", workspacesRoot);
-		const dir2 = await initWorkspace("desk-b", "freqtrade", workspacesRoot);
+		const dir1 = await initWorkspace("desk-a", "freqtrade", workspacesRoot, { venue: "binance" });
+		const dir2 = await initWorkspace("desk-b", "freqtrade", workspacesRoot, { venue: "binance" });
 
 		await writeFile(join(dir1, "strategy.py"), "# desk A only\n");
 		await commitCode(dir1, "desk A change");
