@@ -121,7 +121,12 @@ function detachPaperLogStream(sessionId: string): void {
 // actually processing market data. A fresh close price every 30s is
 // the cheapest possible "yes, data is flowing" indicator.
 const paperMarketTickers = new Map<string, ReturnType<typeof setInterval>>();
-const MARKET_TICK_MS = 30_000;
+// 5-second cadence: freqtrade updates its in-memory forming candle as
+// new ticks arrive from the exchange, so even in the middle of a 5m
+// candle the close price can move. A 5s tick makes the log feel "live"
+// without hammering freqtrade's REST API (the endpoint returns a tiny
+// 1-row payload, so ~200 QPH per paper session is negligible).
+const MARKET_TICK_MS = 5_000;
 
 /**
  * Start periodic market ticks for a running paper session. The ticks
