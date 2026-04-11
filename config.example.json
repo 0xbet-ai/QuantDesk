@@ -1,0 +1,31 @@
+{
+  "$meta": {
+    "version": 1,
+    "source": "QuantDesk example config. Copy to ~/.quantdesk/config.json, or set $QUANTDESK_CONFIG to the path of this file, or drop it at <repo>/.quantdesk/config.json for walk-up discovery. All fields are optional — delete anything you do not need. Env vars (DATABASE_URL, PORT, LOG_LEVEL, AGENT_MODEL, HOST, QUANTDESK_LOG_DIR) still win over anything declared here."
+  },
+
+  "database": {
+    "mode": "embedded"
+  },
+
+  "server": {
+    "port": 3000,
+    "host": "0.0.0.0"
+  },
+
+  "logging": {
+    "level": "info",
+    "logDir": "/Users/me/.quantdesk/logs"
+  },
+
+  "agent": {
+    "defaultModel": "claude-opus-4-6",
+    "heartbeatThresholdMs": 90000
+  },
+
+  "engine": {
+    "imageOverrides": {
+      "freqtrade": "my-mirror/freqtrade:2026.3"
+    }
+  }
+}

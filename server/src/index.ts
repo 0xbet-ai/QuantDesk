@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { initDb } from "@quantdesk/db";
 import express from "express";
+import { getConfig } from "./config-file.js";
 import { handleMcpRequest } from "./mcp/http-route.js";
 import { setTriggerAgent } from "./mcp/server.js";
 import { errorHandler } from "./middleware/error.js";
@@ -23,11 +24,19 @@ import {
 } from "./services/startup-cleanup.js";
 import { startTurnWatchdog } from "./services/turn-watchdog.js";
 
+// Load global config once — defaults fall through when no file exists
+// so a fresh install boots with zero configuration. See config-file.ts
+// for the precedence rules (env > file > defaults).
+const config = getConfig();
+if (config.configPath) {
+	console.log(`[config] Loaded from ${config.configPath}`);
+}
+
 // Initialise database (starts embedded Postgres on first run if DATABASE_URL is unset)
 await initDb();
 
 const app = express();
-const port = Number(process.env.PORT ?? 3000);
+const port = config.server.port;
 
 app.use(express.json());
 
