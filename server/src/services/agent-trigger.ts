@@ -21,12 +21,13 @@ import { stripAgentMarkers } from "@quantdesk/shared";
 import { and, eq, gte } from "drizzle-orm";
 import { getConfig } from "../config-file.js";
 import { publishExperimentEvent } from "../realtime/live-events.js";
-import { appendAgentLog, clearAgentLog } from "./agent-log.js";
+import { appendAgentLog, clearAgentLog, readAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
 import { createComment, systemComment } from "./comments.js";
 import { maybeRescueDeadEnd } from "./dead-end-guard.js";
 import { getLatestSession as getLatestPaperSession } from "./paper-sessions.js";
-import type { PaperSessionContext } from "./prompts/types.js";
+import type { AnalystTrailChunk, CodeDiffContext, PaperSessionContext } from "./prompts/types.js";
+import { collectAnalystTrailFromEntries, collectCodeDiff } from "./risk-manager-context.js";
 import { runWithTurn } from "./turn-context.js";
 import { commitCode, hasChanges } from "./workspace.js";
 
@@ -407,7 +408,17 @@ export async function triggerAgent(
 				};
 			}
 
-			// 4. Clear previous log and notify UI that agent is thinking
+			// 4. Snapshot the analyst's in-flight log BEFORE the RM turn
+			// wipes it. `clearAgentLog` below is per-experiment, not per-
+			// role, so the moment the RM turn starts the analyst's
+			// thinking/tool_call chunks are gone. The snapshot is fed
+			// into `buildRiskManagerPrompt` so the RM can see what the
+			// analyst was actually doing right before it called
+			// request_validation — the single biggest gap in the RM's
+			// context today.
+			const analystLogSnapshotForRm = role === "risk_manager" ? readAgentLog(experimentId) : [];
+
+			// 5. Clear previous log and notify UI that agent is thinking
 			clearAgentLog(experimentId);
 			const ts = () => new Date().toISOString();
 
@@ -510,6 +521,41 @@ export async function triggerAgent(
 				throw new Error("Risk Manager triggered without a valid run to validate.");
 			}
 
+			// Enrich the RM with strategy code diff + analyst reasoning
+			// trail. Both are optional — a missing workspace or a failed
+			// git/JSONL read must not block validation. The prompt block
+			// is simply skipped in that case.
+			let rmCodeDiff: CodeDiffContext | null = null;
+			let rmAnalystTrail: AnalystTrailChunk[] | null = null;
+			if (role === "risk_manager" && validationRun) {
+				try {
+					rmCodeDiff = await collectCodeDiff(
+						desk.workspacePath,
+						{
+							runNumber: validationRun.runNumber,
+							isBaseline: validationRun.isBaseline,
+							commitHash: validationRun.commitHash,
+							turnId: validationRun.turnId,
+							createdAt: validationRun.createdAt,
+						},
+						expRuns.map((r) => ({
+							runNumber: r.runNumber,
+							isBaseline: r.isBaseline,
+							commitHash: r.commitHash,
+							turnId: r.turnId,
+							createdAt: r.createdAt,
+						})),
+					);
+				} catch (err) {
+					console.error("collectCodeDiff failed (non-fatal):", err);
+				}
+				try {
+					rmAnalystTrail = collectAnalystTrailFromEntries(analystLogSnapshotForRm);
+				} catch (err) {
+					console.error("collectAnalystTrail failed (non-fatal):", err);
+				}
+			}
+
 			// CLAUDE.md rule #8: strategyMode is immutable per-desk and
 			// enforced at desk creation. If the row is missing one, the
 			// desk was created through a broken path and the analyst
@@ -552,6 +598,8 @@ export async function triggerAgent(
 				agentRole: session.agentRole as "analyst" | "risk_manager",
 				runResult: validationRunResult ?? undefined,
 				validationRunNumber: validationRun?.runNumber,
+				codeDiff: rmCodeDiff,
+				analystTrail: rmAnalystTrail,
 				mcpConfigPath: mcpConfigPath ?? undefined,
 				settingsPath,
 			});

@@ -227,6 +227,95 @@ describe("buildRiskManagerPrompt", () => {
 		expect(prompt).toContain("Repeat submission");
 		expect(prompt).toContain("Cherry-picking");
 	});
+
+	it("injects strategy code diff block when codeDiff is provided", () => {
+		const prompt = buildRiskManagerPrompt({
+			desk,
+			experiment,
+			runNumber: 3,
+			runResult,
+			runs: [],
+			comments: [],
+			memorySummaries: [],
+			codeDiff: {
+				targetCommit: "abc1234",
+				againstPrevious: "diff --git a/strategy.py b/strategy.py\n+rsi_period = 14",
+				againstBaseline: "diff --git a/strategy.py b/strategy.py\n+rsi_period = 14\n+ema_period = 7",
+				previousLabel: "Run #3 vs Run #2",
+				baselineLabel: "Run #3 vs Run #1 (baseline)",
+				truncated: false,
+			},
+		});
+		expect(prompt).toContain("## Strategy Code Changes");
+		expect(prompt).toContain("Run #3 vs Run #2");
+		expect(prompt).toContain("Run #3 vs Run #1 (baseline)");
+		expect(prompt).toContain("rsi_period = 14");
+		expect(prompt).toContain("ema_period = 7");
+	});
+
+	it("injects analyst reasoning trail block when analystTrail is provided", () => {
+		const prompt = buildRiskManagerPrompt({
+			desk,
+			experiment,
+			runNumber: 3,
+			runResult,
+			runs: [],
+			comments: [],
+			memorySummaries: [],
+			analystTrail: [
+				{ type: "thinking", content: "baseline -5% is weak; try RSI<30 filter to skip chop" },
+				{
+					type: "tool_call",
+					name: "mcp__quantdesk__run_backtest",
+					content: '{"entrypoint":"strategy.py"}',
+				},
+				{ type: "text", content: "Run #3 with RSI filter: return +12%" },
+			],
+		});
+		expect(prompt).toContain("## Analyst Reasoning Trail");
+		expect(prompt).toContain("[thinking]");
+		expect(prompt).toContain("RSI<30 filter");
+		expect(prompt).toContain("[tool_call mcp__quantdesk__run_backtest]");
+		expect(prompt).toContain("[text]");
+	});
+
+	it("skips enrichment blocks cleanly when codeDiff and analystTrail are null", () => {
+		const prompt = buildRiskManagerPrompt({
+			desk,
+			experiment,
+			runNumber: 3,
+			runResult,
+			runs: [],
+			comments: [],
+			memorySummaries: [],
+			codeDiff: null,
+			analystTrail: null,
+		});
+		expect(prompt).not.toContain("## Strategy Code Changes");
+		expect(prompt).not.toContain("## Analyst Reasoning Trail");
+	});
+
+	it("renders a 'no diff available' note when codeDiff has no comparisons (baseline run)", () => {
+		const prompt = buildRiskManagerPrompt({
+			desk,
+			experiment,
+			runNumber: 1,
+			runResult,
+			runs: [],
+			comments: [],
+			memorySummaries: [],
+			codeDiff: {
+				targetCommit: "def5678",
+				againstPrevious: null,
+				againstBaseline: null,
+				previousLabel: null,
+				baselineLabel: null,
+				truncated: false,
+			},
+		});
+		expect(prompt).toContain("## Strategy Code Changes");
+		expect(prompt).toContain("No code diff available");
+	});
 });
 
 describe("trimCommentsToTokenBudget", () => {

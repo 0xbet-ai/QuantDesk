@@ -72,6 +72,45 @@ export interface AnalystPromptInput {
 	isResume?: boolean;
 }
 
+/**
+ * Strategy code diff surfaced to the RM so it can judge WHAT CHANGED
+ * between runs, not just the metric jump. Without this the RM can only
+ * guess from the conversation whether a sudden return spike was caused
+ * by an intentional edit (new indicator, tuned threshold) or an
+ * unintended refactor that smuggled in lookahead bias.
+ *
+ * Both diffs are optional strings because any of the comparison
+ * commits may be missing (baseline has no predecessor; git
+ * introspection can fail and must not block validation).
+ */
+export interface CodeDiffContext {
+	/** Commit hash attached to the target run. null when git stamping failed. */
+	targetCommit: string | null;
+	/** Diff between the target run and the run immediately before it. null for baseline. */
+	againstPrevious: string | null;
+	/** Diff between the target run and the baseline (Run #1). null for the baseline itself. */
+	againstBaseline: string | null;
+	/** Short one-line label showing which runs were compared ("Run #3 vs Run #2"). */
+	previousLabel: string | null;
+	/** Short one-line label for the baseline comparison ("Run #3 vs Run #1 (baseline)"). */
+	baselineLabel: string | null;
+	/** True when either diff was truncated to fit the token budget. */
+	truncated: boolean;
+}
+
+/**
+ * A single condensed chunk from the analyst's recent turn stream —
+ * `thinking`, `tool_call`, or `text` — pulled from the per-experiment
+ * JSONL log. The RM reads these to see the analyst's reasoning and
+ * tool usage BEFORE the run that's now in front of it for validation.
+ */
+export interface AnalystTrailChunk {
+	type: "thinking" | "tool_call" | "text";
+	content: string;
+	/** Tool name when `type === "tool_call"`. */
+	name?: string;
+}
+
 export interface RiskManagerPromptInput {
 	desk: DeskContext;
 	experiment: ExperimentContext;
@@ -96,6 +135,18 @@ export interface RiskManagerPromptInput {
 	comments: CommentContext[];
 	/** Desk-level long-term memory summaries. */
 	memorySummaries: MemorySummary[];
+	/**
+	 * Strategy code diff for the target run. Optional — callers without
+	 * access to the desk workspace (unit tests, bare dispatches) may
+	 * omit this and the prompt will skip the block.
+	 */
+	codeDiff?: CodeDiffContext | null;
+	/**
+	 * Analyst reasoning trail leading up to the target run. Optional
+	 * for the same reason as `codeDiff`. The prompt renders the chunks
+	 * in order so the RM sees the analyst's thinking + tool calls.
+	 */
+	analystTrail?: AnalystTrailChunk[] | null;
 	/** Language hint derived from the last user comment, e.g. "Korean", "English". */
 	userLanguageHint?: string;
 }
