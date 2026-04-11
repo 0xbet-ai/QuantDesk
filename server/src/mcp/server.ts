@@ -706,6 +706,21 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				const result = targetRun.result as Record<string, unknown> | null;
 				const validation = result?.validation as { verdict: string } | undefined;
 				if (validation?.verdict) {
+					// Tell the UI the run's verdict is already in so any
+					// in-flight validation spinner (PropsPanel's `validatingRunId`)
+					// can clear immediately. Without this the spinner stays stuck
+					// because it only listens for run.status events that carry a
+					// `validation` payload — which submit_rm_verdict normally
+					// publishes, but this early-return path bypasses that flow.
+					publishExperimentEvent({
+						experimentId: ctx.experimentId,
+						type: "run.status",
+						payload: {
+							runId: targetRun.id,
+							status: targetRun.status,
+							validation: { verdict: validation.verdict },
+						},
+					});
 					return textResult(
 						JSON.stringify(
 							{
