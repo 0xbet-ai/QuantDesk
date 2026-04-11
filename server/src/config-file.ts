@@ -66,6 +66,14 @@ const DEFAULT_FREQTRADE_API_TIMEOUT_MS = 5_000;
 const DEFAULT_PAPER_MARKET_TICK_INTERVAL_MS = 5_000;
 const DEFAULT_PAPER_CONTAINER_STOP_GRACEFUL_SEC = 10;
 
+// Experiments
+// Baseline run (first successful backtest per experiment) is always
+// free — this cap applies to the RM↔Analyst iteration cycles AFTER
+// the baseline. With the default of 5, an experiment tops out at
+// 1 baseline + 5 iterations = 6 runs before the Analyst is forced
+// to commit (go_paper / new_experiment / complete_experiment).
+const DEFAULT_MAX_ITERATIONS_PER_EXPERIMENT = 5;
+
 // ── Resolved shape (no `undefined` anywhere) ─────────────────────────
 
 export interface EngineResources {
@@ -108,6 +116,9 @@ export interface ResolvedConfig {
 	paper: {
 		marketTickIntervalMs: number;
 		containerStopGracefulTimeoutSec: number;
+	};
+	experiments: {
+		maxIterationsPerExperiment: number;
 	};
 }
 
@@ -269,6 +280,12 @@ export function loadConfig(): ResolvedConfig {
 			file?.paper?.containerStopGracefulTimeoutSec ?? DEFAULT_PAPER_CONTAINER_STOP_GRACEFUL_SEC,
 	};
 
+	// ── experiments ──────────────────────────────────────────────────
+	const experimentsSection = {
+		maxIterationsPerExperiment:
+			file?.experiments?.maxIterationsPerExperiment ?? DEFAULT_MAX_ITERATIONS_PER_EXPERIMENT,
+	};
+
 	const configPath = resolveConfigPath();
 	const source: ResolvedConfig["source"] = configPath
 		? "file"
@@ -296,6 +313,7 @@ export function loadConfig(): ResolvedConfig {
 			freqtrade,
 		},
 		paper: paperSection,
+		experiments: experimentsSection,
 	};
 }
 

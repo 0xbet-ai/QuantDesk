@@ -37,6 +37,7 @@ import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
 import type { NormalizedResult } from "@quantdesk/shared";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
+import { getConfig } from "../config-file.js";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog } from "../services/agent-log.js";
 import type { AgentRole, TriggerAgentOptions } from "../services/agent-trigger.js";
@@ -402,6 +403,61 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				.select()
 				.from(runs)
 				.where(eq(runs.experimentId, ctx.experimentId));
+
+			// Iteration budget + sequencing (CLAUDE.md: prevent overfitting).
+			//
+			// Rule: the first successful backtest in an experiment is the
+			// "baseline" and runs freely. Every subsequent backtest requires
+			// (a) the previous successful run to have an RM verdict on it,
+			// and (b) the number of iterations used so far (= completed
+			// runs minus the baseline) to be under the configured cap.
+			// Failed / errored runs do NOT count — only `completed` ones
+			// consume the budget, so exploring broken strategies is free.
+			//
+			// Motivation: unbounded Analyst iteration degenerates into
+			// parameter-fitting on the exact backtest window. Pairing every
+			// iteration with an RM review makes the Analyst pay for each
+			// attempt with a second opinion, and the hard cap forces it to
+			// stop and pick a winner (or pivot) after N cycles.
+			const completedBacktests = existingRuns.filter(
+				(r) => r.mode === "backtest" && r.status === "completed",
+			);
+			if (completedBacktests.length > 0) {
+				const iterationsUsed = completedBacktests.length - 1; // exclude baseline
+				const maxIterations = getConfig().experiments.maxIterationsPerExperiment;
+				if (iterationsUsed >= maxIterations) {
+					return errorResult(
+						`This experiment has exhausted its iteration budget ` +
+							`(${maxIterations} RM↔Analyst cycles after the baseline — the ` +
+							`baseline itself is free). Reply with how to proceed: call ` +
+							`mcp__quantdesk__go_paper on the best run, ` +
+							`mcp__quantdesk__new_experiment to test a different hypothesis, ` +
+							`or mcp__quantdesk__complete_experiment to close this experiment. ` +
+							`Do NOT keep tweaking parameters — further runs on the same ` +
+							`dataset would overfit the backtest window.`,
+					);
+				}
+				// Sequencing: the latest completed backtest must have an
+				// RM verdict before another backtest can run. This forces
+				// the Analyst↔RM cycle — Analyst can't silently burn the
+				// budget on runs that aren't even worth reviewing.
+				const latest = [...completedBacktests].sort(
+					(a, b) => b.runNumber - a.runNumber,
+				)[0]!;
+				const verdict = (latest.result as Record<string, unknown> | null)?.validation as
+					| { verdict?: string }
+					| undefined;
+				if (!verdict?.verdict) {
+					return errorResult(
+						`Run #${latest.runNumber} has not been reviewed yet. Call ` +
+							`mcp__quantdesk__request_validation({runNumber: ${latest.runNumber}}) ` +
+							`and wait for the Risk Manager's verdict before starting another ` +
+							`backtest. Baseline is free, but every subsequent iteration must ` +
+							`go through RM review — that's the overfitting guardrail.`,
+					);
+				}
+			}
+
 			const runNumber = autoIncrementRunNumber(existingRuns.length);
 			const isBaseline = existingRuns.length === 0;
 			const runId = crypto.randomUUID();

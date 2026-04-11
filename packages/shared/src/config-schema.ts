@@ -166,6 +166,30 @@ const paperSchema = z
 	})
 	.optional();
 
+// ── experiments ──────────────────────────────────────────────────────
+const experimentsSchema = z
+	.object({
+		/**
+		 * Maximum RM↔Analyst iteration cycles allowed AFTER the baseline
+		 * run. The baseline (first successful backtest) is always free —
+		 * it establishes that the strategy runs at all. Every subsequent
+		 * backtest requires the previous run to have an RM verdict (the
+		 * Analyst cannot iterate on its own), and the total iteration
+		 * count is capped at this value. Defaults to 5, so an experiment
+		 * has at most 1 baseline + 5 iterations = 6 runs before the
+		 * Analyst must call `go_paper`, `new_experiment`, or
+		 * `complete_experiment`.
+		 *
+		 * Motivation: without a cap, the Analyst tends to keep tweaking
+		 * parameters until in-sample metrics look good, which is textbook
+		 * overfitting. Pairing every iteration with an RM review forces
+		 * each tweak through a second opinion that can reject
+		 * fit-to-the-window changes.
+		 */
+		maxIterationsPerExperiment: z.number().int().positive().optional(),
+	})
+	.optional();
+
 // ── root ─────────────────────────────────────────────────────────────
 export const quantdeskConfigSchema = z
 	.object({
@@ -176,6 +200,7 @@ export const quantdeskConfigSchema = z
 		agent: agentSchema,
 		engine: engineSchema,
 		paper: paperSchema,
+		experiments: experimentsSchema,
 	})
 	.strict();
 
