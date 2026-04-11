@@ -231,6 +231,19 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 									<div className="text-[13px] text-muted-foreground">No venues selected</div>
 								)}
 							</Field>
+							<Field label="Engine">
+								<div className="flex items-center gap-2">
+									<Badge variant="outline" className="font-mono">
+										{desk.engine}
+									</Badge>
+									<span
+										className="text-xs text-muted-foreground"
+										title="Auto-derived from (strategy mode, venue) at desk creation; immutable for the desk's lifetime"
+									>
+										auto-derived from {desk.strategyMode} + {desk.venues[0] ?? "venue"}
+									</span>
+								</div>
+							</Field>
 							<p className="text-xs text-muted-foreground">
 								Set at creation. Create a new desk to change venues or strategy.
 							</p>
