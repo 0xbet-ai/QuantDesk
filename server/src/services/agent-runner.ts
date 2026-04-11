@@ -73,8 +73,12 @@ export class AgentRunner {
 			typeof input.validationRunNumber === "number"
 				? buildRiskManagerPrompt({
 						desk: input.desk,
+						experiment: input.experiment,
 						runNumber: input.validationRunNumber,
 						runResult: input.runResult,
+						runs: input.runs,
+						comments: input.comments,
+						memorySummaries: input.memorySummaries,
 						userLanguageHint,
 					})
 				: buildAnalystPrompt({
