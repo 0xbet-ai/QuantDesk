@@ -69,35 +69,41 @@ export function PaperTradingView({ desk }: Props) {
 	const [candles, setCandles] = useState<PaperCandleItem[]>([]);
 	const [logs, setLogs] = useState<PaperLogLine[]>([]);
 	const [stopping, setStopping] = useState(false);
-	// Draggable divider between trades panel and container log panel.
-	// Height in px for the bottom log panel; clamped [80, 600] on drag.
-	const [logHeight, setLogHeight] = useState(192);
+	// Draggable divider between the trades panel and the container log
+	// panel. Stored as a fraction (log's share of the combined region)
+	// rather than pixels so the default layout is resolution-independent:
+	// 0.7 means the log eats 70% of (trades + log) which is the "3:7"
+	// ratio the user asked for. Clamped to [0.1, 0.9] on drag so neither
+	// side can become unusably small.
+	const [logFraction, setLogFraction] = useState(0.7);
+	const splitContainerRef = useRef<HTMLDivElement>(null);
 	const logIdRef = useRef(0);
 	const logContainerRef = useRef<HTMLDivElement>(null);
 
-	const startLogResize = useCallback(
-		(e: React.MouseEvent) => {
-			e.preventDefault();
-			const startY = e.clientY;
-			const startHeight = logHeight;
-			const onMove = (ev: MouseEvent) => {
-				const delta = startY - ev.clientY;
-				const next = Math.max(80, Math.min(600, startHeight + delta));
-				setLogHeight(next);
-			};
-			const onUp = () => {
-				document.removeEventListener("mousemove", onMove);
-				document.removeEventListener("mouseup", onUp);
-				document.body.style.cursor = "";
-				document.body.style.userSelect = "";
-			};
-			document.body.style.cursor = "row-resize";
-			document.body.style.userSelect = "none";
-			document.addEventListener("mousemove", onMove);
-			document.addEventListener("mouseup", onUp);
-		},
-		[logHeight],
-	);
+	const startLogResize = useCallback((e: React.MouseEvent) => {
+		e.preventDefault();
+		const container = splitContainerRef.current;
+		if (!container) return;
+		const onMove = (ev: MouseEvent) => {
+			const rect = container.getBoundingClientRect();
+			if (rect.height <= 0) return;
+			// Log occupies (container.bottom - cursorY) pixels; convert to
+			// a 0..1 fraction against the split container's total height.
+			const logPx = rect.bottom - ev.clientY;
+			const fraction = Math.max(0.1, Math.min(0.9, logPx / rect.height));
+			setLogFraction(fraction);
+		};
+		const onUp = () => {
+			document.removeEventListener("mousemove", onMove);
+			document.removeEventListener("mouseup", onUp);
+			document.body.style.cursor = "";
+			document.body.style.userSelect = "";
+		};
+		document.body.style.cursor = "row-resize";
+		document.body.style.userSelect = "none";
+		document.addEventListener("mousemove", onMove);
+		document.addEventListener("mouseup", onUp);
+	}, []);
 
 	const chartContainerRef = useRef<HTMLDivElement>(null);
 	const chartRef = useRef<IChartApi | null>(null);
@@ -332,112 +338,130 @@ export function PaperTradingView({ desk }: Props) {
 				<div ref={chartContainerRef} className="w-full" />
 			</div>
 
-			{/* Trade history */}
-			<div className="flex-1 min-h-0 overflow-y-auto">
-				<div className="px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-					Trades ({trades.length})
-				</div>
-				{trades.length === 0 ? (
-					<div className="px-4 py-8 text-center text-xs text-muted-foreground">
-						{isRunning ? "Waiting for first trade..." : "No trades"}
-					</div>
-				) : (
-					<table className="w-full text-xs">
-						<thead>
-							<tr className="text-muted-foreground border-b border-border">
-								<th className="text-left px-4 py-1.5 font-medium">Pair</th>
-								<th className="text-left px-2 py-1.5 font-medium">Side</th>
-								<th className="text-right px-2 py-1.5 font-medium">Entry</th>
-								<th className="text-right px-2 py-1.5 font-medium">Exit</th>
-								<th className="text-right px-4 py-1.5 font-medium">PnL</th>
-								<th className="text-right px-4 py-1.5 font-medium">Time</th>
-							</tr>
-						</thead>
-						<tbody>
-							{[...trades].reverse().map((t) => (
-								<tr key={t.id} className="border-b border-border/30 hover:bg-muted/30">
-									<td className="px-4 py-1.5 font-mono">{t.pair}</td>
-									<td className="px-2 py-1.5">
-										<span
-											className={cn(
-												"inline-flex items-center gap-0.5 font-medium",
-												t.side === "long" ? "text-green-500" : "text-red-500",
-											)}
-										>
-											{t.side === "long" ? (
-												<ArrowUpRight className="size-3" />
-											) : (
-												<ArrowDownRight className="size-3" />
-											)}
-											{t.side.toUpperCase()}
-										</span>
-									</td>
-									<td className="px-2 py-1.5 text-right font-mono">{t.openRate.toFixed(2)}</td>
-									<td className="px-2 py-1.5 text-right font-mono">
-										{t.closeRate != null ? (
-											t.closeRate.toFixed(2)
-										) : (
-											<span className="text-muted-foreground">open</span>
-										)}
-									</td>
-									<td
-										className={cn(
-											"px-4 py-1.5 text-right font-mono font-medium",
-											t.profitAbs >= 0 ? "text-green-500" : "text-red-500",
-										)}
-									>
-										{t.isOpen ? "—" : formatPnl(t.profitAbs)}
-									</td>
-									<td className="px-4 py-1.5 text-right text-muted-foreground">
-										{formatTime(t.openDate)}
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				)}
-			</div>
-
-			{/* Resize handle between trades and log */}
-			<div
-				onMouseDown={startLogResize}
-				className="h-1 shrink-0 cursor-row-resize bg-border hover:bg-blue-500/50 transition-colors"
-				title="Drag to resize log panel"
-			/>
-
-			{/* Live log console — freqtrade container stdout streamed via
-			    paper.log events. Shows "Bot heartbeat" / entry signals /
-			    errors so the user can tell a healthy bot from a zombie
-			    one without leaving the app. */}
-			<div className="shrink-0 flex flex-col" style={{ height: logHeight }}>
-				<div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-					<span>Container log</span>
-					<span className="text-muted-foreground/60 normal-case tracking-normal">
-						{logs.length} lines
-					</span>
-				</div>
+			{/* Split region: trades (top) + draggable divider + container
+			    log (bottom). Ratios are fraction-based (default 3:7) so
+			    the initial layout is resolution-independent. */}
+			<div ref={splitContainerRef} className="flex-1 min-h-0 flex flex-col">
+				{/* Trade history */}
 				<div
-					ref={logContainerRef}
-					className="flex-1 overflow-y-auto bg-muted/20 font-mono text-[11px] leading-relaxed px-4 py-2"
+					className="min-h-0 overflow-y-auto"
+					style={{ flex: `${1 - logFraction} 1 0%` }}
 				>
-					{logs.length === 0 ? (
-						<div className="text-muted-foreground/70">
-							Waiting for freqtrade output... (bot heartbeat every minute, entry signals when
-							strategy triggers)
+					<div className="px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+						Trades ({trades.length})
+					</div>
+					{trades.length === 0 ? (
+						<div className="px-4 py-8 text-center text-xs text-muted-foreground">
+							{isRunning ? "Waiting for first trade..." : "No trades"}
 						</div>
 					) : (
-						logs.map((l) => (
-							<div
-								key={l.id}
-								className={cn(
-									"whitespace-pre-wrap break-all",
-									l.stream === "stderr" ? "text-red-400" : "text-foreground/80",
-								)}
-							>
-								{l.line}
-							</div>
-						))
+						<table className="w-full text-xs">
+							<thead>
+								<tr className="text-muted-foreground border-b border-border">
+									<th className="text-left px-4 py-1.5 font-medium">Pair</th>
+									<th className="text-left px-2 py-1.5 font-medium">Side</th>
+									<th className="text-right px-2 py-1.5 font-medium">Entry</th>
+									<th className="text-right px-2 py-1.5 font-medium">Exit</th>
+									<th className="text-right px-4 py-1.5 font-medium">PnL</th>
+									<th className="text-right px-4 py-1.5 font-medium">Time</th>
+								</tr>
+							</thead>
+							<tbody>
+								{[...trades].reverse().map((t) => (
+									<tr key={t.id} className="border-b border-border/30 hover:bg-muted/30">
+										<td className="px-4 py-1.5 font-mono">{t.pair}</td>
+										<td className="px-2 py-1.5">
+											<span
+												className={cn(
+													"inline-flex items-center gap-0.5 font-medium",
+													t.side === "long" ? "text-green-500" : "text-red-500",
+												)}
+											>
+												{t.side === "long" ? (
+													<ArrowUpRight className="size-3" />
+												) : (
+													<ArrowDownRight className="size-3" />
+												)}
+												{t.side.toUpperCase()}
+											</span>
+										</td>
+										<td className="px-2 py-1.5 text-right font-mono">{t.openRate.toFixed(2)}</td>
+										<td className="px-2 py-1.5 text-right font-mono">
+											{t.closeRate != null ? (
+												t.closeRate.toFixed(2)
+											) : (
+												<span className="text-muted-foreground">open</span>
+											)}
+										</td>
+										<td
+											className={cn(
+												"px-4 py-1.5 text-right font-mono font-medium",
+												t.profitAbs >= 0 ? "text-green-500" : "text-red-500",
+											)}
+										>
+											{t.isOpen ? "—" : formatPnl(t.profitAbs)}
+										</td>
+										<td className="px-4 py-1.5 text-right text-muted-foreground">
+											{formatTime(t.openDate)}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
 					)}
+				</div>
+
+				{/* Resize handle between trades and log */}
+				<div
+					onMouseDown={startLogResize}
+					className="h-1 shrink-0 cursor-row-resize bg-border hover:bg-blue-500/50 transition-colors"
+					title="Drag to resize log panel"
+				/>
+
+				{/* Live log console — freqtrade container stdout streamed via
+				    paper.log events. Shows "Bot heartbeat" / entry signals /
+				    errors so the user can tell a healthy bot from a zombie
+				    one without leaving the app. */}
+				<div className="min-h-0 flex flex-col" style={{ flex: `${logFraction} 1 0%` }}>
+					<div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+						<span className="flex items-center gap-2">
+							<span>Container log</span>
+							{session?.containerName && (
+								<span
+									className="text-muted-foreground/60 normal-case tracking-normal font-mono"
+									title={session.containerName}
+								>
+									({session.containerName})
+								</span>
+							)}
+						</span>
+						<span className="text-muted-foreground/60 normal-case tracking-normal">
+							{logs.length} lines
+						</span>
+					</div>
+					<div
+						ref={logContainerRef}
+						className="flex-1 overflow-y-auto bg-muted/20 font-mono text-[11px] leading-relaxed px-4 py-2"
+					>
+						{logs.length === 0 ? (
+							<div className="text-muted-foreground/70">
+								Waiting for freqtrade output... (bot heartbeat every minute, entry signals when
+								strategy triggers)
+							</div>
+						) : (
+							logs.map((l) => (
+								<div
+									key={l.id}
+									className={cn(
+										"whitespace-pre-wrap break-all",
+										l.stream === "stderr" ? "text-red-400" : "text-foreground/80",
+									)}
+								>
+									{l.line}
+								</div>
+							))
+						)}
+					</div>
 				</div>
 			</div>
 		</div>
