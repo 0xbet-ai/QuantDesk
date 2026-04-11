@@ -74,8 +74,28 @@ export interface AnalystPromptInput {
 
 export interface RiskManagerPromptInput {
 	desk: DeskContext;
+	experiment: ExperimentContext;
+	/** The run currently being validated. */
 	runNumber: number;
 	runResult: { metrics: MetricEntry[] };
+	/**
+	 * Full run history for the experiment. Lets the RM compare the
+	 * target run to its siblings — a sudden jump in return that no
+	 * prior run shows is a much stronger overfit signal than a lone
+	 * metric table. Includes the target run itself so the RM can see
+	 * where it sits in the distribution.
+	 */
+	runs: RunContext[];
+	/**
+	 * Experiment comment thread (user + analyst + system). Gives the RM
+	 * the hypothesis context — what the analyst was trying to do, what
+	 * the user asked for, whether the same strategy was already rejected
+	 * in a previous verdict. Passed through the same token-budget trim
+	 * the analyst prompt uses.
+	 */
+	comments: CommentContext[];
+	/** Desk-level long-term memory summaries. */
+	memorySummaries: MemorySummary[];
 	/** Language hint derived from the last user comment, e.g. "Korean", "English". */
 	userLanguageHint?: string;
 }

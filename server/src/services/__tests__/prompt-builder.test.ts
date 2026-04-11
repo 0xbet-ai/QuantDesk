@@ -163,12 +163,69 @@ describe("buildRiskManagerPrompt", () => {
 	};
 
 	it("includes run result + desk constraints", () => {
-		const prompt = buildRiskManagerPrompt({ desk, runNumber: 22, runResult });
+		const prompt = buildRiskManagerPrompt({
+			desk,
+			experiment,
+			runNumber: 22,
+			runResult,
+			runs: [],
+			comments: [],
+			memorySummaries: [],
+		});
 		expect(prompt).toContain("15.1");
 		expect(prompt).toContain("-2.8");
 		expect(prompt).toContain("Run: #22");
 		expect(prompt).toContain("Target return");
 		expect(prompt).toContain("Stop loss");
+	});
+
+	it("injects run history, conversation, and historical checks", () => {
+		const priorRuns = [
+			{
+				runNumber: 1,
+				isBaseline: true,
+				result: {
+					metrics: [
+						{ key: "return", label: "Return", value: -5.1, format: "percent" },
+						{ key: "trades", label: "Trades", value: 40, format: "integer" },
+					],
+				},
+			},
+			{
+				runNumber: 2,
+				isBaseline: false,
+				result: {
+					metrics: [
+						{ key: "return", label: "Return", value: -4.2, format: "percent" },
+						{ key: "trades", label: "Trades", value: 38, format: "integer" },
+					],
+				},
+			},
+		];
+		const priorComments = [
+			{ author: "user", content: "Try an RSI filter." },
+			{ author: "analyst", content: "Added RSI<30 gate, running now." },
+		];
+		const prompt = buildRiskManagerPrompt({
+			desk,
+			experiment,
+			runNumber: 3,
+			runResult,
+			runs: priorRuns,
+			comments: priorComments,
+			memorySummaries: [],
+		});
+		// Run History block present
+		expect(prompt).toContain("Run History");
+		expect(prompt).toContain("Run #1");
+		expect(prompt).toContain("Run #2");
+		// Conversation block present
+		expect(prompt).toContain("## Conversation");
+		expect(prompt).toContain("RSI filter");
+		// Historical checks wired into the checklist
+		expect(prompt).toContain("Sudden jump");
+		expect(prompt).toContain("Repeat submission");
+		expect(prompt).toContain("Cherry-picking");
 	});
 });
 
