@@ -4,7 +4,7 @@ Spec: `doc/agent/PAPER_LIFECYCLE.md`, `doc/desk/STORAGE.md`. Today there is no f
 
 ## Tests first
 
-1. `paperSessions` table exists with `id`, `deskId`, `runId`, `engine`, `containerId`, `status` (`pending|running|stopped|failed`), `startedAt`, `stoppedAt`, `lastStatusAt`.
+1. `paperSessions` table exists with `id`, `deskId`, `runId`, `engine`, `containerName`, `status` (`pending|running|stopped|failed`), `startedAt`, `stoppedAt`, `lastStatusAt`. (`containerName` is the sole container identifier — unique per host, used by every lookup. The original design carried a separate `containerId`; it was dropped in migration 0009 because no adapter populates it.)
 2. FK to `runs.id` is enforced.
 3. Drizzle migration round-trips on a fresh DB and on the dev DB.
 4. Type exports from `packages/db/src/schema.ts` are surfaced in `packages/shared/`.

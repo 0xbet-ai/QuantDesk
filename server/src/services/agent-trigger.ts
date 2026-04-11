@@ -24,6 +24,8 @@ import { appendAgentLog, clearAgentLog } from "./agent-log.js";
 import { AgentRunner } from "./agent-runner.js";
 import { createComment, systemComment } from "./comments.js";
 import { maybeRescueDeadEnd } from "./dead-end-guard.js";
+import { getLatestSession as getLatestPaperSession } from "./paper-sessions.js";
+import type { PaperSessionContext } from "./prompts/types.js";
 import { runWithTurn } from "./turn-context.js";
 import { commitCode, hasChanges } from "./workspace.js";
 
@@ -370,7 +372,7 @@ export async function triggerAgent(
 
 	await runWithTurn(turnId, async () => {
 		try {
-			// 3. Load context: runs, comments, memory
+			// 3. Load context: runs, comments, memory, paper session
 			const expRuns = await db.select().from(runs).where(eq(runs.experimentId, experimentId));
 			const expComments = await db
 				.select()
@@ -381,6 +383,28 @@ export async function triggerAgent(
 				.select()
 				.from(memorySummaries)
 				.where(eq(memorySummaries.deskId, desk.id));
+			// Paper session snapshot injected into the prompt so the agent
+			// never hallucinates "still running" from stale session context.
+			// We load the LATEST (any status) row, not only active, so the
+			// agent also knows when the user-visible state is "stopped" /
+			// "failed". Paper sessions are per-desk so the row may belong
+			// to a different experiment — query the source run directly
+			// instead of scanning `expRuns` (scoped to this experiment).
+			const latestPaper = await getLatestPaperSession(desk.id);
+			let paperSession: PaperSessionContext | null = null;
+			if (latestPaper) {
+				const [sourceRun] = await db
+					.select({ runNumber: runs.runNumber })
+					.from(runs)
+					.where(eq(runs.id, latestPaper.runId));
+				paperSession = {
+					status: latestPaper.status as "pending" | "running" | "stopped" | "failed",
+					runNumber: sourceRun?.runNumber ?? null,
+					startedAt: latestPaper.startedAt.toISOString(),
+					stoppedAt: latestPaper.stoppedAt?.toISOString() ?? null,
+					error: latestPaper.error ?? null,
+				};
+			}
 
 			// 4. Clear previous log and notify UI that agent is thinking
 			clearAgentLog(experimentId);
@@ -430,10 +454,14 @@ export async function triggerAgent(
 								});
 
 							// Persist to log file
-							appendAgentLog(experimentId, {
-								ts: ts(),
-								...chunk,
-							}, { role: session.agentRole });
+							appendAgentLog(
+								experimentId,
+								{
+									ts: ts(),
+									...chunk,
+								},
+								{ role: session.agentRole },
+							);
 
 							// Save sessionId immediately on init event so timeout/crash
 							// can be recovered with --resume on the next message.
@@ -508,6 +536,7 @@ export async function triggerAgent(
 				})),
 				comments: expComments.map((c) => ({ author: c.author, content: c.content })),
 				memorySummaries: memories.map((m) => ({ level: m.level, content: m.content })),
+				paperSession,
 				sessionId: session.sessionId ?? undefined,
 				agentRole: session.agentRole as "analyst" | "risk_manager",
 				runResult: validationRunResult ?? undefined,

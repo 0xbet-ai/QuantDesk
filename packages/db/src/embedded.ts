@@ -1,4 +1,4 @@
-import { createWriteStream, existsSync, mkdirSync, rmSync, type WriteStream } from "node:fs";
+import { type WriteStream, createWriteStream, existsSync, mkdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import EmbeddedPostgres from "embedded-postgres";
@@ -150,9 +150,7 @@ async function startEmbedded(): Promise<string> {
 		process.exit(143);
 	});
 
-	console.log(
-		`Embedded Postgres ready at 127.0.0.1:${port} (data: ${dataDir}, logs: ${logFile})`,
-	);
+	console.log(`Embedded Postgres ready at 127.0.0.1:${port} (data: ${dataDir}, logs: ${logFile})`);
 
 	return `postgresql://${USER}:${PASSWORD}@127.0.0.1:${port}/${DATABASE}`;
 }

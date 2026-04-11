@@ -76,9 +76,7 @@ export async function startPaper(runId: string) {
 	let pairs: string[];
 	let timeframe: string;
 	try {
-		const wsConfig = JSON.parse(
-			readFileSync(join(desk.workspacePath, "config.json"), "utf-8"),
-		);
+		const wsConfig = JSON.parse(readFileSync(join(desk.workspacePath, "config.json"), "utf-8"));
 		pairs = wsConfig?.exchange?.pair_whitelist;
 		timeframe = wsConfig?.timeframe;
 	} catch {
@@ -143,8 +141,14 @@ export async function startPaper(runId: string) {
 			),
 		});
 	} catch (err) {
-		await failSessionInternal(sessionId, experiment.id, err instanceof Error ? err.message : "spawn failed");
-		throw new PaperSessionError(`Container spawn failed: ${err instanceof Error ? err.message : String(err)}`);
+		await failSessionInternal(
+			sessionId,
+			experiment.id,
+			err instanceof Error ? err.message : "spawn failed",
+		);
+		throw new PaperSessionError(
+			`Container spawn failed: ${err instanceof Error ? err.message : String(err)}`,
+		);
 	}
 
 	// 8. Mark session running. If this fails, stop the container.
@@ -162,7 +166,9 @@ export async function startPaper(runId: string) {
 		// Kill the container we just spawned.
 		try {
 			await engineAdapter.stopPaper(handle);
-		} catch { /* best effort */ }
+		} catch {
+			/* best effort */
+		}
 		await failSessionInternal(sessionId, experiment.id, "failed to mark session running");
 		throw err;
 	}
@@ -282,11 +288,7 @@ export async function failSessionInternal(
 		.update(runs)
 		.set({ status: "failed", error, completedAt: new Date() })
 		.where(
-			and(
-				eq(runs.experimentId, experimentId),
-				eq(runs.mode, "paper"),
-				eq(runs.status, "running"),
-			),
+			and(eq(runs.experimentId, experimentId), eq(runs.mode, "paper"), eq(runs.status, "running")),
 		);
 }
 
@@ -301,10 +303,7 @@ export async function getActiveSession(
 		.select()
 		.from(paperSessions)
 		.where(
-			and(
-				eq(paperSessions.deskId, deskId),
-				inArray(paperSessions.status, ["running", "pending"]),
-			),
+			and(eq(paperSessions.deskId, deskId), inArray(paperSessions.status, ["running", "pending"])),
 		)
 		.orderBy(desc(paperSessions.startedAt))
 		.limit(1);
@@ -330,8 +329,6 @@ export async function getSession(
 	return row ?? null;
 }
 
-export async function listRunningSessions(): Promise<
-	Array<typeof paperSessions.$inferSelect>
-> {
+export async function listRunningSessions(): Promise<Array<typeof paperSessions.$inferSelect>> {
 	return db.select().from(paperSessions).where(eq(paperSessions.status, "running"));
 }

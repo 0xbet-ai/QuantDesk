@@ -60,6 +60,5 @@ export const polymarketGuide: VenueGuide = {
 	],
 
 	lastVerified: "2026-04-09",
-	verificationNotes:
-		"Prices-history endpoint verified for a sample market, 60s fidelity.",
+	verificationNotes: "Prices-history endpoint verified for a sample market, 60s fidelity.",
 };

@@ -241,6 +241,33 @@ stop_paper({})
              the UI directly (REST API).
 ```
 
+### `get_paper_status`
+
+```
+get_paper_status({})
+  requires:  none
+  effect:    read-only — fetch the active paper session row (if any)
+             and, when running, call the engine adapter's
+             getPaperStatus() to pull live PnL / open positions from
+             the container. Never mutates state.
+  returns:   active session:
+             { active: true, sessionId, runId, status, engine,
+               containerName, apiPort, startedAt, lastStatusAt,
+               live: { running, unrealizedPnl, realizedPnl,
+                       openPositions, uptime } | null }
+             no active session:
+             { active: false, lastSession?: { sessionId, runId,
+               status, engine, startedAt, stoppedAt, error } }
+             never run:
+             { active: false, message: "No paper session has ever run…" }
+  postcond:  none — read-only.
+  notes:     the agent MUST call this whenever it answers the user
+             about paper trading. Session context does not survive
+             container lifecycle events, so guessing from memory
+             produces hallucinated "still running" replies. No user
+             consent required.
+```
+
 ## Reading the chain
 
 Trace the lifecycle by matching `postcond` to `requires`:

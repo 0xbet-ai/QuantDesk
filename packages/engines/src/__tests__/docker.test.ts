@@ -69,9 +69,7 @@ describe("buildRunArgs", () => {
 			image: "alpine:3.19",
 			volumes: ["/host/workspace:/workspace", "/host/data:/data:ro"],
 		});
-		const vIdxs = args
-			.map((a, i) => (a === "-v" ? i : -1))
-			.filter((i) => i !== -1);
+		const vIdxs = args.map((a, i) => (a === "-v" ? i : -1)).filter((i) => i !== -1);
 		expect(vIdxs).toHaveLength(2);
 		expect(args[vIdxs[0]! + 1]).toBe("/host/workspace:/workspace");
 		expect(args[vIdxs[1]! + 1]).toBe("/host/data:/data:ro");
@@ -82,9 +80,7 @@ describe("buildRunArgs", () => {
 			image: "alpine:3.19",
 			ports: ["8080:8080", "127.0.0.1:9090:9090"],
 		});
-		const pIdxs = args
-			.map((a, i) => (a === "-p" ? i : -1))
-			.filter((i) => i !== -1);
+		const pIdxs = args.map((a, i) => (a === "-p" ? i : -1)).filter((i) => i !== -1);
 		expect(pIdxs).toHaveLength(2);
 		expect(args[pIdxs[0]! + 1]).toBe("8080:8080");
 		expect(args[pIdxs[1]! + 1]).toBe("127.0.0.1:9090:9090");

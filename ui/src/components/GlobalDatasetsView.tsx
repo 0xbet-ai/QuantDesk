@@ -147,18 +147,18 @@ export function GlobalDatasetsView() {
 									</span>
 								</div>
 								<div className="pl-6">
-								{items.map((d) => (
-									<DatasetRow
-										key={d.id}
-										dataset={d}
-										confirming={confirmingId === d.id}
-										deleting={deletingId === d.id}
-										onOpen={() => setPreviewing(d)}
-										onStartConfirm={() => setConfirmingId(d.id)}
-										onCancelConfirm={() => setConfirmingId(null)}
-										onConfirmDelete={() => handleDelete(d.id)}
-									/>
-								))}
+									{items.map((d) => (
+										<DatasetRow
+											key={d.id}
+											dataset={d}
+											confirming={confirmingId === d.id}
+											deleting={deletingId === d.id}
+											onOpen={() => setPreviewing(d)}
+											onStartConfirm={() => setConfirmingId(d.id)}
+											onCancelConfirm={() => setConfirmingId(null)}
+											onConfirmDelete={() => handleDelete(d.id)}
+										/>
+									))}
 								</div>
 							</div>
 						))}
@@ -166,10 +166,7 @@ export function GlobalDatasetsView() {
 				)}
 			</div>
 			{previewing && (
-				<DatasetPreviewModal
-					dataset={previewing}
-					onClose={() => setPreviewing(null)}
-				/>
+				<DatasetPreviewModal dataset={previewing} onClose={() => setPreviewing(null)} />
 			)}
 		</div>
 	);
@@ -224,21 +221,15 @@ function DatasetRow({
 		>
 			<Folder className="size-4 text-muted-foreground/70 shrink-0" />
 			<div className="flex items-baseline gap-1.5 min-w-0 shrink-0">
-				<span className="text-[13px] font-medium text-foreground truncate">
-					{pairsText}
-				</span>
+				<span className="text-[13px] font-medium text-foreground truncate">{pairsText}</span>
 				{hasPerp && (
 					<span className="text-[9px] px-1 py-px rounded bg-muted text-muted-foreground uppercase leading-none">
 						perp
 					</span>
 				)}
 			</div>
-			<span className="text-[11px] text-muted-foreground font-mono shrink-0">
-				{d.timeframe}
-			</span>
-			<span className="text-[11px] text-muted-foreground/80 shrink-0">
-				{d.exchange}
-			</span>
+			<span className="text-[11px] text-muted-foreground font-mono shrink-0">{d.timeframe}</span>
+			<span className="text-[11px] text-muted-foreground/80 shrink-0">{d.exchange}</span>
 			<span className="text-[11px] text-muted-foreground/80 font-mono shrink-0 hidden md:inline">
 				{d.dateRange.start} → {d.dateRange.end}
 			</span>

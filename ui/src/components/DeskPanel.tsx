@@ -262,10 +262,7 @@ export function DeskPanel({
 										className="flex-1 min-w-0 text-left px-3 py-2 text-xs font-medium transition-colors flex items-center gap-2.5"
 									>
 										<FlaskConical className="h-4 w-4 shrink-0 text-muted-foreground" />
-										<span
-											className="flex-1 min-w-0 truncate"
-											title={`#${exp.number} ${exp.title}`}
-										>
+										<span className="flex-1 min-w-0 truncate" title={`#${exp.number} ${exp.title}`}>
 											#{exp.number} {exp.title}
 										</span>
 										{best != null && (
@@ -291,11 +288,10 @@ export function DeskPanel({
 							<div className="px-3 py-2 text-xs text-muted-foreground">No experiments yet</div>
 						)}
 					</SidebarSection>
-
 				</div>
 			</ScrollArea>
 
-				{/* Paper Trading — pinned above nav */}
+			{/* Paper Trading — pinned above nav */}
 			{/* Bottom nav — desk-scoped pages */}
 			<div className="shrink-0 border-t border-border px-2 py-2 flex flex-col gap-0.5">
 				<SidebarNavItem

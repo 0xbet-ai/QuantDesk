@@ -9,8 +9,7 @@ export const bitgetGuide: VenueGuide = {
 		"ccxt returns 1000 candles/req. Good USDC futures coverage (50 pairs). Requires passphrase.",
 
 	symbolFormat: {
-		spot:
-			"BTC/USDT, ETH/USDC (ccxt) | BTCUSDT, ETHUSDC (native REST, productType=USDT-FUTURES)",
+		spot: "BTC/USDT, ETH/USDC (ccxt) | BTCUSDT, ETHUSDC (native REST, productType=USDT-FUTURES)",
 		linearFutures:
 			"BTC/USDT:USDT, BTC/USDC:USDC (ccxt) | BTCUSDT, BTCUSDC (native REST, productType varies)",
 		inverseFutures:

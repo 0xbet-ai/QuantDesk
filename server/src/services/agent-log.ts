@@ -108,9 +108,7 @@ function summarizeEntry(entry: AgentLogEntry): string | null {
 		}
 		case "tool_result": {
 			const isError = entry.isError === true;
-			const tag = isError
-				? color("tool_result ✗ ", "red")
-				: color("tool_result ✓ ", "green");
+			const tag = isError ? color("tool_result ✗ ", "red") : color("tool_result ✓ ", "green");
 			const max = isError ? 400 : 140;
 			const body = preview(entry.content, max);
 			return `${tag} ${isError ? color(body, "red") : color(body, "dim")}`;

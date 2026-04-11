@@ -83,10 +83,7 @@ async function exec(args: string[], stream: ExecStreamOptions = {}): Promise<Run
 		let stdoutBuffer = "";
 		let stderrBuffer = "";
 
-		const flushLines = (
-			buffer: string,
-			cb: ((line: string) => void) | undefined,
-		): string => {
+		const flushLines = (buffer: string, cb: ((line: string) => void) | undefined): string => {
 			if (!cb) return buffer;
 			let remainder = buffer;
 			let idx = remainder.indexOf("\n");
@@ -236,10 +233,7 @@ export async function logsFrom(
  * Send SIGTERM and wait for graceful shutdown, escalating to SIGKILL after
  * `timeoutSec` seconds. Mirrors `docker stop -t` semantics.
  */
-export async function stopContainer(
-	containerName: string,
-	timeoutSec = 10,
-): Promise<void> {
+export async function stopContainer(containerName: string, timeoutSec = 10): Promise<void> {
 	const result = await exec(["stop", "-t", String(timeoutSec), containerName]);
 	if (result.exitCode !== 0 && !/No such container/i.test(result.stderr)) {
 		throw new DockerError(
@@ -372,8 +366,8 @@ export function parseLabelString(raw: string): Record<string, string> {
 /** Standard labels applied to all QuantDesk-managed containers. */
 export function quantdeskLabels(params: {
 	runId: string;
-	engine: "freqtrade" | "nautilus";
-	kind: "paper" | "backtest";
+	engine: "freqtrade" | "nautilus" | "generic";
+	kind: "paper" | "backtest" | "script";
 }): Record<string, string> {
 	return {
 		"quantdesk.runId": params.runId,

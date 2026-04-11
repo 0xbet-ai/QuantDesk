@@ -62,6 +62,5 @@ export const deribitGuide: VenueGuide = {
 	],
 
 	lastVerified: "2026-04-09",
-	verificationNotes:
-		"BTC-PERPETUAL 5m via REST, Tardis CSV trades load verified.",
+	verificationNotes: "BTC-PERPETUAL 5m via REST, Tardis CSV trades load verified.",
 };

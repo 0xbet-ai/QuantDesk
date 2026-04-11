@@ -543,7 +543,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											placeholder="What is this strategy trying to achieve? (write in the language you want the agent to reply in)"
 										/>
 										<p className="text-[11px] text-foreground/40 mt-1">
-											Minimum 10 characters. The agent matches its response language to this description on the first turn.
+											Minimum 10 characters. The agent matches its response language to this
+											description on the first turn.
 										</p>
 									</div>
 								</div>
@@ -1034,7 +1035,10 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 													{/* Timeframes */}
 													<div>
 														<div className="text-[10px] font-medium uppercase tracking-widest text-foreground/40 mb-1.5">
-															Timeframes <span className="text-foreground/30 normal-case tracking-normal">(Recommend)</span>
+															Timeframes{" "}
+															<span className="text-foreground/30 normal-case tracking-normal">
+																(Recommend)
+															</span>
 														</div>
 														<div className="flex flex-wrap gap-1.5">
 															{detailStrategy.timeframes.map((tf) => (

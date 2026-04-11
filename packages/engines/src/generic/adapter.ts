@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { extname, join, resolve } from "node:path";
-import { DockerError, hasImage, runContainer } from "../docker.js";
+import { DockerError, hasImage, quantdeskLabels, runContainer } from "../docker.js";
 import { ENGINE_IMAGES } from "../images.js";
 import type {
 	BacktestConfig,
@@ -138,7 +138,8 @@ export class GenericAdapter implements EngineAdapter {
 			throw new UnsupportedRuntimeError(ext);
 		}
 		const workspaceAbs = resolve(input.workspacePath);
-		const containerName = `quantdesk-script-${crypto.randomUUID().slice(0, 8)}`;
+		const scriptId = crypto.randomUUID().slice(0, 8);
+		const containerName = `quantdesk-script-${scriptId}`;
 		const result = await runContainer(
 			{
 				image: ENGINE_IMAGES.generic,
@@ -146,11 +147,16 @@ export class GenericAdapter implements EngineAdapter {
 				rm: true,
 				cpus: "2",
 				memory: "2g",
-				volumes: [
-					`${workspaceAbs}:/workspace`,
-					...cacheVolumes(),
-					...(input.extraVolumes ?? []),
-				],
+				// Labels let startup-cleanup reconcile any script container
+				// orphaned by a server crash mid-runScript. Without these, a
+				// hung / infinite-loop script survives forever and wastes CPU
+				// (the hyperliquid BTC/USDT retry-loop incident).
+				labels: quantdeskLabels({
+					runId: scriptId,
+					engine: "generic",
+					kind: "script",
+				}),
+				volumes: [`${workspaceAbs}:/workspace`, ...cacheVolumes(), ...(input.extraVolumes ?? [])],
 				command: [runtime, input.scriptPath],
 			},
 			{
@@ -185,11 +191,7 @@ export class GenericAdapter implements EngineAdapter {
 				rm: true,
 				cpus: "2",
 				memory: "2g",
-				volumes: [
-					`${workspaceAbs}:/workspace`,
-					...cacheVolumes(),
-					...externalMountVolumes,
-				],
+				volumes: [`${workspaceAbs}:/workspace`, ...cacheVolumes(), ...externalMountVolumes],
 				command: [runtime, config.strategyPath],
 			},
 			{
@@ -210,7 +212,10 @@ export class GenericAdapter implements EngineAdapter {
 		// Agent scripts must print the NormalizedResult JSON as the LAST
 		// line of stdout. Pick the final non-empty line so entrypoint /
 		// framework banners above don't poison the parser.
-		const lines = result.stdout.trim().split("\n").filter((l) => l.trim().length > 0);
+		const lines = result.stdout
+			.trim()
+			.split("\n")
+			.filter((l) => l.trim().length > 0);
 		const lastLine = lines[lines.length - 1] ?? "";
 		const normalized = this.parseResult(lastLine);
 		return { raw: result.stdout, normalized };

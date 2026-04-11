@@ -1,12 +1,7 @@
 import { ChevronRight, Database, Eye, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import type { Dataset, DatasetPreview, Desk } from "../lib/api.js";
-import {
-	deleteDataset,
-	listDatasets,
-	previewDataset,
-	previewDatasetGlobal,
-} from "../lib/api.js";
+import { deleteDataset, listDatasets, previewDataset, previewDatasetGlobal } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { ScrollArea } from "./ui/scroll-area.js";
 
@@ -284,7 +279,11 @@ export function DatasetView({ desk }: Props) {
 															)}
 														</div>
 														<div className="flex items-center gap-3 text-xs text-muted-foreground">
-															<span className={cn("rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide")}>
+															<span
+																className={cn(
+																	"rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide",
+																)}
+															>
 																{ds.timeframe}
 															</span>
 															<span>

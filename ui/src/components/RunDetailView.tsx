@@ -1,4 +1,12 @@
-import { ArrowLeft, CheckCircle2, GitCommit, Play, Shield, TrendingUp, XCircle } from "lucide-react";
+import {
+	ArrowLeft,
+	CheckCircle2,
+	GitCommit,
+	Play,
+	Shield,
+	TrendingUp,
+	XCircle,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Experiment, Run } from "../lib/api.js";
@@ -190,7 +198,12 @@ function RunDetail({
 				{(() => {
 					const runPrimary = primaryValue(run);
 					const basePrimary = baseline ? primaryValue(baseline) : null;
-					if (baseline == null || runPrimary == null || basePrimary == null || baseline.id === run.id)
+					if (
+						baseline == null ||
+						runPrimary == null ||
+						basePrimary == null ||
+						baseline.id === run.id
+					)
 						return null;
 					const delta = runPrimary - basePrimary;
 					const primaryLabel = run.result?.metrics?.[0]?.label ?? "value";
@@ -220,67 +233,69 @@ function RunDetail({
 			</div>
 
 			{/* Validation + Paper Trading */}
-			{run.mode === "backtest" && run.status === "completed" && (() => {
-				const validation = run.result?.validation;
-				const isApproved = validation?.verdict === "approve";
+			{run.mode === "backtest" &&
+				run.status === "completed" &&
+				(() => {
+					const validation = run.result?.validation;
+					const isApproved = validation?.verdict === "approve";
 
-				return (
-					<div className="space-y-2">
-						{/* Validation badge */}
-						{validation ? (
-							<div
-								className={cn(
-									"flex items-center gap-2 px-3 py-2 rounded-md border text-xs min-w-0",
-									isApproved
-										? "border-green-500/30 bg-green-500/[0.06] text-green-700 dark:text-green-300"
-										: "border-red-500/30 bg-red-500/[0.06] text-red-700 dark:text-red-300",
-								)}
-							>
-								{isApproved ? (
-									<CheckCircle2 className="size-3.5 shrink-0" />
-								) : (
-									<XCircle className="size-3.5 shrink-0" />
-								)}
-								<span className="font-medium shrink-0">
-									Risk Manager: {isApproved ? "Approved" : "Rejected"}
-								</span>
-								{validation.reason && (
-									<span
-										className="text-muted-foreground ml-1 truncate min-w-0"
-										title={validation.reason}
-									>
-										— {validation.reason}
-									</span>
-								)}
-							</div>
-						) : (
-							<div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-muted/30 text-xs text-muted-foreground">
-								<Shield className="size-3.5 shrink-0" />
-								<span>Not validated yet — request validation from the agent to enable paper trading</span>
-							</div>
-						)}
-
-						{/* Paper Trading button */}
-						{isApproved && (
-							<>
-								<Button
-									className="w-full bg-green-600 hover:bg-green-500"
-									onClick={() => onGoPaper(run.id)}
-									disabled={paperStarting}
+					return (
+						<div className="space-y-2">
+							{/* Validation badge */}
+							{validation ? (
+								<div
+									className={cn(
+										"flex items-center gap-2 px-3 py-2 rounded-md border text-xs min-w-0",
+										isApproved
+											? "border-green-500/30 bg-green-500/[0.06] text-green-700 dark:text-green-300"
+											: "border-red-500/30 bg-red-500/[0.06] text-red-700 dark:text-red-300",
+									)}
 								>
-									<Play className="size-4 mr-2" />
-									{paperStarting ? "Starting…" : "Start Paper Trading"}
-								</Button>
-								{paperError && (
-									<div className="text-xs text-red-600 dark:text-red-400 px-1">
-										{paperError}
-									</div>
-								)}
-							</>
-						)}
-					</div>
-				);
-			})()}
+									{isApproved ? (
+										<CheckCircle2 className="size-3.5 shrink-0" />
+									) : (
+										<XCircle className="size-3.5 shrink-0" />
+									)}
+									<span className="font-medium shrink-0">
+										Risk Manager: {isApproved ? "Approved" : "Rejected"}
+									</span>
+									{validation.reason && (
+										<span
+											className="text-muted-foreground ml-1 truncate min-w-0"
+											title={validation.reason}
+										>
+											— {validation.reason}
+										</span>
+									)}
+								</div>
+							) : (
+								<div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-muted/30 text-xs text-muted-foreground">
+									<Shield className="size-3.5 shrink-0" />
+									<span>
+										Not validated yet — request validation from the agent to enable paper trading
+									</span>
+								</div>
+							)}
+
+							{/* Paper Trading button */}
+							{isApproved && (
+								<>
+									<Button
+										className="w-full bg-green-600 hover:bg-green-500"
+										onClick={() => onGoPaper(run.id)}
+										disabled={paperStarting}
+									>
+										<Play className="size-4 mr-2" />
+										{paperStarting ? "Starting…" : "Start Paper Trading"}
+									</Button>
+									{paperError && (
+										<div className="text-xs text-red-600 dark:text-red-400 px-1">{paperError}</div>
+									)}
+								</>
+							)}
+						</div>
+					);
+				})()}
 
 			{/* Agent transcript */}
 			{transcriptEntries.length > 0 && (

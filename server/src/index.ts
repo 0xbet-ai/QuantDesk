@@ -5,7 +5,6 @@ import { handleMcpRequest } from "./mcp/http-route.js";
 import { setTriggerAgent } from "./mcp/server.js";
 import { errorHandler } from "./middleware/error.js";
 import { setupWebSocket } from "./realtime/websocket.js";
-import { triggerAgent } from "./services/agent-trigger.js";
 import commentsRouter from "./routes/comments.js";
 import datasetsRouter from "./routes/datasets.js";
 import desksRouter from "./routes/desks.js";
@@ -15,9 +14,11 @@ import paperRouter from "./routes/paper.js";
 import runsRouter from "./routes/runs.js";
 import strategiesRouter from "./routes/strategies.js";
 import turnsRouter from "./routes/turns.js";
+import { triggerAgent } from "./services/agent-trigger.js";
 import {
 	cleanupStaleAgentRuns,
 	reconcileOrphanAgentTurns,
+	reconcileOrphanScriptContainers,
 	reconcilePaperSessions,
 } from "./services/startup-cleanup.js";
 import { startTurnWatchdog } from "./services/turn-watchdog.js";
@@ -90,6 +91,11 @@ server.listen(port, () => {
 			await reconcilePaperSessions();
 		} catch (err) {
 			console.error("Paper session reconcile failed:", err);
+		}
+		try {
+			await reconcileOrphanScriptContainers();
+		} catch (err) {
+			console.error("Orphan script reconcile failed:", err);
 		}
 	})();
 	startTurnWatchdog();

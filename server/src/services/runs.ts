@@ -62,11 +62,7 @@ function normalizeRun<T extends { result: unknown }>(run: T): T {
 	// can show approved/rejected status on paper trading cards.
 	const raw = run.result as Record<string, unknown> | null;
 	const validation = raw?.validation;
-	const result = normalized
-		? validation
-			? { ...normalized, validation }
-			: normalized
-		: null;
+	const result = normalized ? (validation ? { ...normalized, validation } : normalized) : null;
 	return { ...run, result } as T;
 }
 

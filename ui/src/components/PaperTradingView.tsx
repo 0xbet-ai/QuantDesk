@@ -1,8 +1,21 @@
-import { createChart, CandlestickSeries, type IChartApi, type ISeriesApi, type UTCTimestamp, ColorType } from "lightweight-charts";
+import {
+	CandlestickSeries,
+	ColorType,
+	type IChartApi,
+	type ISeriesApi,
+	type UTCTimestamp,
+	createChart,
+} from "lightweight-charts";
 import { ArrowDownRight, ArrowUpRight, Pause } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTheme } from "../context/ThemeContext.js";
-import type { Desk, PaperCandleItem, PaperSession, PaperStatusData, PaperTradeItem } from "../lib/api.js";
+import type {
+	Desk,
+	PaperCandleItem,
+	PaperSession,
+	PaperStatusData,
+	PaperTradeItem,
+} from "../lib/api.js";
 import {
 	getActivePaperSession,
 	getPaperCandles,
@@ -58,10 +71,18 @@ export function PaperTradingView({ desk }: Props) {
 	const timeframe = (sessionConfig.timeframe as string) ?? "5m";
 
 	const refresh = useCallback(() => {
-		getActivePaperSession(desk.id).then(setSession).catch(() => {});
-		getPaperStatus(desk.id).then(setStatus).catch(() => {});
-		getPaperTrades(desk.id).then(setTrades).catch(() => {});
-		getPaperCandles(desk.id, pair, timeframe).then(setCandles).catch(() => {});
+		getActivePaperSession(desk.id)
+			.then(setSession)
+			.catch(() => {});
+		getPaperStatus(desk.id)
+			.then(setStatus)
+			.catch(() => {});
+		getPaperTrades(desk.id)
+			.then(setTrades)
+			.catch(() => {});
+		getPaperCandles(desk.id, pair, timeframe)
+			.then(setCandles)
+			.catch(() => {});
 	}, [desk.id, pair, timeframe]);
 
 	useEffect(() => {
@@ -148,7 +169,7 @@ export function PaperTradingView({ desk }: Props) {
 				const pos: "belowBar" | "aboveBar" = t.side === "long" ? "belowBar" : "aboveBar";
 				const shp: "arrowUp" | "arrowDown" = t.side === "long" ? "arrowUp" : "arrowDown";
 				return {
-					time: (Math.floor(new Date(t.openDate).getTime() / 1000)) as UTCTimestamp,
+					time: Math.floor(new Date(t.openDate).getTime() / 1000) as UTCTimestamp,
 					position: pos,
 					color: t.side === "long" ? "#22c55e" : "#ef4444",
 					shape: shp,
@@ -182,9 +203,7 @@ export function PaperTradingView({ desk }: Props) {
 					</span>
 					<span className="text-sm font-medium">Paper Trading</span>
 					{status && (
-						<span className="text-xs text-muted-foreground">
-							{formatUptime(status.uptime)}
-						</span>
+						<span className="text-xs text-muted-foreground">{formatUptime(status.uptime)}</span>
 					)}
 				</div>
 				<div className="flex-1" />
@@ -193,7 +212,14 @@ export function PaperTradingView({ desk }: Props) {
 					<div className="flex items-center gap-4 text-xs tabular-nums">
 						<div>
 							<span className="text-muted-foreground mr-1">PnL</span>
-							<span className={cn("font-mono font-medium", (status.unrealizedPnl + status.realizedPnl) >= 0 ? "text-green-500" : "text-red-500")}>
+							<span
+								className={cn(
+									"font-mono font-medium",
+									status.unrealizedPnl + status.realizedPnl >= 0
+										? "text-green-500"
+										: "text-red-500",
+								)}
+							>
 								{formatPnl(status.unrealizedPnl + status.realizedPnl)}
 							</span>
 						</div>
@@ -245,10 +271,12 @@ export function PaperTradingView({ desk }: Props) {
 								<tr key={t.id} className="border-b border-border/30 hover:bg-muted/30">
 									<td className="px-4 py-1.5 font-mono">{t.pair}</td>
 									<td className="px-2 py-1.5">
-										<span className={cn(
-											"inline-flex items-center gap-0.5 font-medium",
-											t.side === "long" ? "text-green-500" : "text-red-500",
-										)}>
+										<span
+											className={cn(
+												"inline-flex items-center gap-0.5 font-medium",
+												t.side === "long" ? "text-green-500" : "text-red-500",
+											)}
+										>
 											{t.side === "long" ? (
 												<ArrowUpRight className="size-3" />
 											) : (
@@ -259,14 +287,18 @@ export function PaperTradingView({ desk }: Props) {
 									</td>
 									<td className="px-2 py-1.5 text-right font-mono">{t.openRate.toFixed(2)}</td>
 									<td className="px-2 py-1.5 text-right font-mono">
-										{t.closeRate != null ? t.closeRate.toFixed(2) : (
+										{t.closeRate != null ? (
+											t.closeRate.toFixed(2)
+										) : (
 											<span className="text-muted-foreground">open</span>
 										)}
 									</td>
-									<td className={cn(
-										"px-4 py-1.5 text-right font-mono font-medium",
-										t.profitAbs >= 0 ? "text-green-500" : "text-red-500",
-									)}>
+									<td
+										className={cn(
+											"px-4 py-1.5 text-right font-mono font-medium",
+											t.profitAbs >= 0 ? "text-green-500" : "text-red-500",
+										)}
+									>
 										{t.isOpen ? "—" : formatPnl(t.profitAbs)}
 									</td>
 									<td className="px-4 py-1.5 text-right text-muted-foreground">
