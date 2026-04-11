@@ -69,8 +69,35 @@ export function PaperTradingView({ desk }: Props) {
 	const [candles, setCandles] = useState<PaperCandleItem[]>([]);
 	const [logs, setLogs] = useState<PaperLogLine[]>([]);
 	const [stopping, setStopping] = useState(false);
+	// Draggable divider between trades panel and container log panel.
+	// Height in px for the bottom log panel; clamped [80, 600] on drag.
+	const [logHeight, setLogHeight] = useState(192);
 	const logIdRef = useRef(0);
 	const logContainerRef = useRef<HTMLDivElement>(null);
+
+	const startLogResize = useCallback(
+		(e: React.MouseEvent) => {
+			e.preventDefault();
+			const startY = e.clientY;
+			const startHeight = logHeight;
+			const onMove = (ev: MouseEvent) => {
+				const delta = startY - ev.clientY;
+				const next = Math.max(80, Math.min(600, startHeight + delta));
+				setLogHeight(next);
+			};
+			const onUp = () => {
+				document.removeEventListener("mousemove", onMove);
+				document.removeEventListener("mouseup", onUp);
+				document.body.style.cursor = "";
+				document.body.style.userSelect = "";
+			};
+			document.body.style.cursor = "row-resize";
+			document.body.style.userSelect = "none";
+			document.addEventListener("mousemove", onMove);
+			document.addEventListener("mouseup", onUp);
+		},
+		[logHeight],
+	);
 
 	const chartContainerRef = useRef<HTMLDivElement>(null);
 	const chartRef = useRef<IChartApi | null>(null);
@@ -306,7 +333,7 @@ export function PaperTradingView({ desk }: Props) {
 			</div>
 
 			{/* Trade history */}
-			<div className="flex-1 overflow-y-auto border-b border-border">
+			<div className="flex-1 min-h-0 overflow-y-auto">
 				<div className="px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
 					Trades ({trades.length})
 				</div>
@@ -371,11 +398,18 @@ export function PaperTradingView({ desk }: Props) {
 				)}
 			</div>
 
+			{/* Resize handle between trades and log */}
+			<div
+				onMouseDown={startLogResize}
+				className="h-1 shrink-0 cursor-row-resize bg-border hover:bg-blue-500/50 transition-colors"
+				title="Drag to resize log panel"
+			/>
+
 			{/* Live log console — freqtrade container stdout streamed via
 			    paper.log events. Shows "Bot heartbeat" / entry signals /
 			    errors so the user can tell a healthy bot from a zombie
 			    one without leaving the app. */}
-			<div className="h-48 shrink-0 flex flex-col">
+			<div className="shrink-0 flex flex-col" style={{ height: logHeight }}>
 				<div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
 					<span>Container log</span>
 					<span className="text-muted-foreground/60 normal-case tracking-normal">
