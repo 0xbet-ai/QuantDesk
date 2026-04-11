@@ -61,6 +61,58 @@ function detectLogLevel(line: string): LogLevel {
 	return "info";
 }
 
+/**
+ * Rewrite any UTC timestamps embedded in a log line into the user's
+ * local timezone. Two formats get matched:
+ *
+ *   1. ISO 8601 with T and an optional `Z` / offset — freqtrade's
+ *      `/api/v1/pair_candles` date column (`2026-04-11T13:05:00Z`),
+ *      used by our own `[market]` synthetic lines.
+ *   2. Python logging default — `2026-04-11 13:12:01,091` — freqtrade
+ *      writes these from inside the docker container, which defaults
+ *      to UTC.
+ *
+ * Both formats are replaced with `toLocaleString(undefined, ...)` so
+ * the value is automatically rendered in whatever timezone the user's
+ * browser is in. The rest of the line (indicator values, signal
+ * flags, log level, message body) is left untouched.
+ *
+ * We do this at INGEST time (not render) so the transformed string
+ * lives in state and the render loop is a pure string renderer.
+ */
+function localizeTimestamps(line: string): string {
+	const fmt = (d: Date): string =>
+		d.toLocaleString(undefined, {
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+			hour12: false,
+		});
+	return line
+		.replace(
+			/\b(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\b/g,
+			(match) => {
+				const d = new Date(match);
+				if (Number.isNaN(d.getTime())) return match;
+				return fmt(d);
+			},
+		)
+		.replace(
+			// Python-logging "YYYY-MM-DD HH:MM:SS[,ms]" — assume UTC (that's
+			// the Docker default). Anchored with word boundaries so it
+			// doesn't touch already-localized strings from the previous pass.
+			/\b(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})(,\d+)?\b/g,
+			(_m, date: string, time: string) => {
+				const d = new Date(`${date}T${time}Z`);
+				if (Number.isNaN(d.getTime())) return `${date} ${time}`;
+				return fmt(d);
+			},
+		);
+}
+
 function formatPnl(v: number): string {
 	return `${v >= 0 ? "+" : ""}${v.toFixed(2)}`;
 }
@@ -181,11 +233,16 @@ export function PaperTradingView({ desk }: Props) {
 		if (session && payload.sessionId && payload.sessionId !== session.id) return;
 		const nextId = logIdRef.current + 1;
 		logIdRef.current = nextId;
+		const rawLine = payload.line;
 		const lineEntry: PaperLogLine = {
 			id: nextId,
 			stream: payload.stream === "stderr" ? "stderr" : "stdout",
-			line: payload.line,
-			level: detectLogLevel(payload.line),
+			// Detect the level from the RAW line (level markers never
+			// contain timestamps), then localize the timestamps for
+			// display. Order matters: level detection must see the
+			// untransformed text.
+			level: detectLogLevel(rawLine),
+			line: localizeTimestamps(rawLine),
 			at: event.createdAt,
 		};
 		setLogs((prev) => {
