@@ -2,7 +2,14 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { commitCode, getCode, getDiff, initWorkspace } from "../workspace.js";
+import {
+	commitCode,
+	ensureCommit,
+	getCode,
+	getDiff,
+	getHead,
+	initWorkspace,
+} from "../workspace.js";
 
 let workspacesRoot: string;
 
@@ -75,6 +82,64 @@ describe("getDiff", () => {
 		const diff = await getDiff(dir, hash1, hash2);
 		expect(diff).toContain("+line3");
 		expect(diff).not.toContain("-line1");
+	});
+});
+
+describe("getHead", () => {
+	it("returns the current HEAD hash", async () => {
+		const dir = await initWorkspace("desk-head", "freqtrade", workspacesRoot);
+		const head = await getHead(dir);
+		expect(head).toMatch(/^[0-9a-f]{40}$/);
+
+		await writeFile(join(dir, "strategy.py"), "# new\n");
+		const newHash = await commitCode(dir, "bump");
+		expect(await getHead(dir)).toBe(newHash);
+	});
+});
+
+describe("ensureCommit", () => {
+	it("commits when the workspace is dirty and returns the new hash", async () => {
+		const dir = await initWorkspace("desk-ensure-dirty", "freqtrade", workspacesRoot);
+		const before = await getHead(dir);
+
+		await writeFile(join(dir, "config.json"), '{"timeframe":"1h"}');
+		const hash = await ensureCommit(dir, "pre-run #1");
+
+		expect(hash).toMatch(/^[0-9a-f]{40}$/);
+		expect(hash).not.toBe(before);
+		expect(await getHead(dir)).toBe(hash);
+	});
+
+	it("returns the current HEAD unchanged when the workspace is clean", async () => {
+		const dir = await initWorkspace("desk-ensure-clean", "freqtrade", workspacesRoot);
+		const before = await getHead(dir);
+
+		const hash1 = await ensureCommit(dir, "pre-run #1");
+		const hash2 = await ensureCommit(dir, "pre-run #2");
+
+		expect(hash1).toBe(before);
+		expect(hash2).toBe(before);
+	});
+
+	it("respects .gitignore so engine output files are not committed", async () => {
+		// Simulates a freqtrade run dropping backtest_results/*.zip into the
+		// workspace between two agent edits. A subsequent ensureCommit() must
+		// ignore the output artifacts and only snapshot reproducible inputs.
+		const dir = await initWorkspace("desk-ignore", "freqtrade", workspacesRoot);
+
+		// Engine writes an output file.
+		const { mkdir } = await import("node:fs/promises");
+		await mkdir(join(dir, "backtest_results"), { recursive: true });
+		await writeFile(join(dir, "backtest_results", "run-1.zip"), "binary-output");
+
+		// Agent edits config.
+		await writeFile(join(dir, "config.json"), '{"timeframe":"15m"}');
+		const hash = await ensureCommit(dir, "pre-run #2");
+
+		// The commit contains config.json but NOT the ignored output.
+		const config = await getCode(dir, hash, "config.json");
+		expect(config).toContain("15m");
+		await expect(getCode(dir, hash, "backtest_results/run-1.zip")).rejects.toThrow();
 	});
 });
 

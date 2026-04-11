@@ -149,6 +149,29 @@ export async function hasChanges(cwd: string): Promise<boolean> {
 	return status.length > 0;
 }
 
+/**
+ * Return the current HEAD commit hash for the workspace. Used to stamp
+ * runs.commit_hash with the exact code + config that produced a backtest,
+ * so a user can reproduce any historical run by checking out the hash.
+ */
+export async function getHead(cwd: string): Promise<string> {
+	return git(cwd, "rev-parse", "HEAD");
+}
+
+/**
+ * Ensure the workspace has a commit for the current state and return its
+ * hash. If the tree is dirty, commit with `message`; otherwise return the
+ * existing HEAD. Idempotent — safe to call before every backtest so that
+ * `runs.commit_hash` always points at the exact inputs that produced a
+ * run, even when the agent runs many backtests in one turn.
+ */
+export async function ensureCommit(cwd: string, message: string): Promise<string> {
+	if (await hasChanges(cwd)) {
+		return commitCode(cwd, message);
+	}
+	return getHead(cwd);
+}
+
 export interface CommitInfo {
 	hash: string;
 	message: string;
