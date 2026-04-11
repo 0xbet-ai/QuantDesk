@@ -1,13 +1,9 @@
-import { Router } from "express";
 import { db } from "@quantdesk/db";
 import { desks } from "@quantdesk/db/schema";
 import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
 import { eq } from "drizzle-orm";
-import {
-	getActiveSession,
-	getLatestSession,
-	stopPaper,
-} from "../services/paper-sessions.js";
+import { Router } from "express";
+import { getActiveSession, getLatestSession, stopPaper } from "../services/paper-sessions.js";
 import { goPaper } from "../services/runs.js";
 
 const router = Router();
@@ -30,10 +26,7 @@ router.get("/desks/:deskId/paper/status", async (req, res) => {
 			res.json(null);
 			return;
 		}
-		const [desk] = await db
-			.select()
-			.from(desks)
-			.where(eq(desks.id, req.params.deskId));
+		const [desk] = await db.select().from(desks).where(eq(desks.id, req.params.deskId));
 		if (!desk) {
 			res.json(null);
 			return;
@@ -61,9 +54,15 @@ router.get("/desks/:deskId/paper/trades", async (req, res) => {
 			return;
 		}
 		const [desk] = await db.select().from(desks).where(eq(desks.id, req.params.deskId));
-		if (!desk) { res.json([]); return; }
+		if (!desk) {
+			res.json([]);
+			return;
+		}
 		const adapter = getEngineAdapter(desk.engine);
-		if (typeof adapter.getPaperTrades !== "function") { res.json([]); return; }
+		if (typeof adapter.getPaperTrades !== "function") {
+			res.json([]);
+			return;
+		}
 		const trades = await adapter.getPaperTrades({
 			containerName: session.containerName,
 			runId: session.runId,
@@ -84,14 +83,25 @@ router.get("/desks/:deskId/paper/candles", async (req, res) => {
 			return;
 		}
 		const [desk] = await db.select().from(desks).where(eq(desks.id, req.params.deskId));
-		if (!desk) { res.json([]); return; }
+		if (!desk) {
+			res.json([]);
+			return;
+		}
 		const adapter = getEngineAdapter(desk.engine);
-		if (typeof adapter.getPaperCandles !== "function") { res.json([]); return; }
+		if (typeof adapter.getPaperCandles !== "function") {
+			res.json([]);
+			return;
+		}
 		const pair = (req.query.pair as string) || "BTC/USDT";
 		const timeframe = (req.query.timeframe as string) || "5m";
 		const candles = await adapter.getPaperCandles(
-			{ containerName: session.containerName, runId: session.runId, meta: (session.meta as Record<string, unknown>) ?? {} },
-			pair, timeframe,
+			{
+				containerName: session.containerName,
+				runId: session.runId,
+				meta: (session.meta as Record<string, unknown>) ?? {},
+			},
+			pair,
+			timeframe,
 		);
 		res.json(candles);
 	} catch {

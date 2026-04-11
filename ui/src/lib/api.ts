@@ -350,4 +350,6 @@ export interface PaperCandleItem {
 export const getPaperTrades = (deskId: string) =>
 	api<PaperTradeItem[]>(`/desks/${deskId}/paper/trades`);
 export const getPaperCandles = (deskId: string, pair: string, timeframe: string) =>
-	api<PaperCandleItem[]>(`/desks/${deskId}/paper/candles?pair=${encodeURIComponent(pair)}&timeframe=${encodeURIComponent(timeframe)}`);
+	api<PaperCandleItem[]>(
+		`/desks/${deskId}/paper/candles?pair=${encodeURIComponent(pair)}&timeframe=${encodeURIComponent(timeframe)}`,
+	);

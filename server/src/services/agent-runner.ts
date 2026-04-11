@@ -1,6 +1,7 @@
 import type { AgentAdapter } from "@quantdesk/adapters";
 import type { StrategyMode } from "@quantdesk/shared";
 import { buildAnalystPrompt, buildRiskManagerPrompt } from "./prompt-builder.js";
+import type { PaperSessionContext } from "./prompts/types.js";
 
 interface DeskContext {
 	name: string;
@@ -31,6 +32,7 @@ interface RunInput {
 	}>;
 	comments: Array<{ author: string; content: string }>;
 	memorySummaries: Array<{ level: string; content: string }>;
+	paperSession?: PaperSessionContext | null;
 	sessionId: string | undefined;
 	agentRole: "analyst" | "risk_manager";
 	runResult?: { metrics: MetricEntry[] };
@@ -60,7 +62,9 @@ export class AgentRunner {
 		// Detect user language from the last user comment for RM prompt.
 		const lastUserComment = [...input.comments].reverse().find((c) => c.author === "user");
 		const userLanguageHint = lastUserComment
-			? /[\uAC00-\uD7AF]/.test(lastUserComment.content) ? "Korean" : undefined
+			? /[\uAC00-\uD7AF]/.test(lastUserComment.content)
+				? "Korean"
+				: undefined
 			: undefined;
 
 		const prompt =
@@ -79,6 +83,7 @@ export class AgentRunner {
 						runs: input.runs,
 						comments: input.comments,
 						memorySummaries: input.memorySummaries,
+						paperSession: input.paperSession,
 						isResume: !!input.sessionId,
 					});
 

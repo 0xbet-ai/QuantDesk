@@ -14,7 +14,50 @@ import {
 	buildToolsGlossaryBlock,
 	countRecentFailureStreak,
 } from "./prompts/index.js";
-import type { AnalystPromptInput, CommentContext, DeskContext } from "./prompts/index.js";
+import type {
+	AnalystPromptInput,
+	CommentContext,
+	DeskContext,
+	PaperSessionContext,
+} from "./prompts/index.js";
+
+/**
+ * Render the current paper session snapshot as a prompt block. Three
+ * shapes:
+ *   - undefined: block not injected at all (caller didn't query)
+ *   - null: no paper session has ever run (explicitly say so)
+ *   - object: current/last row with status, started/stopped, error
+ *
+ * When status is `running`, the block explicitly tells the agent to
+ * call `get_paper_status` to read live PnL — this block itself is
+ * snapshotted at turn start and does not reflect live container health.
+ */
+function buildPaperSessionBlock(session: PaperSessionContext | null): string {
+	if (session === null) {
+		return "## Paper session\nNo paper session has ever run on this desk.";
+	}
+	const lines: string[] = ["## Paper session", `- Status: ${session.status}`];
+	if (session.runNumber !== null) {
+		lines.push(`- Promoted from: Run #${session.runNumber}`);
+	}
+	lines.push(`- Started: ${session.startedAt}`);
+	if (session.stoppedAt) {
+		lines.push(`- Stopped: ${session.stoppedAt}`);
+	}
+	if (session.error) {
+		lines.push(`- Error: ${session.error}`);
+	}
+	if (session.status === "running") {
+		lines.push(
+			"- **This row is a snapshot.** For live PnL / open positions, call `mcp__quantdesk__get_paper_status` — never claim the container is running without verifying on the current turn.",
+		);
+	} else {
+		lines.push(
+			"- The session is NOT running. Do not tell the user it is. If they ask about paper trading, reference this row (and call `get_paper_status` if you need the full history).",
+		);
+	}
+	return lines.join("\n");
+}
 
 // Re-export so existing call sites that imported from prompt-builder.ts
 // keep working without churn.
@@ -112,6 +155,16 @@ ${desk.description ?? ""}
 - Stop loss: ${desk.stopLoss}% (max drawdown)
 - Strategy mode: ${desk.strategyMode}
 - Venues: ${desk.venues.join(", ")}`);
+
+	// 4b. ## Paper session — current state injected every turn so the
+	//     agent never hallucinates "still running" from stale session
+	//     context. If anything changed since the last turn (stopped,
+	//     failed, started), this block is the agent's ground truth. For
+	//     live PnL / positions the agent still has to call
+	//     get_paper_status — this block only carries the session row.
+	if (input.paperSession !== undefined) {
+		sections.push(buildPaperSessionBlock(input.paperSession));
+	}
 
 	// 5. ## Currently working on Experiment
 	sections.push(`## Currently working on Experiment #${experiment.number} — ${experiment.title}`);

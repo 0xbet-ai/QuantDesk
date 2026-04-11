@@ -68,6 +68,5 @@ export const bybitGuide: VenueGuide = {
 	],
 
 	lastVerified: "2026-04-09",
-	verificationNotes:
-		"BTC/USDT spot + BTC/USDT:USDT linear 5m, 1000 rows each, ccxt 4.4.x.",
+	verificationNotes: "BTC/USDT spot + BTC/USDT:USDT linear 5m, 1000 rows each, ccxt 4.4.x.",
 };

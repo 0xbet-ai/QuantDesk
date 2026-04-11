@@ -1,0 +1,1 @@
+ALTER TABLE "paper_sessions" DROP COLUMN "container_id";

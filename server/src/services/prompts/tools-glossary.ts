@@ -42,6 +42,7 @@ react immediately.
 - \`mcp__quantdesk__complete_experiment({summary?})\` — mark the current experiment finished. Requires prior user consent.
 - \`mcp__quantdesk__go_paper({runId})\` — promote a completed backtest run to paper trading. RM approval is recommended but not enforced; if the run was rejected, surface that explicitly to the user and obtain consent before calling. Starts a dry-run container on the desk's engine. One session per desk. Requires prior user consent. Paper trading is NOT supported for generic-engine desks.
 - \`mcp__quantdesk__stop_paper({})\` — stop the active paper trading session. No retrigger. No consent needed.
+- \`mcp__quantdesk__get_paper_status({})\` — read current paper trading state. Returns the active session with live PnL/positions if running, or the latest historical session with \`active: false\`. **Use this whenever you answer the user about paper trading — never guess from memory, the container may have stopped since your last turn.** No consent needed.
 - \`mcp__quantdesk__run_script({scriptPath})\` — execute an agent-authored script in the generic sandbox container. Use for fetchers, exploration, any script — NOT the final backtest (use \`run_backtest\` for that). Available on all desks. No consent needed.
 
 ### Data acquisition
@@ -110,5 +111,5 @@ Before writing and running a fetcher script, describe your data plan
 (exchange, pairs, timeframe/data type, date range) and wait for the
 user to confirm. See "Data acquisition" above.
 
-Tools that fire directly without asking: \`register_dataset\`, \`run_backtest\`, \`set_experiment_title\`, \`submit_rm_verdict\`, \`stop_paper\`, \`run_script\` (except when used for data fetching — see above).`;
+Tools that fire directly without asking: \`register_dataset\`, \`run_backtest\`, \`set_experiment_title\`, \`submit_rm_verdict\`, \`stop_paper\`, \`get_paper_status\`, \`run_script\` (except when used for data fetching — see above).`;
 }

@@ -63,4 +63,3 @@ export type RunStatus = z.infer<typeof runStatusSchema>;
 
 export const engineNameSchema = z.enum(["freqtrade", "nautilus", "generic"]);
 export type EngineName = z.infer<typeof engineNameSchema>;
-

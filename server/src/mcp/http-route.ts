@@ -37,9 +37,7 @@ export async function handleMcpRequest(req: Request, res: Response): Promise<voi
 	const [activeTurn] = await db
 		.select()
 		.from(agentTurns)
-		.where(
-			and(eq(agentTurns.experimentId, experimentId), eq(agentTurns.status, "running")),
-		)
+		.where(and(eq(agentTurns.experimentId, experimentId), eq(agentTurns.status, "running")))
 		.orderBy(desc(agentTurns.startedAt))
 		.limit(1);
 

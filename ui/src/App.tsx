@@ -4,17 +4,17 @@ import { ActivityView } from "./components/ActivityView.js";
 import { CodeView } from "./components/CodeView.js";
 import { CommentThread } from "./components/CommentThread.js";
 import { CreateDeskWizard } from "./components/CreateDeskWizard.js";
-import { GlobalDatasetsView } from "./components/GlobalDatasetsView.js";
 import type { DeskPage } from "./components/DeskPanel.js";
 import { DeskPanel } from "./components/DeskPanel.js";
 import { DeskSettings } from "./components/DeskSettings.js";
+import { GlobalDatasetsView } from "./components/GlobalDatasetsView.js";
 import { Layout } from "./components/Layout.js";
 import { PaperTradingView } from "./components/PaperTradingView.js";
 import { PropsPanel } from "./components/PropsPanel.js";
 import { RunDetailView } from "./components/RunDetailView.js";
-import { TurnDetailPage } from "./pages/TurnDetailPage.js";
 import type { Desk, Experiment } from "./lib/api.js";
 import { listDesks, listExperiments } from "./lib/api.js";
+import { TurnDetailPage } from "./pages/TurnDetailPage.js";
 
 interface RouteState {
 	desks: Desk[];
@@ -159,7 +159,7 @@ function DeskRoute({
 					<CommentThread
 						experiment={selectedExperiment}
 						onOpenRun={() => navigate(`/desks/${deskId}/experiments/${expId}/runs`)}
-					onOpenTurn={(turnId: string) => navigate(`/desks/${deskId}/turns/${turnId}`)}
+						onOpenTurn={(turnId: string) => navigate(`/desks/${deskId}/turns/${turnId}`)}
 						onNewExperiment={handleNewExperiment}
 						onExperimentUpdated={refreshExperiments}
 					/>
@@ -175,7 +175,11 @@ function DeskRoute({
 			}
 			panel={
 				deskPage === "experiments" && expId && selectedDesk ? (
-					<PropsPanel experiment={selectedExperiment} experimentId={expId} deskId={selectedDesk.id} />
+					<PropsPanel
+						experiment={selectedExperiment}
+						experimentId={expId}
+						deskId={selectedDesk.id}
+					/>
 				) : null
 			}
 		/>
@@ -305,7 +309,7 @@ export function App() {
 					}
 				/>
 				<Route path="/desks" element={<HomeRoute desks={desks} setShowWizard={setShowWizard} />} />
-			<Route path="/desks/:deskId" element={<DeskRoute {...routeState} />} />
+				<Route path="/desks/:deskId" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/experiments/:expId" element={<DeskRoute {...routeState} />} />
 				<Route
 					path="/desks/:deskId/experiments/:expId/runs"
@@ -316,7 +320,7 @@ export function App() {
 					element={<DeskRoute {...routeState} />}
 				/>
 				<Route path="/desks/:deskId/paper" element={<DeskRoute {...routeState} />} />
-			<Route path="/desks/:deskId/code" element={<DeskRoute {...routeState} />} />
+				<Route path="/desks/:deskId/code" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/activity" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/settings" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/turns/:turnId" element={<TurnDetailPage />} />

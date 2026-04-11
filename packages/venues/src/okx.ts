@@ -74,6 +74,5 @@ export const okxGuide: VenueGuide = {
 	],
 
 	lastVerified: "2026-04-09",
-	verificationNotes:
-		"BTC/USDT spot + BTC/USDT:USDT swap 5m, 100 rows per page, ccxt 4.4.x.",
+	verificationNotes: "BTC/USDT spot + BTC/USDT:USDT swap 5m, 100 rows per page, ccxt 4.4.x.",
 };

@@ -10,8 +10,7 @@ export const dydxGuide: VenueGuide = {
 		"REST API at `indexer.dydx.trade` serves historical candles.",
 
 	symbolFormat: {
-		linearFutures:
-			"BTC-USD.DYDX, ETH-USD.DYDX (nautilus) | BTC-USD, ETH-USD (native indexer API)",
+		linearFutures: "BTC-USD.DYDX, ETH-USD.DYDX (nautilus) | BTC-USD, ETH-USD (native indexer API)",
 		notes:
 			"All markets are perpetuals settled in USDC. Symbol format is simple: BASE-USD. " +
 			"No spot market. dYdX v4 runs on its own Cosmos chain. " +
@@ -58,6 +57,5 @@ export const dydxGuide: VenueGuide = {
 	],
 
 	lastVerified: "2026-04-09",
-	verificationNotes:
-		"BTC-USD 5MINS candles via indexer REST, 100 rows. Tardis CSV verified.",
+	verificationNotes: "BTC-USD 5MINS candles via indexer REST, 100 rows. Tardis CSV verified.",
 };

@@ -149,9 +149,7 @@ export const agentTurns = pgTable("agent_turns", {
 	status: text("status").notNull().default("running"),
 	startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
 	endedAt: timestamp("ended_at", { withTimezone: true }),
-	lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true })
-		.notNull()
-		.defaultNow(),
+	lastHeartbeatAt: timestamp("last_heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
 	failureReason: text("failure_reason"),
 	agentSessionId: uuid("agent_session_id").references(() => agentSessions.id),
 });
@@ -187,6 +185,11 @@ export const memorySummaries = pgTable("memory_summaries", {
  * not by a DB constraint). States: pending → running → stopped / failed.
  * Docker is the source of truth for whether the container is alive;
  * boot reconcile marks orphaned `running` rows as `failed`.
+ *
+ * `containerName` is the sole container identifier — it's unique per
+ * host and used by every lookup, so a separate `container_id` column
+ * would just duplicate state nobody reads. The original schema carried
+ * one; it was dropped in migration 0009 once the adapters stabilized.
  */
 export const paperSessions = pgTable("paper_sessions", {
 	id: uuid("id").primaryKey().defaultRandom(),
@@ -200,7 +203,6 @@ export const paperSessions = pgTable("paper_sessions", {
 		.notNull()
 		.references(() => experiments.id),
 	engine: text("engine").notNull(),
-	containerId: text("container_id"),
 	containerName: text("container_name"),
 	status: text("status").notNull().default("pending"),
 	apiPort: integer("api_port"),

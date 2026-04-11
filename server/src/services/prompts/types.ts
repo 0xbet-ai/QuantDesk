@@ -49,12 +49,26 @@ export interface MemorySummary {
 	content: string;
 }
 
+/**
+ * Current paper session snapshot, injected into the resume prompt so
+ * the agent never has to guess whether the container is still alive.
+ * `null` means "no paper session has ever run on this desk".
+ */
+export interface PaperSessionContext {
+	status: "pending" | "running" | "stopped" | "failed";
+	runNumber: number | null;
+	startedAt: string;
+	stoppedAt: string | null;
+	error: string | null;
+}
+
 export interface AnalystPromptInput {
 	desk: DeskContext;
 	experiment: ExperimentContext;
 	runs: RunContext[];
 	comments: CommentContext[];
 	memorySummaries: MemorySummary[];
+	paperSession?: PaperSessionContext | null;
 	isResume?: boolean;
 }
 

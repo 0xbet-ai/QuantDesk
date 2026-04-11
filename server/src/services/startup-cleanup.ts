@@ -195,7 +195,11 @@ export async function reconcilePaperSessions(): Promise<void> {
 		if (exitedContainers.length > 0) {
 			const { removeContainer } = await import("@quantdesk/engines/docker");
 			for (const c of exitedContainers) {
-				try { await removeContainer(c.name); } catch { /* already gone */ }
+				try {
+					await removeContainer(c.name);
+				} catch {
+					/* already gone */
+				}
 			}
 			console.log(`[startup] Cleaned ${exitedContainers.length} exited paper container(s)`);
 		}
@@ -216,7 +220,11 @@ export async function reconcilePaperSessions(): Promise<void> {
 				kept++;
 			} else {
 				// Case 2: container vanished — mark failed.
-				await failSessionInternal(session.id, session.experimentId, "container_vanished_during_downtime");
+				await failSessionInternal(
+					session.id,
+					session.experimentId,
+					"container_vanished_during_downtime",
+				);
 				await systemComment({
 					experimentId: session.experimentId,
 					nextAction: "action",
@@ -255,5 +263,53 @@ export async function reconcilePaperSessions(): Promise<void> {
 		}
 	} catch (err) {
 		console.error("[startup] Failed to reconcile paper sessions:", err);
+	}
+}
+
+/**
+ * Kill any `run_script` containers that survived a previous server
+ * process. Scripts are synchronous (the server process awaits the
+ * container), so any script container still alive at boot is
+ * guaranteed to be orphaned — either the server crashed mid-runScript
+ * or the script is in an infinite loop the previous process was
+ * waiting on. Either way, nothing is reading its stdout anymore and
+ * it's burning CPU for no reason.
+ *
+ * This was motivated by the hyperliquid BTC/USDT retry-loop incident:
+ * an agent-authored fetcher script hit a permanent error on the wrong
+ * symbol, retried forever, and the containers were still running two
+ * days later after many server restarts.
+ */
+export async function reconcileOrphanScriptContainers(): Promise<void> {
+	try {
+		let scriptContainers: Awaited<ReturnType<typeof listByLabel>>;
+		try {
+			scriptContainers = await listByLabel("quantdesk.kind=script");
+		} catch {
+			// Docker not available — can't reconcile. Skip silently.
+			return;
+		}
+		if (scriptContainers.length === 0) return;
+
+		const { stopContainer, removeContainer } = await import("@quantdesk/engines/docker");
+		let killed = 0;
+		for (const c of scriptContainers) {
+			try {
+				await stopContainer(c.name, 5);
+			} catch {
+				/* already dead */
+			}
+			try {
+				await removeContainer(c.name);
+			} catch {
+				/* already gone (rm:true auto-removed) */
+			}
+			killed++;
+		}
+		if (killed > 0) {
+			console.log(`[startup] Killed ${killed} orphan script container(s)`);
+		}
+	} catch (err) {
+		console.error("[startup] Failed to reconcile orphan script containers:", err);
 	}
 }

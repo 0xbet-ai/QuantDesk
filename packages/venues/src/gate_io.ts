@@ -9,12 +9,9 @@ export const gateIoGuide: VenueGuide = {
 		"candlesticks. Try bulk first, then ccxt (1000 candles/req), then v4 REST.",
 
 	symbolFormat: {
-		spot:
-			"BTC/USDT, ETH/USDC (ccxt) | BTC_USDT, ETH_USDC (native REST, underscore-separated)",
-		linearFutures:
-			"BTC/USDT:USDT (ccxt) | BTC_USDT (native futures REST, settle=usdt)",
-		inverseFutures:
-			"BTC/USD:BTC (ccxt, only 1 pair) | BTC_USD (native REST, settle=btc)",
+		spot: "BTC/USDT, ETH/USDC (ccxt) | BTC_USDT, ETH_USDC (native REST, underscore-separated)",
+		linearFutures: "BTC/USDT:USDT (ccxt) | BTC_USDT (native futures REST, settle=usdt)",
+		inverseFutures: "BTC/USD:BTC (ccxt, only 1 pair) | BTC_USD (native REST, settle=btc)",
 		notes:
 			"USDT dominates: 2130 spot, all 643 linear perps. USDC: 66 spot only, 0 futures. " +
 			"Native REST uses underscore separator (BTC_USDT), not slash.",
@@ -70,6 +67,5 @@ export const gateIoGuide: VenueGuide = {
 	],
 
 	lastVerified: "2026-04-09",
-	verificationNotes:
-		"BTC/USDT spot + BTC/USDT:USDT futures 5m, 1000 rows, ccxt 4.4.x.",
+	verificationNotes: "BTC/USDT spot + BTC/USDT:USDT futures 5m, 1000 rows, ccxt 4.4.x.",
 };

@@ -9,8 +9,7 @@ export const hyperliquidGuide: VenueGuide = {
 		"ccxt returns 5000 candles/req (generous). Direct REST POST as fallback.",
 
 	symbolFormat: {
-		spot:
-			"BTC/USDC, PURR/USDC (ccxt) | @1, @2 (native API uses numeric asset indices, not symbols)",
+		spot: "BTC/USDC, PURR/USDC (ccxt) | @1, @2 (native API uses numeric asset indices, not symbols)",
 		linearFutures:
 			"BTC/USDC:USDC, ETH/USDC:USDC (ccxt) | BTC, ETH (native API uses bare coin name)",
 		notes:
@@ -59,7 +58,8 @@ export const hyperliquidGuide: VenueGuide = {
 		"Advance `since = candles[-1][0] + 1`. " +
 		"Rate limit: 1200 req / min. No auth needed for market data.",
 
-	apiDocs: "https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/candle-snapshot",
+	apiDocs:
+		"https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/info-endpoint/candle-snapshot",
 
 	knownGotchas: [
 		"USDC-native DEX — no USDT at all. All pairs are USDC-denominated.",

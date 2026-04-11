@@ -17,24 +17,24 @@
 
 import type { VenueGuide } from "./types.js";
 
+import { betfairGuide } from "./betfair.js";
 import { binanceGuide } from "./binance.js";
-import { bybitGuide } from "./bybit.js";
-import { okxGuide } from "./okx.js";
-import { krakenGuide } from "./kraken.js";
-import { gateIoGuide } from "./gate_io.js";
-import { kucoinGuide } from "./kucoin.js";
-import { htxGuide } from "./htx.js";
+import { bingxGuide } from "./bingx.js";
 import { bitgetGuide } from "./bitget.js";
 import { bitmartGuide } from "./bitmart.js";
-import { bingxGuide } from "./bingx.js";
-import { bitvavoGuide } from "./bitvavo.js";
-import { hyperliquidGuide } from "./hyperliquid.js";
 import { bitmexGuide } from "./bitmex.js";
+import { bitvavoGuide } from "./bitvavo.js";
+import { bybitGuide } from "./bybit.js";
 import { deribitGuide } from "./deribit.js";
 import { dydxGuide } from "./dydx.js";
+import { gateIoGuide } from "./gate_io.js";
+import { htxGuide } from "./htx.js";
+import { hyperliquidGuide } from "./hyperliquid.js";
 import { interactiveBrokersGuide } from "./interactive_brokers.js";
+import { krakenGuide } from "./kraken.js";
+import { kucoinGuide } from "./kucoin.js";
+import { okxGuide } from "./okx.js";
 import { polymarketGuide } from "./polymarket.js";
-import { betfairGuide } from "./betfair.js";
 
 const REGISTRY: Record<string, VenueGuide> = {
 	binance: binanceGuide,

@@ -9,12 +9,9 @@ export const htxGuide: VenueGuide = {
 		"well documented. Try bulk first, then ccxt (2000 candles/req), then REST.",
 
 	symbolFormat: {
-		spot:
-			"BTC/USDT, ETH/BTC (ccxt) | btcusdt, ethbtc (native REST, lowercase concatenated)",
-		linearFutures:
-			"BTC/USDT:USDT (ccxt) | BTC-USDT (native linear swap REST, dash-separated)",
-		inverseFutures:
-			"BTC/USD:BTC, ETH/USD:ETH (ccxt) | BTC-USD (native coin swap REST)",
+		spot: "BTC/USDT, ETH/BTC (ccxt) | btcusdt, ethbtc (native REST, lowercase concatenated)",
+		linearFutures: "BTC/USDT:USDT (ccxt) | BTC-USDT (native linear swap REST, dash-separated)",
+		inverseFutures: "BTC/USD:BTC, ETH/USD:ETH (ccxt) | BTC-USD (native coin swap REST)",
 		notes:
 			"USDT: 1242 spot, 219 linear perps. USDC: 47 spot only, 0 futures. " +
 			"Native spot symbols are lowercase concatenated (btcusdt). " +
@@ -72,6 +69,5 @@ export const htxGuide: VenueGuide = {
 	],
 
 	lastVerified: "2026-04-09",
-	verificationNotes:
-		"BTC/USDT spot 5m, 2000 rows, ccxt 4.4.x.",
+	verificationNotes: "BTC/USDT spot 5m, 2000 rows, ccxt 4.4.x.",
 };

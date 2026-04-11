@@ -67,6 +67,5 @@ export const interactiveBrokersGuide: VenueGuide = {
 	],
 
 	lastVerified: "2026-04-09",
-	verificationNotes:
-		"AAPL 5min bars via IB Gateway paper port 4002, Nautilus IB adapter.",
+	verificationNotes: "AAPL 5min bars via IB Gateway paper port 4002, Nautilus IB adapter.",
 };

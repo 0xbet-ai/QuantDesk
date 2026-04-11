@@ -9,10 +9,8 @@ export const bitmartGuide: VenueGuide = {
 		"Direct REST is the realistic fallback.",
 
 	symbolFormat: {
-		spot:
-			"BTC/USDT, SOL/USDC (ccxt) | BTC_USDT, SOL_USDC (native REST, underscore-separated)",
-		linearFutures:
-			"BTC/USDT:USDT (ccxt) | BTCUSDT (native futures REST, concatenated)",
+		spot: "BTC/USDT, SOL/USDC (ccxt) | BTC_USDT, SOL_USDC (native REST, underscore-separated)",
+		linearFutures: "BTC/USDT:USDT (ccxt) | BTCUSDT (native futures REST, concatenated)",
 		notes:
 			"USDT: 1336 spot, 865 perps. USDC: 32 spot, 5 perps (but USDT-settled! BTC/USDC:USDT). " +
 			"No inverse futures. Requires API key Memo (UID). Verification Level 2 needed.",
@@ -62,6 +60,5 @@ export const bitmartGuide: VenueGuide = {
 	],
 
 	lastVerified: "2026-04-09",
-	verificationNotes:
-		"BTC/USDT spot 5m, 200 rows, ccxt 4.4.x.",
+	verificationNotes: "BTC/USDT spot 5m, 200 rows, ccxt 4.4.x.",
 };

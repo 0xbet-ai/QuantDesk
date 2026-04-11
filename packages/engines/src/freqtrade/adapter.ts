@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import AdmZip from "adm-zip";
 import { join, resolve } from "node:path";
+import AdmZip from "adm-zip";
 import {
 	DockerError,
 	ensureDockerAvailable,
@@ -189,12 +189,8 @@ export class FreqtradeAdapter implements EngineAdapter {
 				],
 			},
 			{
-				onStdoutLine: config.onLogLine
-					? (line) => config.onLogLine!(line, "stdout")
-					: undefined,
-				onStderrLine: config.onLogLine
-					? (line) => config.onLogLine!(line, "stderr")
-					: undefined,
+				onStdoutLine: config.onLogLine ? (line) => config.onLogLine!(line, "stdout") : undefined,
+				onStderrLine: config.onLogLine ? (line) => config.onLogLine!(line, "stderr") : undefined,
 			},
 		);
 
@@ -412,15 +408,16 @@ export class FreqtradeAdapter implements EngineAdapter {
 			return (data.trades ?? []).map((t, i) => ({
 				id: String(i),
 				pair: t.pair,
-				side: t.is_short ? "short" as const : "long" as const,
+				side: t.is_short ? ("short" as const) : ("long" as const),
 				openDate: t.open_date,
 				closeDate: t.close_date || null,
 				openRate: t.open_rate,
 				closeRate: t.close_rate ?? null,
 				profitAbs: t.profit_abs ?? 0,
-				profitPct: t.profit_abs != null && t.open_rate > 0 && t.amount > 0
-					? (t.profit_abs / (t.open_rate * t.amount)) * 100
-					: 0,
+				profitPct:
+					t.profit_abs != null && t.open_rate > 0 && t.amount > 0
+						? (t.profit_abs / (t.open_rate * t.amount)) * 100
+						: 0,
 				isOpen: !t.close_date,
 			}));
 		} catch {
@@ -428,7 +425,11 @@ export class FreqtradeAdapter implements EngineAdapter {
 		}
 	}
 
-	async getPaperCandles(handle: PaperHandle, pair: string, timeframe: string): Promise<PaperCandle[]> {
+	async getPaperCandles(
+		handle: PaperHandle,
+		pair: string,
+		timeframe: string,
+	): Promise<PaperCandle[]> {
 		const apiUrl = handle.meta?.apiUrl as string | undefined;
 		if (!apiUrl) return [];
 		const auth = `Basic ${Buffer.from("quantdesk:quantdesk").toString("base64")}`;
@@ -551,7 +552,7 @@ function normaliseFreqtradeResult(strat: FreqtradeStrategyResult): NormalizedRes
 	const drawdownPct =
 		typeof strat.max_drawdown_account === "number"
 			? strat.max_drawdown_account * 100
-			: strat.max_drawdown ?? 0;
+			: (strat.max_drawdown ?? 0);
 	// winrate / win_rate from freqtrade is 0–1 ratio.
 	const winRate = strat.winrate ?? strat.win_rate ?? 0;
 

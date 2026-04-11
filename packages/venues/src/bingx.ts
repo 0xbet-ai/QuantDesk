@@ -9,12 +9,9 @@ export const bingxGuide: VenueGuide = {
 		"Good USDC futures coverage (51 pairs). Direct REST as fallback.",
 
 	symbolFormat: {
-		spot:
-			"BTC/USDT, ARB/USDC (ccxt) | BTC-USDT, ARB-USDC (native REST, dash-separated)",
-		linearFutures:
-			"BTC/USDT:USDT, BTC/USDC:USDC (ccxt) | BTC-USDT, BTC-USDC (native perps REST)",
-		inverseFutures:
-			"BNB/USD:BNB, DOT/USD:DOT (ccxt) | BNB-USD, DOT-USD (native REST)",
+		spot: "BTC/USDT, ARB/USDC (ccxt) | BTC-USDT, ARB-USDC (native REST, dash-separated)",
+		linearFutures: "BTC/USDT:USDT, BTC/USDC:USDC (ccxt) | BTC-USDT, BTC-USDC (native perps REST)",
+		inverseFutures: "BNB/USD:BNB, DOT/USD:DOT (ccxt) | BNB-USD, DOT-USD (native REST)",
 		notes:
 			"USDT: 2123 spot, 633 linear perps. USDC: 32 spot, 51 linear perps. " +
 			"Native REST uses dash separator (BTC-USDT).",
@@ -61,6 +58,5 @@ export const bingxGuide: VenueGuide = {
 	],
 
 	lastVerified: "2026-04-09",
-	verificationNotes:
-		"BTC/USDT spot + BTC/USDT:USDT perps 5m, 1000 rows, ccxt 4.4.x.",
+	verificationNotes: "BTC/USDT spot + BTC/USDT:USDT perps 5m, 1000 rows, ccxt 4.4.x.",
 };

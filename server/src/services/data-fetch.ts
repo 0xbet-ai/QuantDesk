@@ -40,10 +40,7 @@ interface ExecuteArgs {
 
 export async function executeDataFetch({ experimentId, proposal, parentCommentId }: ExecuteArgs) {
 	const threadMeta = parentCommentId ? { parentCommentId } : undefined;
-	const [experiment] = await db
-		.select()
-		.from(experiments)
-		.where(eq(experiments.id, experimentId));
+	const [experiment] = await db.select().from(experiments).where(eq(experiments.id, experimentId));
 	if (!experiment) throw new Error(`Experiment ${experimentId} not found`);
 
 	const [desk] = await db.select().from(desks).where(eq(desks.id, experiment.deskId));
@@ -69,7 +66,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 	const workspaceAbs = resolve(desk.workspacePath);
 	const workspaceDataLink = join(workspaceAbs, "data", proposal.exchange);
 
-	const cachedDatasets: typeof datasets.$inferSelect[] = [];
+	const cachedDatasets: (typeof datasets.$inferSelect)[] = [];
 	for (const pair of sortedPairs) {
 		const [hit] = await db
 			.select()
@@ -174,7 +171,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 	}
 
 	// 5. Insert one dataset row per pair + link each to this desk.
-	const inserted: typeof datasets.$inferSelect[] = [];
+	const inserted: (typeof datasets.$inferSelect)[] = [];
 	for (const pair of sortedPairs) {
 		const [row] = await db
 			.insert(datasets)
@@ -231,4 +228,3 @@ function ensureSymlink(target: string, linkPath: string) {
 		console.error(`Failed to create symlink ${linkPath} → ${target}:`, err);
 	}
 }
-

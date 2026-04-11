@@ -24,6 +24,7 @@ export type {
 	ExperimentContext,
 	MemorySummary,
 	MetricEntry,
+	PaperSessionContext,
 	RiskManagerPromptInput,
 	RunContext,
 } from "./types.js";

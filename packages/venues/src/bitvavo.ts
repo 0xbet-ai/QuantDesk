@@ -9,8 +9,7 @@ export const bitvavoGuide: VenueGuide = {
 		"ccxt returns 1440 candles/req. Direct REST as fallback.",
 
 	symbolFormat: {
-		spot:
-			"BTC/EUR, ETH/EUR, SOL/USDC (ccxt) | BTC-EUR, ETH-EUR, SOL-USDC (native REST, dash-separated)",
+		spot: "BTC/EUR, ETH/EUR, SOL/USDC (ccxt) | BTC-EUR, ETH-EUR, SOL-USDC (native REST, dash-separated)",
 		notes:
 			"EUR: 431 pairs (dominant). USDC: 11 pairs. No USDT at all. " +
 			"No futures, no margin. Netherlands-based, EU-focused exchange.",
@@ -54,6 +53,5 @@ export const bitvavoGuide: VenueGuide = {
 	],
 
 	lastVerified: "2026-04-09",
-	verificationNotes:
-		"BTC/EUR spot 5m, 1440 rows, ccxt 4.4.x.",
+	verificationNotes: "BTC/EUR spot 5m, 1440 rows, ccxt 4.4.x.",
 };

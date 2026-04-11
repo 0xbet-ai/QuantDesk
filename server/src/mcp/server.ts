@@ -44,7 +44,11 @@ import { systemComment } from "../services/comments.js";
 import { executeDataFetch } from "../services/data-fetch.js";
 import { completeAndCreateNewExperiment, completeExperiment } from "../services/experiments.js";
 import { autoIncrementRunNumber } from "../services/logic.js";
-import { stopPaper as stopPaperService } from "../services/paper-sessions.js";
+import {
+	getActiveSession as getActivePaperSession,
+	getLatestSession as getLatestPaperSession,
+	stopPaper as stopPaperService,
+} from "../services/paper-sessions.js";
 import { goPaper as goPaperService } from "../services/runs.js";
 import { getCurrentTurnId } from "../services/turn-context.js";
 import { ensureCommit } from "../services/workspace.js";
@@ -115,11 +119,7 @@ interface ValidationRequestMetadata {
 	};
 }
 
-async function findValidationRun(
-	experimentId: string,
-	runId?: string,
-	runNumber?: number,
-) {
+async function findValidationRun(experimentId: string, runId?: string, runNumber?: number) {
 	if (runId) {
 		const [requestedRun] = await db
 			.select()
@@ -689,11 +689,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 
 				// Root cause: validation always walked `latestRun`, so a newer run
 				// could silently steal RM review from the run the analyst named.
-				const targetRun = await findValidationRun(
-					ctx.experimentId,
-					args.runId,
-					args.runNumber,
-				);
+				const targetRun = await findValidationRun(ctx.experimentId, args.runId, args.runNumber);
 				if (!targetRun) {
 					return errorResult(
 						args.runId || args.runNumber != null
@@ -881,13 +877,14 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					// immediately re-ask the RM on the same run and loop.
 					// Surface a clear next action (CLAUDE.md rule #12) and
 					// wait for the user to choose how to proceed.
+					// Collapsed into a single template literal (instead of
+					// a `+` concatenation with a ternary) so the rule #12
+					// static lint can see the inline action phrase.
+					const rejectionReason = args.reason ? `: ${args.reason}` : ".";
 					await systemComment({
 						experimentId: ctx.experimentId,
 						nextAction: "action",
-						content:
-							`Risk Manager rejected Run #${targetRun.runNumber}` +
-							(args.reason ? `: ${args.reason}` : ".") +
-							" Reply with how to proceed (modify the strategy, adjust parameters, or try a different approach).",
+						content: `Risk Manager rejected Run #${targetRun.runNumber}${rejectionReason} Reply with how to proceed (modify the strategy, adjust parameters, or try a different approach).`,
 					});
 				}
 				return textResult(
@@ -1003,9 +1000,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		async (args) => {
 			try {
 				const paperRun = await goPaperService(args.runId);
-				return textResult(
-					JSON.stringify({ runId: paperRun.id, status: "running" }, null, 2),
-				);
+				return textResult(JSON.stringify({ runId: paperRun.id, status: "running" }, null, 2));
 			} catch (err) {
 				return errorResult(`go_paper failed: ${err instanceof Error ? err.message : String(err)}`);
 			}
@@ -1028,6 +1023,99 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 			} catch (err) {
 				return errorResult(
 					`stop_paper failed: ${err instanceof Error ? err.message : String(err)}`,
+				);
+			}
+		},
+	);
+
+	// ── get_paper_status ──────────────────────────────────────────────
+	// Agent's ONLY way to verify current paper trading state. Without
+	// this, the agent is forced to guess from stale session context and
+	// ends up hallucinating "paper is running" when the container was
+	// stopped hours ago. Returns either the live session snapshot (with
+	// PnL/positions if the container responds) or the latest historical
+	// session + an explicit `active: false` so the agent knows.
+	server.registerTool(
+		"get_paper_status",
+		{
+			description:
+				"Read the current paper trading state for this desk. Returns " +
+				"the active session (if any) plus live PnL/positions from the " +
+				"engine container; if no session is active, returns the latest " +
+				"historical session with `active: false`. Use this ANY time you " +
+				"need to answer the user about paper trading — never guess.",
+			inputSchema: {},
+		},
+		async () => {
+			try {
+				const active = await getActivePaperSession(ctx.deskId);
+				if (active) {
+					let live: unknown = null;
+					if (active.status === "running" && active.containerName) {
+						try {
+							const [desk] = await db.select().from(desks).where(eq(desks.id, ctx.deskId));
+							if (desk) {
+								const adapter = getEngineAdapter(desk.engine);
+								live = await adapter.getPaperStatus({
+									containerName: active.containerName,
+									runId: active.runId,
+									meta: (active.meta as Record<string, unknown>) ?? {},
+								});
+							}
+						} catch {
+							// Container may be temporarily unreachable — leave live null.
+						}
+					}
+					return textResult(
+						JSON.stringify(
+							{
+								active: true,
+								sessionId: active.id,
+								runId: active.runId,
+								status: active.status,
+								engine: active.engine,
+								containerName: active.containerName,
+								apiPort: active.apiPort,
+								startedAt: active.startedAt,
+								lastStatusAt: active.lastStatusAt,
+								live,
+							},
+							null,
+							2,
+						),
+					);
+				}
+				const latest = await getLatestPaperSession(ctx.deskId);
+				if (!latest) {
+					return textResult(
+						JSON.stringify(
+							{ active: false, message: "No paper session has ever run on this desk." },
+							null,
+							2,
+						),
+					);
+				}
+				return textResult(
+					JSON.stringify(
+						{
+							active: false,
+							lastSession: {
+								sessionId: latest.id,
+								runId: latest.runId,
+								status: latest.status,
+								engine: latest.engine,
+								startedAt: latest.startedAt,
+								stoppedAt: latest.stoppedAt,
+								error: latest.error,
+							},
+						},
+						null,
+						2,
+					),
+				);
+			} catch (err) {
+				return errorResult(
+					`get_paper_status failed: ${err instanceof Error ? err.message : String(err)}`,
 				);
 			}
 		},

@@ -1,10 +1,5 @@
 #!/usr/bin/env node
-import {
-	ENGINE_IMAGES,
-	ensureDockerAvailable,
-	hasImage,
-	pullImage,
-} from "@quantdesk/engines";
+import { ENGINE_IMAGES, ensureDockerAvailable, hasImage, pullImage } from "@quantdesk/engines";
 
 const [, , cmd] = process.argv;
 
@@ -25,7 +20,9 @@ async function onboard() {
 	console.log("");
 
 	const images = Object.entries(ENGINE_IMAGES);
-	console.log(`Pulling ${images.length} engine image(s). This can take several minutes on first run.`);
+	console.log(
+		`Pulling ${images.length} engine image(s). This can take several minutes on first run.`,
+	);
 	for (const [engine, image] of images) {
 		process.stdout.write(`  - ${engine} (${image}) ... `);
 		try {
