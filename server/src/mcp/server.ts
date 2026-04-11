@@ -190,7 +190,8 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				exchange: z.string().min(1),
 				pairs: z.array(z.string().min(1)).min(1),
 				timeframe: z.string().min(1),
-				days: z.number().int().positive(),
+				// Coerce string → number for LLM-stringified values. See runNumber note below.
+				days: z.coerce.number().int().positive(),
 				tradingMode: z.enum(["spot", "margin", "futures"]).optional(),
 				rationale: z.string().optional(),
 			},
@@ -675,8 +676,12 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					.uuid()
 					.optional()
 					.describe("Optional explicit run UUID. Usually unavailable from prompt context."),
+				// LLMs frequently stringify numeric arguments ("22" instead of
+				// 22), especially when the user typed the number inline. Use
+				// `z.coerce.number()` so the tool accepts both forms — `.int()`
+				// and `.positive()` still reject nonsense like "abc".
 				runNumber: z
-					.number()
+					.coerce.number()
 					.int()
 					.positive()
 					.optional()
