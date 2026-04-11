@@ -5,7 +5,10 @@
  * updates are consistent.
  *
  * Business rules:
- *  - Source run must have a validation verdict of "approve".
+ *  - Source run must be a completed backtest. Risk Manager verdict
+ *    (approve/reject) is informational metadata, NOT a hard gate —
+ *    the operator has the final call. The UI surfaces a confirm step
+ *    when the verdict is reject.
  *  - One running paper session per desk at a time (enforced by
  *    select-for-update before insert).
  *  - No auto-restart: a failed session stays failed until the user
@@ -46,13 +49,10 @@ export async function startPaper(runId: string) {
 		throw new PaperSessionError("Can only paper-trade a completed backtest run.");
 	}
 
-	const result = run.result as Record<string, unknown> | null;
-	const validation = result?.validation as { verdict: string } | undefined;
-	if (!validation || validation.verdict !== "approve") {
-		throw new PaperSessionError(
-			"Run has not been validated (approve). Request validation from the Risk Manager first.",
-		);
-	}
+	// RM verdict is no longer a hard gate — see module header. The operator
+	// (or the agent, with prior consent) decides whether to proceed when
+	// the verdict is reject. The verdict still lives in `run.result.validation`
+	// as informational metadata for downstream consumers.
 
 	// 2. Load experiment + desk.
 	const [experiment] = await db

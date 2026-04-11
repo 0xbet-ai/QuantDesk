@@ -1,4 +1,4 @@
-import { Pause, Play, TrendingUp, XCircle } from "lucide-react";
+import { Loader2, Pause, Play, Shield, ShieldCheck, ShieldX, TrendingUp, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import type { Experiment, PaperSession, PaperStatusData, Run } from "../lib/api.js";
@@ -24,6 +24,11 @@ function PropRow({ label, children }: { label: string; children: React.ReactNode
 export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 	const [runs, setRuns] = useState<Run[]>([]);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+	// Local "in-flight validation" tracker. Set when the user clicks a
+	// shield button, cleared when a `run.status` event arrives carrying a
+	// validation payload (published by `submit_rm_verdict`). While set, all
+	// other shield buttons are disabled and the active row's icon spins.
+	const [validatingRunId, setValidatingRunId] = useState<string | null>(null);
 
 	// Paper trading
 	const [paperSession, setPaperSession] = useState<PaperSession | null>(null);
@@ -103,6 +108,16 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 			refreshRuns();
 			setPaperSent(false);
 		}
+		// Clear the in-flight validation tracker when the verdict arrives.
+		// `submit_rm_verdict` publishes a run.status event with a `validation`
+		// payload — that's our signal that the RM finished and the icon for
+		// the row can flip from spinner to ShieldCheck/ShieldX.
+		if (
+			event.type === "run.status" &&
+			(event.payload as { validation?: unknown })?.validation != null
+		) {
+			setValidatingRunId(null);
+		}
 	});
 
 	// Hide failed/stopped runs from the Properties panel — users care
@@ -148,16 +163,14 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 						const sampleMetrics = visibleRuns.find((r) => r.result?.metrics?.length)?.result
 							?.metrics;
 						const col1Label = sampleMetrics?.[0]?.label ?? "Value";
-						const col2Label = sampleMetrics?.[1]?.label;
 						return (
 							<div className="max-h-[280px] overflow-y-auto">
 							<table className="w-full text-xs">
 								<thead>
 									<tr className="text-muted-foreground border-b border-border">
 										<th className="text-left py-1.5 font-medium">#</th>
-										<th className="text-right py-1.5 font-medium">{col1Label}</th>
-										{col2Label && <th className="text-right py-1.5 font-medium">{col2Label}</th>}
-										<th className="w-7" />
+										<th className="text-left py-1.5 font-medium pl-6">{col1Label}</th>
+										<th className="text-right py-1.5 font-medium w-16 pr-1">Validate</th>
 									</tr>
 								</thead>
 								<tbody>
@@ -177,9 +190,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 											: null;
 									return visibleRuns.map((run) => {
 										const m0 = run.result?.metrics?.[0];
-										const m1 = run.result?.metrics?.[1];
 										const ret = m0?.value;
-										const dd = m1?.value;
 										const baselineM0 = baseline?.result?.metrics?.[0];
 										const isBase = baseline?.id === run.id;
 										const isBest = run.id === bestRunId && completedRuns.length > 1;
@@ -191,7 +202,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 												onClick={() => setSelectedRunId((prev) => prev === run.id ? null : run.id)}
 												onKeyDown={(e) => e.key === "Enter" && setSelectedRunId((prev) => prev === run.id ? null : run.id)}
 												className={cn(
-													"cursor-pointer transition-colors border-b border-border/50",
+													"group cursor-pointer transition-colors border-b border-border/50",
 													run.id === selectedRunId
 														? "bg-accent"
 														: isBest
@@ -205,44 +216,94 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 														<span className="ml-1 text-[10px] text-muted-foreground">base</span>
 													)}
 												</td>
-												<td className="text-right py-1.5">
+												<td className="text-left py-1.5 pl-6">
 													{run.status === "running" ? (
-														<span className="flex items-center justify-end gap-1">
+														<span className="flex items-center justify-start gap-1">
 															<StatusDot status="running" />
 															<span className="text-[10px] text-blue-400">running</span>
 														</span>
 													) : ret != null ? (
-														<span className={ret > 0 ? "text-green-500" : "text-red-500"}>
-															{ret > 0 ? "+" : ""}
-															{ret.toFixed(1)}%
-														</span>
+														<>
+															<span className={ret > 0 ? "text-green-500" : "text-red-500"}>
+																{ret > 0 ? "+" : ""}
+																{ret.toFixed(1)}%
+															</span>
+															{delta != null && (
+																<span
+																	className={cn(
+																		"ml-1 text-[10px]",
+																		delta > 0 ? "text-green-500" : "text-red-500",
+																	)}
+																>
+																	({delta > 0 ? "+" : ""}
+																	{delta.toFixed(1)})
+																</span>
+															)}
+														</>
 													) : (
 														<span className="text-muted-foreground">&mdash;</span>
 													)}
 												</td>
-												{col2Label && (
-													<td className="text-right py-1.5">
-														{dd != null ? (
-															<span className={m1?.tone === "negative" ? "text-red-500" : ""}>
-																{m1?.format === "percent" ? `${dd.toFixed(1)}%` : dd.toFixed(1)}
-															</span>
-														) : (
-															<span className="text-muted-foreground">&mdash;</span>
-														)}
-														{delta != null && (
-															<span
+												<td className="w-16 text-right pr-1">
+													{run.status === "completed" && (() => {
+														const verdict = (run.result?.validation as { verdict?: string } | undefined)?.verdict;
+														const isValidating = validatingRunId === run.id;
+														const isOtherValidating = validatingRunId !== null && !isValidating;
+														const Icon = isValidating
+															? Loader2
+															: verdict === "approve"
+																? ShieldCheck
+																: verdict === "reject"
+																	? ShieldX
+																	: Shield;
+														const iconColor = isValidating
+															? "text-blue-500"
+															: verdict === "approve"
+																? "text-green-500"
+																: verdict === "reject"
+																	? "text-red-500"
+																	: "text-muted-foreground";
+														const tooltip = isValidating
+															? `Validating Run #${run.runNumber}…`
+															: isOtherValidating
+																? `Another validation in progress — wait until it finishes`
+																: verdict === "approve"
+																	? `RM approved — click to re-validate Run #${run.runNumber}`
+																	: verdict === "reject"
+																		? `RM rejected — click to re-validate Run #${run.runNumber}`
+																		: `Validate Run #${run.runNumber} with Risk Manager`;
+														return (
+															<button
+																type="button"
+																disabled={isOtherValidating || isValidating}
+																onClick={(e) => {
+																	e.stopPropagation();
+																	if (validatingRunId !== null) return;
+																	setValidatingRunId(run.id);
+																	window.dispatchEvent(
+																		new CustomEvent("quantdesk:send-chat", {
+																			detail: `Validate Run #${run.runNumber}`,
+																		}),
+																	);
+																}}
+																title={tooltip}
 																className={cn(
-																	"ml-1 text-[10px]",
-																	delta > 0 ? "text-green-500" : "text-red-500",
+																	"p-0.5 rounded transition-opacity hover:bg-accent disabled:cursor-not-allowed",
+																	isValidating
+																		? "opacity-100"
+																		: isOtherValidating
+																			? "opacity-20"
+																			: verdict
+																				? "opacity-100"
+																				: "opacity-40 group-hover:opacity-100",
+																	iconColor,
 																)}
 															>
-																({delta > 0 ? "+" : ""}
-																{delta.toFixed(1)})
-															</span>
-														)}
-													</td>
-												)}
-												<td className="w-7" />
+																<Icon className={cn("size-3.5", isValidating && "animate-spin")} />
+															</button>
+														);
+													})()}
+												</td>
 											</tr>
 										);
 									});
@@ -399,6 +460,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 						) : bestRun ? (() => {
 							const verdict = bestRun.result?.validation?.verdict;
 							const isApproved = verdict === "approve";
+							const isRejected = verdict === "reject";
 							const sendPaper = () => {
 								setPaperSent(true);
 								window.dispatchEvent(
@@ -407,24 +469,40 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 									}),
 								);
 							};
+							const startRejectedWithConfirm = () => {
+								const reason = (bestRun.result?.validation as { reason?: string } | undefined)?.reason;
+								const msg =
+									`Risk Manager rejected Run #${bestRun.runNumber}` +
+									(reason ? `:\n\n${reason}\n\n` : ".\n\n") +
+									"Start paper trading anyway?";
+								if (window.confirm(msg)) {
+									handleStartPaper(bestRun.id);
+								}
+							};
 							return (
 								<button
 									type="button"
 									onClick={
 										isApproved
 											? () => handleStartPaper(bestRun.id)
-											: verdict === "reject"
-												? undefined
+											: isRejected
+												? startRejectedWithConfirm
 												: sendPaper
 									}
-									disabled={startingPaper || verdict === "reject" || paperSent}
-									title={isApproved ? "Start paper trading" : verdict === "reject" ? "Rejected" : "Discuss paper trading with agent"}
+									disabled={startingPaper || paperSent}
+									title={
+										isApproved
+											? "Start paper trading"
+											: isRejected
+												? "RM rejected — click to start anyway"
+												: "Discuss paper trading with agent"
+									}
 									className={cn(
 										"flex items-center gap-2.5 w-full px-2 py-1.5 rounded-md transition-colors",
-										isApproved ? "hover:bg-green-500/10" : verdict === "reject" ? "opacity-50" : "hover:bg-green-500/10",
+										isRejected ? "hover:bg-red-500/10" : "hover:bg-green-500/10",
 									)}
 								>
-									{verdict === "reject" ? (
+									{isRejected ? (
 										<div className="flex size-6 items-center justify-center rounded-md bg-red-500/10">
 											<XCircle className="size-3 text-red-400" />
 										</div>
@@ -438,7 +516,13 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 											Run #{bestRun.runNumber}
 										</div>
 										<div className="text-[10px] text-muted-foreground">
-											{startingPaper ? "Starting…" : isApproved ? "Ready" : verdict === "reject" ? "Rejected" : "Paper Trade"}
+											{startingPaper
+												? "Starting…"
+												: isApproved
+													? "Ready"
+													: isRejected
+														? "Rejected — start anyway"
+														: "Paper Trade"}
 										</div>
 									</div>
 								</button>

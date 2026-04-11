@@ -75,12 +75,6 @@ function RunListItem({
 						base
 					</span>
 				)}
-				{run.result?.validation?.verdict === "approve" && (
-					<CheckCircle2 className="size-3 text-green-500 shrink-0" />
-				)}
-				{run.result?.validation?.verdict === "reject" && (
-					<XCircle className="size-3 text-red-500 shrink-0" />
-				)}
 			</div>
 			<div className="text-xs font-mono tabular-nums shrink-0 ml-2">
 				{run.status === "running" ? (
@@ -236,7 +230,7 @@ function RunDetail({
 						{validation ? (
 							<div
 								className={cn(
-									"flex items-center gap-2 px-3 py-2 rounded-md border text-xs",
+									"flex items-center gap-2 px-3 py-2 rounded-md border text-xs min-w-0",
 									isApproved
 										? "border-green-500/30 bg-green-500/[0.06] text-green-700 dark:text-green-300"
 										: "border-red-500/30 bg-red-500/[0.06] text-red-700 dark:text-red-300",
@@ -247,11 +241,14 @@ function RunDetail({
 								) : (
 									<XCircle className="size-3.5 shrink-0" />
 								)}
-								<span className="font-medium">
+								<span className="font-medium shrink-0">
 									Risk Manager: {isApproved ? "Approved" : "Rejected"}
 								</span>
 								{validation.reason && (
-									<span className="text-muted-foreground ml-1 truncate">
+									<span
+										className="text-muted-foreground ml-1 truncate min-w-0"
+										title={validation.reason}
+									>
 										— {validation.reason}
 									</span>
 								)}

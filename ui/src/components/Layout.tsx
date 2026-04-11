@@ -149,8 +149,10 @@ export function Layout({
 			{/* Col 3: Comment thread */}
 			<div className="flex-1 flex flex-col min-w-0">{main}</div>
 
-			{/* Props Panel */}
-			{selectedExperiment && (
+			{/* Props Panel — only when there is actual content to show.
+			    Pages like Backtests render their own detail view in the
+			    main column, so the Properties panel becomes redundant. */}
+			{selectedExperiment && panel && (
 				<>
 					{!panelOpen && (
 						<div className="flex items-start pt-3 px-1 border-l border-border">

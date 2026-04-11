@@ -408,13 +408,11 @@ export function CommentThread({ experiment, onOpenRun, onOpenTurn, onExperimentU
 	useLiveUpdates(experiment.id, (event) => {
 		if (event.type === "agent.thinking") {
 			const role = (event.payload as { agentRole?: string }).agentRole ?? "analyst";
-			// During awaiting_validation, the RM turn runs silently —
-			// don't replace the Analyst's "Validating" card with a new
-			// RM running card. Just keep thinkingRole so input stays locked.
-			if (turnStatusRef.current === "awaiting_validation" && role === "risk_manager") {
-				setThinkingRole("risk_manager");
-				return;
-			}
+			// When the Analyst hands off to the Risk Manager, the RM must
+			// take over the live card as its own visible foreground turn.
+			// The preceding Analyst turn falls into the historical list and
+			// renders as a static "completed" card alongside the new RM
+			// live card (with the "continued (no user reply)" connector).
 			setCurrentTurnRole(role);
 			setThinkingRole(role);
 			setStreamEntries([]);
@@ -704,15 +702,13 @@ export function CommentThread({ experiment, onOpenRun, onOpenTurn, onExperimentU
 									prev.displayRole = turnRole(prev.comments);
 									continue;
 								}
-								// Root cause: the validation merge only collapsed
-								// same-role turns, so the RM review was rendered as a
-								// separate top-level card instead of living under the
-								// analyst turn that requested validation.
-								if (prev.displayRole === "analyst" && nextRole === "risk_manager") {
-									prev.comments.push(...it.comments);
-									prev.mergeLocked = true;
-									continue;
-								}
+								// Cross-role turns (analyst → risk_manager or vice
+								// versa) render as separate sibling cards. The RM
+								// is a foreground agent the user must be able to
+								// see, so we never fold it into the Analyst card
+								// that triggered it. The "continued (no user
+								// reply)" connector drawn between back-to-back
+								// turn cards makes the hand-off visually explicit.
 							}
 							mergedTopItems.push(it);
 						}
@@ -896,7 +892,7 @@ export function CommentThread({ experiment, onOpenRun, onOpenTurn, onExperimentU
 											// in-turn-card timeline render. Shows a clickable
 											// preview pill for every dataset the agent
 											// registered during this turn. Keeps the
-											// "데이터셋 등록 완료" message clickable whether it
+											// "dataset registered" message clickable whether it
 											// lands inside a turn card or as a top-level comment.
 											const regIds = ((c.metadata as { registeredDatasetIds?: unknown } | null)
 												?.registeredDatasetIds ?? []) as string[];
