@@ -670,8 +670,17 @@ export class FreqtradeAdapter implements EngineAdapter {
 			if (enterLong === 1 || enterLong === 1.0) signals.push("ENTRY");
 			if (exitLong === 1 || exitLong === 1.0) signals.push("EXIT");
 			parts.push(`signal=${signals.length ? signals.join("+") : "—"}`);
-			const dateStr = typeof rawDate === "string" ? rawDate : "—";
-			return `[market] ${pair} ${timeframe} ${dateStr} ${parts.join(" ")}`;
+			// Primary timestamp is the *poll* time (now) so the user can
+			// verify the line is live at a glance. The candle start is
+			// still useful for understanding "which candle these values
+			// came from" — freqtrade's `process_only_new_candles: True`
+			// means the dataframe only re-runs on candle close, so the
+			// candle timestamp lags real time by up to one timeframe
+			// (usually 0-5 minutes for a 5m strategy). Showing both
+			// makes the lag obvious without being confusing.
+			const pollTime = new Date().toISOString();
+			const candleStr = typeof rawDate === "string" ? rawDate : "—";
+			return `[market] ${pollTime} ${pair} ${timeframe} ${parts.join(" ")} (candle ${candleStr})`;
 		} catch {
 			return null;
 		}
