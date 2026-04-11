@@ -189,7 +189,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 										<tr className="text-muted-foreground border-b border-border">
 											<th className="text-left py-1.5 font-medium">#</th>
 											<th className="text-left py-1.5 font-medium pl-6">{col1Label}</th>
-											<th className="text-right py-1.5 font-medium w-16 pr-1">Validate</th>
+											<th className="text-right py-1.5 font-medium w-20 pr-4">Validate</th>
 										</tr>
 									</thead>
 									<tbody>
@@ -252,7 +252,7 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 																<span className="text-muted-foreground">&mdash;</span>
 															)}
 														</td>
-														<td className="w-16 text-right pr-1">
+														<td className="w-20 text-right pr-4">
 															{run.status === "completed" &&
 																(() => {
 																	const verdict = (
