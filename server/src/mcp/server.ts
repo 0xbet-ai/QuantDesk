@@ -636,6 +636,103 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					payload: { runId: run!.id, status: "completed", result: run!.result },
 				});
 
+				// Auto-dispatch Risk Manager for every non-baseline run.
+				//
+				// Historical design (removed): the Analyst had to explicitly
+				// call `request_validation` after each iteration, AND had to
+				// ask the user for consent first — which meant every single
+				// iteration ended with "Should I dispatch the Risk Manager?"
+				// in the chat. That was annoying noise that nobody answered
+				// "no" to, so we're lifting it out of the conversation
+				// entirely: for iteration runs, RM review is mechanical —
+				// the sequencing gate already forces it, so we may as well
+				// trigger it automatically the moment the backtest lands.
+				//
+				// Rules:
+				//   - Baseline (first completed backtest in the experiment)
+				//     never triggers RM. It's a sanity check, not an
+				//     iteration — RM has nothing to compare against yet.
+				//   - Every subsequent completed backtest dispatches RM
+				//     once, with `source = "forced_loop"` so the rejection
+				//     path auto-retriggers the Analyst with the rejection
+				//     reason in a forcing system comment (no user round-trip).
+				//   - The Analyst's return value spells out "RM is running,
+				//     end your turn NOW, don't analyze metrics yourself —
+				//     the RM will do it and you'll be retriggered with its
+				//     verdict in context". This keeps iteration turns short
+				//     and prevents the Analyst from burning tokens duplicating
+				//     the RM's job.
+				if (!run!.isBaseline && lazyTriggerAgent) {
+					const turnId = getCurrentTurnId();
+					if (turnId) {
+						try {
+							await db
+								.update(agentTurns)
+								.set({ status: "awaiting_validation" })
+								.where(eq(agentTurns.id, turnId));
+							publishExperimentEvent({
+								experimentId: ctx.experimentId,
+								type: "turn.status",
+								payload: {
+									turnId,
+									status: "awaiting_validation",
+									agentRole: "analyst",
+								},
+							});
+							await systemComment({
+								experimentId: ctx.experimentId,
+								nextAction: "progress",
+								content: `Risk Manager auto-dispatched on Run #${run!.runNumber}.`,
+								metadata: {
+									hidden: true,
+									validationRequest: {
+										runId: run!.id,
+										runNumber: run!.runNumber,
+										requestedByTurnId: turnId,
+										// Auto-dispatch from run_backtest is always a
+										// forced_loop: the agent is self-advancing, not
+										// the user asking via the Validate button.
+										source: "forced_loop" as const,
+									},
+								},
+							});
+							void lazyTriggerAgent(ctx.experimentId, "risk_manager", {
+								validationRunId: run!.id,
+								validationRunNumber: run!.runNumber,
+							}).catch((err) => {
+								console.error("Auto-dispatch RM from run_backtest failed:", err);
+							});
+						} catch (err) {
+							console.error("Failed to mark turn awaiting_validation:", err);
+						}
+					}
+					return textResult(
+						JSON.stringify(
+							{
+								runId: run!.id,
+								runNumber: run!.runNumber,
+								isBaseline: run!.isBaseline,
+								metrics: resultPayload.metrics,
+								autoDispatched: "risk_manager",
+								message:
+									`Run #${run!.runNumber} completed. Risk Manager has been ` +
+									`automatically dispatched to review it — DO NOT call ` +
+									`request_validation yourself, it's already in flight. ` +
+									`End your turn NOW with a short one-line acknowledgement ` +
+									`(e.g. "Run #${run!.runNumber} 완료, RM 리뷰 중입니다"). ` +
+									`Do NOT analyze the metrics in detail — that's the Risk ` +
+									`Manager's job and you'll be retriggered with its verdict ` +
+									`in context. Do NOT ask the user whether to validate — ` +
+									`validation is automatic for every iteration run.`,
+							},
+							null,
+							2,
+						),
+					);
+				}
+
+				// Baseline path: no RM, the Analyst analyzes the result and
+				// decides the next iteration freely.
 				return textResult(
 					JSON.stringify(
 						{
@@ -643,6 +740,12 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 							runNumber: run!.runNumber,
 							isBaseline: run!.isBaseline,
 							metrics: resultPayload.metrics,
+							message: run!.isBaseline
+								? `Run #${run!.runNumber} is the baseline — review the metrics, ` +
+									`decide your first iteration direction, and call run_backtest ` +
+									`again with the improvement. Risk Manager will auto-review ` +
+									`every iteration after this one.`
+								: undefined,
 						},
 						null,
 						2,
@@ -1032,54 +1135,131 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					});
 				}
 
+				// Detect budget exhaustion BEFORE choosing the retrigger
+				// branch. Whichever verdict came in, if the iteration budget
+				// is now used up we short-circuit into "ask the user what to
+				// do" instead of forcing another iteration the Analyst can't
+				// run (the next run_backtest would fail the budget gate
+				// anyway — handling it here gives the Analyst ONE clean turn
+				// to make a recommendation to the user, not two wasted
+				// round-trips).
+				const completedBacktestsForBudget = await db
+					.select({
+						id: runs.id,
+						runNumber: runs.runNumber,
+						isBaseline: runs.isBaseline,
+						result: runs.result,
+					})
+					.from(runs)
+					.where(
+						and(
+							eq(runs.experimentId, ctx.experimentId),
+							eq(runs.mode, "backtest"),
+							eq(runs.status, "completed"),
+						),
+					);
+				const iterationsUsed = Math.max(0, completedBacktestsForBudget.length - 1);
+				const maxIterations = getConfig().experiments.maxIterationsPerExperiment;
+				const budgetExhausted = iterationsUsed >= maxIterations;
+
+				async function postBudgetExhaustionAsk(): Promise<void> {
+					// Surface the trajectory so the Analyst can give a
+					// grounded recommendation without re-reading the whole
+					// run history from scratch.
+					const approvedRuns = completedBacktestsForBudget
+						.filter((r) => {
+							const v = (r.result as Record<string, unknown> | null)?.validation as
+								| { verdict?: string }
+								| undefined;
+							return v?.verdict === "approve";
+						})
+						.map((r) => r.runNumber);
+					const approvedSummary =
+						approvedRuns.length > 0
+							? `Approved runs so far: ${approvedRuns.map((n) => `#${n}`).join(", ")}. `
+							: "No runs were approved during this experiment. ";
+					await systemComment({
+						experimentId: ctx.experimentId,
+						nextAction: "action",
+						content:
+							`Iteration budget exhausted: ${iterationsUsed}/${maxIterations} ` +
+							`Risk Manager↔Analyst cycles used after the baseline. ${approvedSummary}` +
+							`Review the trajectory of the experiment (are the metrics improving run ` +
+							`over run? did any hypothesis get validated?) and reply to the user with ` +
+							`ONE clear recommendation and reasoning: ` +
+							`(a) call mcp__quantdesk__go_paper on the best approved run if one is strong ` +
+							`enough to paper trade, ` +
+							`(b) call mcp__quantdesk__new_experiment with a materially different hypothesis ` +
+							`(not a parameter tweak on the same idea) if the experiment learned something useful, ` +
+							`(c) call mcp__quantdesk__complete_experiment to close this hypothesis out if ` +
+							`nothing worked. Present ONE recommendation with a 2-3 sentence rationale and ` +
+							`wait for the user to confirm before calling any of those tools — this is the ` +
+							`only user touchpoint in the whole iteration loop.`,
+					});
+				}
+
 				if (args.verdict === "approve") {
-					// Approved: hand control back to the analyst so it can ask
-					// the user about paper trading. The verdict is visible to
-					// the analyst via the run's `result.validation` metadata in
-					// its next prompt.
+					// Approved: hand control back to the analyst. If the
+					// budget is also exhausted, the pre-retrigger system
+					// comment forces the Analyst to ask the user for the
+					// pivot decision instead of silently trying another
+					// run_backtest it can't run.
+					if (budgetExhausted) {
+						await postBudgetExhaustionAsk();
+					}
 					if (lazyTriggerAgent) {
 						void lazyTriggerAgent(ctx.experimentId, "analyst").catch((err) => {
 							console.error("Analyst retrigger after verdict failed:", err);
 						});
 					}
 				} else {
-					// Rejected. The next step depends on who asked for the
-					// validation in the first place:
+					// Rejected. Three sub-paths:
 					//
-					// - **Forced loop** (the analyst self-dispatched to unblock
-					//   the sequencing gate between iterations): auto-retrigger
-					//   the analyst with the rejection reason in a forcing
-					//   system comment so the Analyst ↔ RM loop can keep
-					//   negotiating without pulling the user into every round
-					//   trip. Gated on `rejectionCount < 2` — after two
-					//   consecutive rejects on the SAME run we concede that
-					//   the analyst is stuck and fall back to the user-
-					//   handoff path, so the loop can't run away on its own.
-					//
-					// - **User request** (the user clicked Validate or typed
-					//   "validate …"): keep the original hand-back-to-user
-					//   flow. The user owned the ask and should see the
-					//   verdict; re-triggering the analyst here would silently
-					//   bypass the user's intent.
-					const rejectionReason = args.reason ?? "(no reason given)";
+					// 1. **Budget exhausted** — doesn't matter whether the
+					//    validation was forced-loop or user-request; the
+					//    Analyst cannot run another backtest anyway, so we
+					//    skip the "adjust and retry" forcing comment and
+					//    inject the budget-exhausted user-ask instead.
+					// 2. **Forced loop** (auto-dispatched by `run_backtest`):
+					//    auto-retrigger the analyst with the rejection reason
+					//    in a forcing system comment so the iteration loop
+					//    keeps moving without pulling the user in. Bounded
+					//    by `rejectionCount < STRIKE_LIMIT` to prevent the
+					//    loop running away on the same run.
+					// 3. **User request** (the user clicked Validate or typed
+					//    "validate …"): keep the hand-back-to-user flow.
 					const source = pendingValidation?.source ?? "forced_loop";
 					const STRIKE_LIMIT = 2;
 
-					if (source === "forced_loop" && rejectionCount < STRIKE_LIMIT && lazyTriggerAgent) {
+					if (budgetExhausted) {
+						await postBudgetExhaustionAsk();
+						if (lazyTriggerAgent) {
+							void lazyTriggerAgent(ctx.experimentId, "analyst").catch((err) => {
+								console.error("Analyst retrigger after exhaustion failed:", err);
+							});
+						}
+					} else if (
+						source === "forced_loop" &&
+						rejectionCount < STRIKE_LIMIT &&
+						lazyTriggerAgent
+					) {
 						// Auto-negotiate path. The forcing phrase must include
 						// an action phrase that satisfies rule #12 so the
 						// dead-end lint accepts it — `mcp__quantdesk__` is the
 						// approved marker for "go call this tool".
+						const rejectionTail = args.reason ?? "(no reason given)";
 						await systemComment({
 							experimentId: ctx.experimentId,
 							nextAction: "action",
 							content:
-								`Risk Manager rejected Run #${targetRun.runNumber}: ${rejectionReason} ` +
+								`Risk Manager rejected Run #${targetRun.runNumber}: ${rejectionTail} ` +
 								`This is iteration rejection ${rejectionCount} of ${STRIKE_LIMIT}. ` +
 								`Adjust your strategy to address the rejection reason above, then call ` +
-								`mcp__quantdesk__run_backtest with the new approach. Do NOT call ` +
-								`mcp__quantdesk__request_validation again on Run #${targetRun.runNumber} — ` +
-								`that run is decided. Ship a materially different change for the next run.`,
+								`mcp__quantdesk__run_backtest with the new approach — the Risk Manager ` +
+								`will auto-review it. Do NOT call mcp__quantdesk__request_validation ` +
+								`again on Run #${targetRun.runNumber}; that run is decided. Ship a ` +
+								`materially different change for the next run — parameter micro-tweaks ` +
+								`will burn budget without learning anything new.`,
 							metadata: {
 								hidden: true,
 								rmRejection: {

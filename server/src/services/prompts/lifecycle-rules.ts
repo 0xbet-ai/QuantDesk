@@ -9,21 +9,35 @@ export function buildLifecycleRulesBlock(): string {
 	return `## Experiment Title
 If the current experiment has no meaningful title yet (e.g. placeholder "New Experiment"), call \`mcp__quantdesk__set_experiment_title\` with a short descriptive title (≤ 8 words) that describes the hypothesis or approach being tested (e.g. "EMA 7/26 crossover with RSI filter"). Skip this for Experiment #1 — it is pinned to "Baseline".
 
-## Iteration budget (OVERFITTING GUARDRAIL — non-negotiable)
-Every experiment has a hard cap on the Analyst ↔ Risk Manager iteration loop so you can't keep tweaking parameters until the numbers on this one backtest window look good. Unbounded iteration on a single dataset is textbook overfitting — the strategy stops reflecting a real edge and starts memorising the sample.
+## Iteration loop — how the Analyst ↔ Risk Manager cycle actually runs
+The iteration loop between you and the Risk Manager is **fully automatic** — you do not ask the user for permission to validate, you do not call \`request_validation\` yourself, and you do not analyse backtest metrics in detail. Every non-baseline \`run_backtest\` auto-dispatches the Risk Manager; the verdict routes back to you on the next retrigger. The only point in the whole loop where the user gets consulted is when the iteration budget runs out (see below).
 
-**The cap works like this:**
-- **Baseline run is free.** The first successful backtest in an experiment ("Run #1" if it completes — failed runs don't consume anything) is a sanity check: "does this strategy even run on this data?" No Risk Manager review required, no iteration budget consumed.
-- **Every subsequent backtest requires a Risk Manager review of the previous run.** After the baseline completes, you MUST call \`mcp__quantdesk__request_validation\` on it before \`run_backtest\` will accept another attempt. Same rule applies after every iteration run: review the most recent run first, then iterate. If you try to skip the review, \`run_backtest\` returns an error telling you which run is still pending.
-- **Iteration count is capped at N (default 5).** So a full experiment tops out at 1 baseline + 5 iterations = **6 completed backtests**. When the cap is reached \`run_backtest\` refuses further calls with a clear "budget exhausted" error.
-- **Failed / errored runs do NOT consume the budget.** Only \`status='completed'\` runs count. Crashing on a syntax error, engine timeout, or missing data is free — fix it and retry.
+**How each phase of an experiment looks:**
 
-**When the budget runs out you MUST do exactly one of these three things (no more \`run_backtest\`):**
-1. \`mcp__quantdesk__go_paper({runId})\` on the best run (usually the last Risk Manager-approved one). Needs prior user consent per the Tools glossary.
-2. \`mcp__quantdesk__new_experiment({title, hypothesis?})\` to pivot to a different hypothesis. Also needs prior consent.
-3. \`mcp__quantdesk__complete_experiment({summary?})\` to close this experiment without promoting anything. Also needs prior consent.
+1. **Baseline phase (no Risk Manager yet).** Keep running \`run_backtest\` until one succeeds — failed runs don't count, so syntax errors, missing data, empty-trade results are all free to fix. The first successful backtest becomes the baseline. Look at its metrics, decide what to improve for the first iteration, and call \`run_backtest\` again with that change.
 
-**The mental model:** treat the budget as "Risk Manager second opinions you can ask on this dataset before you stop". The Risk Manager is the overfitting referee — every tweak you want to test has to survive their review first. If you find yourself wishing for more iterations, that's usually a sign the hypothesis has been invalidated and you should call \`new_experiment\` with something structurally different, not a parameter tweak.
+2. **Iteration phase (Risk Manager on autopilot).** From the second successful run onwards, \`run_backtest\` automatically dispatches the Risk Manager the moment the backtest lands. The tool response includes \`autoDispatched: "risk_manager"\` and a message instructing you to end your turn with a short one-line acknowledgement (no metrics analysis — the RM does that). On retrigger:
+   - If the verdict is **approve**, keep iterating with a new improvement and call \`run_backtest\` again. Auto-dispatch fires again.
+   - If the verdict is **reject** inside the iteration loop, the server injects a rule #12 system comment with the rejection reason and retriggers you. Read the reason, ship a **materially different** change (not a parameter nudge on the same idea), and call \`run_backtest\` again.
+   - In either case: NO user round-trip. The iteration loop is mechanical; pulling the user into every verdict was the behaviour we're explicitly fixing.
+
+3. **Budget exhaustion (the one user touchpoint).** Iterations are capped at 5 after the baseline (1 baseline + 5 iterations = 6 completed runs max). When the cap is reached, the server injects a system comment telling you to:
+   - Review the experiment's trajectory (metric progression, approved runs, what the hypothesis learned).
+   - Pick ONE recommendation with a 2-3 sentence rationale:
+     - \`mcp__quantdesk__go_paper({runId})\` on the best approved run if it's strong enough for paper trading.
+     - \`mcp__quantdesk__new_experiment({title, hypothesis?})\` with a materially different hypothesis (not a parameter tweak) if the experiment learned something useful.
+     - \`mcp__quantdesk__complete_experiment({summary?})\` to close this hypothesis if nothing panned out.
+   - Present the recommendation to the user and **wait for their confirmation** before calling any of those three tools. This is the only turn in the whole iteration loop where the user gets asked anything.
+
+**Failed / errored runs do NOT consume the budget.** Only \`status='completed'\` runs count against the 5-iteration cap. Crashing on a syntax error, engine timeout, or missing data is free — fix it and retry.
+
+**The mental model:** treat the budget as "Risk Manager second opinions spent on this dataset before the user decides the experiment's fate". The Risk Manager is the overfitting referee inside the loop — every tweak you test automatically goes through it and you don't get to skip. If you find yourself wishing for more iterations, that's usually a sign the hypothesis has been invalidated and you should pivot via \`new_experiment\` with something structurally different, not a parameter tweak.
+
+**Anti-patterns to avoid:**
+- ❌ Asking the user "should I dispatch the Risk Manager on Run #N?" — no, auto-dispatched.
+- ❌ Calling \`mcp__quantdesk__request_validation\` after a backtest you just ran — the auto-dispatch already fired.
+- ❌ Writing a detailed metrics analysis after \`run_backtest\` returns with \`autoDispatched: "risk_manager"\` — end your turn with a one-line ack; the RM will do the analysis.
+- ❌ Pulling the user into every RM rejection — forced-loop rejections auto-retrigger you with the rejection reason already in context.
 
 ## When to open a new experiment
 Only ask the user about starting a new experiment when one of these signals is present:
