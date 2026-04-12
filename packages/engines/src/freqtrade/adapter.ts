@@ -126,6 +126,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 				rm: true,
 				volumes: [`${userDirHost}:${USERDIR_IN_CONTAINER}`],
 				tmpfs: GIT_SHADOW_TMPFS,
+				env: { PYTHONUNBUFFERED: "1" },
 				command: cmd,
 			},
 			config.onLogLine
@@ -186,6 +187,14 @@ export class FreqtradeAdapter implements EngineAdapter {
 				tmpfs: GIT_SHADOW_TMPFS,
 				cpus: runtime.backtest.cpus,
 				memory: formatMemory(runtime.backtest.memoryGb),
+				// Force Python to flush stdout on every write. Without this,
+				// Python's default full-buffering on piped stdout means
+				// freqtrade holds all output until process exit — 3-4 minutes
+				// of silence that trips the heartbeat watchdog even though
+				// the proxy bump in onLogLine is wired up. PYTHONUNBUFFERED=1
+				// makes every print() flush immediately so onLogLine fires
+				// throughout the run and heartbeat stays fresh.
+				env: { PYTHONUNBUFFERED: "1" },
 				command: [
 					"backtesting",
 					"--userdir",
@@ -312,13 +321,11 @@ export class FreqtradeAdapter implements EngineAdapter {
 			}),
 			volumes: [
 				`${workspaceAbs}:${USERDIR_IN_CONTAINER}`,
-				// Single-file read-only bind mount: server-authored paper
-				// overlay, never touched by the agent, never mutated by
-				// the container.
 				`${scratchConfigPath}:${PAPER_CONFIG_IN_CONTAINER}:ro`,
 				...(config.extraVolumes ?? []),
 			],
 			tmpfs: GIT_SHADOW_TMPFS,
+			env: { PYTHONUNBUFFERED: "1" },
 			ports: [`127.0.0.1:${hostApiPort}:${DEFAULT_PAPER_API_PORT}`],
 			cpus: runtime.paper.cpus,
 			memory: formatMemory(runtime.paper.memoryGb),

@@ -152,16 +152,17 @@ export class GenericAdapter implements EngineAdapter {
 				rm: true,
 				cpus: rc.generic.cpus,
 				memory: formatMemory(rc.generic.memoryGb),
-				// Labels let startup-cleanup reconcile any script container
-				// orphaned by a server crash mid-runScript. Without these, a
-				// hung / infinite-loop script survives forever and wastes CPU
-				// (the hyperliquid BTC/USDT retry-loop incident).
 				labels: quantdeskLabels({
 					runId: scriptId,
 					engine: "generic",
 					kind: "script",
 				}),
 				volumes: [`${workspaceAbs}:/workspace`, ...cacheVolumes(), ...(input.extraVolumes ?? [])],
+				// Force Python (and Node) to flush stdout on every write so
+				// the heartbeat proxy in the MCP handler fires mid-run, not
+				// just at process exit. Without this, a 5-minute data fetch
+				// or analysis script triggers a false heartbeat timeout.
+				env: { PYTHONUNBUFFERED: "1", NODE_OPTIONS: "--max-old-space-size=1536" },
 				command: [runtime, input.scriptPath],
 			},
 			{
@@ -206,6 +207,7 @@ export class GenericAdapter implements EngineAdapter {
 				cpus: rc.generic.cpus,
 				memory: formatMemory(rc.generic.memoryGb),
 				volumes: [`${workspaceAbs}:/workspace`, ...cacheVolumes(), ...externalMountVolumes],
+				env: { PYTHONUNBUFFERED: "1" },
 				command: [runtime, config.strategyPath],
 			},
 			{
