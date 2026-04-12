@@ -4,10 +4,10 @@ import { ActivityView } from "./components/ActivityView.js";
 import { CodeView } from "./components/CodeView.js";
 import { CommentThread } from "./components/CommentThread.js";
 import { CreateDeskWizard } from "./components/CreateDeskWizard.js";
+import { DatasetView } from "./components/DatasetView.js";
 import type { DeskPage } from "./components/DeskPanel.js";
 import { DeskPanel } from "./components/DeskPanel.js";
 import { DeskSettings } from "./components/DeskSettings.js";
-import { GlobalDatasetsView } from "./components/GlobalDatasetsView.js";
 import { Layout } from "./components/Layout.js";
 import { PaperTradingView } from "./components/PaperTradingView.js";
 import { PropsPanel } from "./components/PropsPanel.js";
@@ -28,6 +28,7 @@ interface RouteState {
 function pageFromPath(path: string): DeskPage {
 	if (path.includes("/paper")) return "paper";
 	if (path.includes("/code")) return "code";
+	if (path.includes("/datasets")) return "datasets";
 	if (path.includes("/activity")) return "activity";
 	if (path.includes("/settings")) return "settings";
 	if (path.includes("/runs")) return "runs";
@@ -143,6 +144,8 @@ function DeskRoute({
 					<PaperTradingView desk={selectedDesk} />
 				) : selectedDesk && deskPage === "code" ? (
 					<CodeView desk={selectedDesk} />
+				) : selectedDesk && deskPage === "datasets" ? (
+					<DatasetView desk={selectedDesk} />
 				) : selectedDesk && deskPage === "activity" ? (
 					<ActivityView desk={selectedDesk} />
 				) : selectedExperiment && deskPage === "runs" ? (
@@ -293,21 +296,6 @@ export function App() {
 		<>
 			<Routes>
 				<Route path="/" element={<HomeRoute desks={desks} setShowWizard={setShowWizard} />} />
-				<Route
-					path="/datasets"
-					element={
-						<Layout
-							desks={desks}
-							selectedDesk={null}
-							selectedExperiment={null}
-							onSelectDesk={(id) => navigate(`/desks/${id}`)}
-							onNewDesk={() => setShowWizard(true)}
-							sidebar={null}
-							main={<GlobalDatasetsView />}
-							panel={null}
-						/>
-					}
-				/>
 				<Route path="/desks" element={<HomeRoute desks={desks} setShowWizard={setShowWizard} />} />
 				<Route path="/desks/:deskId" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/experiments/:expId" element={<DeskRoute {...routeState} />} />
@@ -321,6 +309,7 @@ export function App() {
 				/>
 				<Route path="/desks/:deskId/paper" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/code" element={<DeskRoute {...routeState} />} />
+				<Route path="/desks/:deskId/datasets" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/activity" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/settings" element={<DeskRoute {...routeState} />} />
 				<Route path="/desks/:deskId/turns/:turnId" element={<TurnDetailPage />} />
