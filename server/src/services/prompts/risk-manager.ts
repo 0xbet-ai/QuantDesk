@@ -126,9 +126,18 @@ export function buildRiskManagerPrompt(input: RiskManagerPromptInput): string {
 		userLanguageHint,
 	} = input;
 
+	// The RM system prompt is dense English (checklist, verdict tool,
+	// desk constraints). Without an explicit language instruction the
+	// LLM drifts to English even when the analyst and the user have
+	// been writing in Korean, because English context dominates. The
+	// hint is resolved server-side in agent-runner.ts via a fallback
+	// chain (user msg → desk description → analyst msg); if that still
+	// returns nothing, instruct the LLM to read the conversation below
+	// and match the analyst's most recent message so the RM never
+	// unilaterally switches the thread's language to English.
 	const langRule = userLanguageHint
-		? `Write your response in ${userLanguageHint}.`
-		: "Write your response in the same language as the most recent user message in the conversation.";
+		? `**Write your entire response in ${userLanguageHint}.** This includes the checklist lines, the verdict prose, and any rejection reasons. The only things that stay in their original form are tool call arguments, metric labels, pair symbols, and other proper nouns. Do NOT switch to English just because this system prompt is in English.`
+		: "**Write your response in the same language the analyst has been using in the Conversation section below.** Read the analyst's most recent message and match its language exactly. If the conversation is in Korean, reply in Korean; if English, English. Do NOT switch to English just because this system prompt is in English.";
 
 	const sections: string[] = [];
 
