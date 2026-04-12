@@ -157,56 +157,92 @@ interface ChatInputBarProps {
 	placeholder: string;
 	onSend: (text: string) => void | Promise<void>;
 }
+/**
+ * Fully uncontrolled chat input — typing goes straight to the DOM
+ * without ANY React re-render. The previous controlled version
+ * (`useState` + `setValue` on every keystroke) was still slightly
+ * laggy because:
+ *   1. Even inside a `React.memo` subtree, `setState` schedules a
+ *      fiber render pass on this component (reconcile + commit).
+ *   2. On large pages (long comment thread + live log panel + chart),
+ *      React's commit phase competes with the browser's paint,
+ *      producing micro-stutters on fast Korean IME composition.
+ *
+ * With a `useRef` + native `onInput`, typing is a pure DOM event
+ * with zero React involvement — the fastest possible path. The send
+ * button's enabled/disabled state is toggled via `ref.disabled` in
+ * the same `onInput` handler (one DOM write, no state).
+ */
 const ChatInputBar = memo(function ChatInputBar({
 	disabled,
 	placeholder,
 	onSend,
 }: ChatInputBarProps) {
-	const [value, setValue] = useState("");
-	const [busy, setBusy] = useState(false);
+	const inputRef = useRef<HTMLInputElement>(null);
+	const btnRef = useRef<HTMLButtonElement>(null);
+	const busyRef = useRef(false);
 
-	// Listen for prefill-chat events (e.g. sidebar buttons). Lives
-	// inside the input bar so the parent never re-renders for it.
+	// Prefill from external events (sidebar buttons).
 	useEffect(() => {
 		const handler = (e: Event) => {
 			const text = (e as CustomEvent<string>).detail;
-			if (text) setValue(text);
+			if (text && inputRef.current) {
+				inputRef.current.value = text;
+				if (btnRef.current) btnRef.current.disabled = false;
+			}
 		};
 		window.addEventListener("quantdesk:prefill-chat", handler);
 		return () => window.removeEventListener("quantdesk:prefill-chat", handler);
 	}, []);
 
 	const submit = async () => {
-		const trimmed = value.trim();
-		if (!trimmed || busy || disabled) return;
-		setBusy(true);
-		// Clear immediately for snappy feel; matches the previous
-		// behaviour where we cleared right after the post call.
-		setValue("");
+		const el = inputRef.current;
+		if (!el) return;
+		const trimmed = el.value.trim();
+		if (!trimmed || busyRef.current || disabled) return;
+		busyRef.current = true;
+		if (btnRef.current) btnRef.current.disabled = true;
+		el.value = "";
 		try {
 			await Promise.resolve(onSend(trimmed));
 		} finally {
-			setBusy(false);
+			busyRef.current = false;
+			// Re-sync button state after send completes.
+			if (btnRef.current) {
+				btnRef.current.disabled = disabled || !(inputRef.current?.value.trim());
+			}
 		}
 	};
+
+	// Sync `disabled` prop to the native elements when the parent
+	// re-renders (e.g. agent turn starts/stops).
+	useEffect(() => {
+		if (inputRef.current) inputRef.current.disabled = disabled;
+		if (btnRef.current) {
+			btnRef.current.disabled = disabled || !(inputRef.current?.value.trim());
+		}
+	}, [disabled]);
 
 	return (
 		<div className="flex gap-2">
 			<Input
-				value={value}
-				onChange={(e) => setValue(e.target.value)}
+				ref={inputRef}
+				defaultValue=""
+				onInput={() => {
+					// Toggle send button enabled/disabled WITHOUT setState —
+					// pure DOM write, zero React re-render.
+					if (btnRef.current) {
+						btnRef.current.disabled =
+							disabled || !(inputRef.current?.value.trim());
+					}
+				}}
 				onKeyDown={(e) => {
 					if (e.key === "Enter" && !disabled) submit();
 				}}
 				placeholder={placeholder}
 				disabled={disabled}
 			/>
-			<Button
-				size="sm"
-				data-send-btn
-				onClick={submit}
-				disabled={busy || !value.trim() || disabled}
-			>
+			<Button ref={btnRef} size="sm" data-send-btn onClick={submit} disabled={disabled}>
 				<Send className="size-4" />
 			</Button>
 		</div>
