@@ -16,7 +16,9 @@ import venues from "../../../strategies/venues.json";
 import type { Desk, Experiment, Run, Strategy } from "../lib/api.js";
 import {
 	completeAndCreateNewExperiment,
+	getCodeLog,
 	listActiveExperiments,
+	listDatasets,
 	listRuns,
 	listStrategies,
 } from "../lib/api.js";
@@ -159,6 +161,58 @@ export function DeskPanel({
 			clearInterval(id);
 		};
 	}, [desk.id]);
+
+	// ── Lightweight change detection for Code & Datasets nav items ───
+	// Polls dataset count + HEAD commit hash every 10s. First poll
+	// sets the baseline; subsequent changes light up a pulsing dot on
+	// the sidebar nav item. Visiting the page resets the baseline.
+	const [lastSeenDatasetCount, setLastSeenDatasetCount] = useState<number | null>(null);
+	const [currentDatasetCount, setCurrentDatasetCount] = useState(0);
+	const [lastSeenCommitHash, setLastSeenCommitHash] = useState<string | null>(null);
+	const [currentCommitHash, setCurrentCommitHash] = useState<string | null>(null);
+
+	useEffect(() => {
+		// Reset baselines on desk switch so the first poll after a switch
+		// sets the new baseline without showing a stale dot.
+		setLastSeenDatasetCount(null);
+		setLastSeenCommitHash(null);
+
+		let cancelled = false;
+		const tick = async () => {
+			try {
+				const [ds, log] = await Promise.all([listDatasets(desk.id), getCodeLog(desk.id)]);
+				if (cancelled) return;
+				const dsCount = ds.length;
+				const headHash = log[0]?.hash ?? null;
+				setCurrentDatasetCount(dsCount);
+				setCurrentCommitHash(headHash);
+				// First poll sets the baseline (no dot until something actually changes)
+				setLastSeenDatasetCount((prev) => (prev === null ? dsCount : prev));
+				setLastSeenCommitHash((prev) => (prev === null ? headHash : prev));
+			} catch {
+				/* ignore — keep last known state */
+			}
+		};
+		tick();
+		const id = setInterval(tick, 10_000);
+		return () => {
+			cancelled = true;
+			clearInterval(id);
+		};
+	}, [desk.id]);
+
+	// Mark as "seen" while the user is on the page
+	useEffect(() => {
+		if (activePage === "datasets") setLastSeenDatasetCount(currentDatasetCount);
+		if (activePage === "code") setLastSeenCommitHash(currentCommitHash);
+	}, [activePage, currentDatasetCount, currentCommitHash]);
+
+	const hasDatasetUpdate =
+		lastSeenDatasetCount !== null && currentDatasetCount > lastSeenDatasetCount;
+	const hasCodeUpdate =
+		lastSeenCommitHash !== null &&
+		currentCommitHash !== null &&
+		currentCommitHash !== lastSeenCommitHash;
 
 	useEffect(() => {
 		for (const exp of experiments) {
@@ -347,12 +401,14 @@ export function DeskPanel({
 					label="Code"
 					icon={Code}
 					active={activePage === "code"}
+					hasUpdate={hasCodeUpdate}
 					onClick={() => onPageChange("code")}
 				/>
 				<SidebarNavItem
 					label="Datasets"
 					icon={Database}
 					active={activePage === "datasets"}
+					hasUpdate={hasDatasetUpdate}
 					onClick={() => onPageChange("datasets")}
 				/>
 				<SidebarNavItem
