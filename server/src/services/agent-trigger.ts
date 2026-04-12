@@ -444,6 +444,13 @@ export async function triggerAgent(
 			// heuristic the dead-end guard used. Any tool_call chunk counts;
 			// the guard only cares that the agent took a concrete action.
 			let didCallTool = false;
+			// Detect if the agent closed this experiment during the turn
+			// (via new_experiment or complete_experiment). If so, we suppress
+			// the turn's chat comment — the text is a transition message
+			// ("Experiment #3 시작했습니다...") that belongs to neither the
+			// old nor the new experiment's thread, and showing it in the
+			// old experiment confuses the user who just auto-navigated away.
+			let didCloseExperiment = false;
 
 			// Collect every assistant text block the agent emits during this
 			// turn. Claude's final `result` event only carries the LAST text
@@ -467,6 +474,16 @@ export async function triggerAgent(
 						if (chunk) {
 							if (chunk.type === "tool_call") {
 								didCallTool = true;
+								const toolName =
+									typeof (chunk as { name?: string }).name === "string"
+										? (chunk as { name: string }).name
+										: "";
+								if (
+									toolName === "mcp__quantdesk__new_experiment" ||
+									toolName === "mcp__quantdesk__complete_experiment"
+								) {
+									didCloseExperiment = true;
+								}
 							}
 							if (chunk.type === "text" && typeof chunk.content === "string") {
 								const trimmed = chunk.content.trim();
@@ -685,8 +702,17 @@ export async function triggerAgent(
 			// double-print the final line in the common case where the
 			// last `[text]` chunk and Claude's `result.content` contain
 			// identical text.
-			let assembledText = assistantTextChunks.join("\n\n");
-			if (result.resultText) {
+			// If the agent closed this experiment (new_experiment /
+			// complete_experiment), suppress the chat comment entirely.
+			// The text is a transition message ("Experiment #3 시작했습니다",
+			// "기존 데이터 확인합니다") that confuses the user when it
+			// appears in the OLD experiment they just navigated away from.
+			// The new experiment's retrigger will produce its own opening
+			// message, and complete_experiment transitions don't need one.
+			// The text is still in the per-experiment JSONL log for
+			// debugging if anyone needs it.
+			let assembledText = didCloseExperiment ? "" : assistantTextChunks.join("\n\n");
+			if (assembledText && result.resultText) {
 				const finalText = result.resultText.trim();
 				if (finalText) {
 					const lastChunk = assistantTextChunks[assistantTextChunks.length - 1]?.trim();
