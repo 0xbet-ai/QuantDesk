@@ -290,11 +290,14 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				"Register a dataset that already exists on disk (e.g. produced " +
 				"by your fetcher script via run_script) and link it to the current " +
 				"desk. MUST be called before run_backtest after you fetch data " +
-				"yourself.",
+				"yourself. Pass tradingMode so the catalog can distinguish spot " +
+				"from futures — otherwise a futures dataset would collide with " +
+				"a spot row that has the same pair / timeframe / window.",
 			inputSchema: {
 				exchange: z.string().min(1),
 				pairs: z.array(z.string().min(1)).min(1),
 				timeframe: z.string().min(1),
+				tradingMode: z.enum(["spot", "futures", "margin"]).optional(),
 				dateRange: z.object({ start: z.string().min(1), end: z.string().min(1) }),
 				path: z.string().min(1),
 			},
@@ -316,6 +319,9 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				}
 				// Per-pair dedupe + insert. Each pair becomes its own
 				// dataset row so the UI can group by exchange → pair.
+				// tradingMode is part of the dedupe key so a spot row never
+				// shadows a futures row that happens to share pair/window.
+				const tradingMode = args.tradingMode ?? "spot";
 				const sortedPairs = [...args.pairs].sort();
 				const registered: { datasetId: string; pair: string; reused: boolean }[] = [];
 				for (const pair of sortedPairs) {
@@ -326,6 +332,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 							and(
 								eq(datasets.exchange, args.exchange),
 								eq(datasets.timeframe, args.timeframe),
+								eq(datasets.tradingMode, tradingMode),
 								sql`${datasets.pairs}::jsonb = ${JSON.stringify([pair])}::jsonb`,
 								sql`${datasets.dateRange}->>'start' = ${args.dateRange.start}`,
 								sql`${datasets.dateRange}->>'end' = ${args.dateRange.end}`,
@@ -342,6 +349,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 								exchange: args.exchange,
 								pairs: [pair],
 								timeframe: args.timeframe,
+								tradingMode,
 								dateRange: args.dateRange,
 								path: resolvedPath,
 								// Attribute the dataset to the desk/experiment that
@@ -491,9 +499,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				// RM verdict before another backtest can run. This forces
 				// the Analyst↔RM cycle — Analyst can't silently burn the
 				// budget on runs that aren't even worth reviewing.
-				const latest = [...completedBacktests].sort(
-					(a, b) => b.runNumber - a.runNumber,
-				)[0]!;
+				const latest = [...completedBacktests].sort((a, b) => b.runNumber - a.runNumber)[0]!;
 				const verdict = (latest.result as Record<string, unknown> | null)?.validation as
 					| { verdict?: string }
 					| undefined;
@@ -929,8 +935,8 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				// 22), especially when the user typed the number inline. Use
 				// `z.coerce.number()` so the tool accepts both forms — `.int()`
 				// and `.positive()` still reject nonsense like "abc".
-				runNumber: z
-					.coerce.number()
+				runNumber: z.coerce
+					.number()
 					.int()
 					.positive()
 					.optional()

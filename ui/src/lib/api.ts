@@ -232,6 +232,10 @@ export interface Dataset {
 	exchange: string;
 	pairs: string[];
 	timeframe: string;
+	/** "futures" covers perpetual swaps/perps; "spot" / "margin" are the
+	 *  other two modes. Matches `DataFetchRequest.tradingMode` on the
+	 *  shared package. */
+	tradingMode: "spot" | "futures" | "margin";
 	dateRange: { start: string; end: string };
 	path: string;
 	createdAt: string;

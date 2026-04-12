@@ -1,0 +1,1 @@
+ALTER TABLE "datasets" ADD COLUMN "trading_mode" text DEFAULT 'spot' NOT NULL;
