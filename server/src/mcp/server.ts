@@ -566,12 +566,21 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
 				);
 
+				// Heartbeat proxy: while the Docker container runs, the
+				// agent CLI subprocess is blocked waiting for the MCP
+				// response and produces zero stream chunks. Without a
+				// proxy, the turn's `last_heartbeat_at` goes stale and
+				// the watchdog posts a false-positive "heartbeat timeout"
+				// system comment — even though the engine is actively
+				// running. Fix: every time Docker stdout produces a line,
+				// bump the turn heartbeat the same way `streamingSpawn` does
+				// for regular CLI chunks. Throttled to one DB write per 5s
+				// to avoid hammering Postgres when the engine is chatty.
+				const turnId = getCurrentTurnId();
+				let lastHeartbeatBump = 0;
+				const HEARTBEAT_THROTTLE_MS = 5_000;
+
 				const backtestResult = await engineAdapter.runBacktest({
-					// Pass agent args through verbatim. Managed adapters
-					// (freqtrade, nautilus) fall back to their own seeded
-					// conventions when these are undefined; the generic
-					// adapter throws when strategyPath is missing because
-					// it has no framework contract.
 					strategyPath: args.entrypoint,
 					workspacePath: desk.workspacePath,
 					runId,
@@ -587,9 +596,21 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 							type: "run.log_chunk",
 							payload: { runId, stream, line },
 						});
-						// Persist to the per-experiment jsonl so the transcript
-						// hydrates the docker tail on refresh / navigate-back,
-						// instead of losing it the moment the turn ends.
+						// Proxy-bump the agent turn's heartbeat so the
+						// watchdog knows the tool call is alive even though
+						// the CLI subprocess itself is silent.
+						if (turnId) {
+							const now = Date.now();
+							if (now - lastHeartbeatBump >= HEARTBEAT_THROTTLE_MS) {
+								lastHeartbeatBump = now;
+								db.update(agentTurns)
+									.set({ lastHeartbeatAt: new Date() })
+									.where(eq(agentTurns.id, turnId))
+									.catch(() => {
+										/* best effort */
+									});
+							}
+						}
 						appendAgentLog(ctx.experimentId, {
 							ts: new Date().toISOString(),
 							type: "stdout",
@@ -833,6 +854,12 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 				const externalMountVolumes = (desk.externalMounts ?? []).map(
 					(m) => `${m.hostPath}:/workspace/data/external/${m.label}:ro`,
 				);
+				// Same heartbeat proxy as run_backtest — long scripts
+				// (data fetchers, exploratory notebooks) can run for
+				// minutes, and the CLI is silent the whole time.
+				const scriptTurnId = getCurrentTurnId();
+				let scriptLastBump = 0;
+
 				const result = await adapter.runScript({
 					workspacePath: desk.workspacePath,
 					scriptPath: args.scriptPath,
@@ -843,6 +870,16 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 							type: "run.log_chunk",
 							payload: { runId: null, stream, line },
 						});
+						if (scriptTurnId) {
+							const now = Date.now();
+							if (now - scriptLastBump >= 5_000) {
+								scriptLastBump = now;
+								db.update(agentTurns)
+									.set({ lastHeartbeatAt: new Date() })
+									.where(eq(agentTurns.id, scriptTurnId))
+									.catch(() => {});
+							}
+						}
 						appendAgentLog(ctx.experimentId, {
 							ts: new Date().toISOString(),
 							type: "stdout",
