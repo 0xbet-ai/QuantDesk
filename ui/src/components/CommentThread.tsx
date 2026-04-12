@@ -14,7 +14,7 @@ import {
 	XCircle,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
@@ -141,20 +141,81 @@ function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
 	);
 }
 
+/**
+ * Chat input bar with its own local state. Extracted out of
+ * `CommentThread` so typing into it doesn't force the entire thread
+ * (with every rendered markdown comment, turn card, and live stream
+ * entry) to re-render on every keystroke — which was noticeable as
+ * input lag on threads with more than a handful of comments.
+ *
+ * Props stay stable across typing sessions so React.memo keeps this
+ * bar mounted even as the parent re-renders for new comments or
+ * streaming chunks.
+ */
+interface ChatInputBarProps {
+	disabled: boolean;
+	placeholder: string;
+	onSend: (text: string) => void | Promise<void>;
+}
+const ChatInputBar = memo(function ChatInputBar({
+	disabled,
+	placeholder,
+	onSend,
+}: ChatInputBarProps) {
+	const [value, setValue] = useState("");
+	const [busy, setBusy] = useState(false);
+
+	// Listen for prefill-chat events (e.g. sidebar buttons). Lives
+	// inside the input bar so the parent never re-renders for it.
+	useEffect(() => {
+		const handler = (e: Event) => {
+			const text = (e as CustomEvent<string>).detail;
+			if (text) setValue(text);
+		};
+		window.addEventListener("quantdesk:prefill-chat", handler);
+		return () => window.removeEventListener("quantdesk:prefill-chat", handler);
+	}, []);
+
+	const submit = async () => {
+		const trimmed = value.trim();
+		if (!trimmed || busy || disabled) return;
+		setBusy(true);
+		// Clear immediately for snappy feel; matches the previous
+		// behaviour where we cleared right after the post call.
+		setValue("");
+		try {
+			await Promise.resolve(onSend(trimmed));
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	return (
+		<div className="flex gap-2">
+			<Input
+				value={value}
+				onChange={(e) => setValue(e.target.value)}
+				onKeyDown={(e) => {
+					if (e.key === "Enter" && !disabled) submit();
+				}}
+				placeholder={placeholder}
+				disabled={disabled}
+			/>
+			<Button
+				size="sm"
+				data-send-btn
+				onClick={submit}
+				disabled={busy || !value.trim() || disabled}
+			>
+				<Send className="size-4" />
+			</Button>
+		</div>
+	);
+});
+
 export function CommentThread({ experiment, onOpenRun, onOpenTurn, onExperimentUpdated }: Props) {
 	const [comments, setComments] = useState<Comment[]>([]);
-	const [input, setInput] = useState("");
 	const [sending, setSending] = useState(false);
-
-	// Listen for prefill-chat events (e.g. sidebar buttons)
-	useEffect(() => {
-		const handlePrefill = (e: Event) => {
-			const text = (e as CustomEvent<string>).detail;
-			if (text) setInput(text);
-		};
-		window.addEventListener("quantdesk:prefill-chat", handlePrefill);
-		return () => window.removeEventListener("quantdesk:prefill-chat", handlePrefill);
-	}, []);
 	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
 	const [streamEntries, setStreamEntries] = useState<TranscriptEntry[]>([]);
 	const [runStartedAt, setRunStartedAt] = useState<Date | null>(null);
@@ -552,7 +613,6 @@ export function CommentThread({ experiment, onOpenRun, onOpenTurn, onExperimentU
 		setSending(true);
 		try {
 			await postComment(experiment.id, text.trim(), metadata);
-			setInput("");
 			pendingSendRef.current = true;
 			refresh();
 			setCurrentTurnRole("analyst");
@@ -566,7 +626,15 @@ export function CommentThread({ experiment, onOpenRun, onOpenTurn, onExperimentU
 		}
 	};
 
-	const handleSend = () => sendMessage(input);
+	// Stable onSend callback for ChatInputBar. useCallback + useRef keeps
+	// the same function identity across parent re-renders so the memoized
+	// ChatInputBar doesn't re-render when `comments` or `streamEntries`
+	// update mid-stream.
+	const sendMessageStableRef = useRef(sendMessage);
+	sendMessageStableRef.current = sendMessage;
+	const stableOnSend = useCallback((text: string) => {
+		return sendMessageStableRef.current(text);
+	}, []);
 
 	// Auto-send from external events (e.g. Paper Trade button).
 	// Posted as system author with hidden metadata so it doesn't
@@ -1079,29 +1147,17 @@ export function CommentThread({ experiment, onOpenRun, onOpenTurn, onExperimentU
 			{/* Input */}
 			<Separator />
 			<div className="px-4 py-3">
-				<div className="flex gap-2">
-					<Input
-						value={input}
-						onChange={(e) => setInput(e.target.value)}
-						onKeyDown={(e) => e.key === "Enter" && !thinkingRole && handleSend()}
-						placeholder={
-							thinkingRole
-								? turnStatus === "awaiting_validation"
-									? "Validating..."
-									: "Agent is working..."
-								: "Type a comment..."
-						}
-						disabled={!!thinkingRole}
-					/>
-					<Button
-						size="sm"
-						data-send-btn
-						onClick={handleSend}
-						disabled={sending || !input.trim() || !!thinkingRole}
-					>
-						<Send className="size-4" />
-					</Button>
-				</div>
+				<ChatInputBar
+					disabled={!!thinkingRole}
+					placeholder={
+						thinkingRole
+							? turnStatus === "awaiting_validation"
+								? "Validating..."
+								: "Agent is working..."
+							: "Type a comment..."
+					}
+					onSend={stableOnSend}
+				/>
 			</div>
 			{previewDataset && (
 				<DatasetPreviewModal
