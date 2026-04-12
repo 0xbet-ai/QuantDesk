@@ -1,7 +1,7 @@
 [
   {
     "id": "nt_ema_cross",
-    "name": "EMA Cross",
+    "name": "Simple Trend Cross",
     "category": "trend_following",
     "difficulty": "easy",
     "description": "NautilusTrader built-in EMA crossover. Live trading ready",
@@ -24,7 +24,7 @@
   },
   {
     "id": "nt_ema_cross_twap",
-    "name": "EMA Cross + TWAP",
+    "name": "Trend + Smart Fill",
     "category": "trend_following",
     "difficulty": "medium",
     "description": "EMA cross signal + TWAP execution to minimize slippage",
@@ -46,7 +46,7 @@
   },
   {
     "id": "nt_ema_bracket",
-    "name": "EMA Cross + Bracket Order",
+    "name": "Trend + Auto TP/SL",
     "category": "trend_following",
     "difficulty": "medium",
     "description": "EMA cross + automatic TP/SL bracket orders",
@@ -70,7 +70,7 @@
   },
   {
     "id": "nt_ema_trailing",
-    "name": "EMA Cross + Trailing Stop",
+    "name": "Trend + Trailing Profit",
     "category": "trend_following",
     "difficulty": "medium",
     "description": "EMA cross + trailing stop to protect profits",
@@ -94,7 +94,7 @@
   },
   {
     "id": "nt_market_maker",
-    "name": "Market Maker",
+    "name": "Precision Market Maker",
     "category": "market_making",
     "difficulty": "advanced",
     "description": "NautilusTrader built-in MM with precise orderbook simulation",
@@ -114,7 +114,7 @@
   },
   {
     "id": "nt_orderbook_imbalance",
-    "name": "Orderbook Imbalance",
+    "name": "Order Flow Trader",
     "category": "momentum",
     "difficulty": "advanced",
     "description": "Detect bid/ask volume imbalance to predict short-term direction",
@@ -134,7 +134,7 @@
   },
   {
     "id": "nt_volatility_mm",
-    "name": "Volatility Market Maker",
+    "name": "Adaptive Market Maker",
     "category": "market_making",
     "difficulty": "advanced",
     "description": "MM with spread auto-adjusted by volatility",
@@ -156,7 +156,7 @@
   },
   {
     "id": "nt_bb_mean_reversion",
-    "name": "BB Mean Reversion",
+    "name": "Range Bounce Trader",
     "category": "mean_reversion",
     "difficulty": "medium",
     "description": "Long when price touches lower BB with RSI < 0.30, short at upper BB with RSI > 0.70, exit at middle band",
@@ -179,7 +179,7 @@
   },
   {
     "id": "nt_ema_cross_long_only",
-    "name": "EMA Cross Long Only",
+    "name": "Spot Trend Follower",
     "category": "trend_following",
     "difficulty": "easy",
     "description": "Long-only EMA crossover for cash accounts. Buy on fast > slow, close on fast < slow",
@@ -201,7 +201,7 @@
   },
   {
     "id": "nt_ema_cross_stop_entry",
-    "name": "EMA Cross + Stop Entry",
+    "name": "Confirmed Trend Entry",
     "category": "trend_following",
     "difficulty": "advanced",
     "description": "EMA cross with MARKET_IF_TOUCHED entry at bar high/low + ATR trailing stop exit",
@@ -223,7 +223,7 @@
   },
   {
     "id": "nt_ema_cross_hedge_mode",
-    "name": "EMA Cross Hedge Mode",
+    "name": "Hedged Trend Trader",
     "category": "trend_following",
     "difficulty": "medium",
     "description": "EMA crossover for hedge-mode accounts allowing simultaneous long and short positions",
@@ -245,7 +245,7 @@
   },
   {
     "id": "nt_grid_market_maker",
-    "name": "Grid Market Maker",
+    "name": "Grid Trader",
     "category": "market_making",
     "difficulty": "advanced",
     "description": "Grid MM with inventory-based skewing (Avellaneda-Stoikov inspired). Symmetric limit order grids around mid-price",
@@ -265,7 +265,7 @@
   },
   {
     "id": "nt_simpler_quoter",
-    "name": "Simple Quoter",
+    "name": "Basic Quoter",
     "category": "market_making",
     "difficulty": "easy",
     "description": "Places one bid/ask at configurable tick offset from top-of-book. Replaces on fill",

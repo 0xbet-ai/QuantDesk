@@ -1,7 +1,7 @@
 [
   {
     "id": "ft_strategy001",
-    "name": "ADX + FastD",
+    "name": "Trend Catcher",
     "category": "trend_following",
     "difficulty": "easy",
     "description": "ADX + FastD + Fisher RSI combo for trend entry",
@@ -22,7 +22,7 @@
   },
   {
     "id": "ft_strategy002",
-    "name": "RSI + BB + MACD",
+    "name": "Dip Buyer",
     "category": "mean_reversion",
     "difficulty": "easy",
     "description": "RSI + Bollinger Band + MACD combo for mean reversion entry",
@@ -43,7 +43,7 @@
   },
   {
     "id": "ft_strategy003",
-    "name": "BB + EMA + MFI",
+    "name": "Oversold Bounce",
     "category": "mean_reversion",
     "difficulty": "easy",
     "description": "Bollinger Band + EMA100 + MFI combo",
@@ -64,7 +64,7 @@
   },
   {
     "id": "ft_strategy004",
-    "name": "MACD + MFI + SAR",
+    "name": "Trend Rider",
     "category": "trend_following",
     "difficulty": "easy",
     "description": "MACD + MFI + Parabolic SAR trend following",
@@ -83,7 +83,7 @@
   },
   {
     "id": "ft_strategy005",
-    "name": "SMA + EMA + Momentum",
+    "name": "Momentum Crossover",
     "category": "momentum",
     "difficulty": "easy",
     "description": "SMA/EMA crossover with momentum and CCI filter",
@@ -103,7 +103,7 @@
   },
   {
     "id": "ft_freqai_rl",
-    "name": "FreqAI Reinforcement Learning",
+    "name": "AI Self-Learner",
     "category": "ml_based",
     "difficulty": "advanced",
     "description": "FreqAI reinforcement learning adaptive strategy with self-training models",
@@ -124,7 +124,7 @@
   },
   {
     "id": "ft_bandtastic",
-    "name": "Bandtastic",
+    "name": "Multi-Level DCA",
     "category": "mean_reversion",
     "difficulty": "medium",
     "description": "RSI + MFI + multi-level Bollinger Bands (4 std levels) with EMA filter",
@@ -146,7 +146,7 @@
   },
   {
     "id": "ft_supertrend",
-    "name": "Supertrend",
+    "name": "Breakout Follower",
     "category": "trend_following",
     "difficulty": "medium",
     "description": "ATR-based Supertrend with hyperoptable multiplier/period (3 buy + 3 sell)",
@@ -164,7 +164,7 @@
   },
   {
     "id": "ft_pattern_recognition",
-    "name": "Pattern Recognition",
+    "name": "Candlestick Reader",
     "category": "pattern",
     "difficulty": "medium",
     "description": "All ta-lib candlestick patterns for buy/sell signals",
@@ -181,7 +181,7 @@
   },
   {
     "id": "ft_godstra",
-    "name": "GodStra",
+    "name": "All-Signal Combo",
     "category": "multi_indicator",
     "difficulty": "advanced",
     "description": "Uses all ta-lib indicators via add_all_ta_features. Ichimoku, Keltner, MFI, KST",
@@ -198,7 +198,7 @@
   },
   {
     "id": "ft_hlhb",
-    "name": "HLHB",
+    "name": "Filtered Trend Cross",
     "category": "trend_following",
     "difficulty": "easy",
     "description": "Classic HLHB system — EMA5/EMA10 cross with RSI and ADX filter",
@@ -217,7 +217,7 @@
   },
   {
     "id": "ft_adx_momentum",
-    "name": "ADX Momentum",
+    "name": "Momentum Surge",
     "category": "momentum",
     "difficulty": "easy",
     "description": "ADX + directional indicators (+DI/-DI) with SAR and momentum",
@@ -237,7 +237,7 @@
   },
   {
     "id": "ft_bband_rsi",
-    "name": "BBand RSI",
+    "name": "Bollinger Bounce",
     "category": "mean_reversion",
     "difficulty": "easy",
     "description": "RSI + Bollinger Bands mean reversion",
@@ -257,7 +257,7 @@
   },
   {
     "id": "ft_combined_binh_cluc",
-    "name": "CombinedBinHAndCluc",
+    "name": "Dual Dip Catcher",
     "category": "mean_reversion",
     "difficulty": "medium",
     "description": "Combined BinH + Cluc strategy with custom BB, EMA50, and volume filter",
@@ -276,7 +276,7 @@
   },
   {
     "id": "ft_scalp",
-    "name": "Scalp",
+    "name": "Quick Scalper",
     "category": "scalping",
     "difficulty": "easy",
     "description": "Quick scalping with BB, EMA, StochFast, ADX",
@@ -296,7 +296,7 @@
   },
   {
     "id": "ft_td_sequential",
-    "name": "TD Sequential",
+    "name": "Reversal Counter",
     "category": "pattern",
     "difficulty": "medium",
     "description": "Tom DeMark TD Sequential pattern-based strategy",
@@ -313,7 +313,7 @@
   },
   {
     "id": "ft_freqai_example",
-    "name": "FreqAI Example",
+    "name": "ML Trend Predictor",
     "category": "ml_based",
     "difficulty": "advanced",
     "description": "ML feature engineering with RSI, MFI, ADX, SMA, EMA, BB, ROC, relative volume",
@@ -333,7 +333,7 @@
   },
   {
     "id": "ft_freqai_hybrid",
-    "name": "FreqAI Hybrid",
+    "name": "AI + Signals Blend",
     "category": "ml_based",
     "difficulty": "advanced",
     "description": "TEMA + MACD + RSI combined with FreqAI ML classifier",
@@ -353,7 +353,7 @@
   },
   {
     "id": "ft_f_supertrend",
-    "name": "Futures Supertrend",
+    "name": "Long-Short Trend Follower",
     "category": "trend_following",
     "difficulty": "medium",
     "description": "Supertrend for futures with shorting support (can_short=True)",
@@ -370,7 +370,7 @@
   },
   {
     "id": "ft_volatility_system",
-    "name": "Volatility System",
+    "name": "Volatility Breakout",
     "category": "volatility",
     "difficulty": "medium",
     "description": "ATR resampled 3h with absolute close change for volatility breakout",
@@ -387,7 +387,7 @@
   },
   {
     "id": "ft_ott",
-    "name": "OTT Futures",
+    "name": "Optimal Trend Tracker",
     "category": "trend_following",
     "difficulty": "medium",
     "description": "Optimized Trend Tracker with VAR and ADX for futures",
