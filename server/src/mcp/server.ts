@@ -344,6 +344,13 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 								timeframe: args.timeframe,
 								dateRange: args.dateRange,
 								path: resolvedPath,
+								// Attribute the dataset to the desk/experiment that
+								// registered it so the wizard's "Reuse existing
+								// datasets" picker can show origin and the global
+								// catalog leftJoin on desks resolves a name. Without
+								// these, every agent-registered row stayed orphaned.
+								createdByDeskId: ctx.deskId,
+								createdByExperimentId: ctx.experimentId,
 							})
 							.returning();
 						if (!inserted) return errorResult("register_dataset: insert returned no row");
