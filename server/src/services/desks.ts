@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { db } from "@quantdesk/db";
-import { agentSessions, comments, desks, experiments, strategyCatalog } from "@quantdesk/db/schema";
+import { agentSessions, comments, desks, experiments } from "@quantdesk/db/schema";
 import type { DeskExternalMount } from "@quantdesk/db/schema";
 import { type VenueEngines, resolveEngine } from "@quantdesk/engines";
 import type { StrategyMode } from "@quantdesk/shared";
@@ -9,6 +9,7 @@ import venuesCatalog from "../../../strategies/venues.json" with { type: "json" 
 import { linkExistingDatasetsToDesk } from "./data-fetch.js";
 import { autoIncrementExperimentNumber } from "./logic.js";
 import { validateExternalMounts, validateSeedPath } from "./seed-path.js";
+import { getStrategy } from "./strategies.js";
 import { initWorkspace } from "./workspace.js";
 
 const WORKSPACES_ROOT = process.env.WORKSPACES_ROOT ?? join(process.cwd(), "workspaces");
@@ -147,11 +148,8 @@ export async function createDesk(input: CreateDeskInput) {
 
 	let strategyLabel = "Custom strategy";
 	if (input.strategyId) {
-		const [catalogEntry] = await db
-			.select({ name: strategyCatalog.name })
-			.from(strategyCatalog)
-			.where(eq(strategyCatalog.id, input.strategyId));
-		strategyLabel = catalogEntry?.name ?? input.strategyId;
+		const strategy = await getStrategy(input.strategyId);
+		strategyLabel = strategy?.name ?? input.strategyId;
 	}
 
 	await db.insert(comments).values({
