@@ -38,8 +38,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import venues from "../../../strategies/venues.json";
-import type { Strategy, StrategyMode } from "../lib/api.js";
-import { createDesk, listStrategies } from "../lib/api.js";
+import type { Dataset, Strategy, StrategyMode } from "../lib/api.js";
+import { createDesk, listAllDatasets, listStrategies } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { FolderPickerModal } from "./FolderPickerModal.js";
 import { StrategyAnimation } from "./StrategyAnimation.js";
@@ -240,6 +240,12 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 	const [externalMounts, setExternalMounts] = useState<Array<{ label: string; hostPath: string }>>(
 		[],
 	);
+	// Global catalog of datasets already registered in other desks. The
+	// user can tick any of these to link them into the new desk at creation
+	// time (DB `desk_datasets` join + workspace symlink, no re-download).
+	const [availableDatasets, setAvailableDatasets] = useState<Dataset[]>([]);
+	const [reusedDatasetIds, setReusedDatasetIds] = useState<string[]>([]);
+	const [datasetsLoading, setDatasetsLoading] = useState(false);
 	// Folder picker modal state. `null` = closed; otherwise an object describing
 	// what to do with the picked path. Same modal serves both seed code and any
 	// external-mount row, keyed by index.
@@ -317,6 +323,19 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 		}
 	}, [step, strategies.length, loadingStrategies]);
 
+	// Load the global dataset catalog once the user lands on the strategy
+	// step — that's the only step where the "Bring your own" section is
+	// rendered, so we can avoid the request on non-custom flows that never
+	// open the picker. Failures are non-fatal: the picker just shows empty.
+	useEffect(() => {
+		if (step !== "strategy" || availableDatasets.length > 0 || datasetsLoading) return;
+		setDatasetsLoading(true);
+		listAllDatasets()
+			.then(setAvailableDatasets)
+			.catch(() => setAvailableDatasets([]))
+			.finally(() => setDatasetsLoading(false));
+	}, [step, availableDatasets.length, datasetsLoading]);
+
 	const toggleVenue = (id: string) => {
 		setSelectedVenues((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
 	};
@@ -391,6 +410,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 				adapterConfig: adapterModel !== "default" ? { model: adapterModel } : {},
 				seedCodePath: isCustom && seedCodePath.trim() ? seedCodePath.trim() : undefined,
 				externalMounts: isCustom && cleanedMounts.length > 0 ? cleanedMounts : undefined,
+				reusedDatasetIds: isCustom && reusedDatasetIds.length > 0 ? reusedDatasetIds : undefined,
 			});
 			onCreated(result.desk.id, result.experiment.id);
 		} catch (err: unknown) {
@@ -412,6 +432,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 		adapterModel,
 		seedCodePath,
 		externalMounts,
+		reusedDatasetIds,
 		onCreated,
 	]);
 
@@ -1231,6 +1252,99 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																				</div>
 																			</div>
 																		))}
+																	</div>
+																)}
+															</div>
+
+															<div>
+																<div className="flex items-center justify-between mb-1">
+																	<span className="text-xs font-medium text-foreground/70">
+																		Reuse existing datasets
+																	</span>
+																	{availableDatasets.length > 0 && (
+																		<span className="text-[10px] text-foreground/40 tabular-nums">
+																			{reusedDatasetIds.length} / {availableDatasets.length}{" "}
+																			selected
+																		</span>
+																	)}
+																</div>
+																{datasetsLoading ? (
+																	<div className="text-[10px] text-foreground/40">Loading…</div>
+																) : availableDatasets.length === 0 ? (
+																	<div className="text-[10px] text-foreground/40">
+																		Nothing in the catalog yet. Datasets downloaded by any desk's
+																		agent will appear here and can be linked on future desks without
+																		a re-download.
+																	</div>
+																) : (
+																	<div className="rounded-md border border-border bg-muted/20 max-h-44 overflow-y-auto divide-y divide-border/60">
+																		{availableDatasets.map((d) => {
+																			const checked = reusedDatasetIds.includes(d.id);
+																			// CCXT perp symbols look like "BTC/USDC:USDC" — strip the
+																			// `:settle` suffix for the label; the perp badge carries
+																			// the info so spot vs perp is still visually clear.
+																			const pairsText = d.pairs
+																				.map((p) => p.split(":")[0])
+																				.join(", ");
+																			const hasPerp = d.pairs.some((p) => p.includes(":"));
+																			const deskLabel = d.createdByDeskName ?? null;
+																			return (
+																				<label
+																					key={d.id}
+																					className={cn(
+																						"flex items-start gap-2 px-2 py-1.5 text-[11px] cursor-pointer transition-colors",
+																						checked ? "bg-accent/30" : "hover:bg-accent/20",
+																					)}
+																				>
+																					<input
+																						type="checkbox"
+																						checked={checked}
+																						onChange={() =>
+																							setReusedDatasetIds((prev) =>
+																								prev.includes(d.id)
+																									? prev.filter((id) => id !== d.id)
+																									: [...prev, d.id],
+																							)
+																						}
+																						className="mt-0.5 size-3 shrink-0 accent-foreground"
+																					/>
+																					<div className="flex-1 min-w-0">
+																						<div className="flex items-baseline gap-1.5 flex-wrap">
+																							<span className="font-mono font-medium text-foreground">
+																								{pairsText}
+																							</span>
+																							{hasPerp && (
+																								<span className="text-[9px] px-1 py-px rounded bg-muted text-muted-foreground uppercase leading-none">
+																									perp
+																								</span>
+																							)}
+																							<span className="text-foreground/60 font-mono">
+																								{d.timeframe}
+																							</span>
+																							<span className="text-foreground/50">
+																								{d.exchange}
+																							</span>
+																						</div>
+																						<div className="flex items-baseline gap-1.5 flex-wrap text-foreground/40 text-[10px] font-mono mt-0.5">
+																							<span>
+																								{d.dateRange.start} → {d.dateRange.end}
+																							</span>
+																							{deskLabel && (
+																								<>
+																									<span className="text-foreground/25">·</span>
+																									<span
+																										className="truncate"
+																										title={`from ${deskLabel}`}
+																									>
+																										from {deskLabel}
+																									</span>
+																								</>
+																							)}
+																						</div>
+																					</div>
+																				</label>
+																			);
+																		})}
 																	</div>
 																)}
 															</div>

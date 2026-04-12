@@ -5,7 +5,7 @@ import { db } from "@quantdesk/db";
 import { datasets, deskDatasets, desks, experiments } from "@quantdesk/db/schema";
 import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
 import type { DataFetchRequest as DataFetchProposal } from "@quantdesk/shared";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog } from "./agent-log.js";
 import { systemComment } from "./comments.js";
@@ -205,13 +205,43 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 	return inserted;
 }
 
-async function linkDatasetToDesk(deskId: string, datasetId: string) {
+export async function linkDatasetToDesk(deskId: string, datasetId: string) {
 	const existingLink = await db
 		.select()
 		.from(deskDatasets)
 		.where(and(eq(deskDatasets.deskId, deskId), eq(deskDatasets.datasetId, datasetId)));
 	if (existingLink.length === 0) {
 		await db.insert(deskDatasets).values({ deskId, datasetId });
+	}
+}
+
+/**
+ * Link a set of pre-existing datasets to a newly created desk. Used by the
+ * desk-creation wizard's "Reuse existing datasets" picker: the user doesn't
+ * re-download anything, we just (a) insert `desk_datasets` join rows so the
+ * datasets show up in the per-desk list and (b) drop a symlink into the new
+ * desk's workspace for every unique exchange so the engine can read the
+ * shared cache without caring which desk actually did the download.
+ *
+ * Silently ignores unknown dataset IDs — the caller is the wizard, and a
+ * stale client cache should never block desk creation.
+ */
+export async function linkExistingDatasetsToDesk(
+	deskId: string,
+	datasetIds: string[],
+	workspaceAbs: string,
+) {
+	if (datasetIds.length === 0) return;
+	const rows = await db.select().from(datasets).where(inArray(datasets.id, datasetIds));
+	const exchanges = new Set<string>();
+	for (const ds of rows) {
+		await linkDatasetToDesk(deskId, ds.id);
+		exchanges.add(ds.exchange);
+	}
+	for (const exchange of exchanges) {
+		const exchangeCachePath = join(DATA_CACHE_ROOT, exchange);
+		const workspaceDataLink = join(resolve(workspaceAbs), "data", exchange);
+		ensureSymlink(exchangeCachePath, workspaceDataLink);
 	}
 }
 
