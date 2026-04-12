@@ -94,6 +94,15 @@ export const datasets = pgTable("datasets", {
 	exchange: text("exchange").notNull(),
 	pairs: jsonb("pairs").notNull().$type<string[]>(),
 	timeframe: text("timeframe").notNull(),
+	// Matches `DataFetchRequest.tradingMode` in @quantdesk/shared — kept as
+	// text (per project convention: no pgEnum anywhere) and constrained in
+	// application code. Stored explicitly so perp vs spot doesn't have to be
+	// inferred from CCXT `:settle` suffixes on the pair string, which was
+	// unreliable when agents registered pre-downloaded files via MCP.
+	tradingMode: text("trading_mode")
+		.notNull()
+		.default("spot")
+		.$type<"spot" | "futures" | "margin">(),
 	dateRange: jsonb("date_range").notNull().$type<{ start: string; end: string }>(),
 	path: text("path").notNull(),
 	createdByDeskId: uuid("created_by_desk_id").references(() => desks.id, {

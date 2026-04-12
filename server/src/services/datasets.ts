@@ -8,6 +8,7 @@ interface CreateDatasetInput {
 	exchange: string;
 	pairs: string[];
 	timeframe: string;
+	tradingMode?: "spot" | "futures" | "margin";
 	dateRange: { start: string; end: string };
 	path: string;
 	createdByDeskId?: string | null;

@@ -1281,12 +1281,14 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																		{availableDatasets.map((d) => {
 																			const checked = reusedDatasetIds.includes(d.id);
 																			// CCXT perp symbols look like "BTC/USDC:USDC" — strip the
-																			// `:settle` suffix for the label; the perp badge carries
-																			// the info so spot vs perp is still visually clear.
+																			// `:settle` suffix for the label (the perp badge itself
+																			// comes from the explicit tradingMode column, not from
+																			// pair-string parsing, so mis-suffixed rows still render
+																			// correctly).
 																			const pairsText = d.pairs
 																				.map((p) => p.split(":")[0])
 																				.join(", ");
-																			const hasPerp = d.pairs.some((p) => p.includes(":"));
+																			const isPerp = d.tradingMode === "futures";
 																			const deskLabel = d.createdByDeskName ?? null;
 																			return (
 																				<label
@@ -1313,7 +1315,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																							<span className="font-mono font-medium text-foreground">
 																								{pairsText}
 																							</span>
-																							{hasPerp && (
+																							{isPerp && (
 																								<span className="text-[9px] px-1 py-px rounded bg-muted text-muted-foreground uppercase leading-none">
 																									perp
 																								</span>

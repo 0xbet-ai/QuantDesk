@@ -364,7 +364,11 @@ function DatasetRow({
 			return pair;
 		})
 		.join(", ");
-	const hasPerp = d.pairs.some((p) => p.includes(":"));
+	// "futures" is QuantDesk's shorthand for perpetual swaps (crypto perps).
+	// Read the explicit tradingMode column rather than inferring from CCXT
+	// `:settle` suffixes — MCP-registered rows historically lacked the
+	// suffix and were misclassified as spot.
+	const isPerp = d.tradingMode === "futures";
 
 	return (
 		<div
@@ -387,7 +391,7 @@ function DatasetRow({
 			<Folder className="size-4 text-muted-foreground/70 shrink-0" />
 			<div className="flex items-baseline gap-1.5 min-w-0 shrink-0">
 				<span className="text-[13px] font-medium text-foreground truncate">{pairsText}</span>
-				{hasPerp && (
+				{isPerp && (
 					<span className="text-[9px] px-1 py-px rounded bg-muted text-muted-foreground uppercase leading-none">
 						perp
 					</span>

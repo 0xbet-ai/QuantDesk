@@ -66,6 +66,12 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 	const workspaceAbs = resolve(desk.workspacePath);
 	const workspaceDataLink = join(workspaceAbs, "data", proposal.exchange);
 
+	// tradingMode is part of the identity of a cached dataset — a spot
+	// BTC/USDC row can't satisfy a futures BTC/USDC request even though
+	// every other field matches. Default to "spot" when the proposal
+	// omits it, matching the column's default.
+	const proposalMode = proposal.tradingMode ?? "spot";
+
 	const cachedDatasets: (typeof datasets.$inferSelect)[] = [];
 	for (const pair of sortedPairs) {
 		const [hit] = await db
@@ -75,6 +81,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 				and(
 					eq(datasets.exchange, proposal.exchange),
 					eq(datasets.timeframe, proposal.timeframe),
+					eq(datasets.tradingMode, proposalMode),
 					sql`${datasets.pairs}::jsonb = ${JSON.stringify([pair])}::jsonb`,
 					sql`${datasets.dateRange}->>'start' = ${startDate}`,
 					sql`${datasets.dateRange}->>'end' = ${endDate}`,
@@ -179,6 +186,7 @@ export async function executeDataFetch({ experimentId, proposal, parentCommentId
 				exchange: proposal.exchange,
 				pairs: [pair],
 				timeframe: proposal.timeframe,
+				tradingMode: proposalMode,
 				dateRange: { start: startDate, end: endDate },
 				path: exchangeCachePath,
 				createdByDeskId: desk.id,
