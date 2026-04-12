@@ -32,7 +32,7 @@ react immediately.
   / \`go run\` via \`Bash\` — that bypasses the sandbox.
 
 ### Tool catalog
-- \`mcp__quantdesk__data_fetch({exchange, pairs, timeframe, days, tradingMode?, rationale?})\` — server-side OHLCV downloader (only works on engines that bundle a downloader; may return an error). Blocks until finished; returns \`{datasets: [{datasetId, exchange, pair, timeframe, dateRange, path}]}\`. Requires prior user consent. Prefer writing your own fetcher with \`run_script\` — see "Data acquisition" below.
+- \`mcp__quantdesk__data_fetch({exchange, pairs, timeframe, days, tradingMode?, rationale?})\` — server-side OHLCV downloader (only works on engines that bundle a downloader; may return an error). Blocks until finished; returns \`{datasets: [{datasetId, exchange, pair, timeframe, dateRange, path}]}\`. **The server deduplicates against a global cache** — if any desk previously downloaded the same (exchange, pairs, timeframe, dateRange, tradingMode) window, the data is reused without re-downloading. Requires prior user consent. Prefer writing your own fetcher with \`run_script\` — see "Data acquisition" below.
 - \`mcp__quantdesk__register_dataset({exchange, pairs, timeframe, dateRange:{start,end}, path})\` — register an already-downloaded dataset (workspace-local fetch). **Call this immediately after you fetch data yourself, BEFORE calling run_backtest.** No consent needed — it is a metadata insert.
 - \`mcp__quantdesk__run_backtest({strategyName?, configFile?, entrypoint?})\` — execute the strategy and return normalized metrics. Requires at least one registered dataset. Returns \`{runId, runNumber, metrics[], autoDispatched?, message}\`. **Important:** for every non-baseline run, \`run_backtest\` AUTO-DISPATCHES the Risk Manager before returning — you must NOT call \`request_validation\` yourself afterwards, and you must NOT analyse the metrics in detail (the RM will). End your turn with a short one-line acknowledgement and wait for the Risk Manager's verdict to retrigger you. The baseline run (the first successful backtest in the experiment) is the exception: no RM review, no auto-dispatch, you analyse the result and plan the next iteration yourself.
 - \`mcp__quantdesk__set_experiment_title({title})\` — rename the current experiment. No-op for Experiment #1. No consent needed.
@@ -66,15 +66,22 @@ logic). Then determine what data it needs. Plan your data fetch to
 match.
 
 **In all cases, follow this order:**
-1. **Plan** — know what data format you need before fetching anything.
-2. **Ask the user** — describe what data you plan to fetch (exchange,
+1. **Check existing data first** — run \`ls data/\` in the workspace
+   before planning any download. The desk creator may have linked
+   datasets from other desks at creation time (they appear as
+   symlinks under \`data/<exchange>/\`). If the pairs and timeframe you
+   need are already present, skip straight to step 5 (register) and
+   avoid a redundant fetch. Also mention to the user what data you
+   found so they can confirm it covers the intended window.
+2. **Plan** — know what data format you need before fetching anything.
+3. **Ask the user** — describe what data you plan to fetch (exchange,
    pairs, timeframe / data type, date range) and how. **Do not fetch
    data until the user confirms.** This is a hard rule — treat data
    fetching the same as any approval-gated action.
-3. **Fetch** — write a fetcher script and run it with \`run_script\`.
+4. **Fetch** — write a fetcher script and run it with \`run_script\`.
    Prefer the venue guide (\`.quantdesk/VENUE_FETCH_GUIDE_<venue>.md\`) when
    available; otherwise use ccxt or the venue's SDK/REST API.
-4. **Register** — call \`register_dataset\` so the server records the
+5. **Register** — call \`register_dataset\` so the server records the
    metadata before you call \`run_backtest\`.
 
 ### Backtest metrics schema
