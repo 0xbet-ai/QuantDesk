@@ -165,6 +165,11 @@ function DeskRoute({
 						onOpenTurn={(turnId: string) => navigate(`/desks/${deskId}/turns/${turnId}`)}
 						onNewExperiment={handleNewExperiment}
 						onExperimentUpdated={refreshExperiments}
+						onExperimentCreated={(newExpId) => {
+							refreshExperiments().then(() => {
+								navigate(`/desks/${deskId}/experiments/${newExpId}`);
+							});
+						}}
 					/>
 				) : selectedDesk ? (
 					<div className="flex-1 flex items-center justify-center text-[13px] text-foreground/50">

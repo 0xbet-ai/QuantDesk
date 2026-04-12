@@ -17,7 +17,12 @@ export interface LiveEvent {
 		| "paper.status"
 		// Line-buffered freqtrade stdout/stderr forwarded from the paper
 		// container. Payload: { sessionId, stream: "stdout"|"stderr", line }.
-		| "paper.log";
+		| "paper.log"
+		// Agent called `new_experiment`: the old experiment is closed and a
+		// new one was created. Published on the OLD experiment's channel so
+		// the UI that's still viewing it can auto-navigate.
+		// Payload: { newExperimentId, newTitle, newNumber }.
+		| "experiment.created";
 	payload: Record<string, unknown>;
 	createdAt: string;
 }

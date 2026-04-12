@@ -1380,12 +1380,35 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					currentExperimentId: ctx.experimentId,
 					newTitle: args.title,
 				});
+				// Notify the OLD experiment's WebSocket subscribers so the
+				// UI that's still viewing Experiment #N can auto-navigate to
+				// the freshly-created Experiment #(N+1). Without this the
+				// user stares at a "completed" experiment and has to manually
+				// click the new one in the sidebar.
+				publishExperimentEvent({
+					experimentId: ctx.experimentId,
+					type: "experiment.created",
+					payload: {
+						newExperimentId: next.id,
+						newTitle: args.title,
+						newNumber: next.number,
+					},
+				});
+				// Also fire experiment.updated on the old experiment so any
+				// sidebar list-refresh picks up status=completed immediately.
+				publishExperimentEvent({
+					experimentId: ctx.experimentId,
+					type: "experiment.updated",
+					payload: { status: "completed" },
+				});
 				if (lazyTriggerAgent) {
 					void lazyTriggerAgent(next.id).catch((err) => {
 						console.error("Retrigger on new experiment failed:", err);
 					});
 				}
-				return textResult(JSON.stringify({ newExperimentId: next.id, title: args.title }, null, 2));
+				return textResult(
+					JSON.stringify({ newExperimentId: next.id, title: args.title }, null, 2),
+				);
 			} catch (err) {
 				return errorResult(
 					`new_experiment failed: ${err instanceof Error ? err.message : String(err)}`,

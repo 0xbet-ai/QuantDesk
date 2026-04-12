@@ -36,6 +36,10 @@ interface Props {
 	onOpenTurn?: (turnId: string) => void;
 	onNewExperiment?: (newExperiment: Experiment) => void;
 	onExperimentUpdated?: () => void;
+	/** Fired when the agent calls `new_experiment` — the server publishes
+	 *  `experiment.created` on the old experiment's channel. The parent
+	 *  (App.tsx) refreshes experiments and auto-navigates to the new one. */
+	onExperimentCreated?: (newExperimentId: string) => void;
 }
 
 const authorConfig: Record<string, { icon: typeof User; color: string; label: string }> = {
@@ -249,7 +253,13 @@ const ChatInputBar = memo(function ChatInputBar({
 	);
 });
 
-export function CommentThread({ experiment, onOpenRun, onOpenTurn, onExperimentUpdated }: Props) {
+export function CommentThread({
+	experiment,
+	onOpenRun,
+	onOpenTurn,
+	onExperimentUpdated,
+	onExperimentCreated,
+}: Props) {
 	const [comments, setComments] = useState<Comment[]>([]);
 	const [sending, setSending] = useState(false);
 	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
@@ -641,6 +651,12 @@ export function CommentThread({ experiment, onOpenRun, onOpenTurn, onExperimentU
 		}
 		if (event.type === "experiment.updated") {
 			onExperimentUpdated?.();
+		}
+		if (event.type === "experiment.created") {
+			const payload = event.payload as { newExperimentId?: string };
+			if (payload.newExperimentId) {
+				onExperimentCreated?.(payload.newExperimentId);
+			}
 		}
 	});
 
