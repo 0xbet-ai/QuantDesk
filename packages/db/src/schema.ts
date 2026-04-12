@@ -221,17 +221,3 @@ export const paperSessions = pgTable("paper_sessions", {
 	stoppedAt: timestamp("stopped_at", { withTimezone: true }),
 	lastStatusAt: timestamp("last_status_at", { withTimezone: true }),
 });
-
-export const strategyCatalog = pgTable("strategy_catalog", {
-	id: text("id").primaryKey(),
-	name: text("name").notNull(),
-	category: text("category").notNull(),
-	difficulty: text("difficulty").notNull(),
-	description: text("description").notNull(),
-	summary: text("summary"),
-	indicators: jsonb("indicators").notNull().$type<string[]>(),
-	defaultParams: jsonb("default_params").notNull().$type<Record<string, unknown>>(),
-	timeframes: jsonb("timeframes").notNull().$type<string[]>(),
-	engine: text("engine").notNull(),
-	source: text("source"),
-});

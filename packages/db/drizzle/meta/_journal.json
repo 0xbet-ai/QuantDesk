@@ -78,6 +78,13 @@
       "when": 1775960090243,
       "tag": "0010_perfect_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1775960528356,
+      "tag": "0011_loud_kree",
+      "breakpoints": true
     }
   ]
 }

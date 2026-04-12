@@ -1,74 +1,16 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { db, initDb } from "./client.js";
-import { strategyCatalog } from "./schema.js";
+/**
+ * DB seed entry point.
+ *
+ * Currently a no-op: the only thing this script used to do was mirror
+ * the strategy catalog JSON files into a `strategy_catalog` Postgres
+ * table, and that mirror has been removed in favor of the server
+ * reading the JSON files directly (see `server/src/services/strategies.ts`).
+ *
+ * Kept as an empty placeholder so `pnpm db:reset` continues to work
+ * without having to edit the root `package.json` scripts — and so
+ * there's an obvious place to add future seed data if/when some piece
+ * of reference data actually needs to live in the DB.
+ */
 
-await initDb();
-
-interface StrategyEntry {
-	id: string;
-	name: string;
-	category: string;
-	difficulty: string;
-	description: string;
-	summary?: string;
-	indicators: string[];
-	default_params: Record<string, unknown>;
-	timeframes: string[];
-	engine: string;
-	source?: string;
-}
-
-const strategiesDir = resolve(import.meta.dirname, "../../../strategies");
-const files = ["freqtrade.json", "nautilus.json"];
-
-async function seed() {
-	console.log("Seeding strategy catalog...");
-
-	for (const file of files) {
-		const path = resolve(strategiesDir, file);
-		const entries: StrategyEntry[] = JSON.parse(readFileSync(path, "utf-8"));
-
-		for (const entry of entries) {
-			await db
-				.insert(strategyCatalog)
-				.values({
-					id: entry.id,
-					name: entry.name,
-					category: entry.category,
-					difficulty: entry.difficulty,
-					description: entry.description,
-					summary: entry.summary ?? null,
-					indicators: entry.indicators,
-					defaultParams: entry.default_params,
-					timeframes: entry.timeframes,
-					engine: entry.engine,
-					source: entry.source ?? null,
-				})
-				.onConflictDoUpdate({
-					target: strategyCatalog.id,
-					set: {
-						name: entry.name,
-						category: entry.category,
-						description: entry.description,
-						summary: entry.summary ?? null,
-						indicators: entry.indicators,
-						defaultParams: entry.default_params,
-						timeframes: entry.timeframes,
-						engine: entry.engine,
-						source: entry.source ?? null,
-					},
-				});
-		}
-
-		console.log(`  ${file}: ${entries.length} strategies`);
-	}
-
-	console.log("Seed complete.");
-	process.exit(0);
-}
-
-seed().catch((err) => {
-	console.error("Seed failed:", err);
-	process.exit(1);
-});
+console.log("Seed: nothing to do (strategy catalog now reads straight from JSON).");
+process.exit(0);
