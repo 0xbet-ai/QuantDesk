@@ -147,6 +147,7 @@ export const createDesk = (
 		adapterConfig?: Record<string, unknown>;
 		seedCodePath?: string;
 		externalMounts?: ExternalMountInput[];
+		reusedDatasetIds?: string[];
 	},
 ) =>
 	api<{ desk: Desk; experiment: Experiment }>("/desks", {
@@ -249,6 +250,10 @@ export interface DatasetPreview {
 }
 
 export const listDatasets = (deskId: string) => api<Dataset[]>(`/desks/${deskId}/datasets`);
+/** Global catalog across all desks — used by the desk-creation wizard's
+ *  "Reuse existing datasets" picker so the user can attach previously
+ *  downloaded data to a new desk without a fresh download. */
+export const listAllDatasets = () => api<Dataset[]>("/datasets");
 export const deleteDataset = (deskId: string, datasetId: string) =>
 	api<Dataset>(`/desks/${deskId}/datasets/${datasetId}`, { method: "DELETE" });
 export const previewDataset = (deskId: string, datasetId: string, limit = 50) =>

@@ -6,6 +6,7 @@ import { type VenueEngines, resolveEngine } from "@quantdesk/engines";
 import type { StrategyMode } from "@quantdesk/shared";
 import { eq } from "drizzle-orm";
 import venuesCatalog from "../../../strategies/venues.json" with { type: "json" };
+import { linkExistingDatasetsToDesk } from "./data-fetch.js";
 import { autoIncrementExperimentNumber } from "./logic.js";
 import { validateExternalMounts, validateSeedPath } from "./seed-path.js";
 import { initWorkspace } from "./workspace.js";
@@ -41,6 +42,14 @@ interface CreateDeskInput {
 	 * every container spawn (and reconcile after server restart). Phase 10.
 	 */
 	externalMounts?: Array<{ label: string; hostPath: string; description?: string }>;
+	/**
+	 * Optional list of dataset IDs from the global catalog to attach to the
+	 * new desk. Each ID gets a `desk_datasets` join row plus a workspace
+	 * symlink to the shared cache, so the agent can call run_backtest
+	 * against it immediately without having to re-download anything.
+	 * Populated by the wizard's "Reuse existing datasets" picker.
+	 */
+	reusedDatasetIds?: string[];
 }
 
 function resolveEngineForVenues(venueIds: string[], mode: StrategyMode): string {
@@ -114,6 +123,14 @@ export async function createDesk(input: CreateDeskInput) {
 		venues: input.venues,
 	});
 	await db.update(desks).set({ workspacePath }).where(eq(desks.id, desk!.id));
+
+	// Attach any pre-existing datasets the user picked in the wizard. Runs
+	// after workspace init so the symlink target directory exists. Bad IDs
+	// are silently ignored — a stale client cache should never orphan a
+	// desk that was otherwise created fine.
+	if (input.reusedDatasetIds && input.reusedDatasetIds.length > 0) {
+		await linkExistingDatasetsToDesk(desk!.id, input.reusedDatasetIds, workspacePath);
+	}
 
 	const existingCount = 0;
 	const number = autoIncrementExperimentNumber(existingCount);
