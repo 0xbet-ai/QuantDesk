@@ -1,20 +1,18 @@
-# 13 — Paper trading MCP tools (go_paper / run_paper) (TODO)
+# 13 — Paper trading MCP tools (TODO: `run_paper` only)
 
-Spec: `doc/agent/MCP.md` paper-promotion tools. The lifecycle tool set already includes `request_validation` / `submit_rm_verdict`, but the paper-promotion tools are not yet wired up.
+**Status: PARTIAL.** `go_paper` is live (`server/src/mcp/server.ts`, registered around the "go_paper" tool handler; it calls `startPaper()` and returns `{sessionId, containerName}`). The only remaining slice is the `run_paper` non-interactive variant.
+
+## What's still missing
+
+`mcp__quantdesk__run_paper({runId})` — the server-driven recovery sibling of `go_paper`. Same `startPaper` flow (paper_gates already implemented), but without the user-consent expectation.
+
+- Register the tool handler in `server/src/mcp/server.ts` next to the existing `go_paper` handler. Reuse `startPaper(runId)` directly — the gates already handle "one paper session per desk" and the validation-verdict precondition.
+- Add it to `server/src/services/prompts/tools-glossary.ts` so the analyst knows when to use which: `go_paper` is the default (fresh human-in-the-loop promotion), `run_paper` is only for retrigger / observer-turn recovery paths where there is no new user consent to wait on.
+- Update `doc/agent/MCP.md` with the `run_paper` signature + its precondition delta vs `go_paper`.
 
 ## Tests first
 
-1. `mcp__quantdesk__go_paper({runId})` tool handler:
-   - Requires `runs.result.validation.verdict === "approve"` on the referenced run. Otherwise returns an `isError` result that tells the agent to ask the user about validation.
-   - Rejects when the desk already has an active paper session (one paper session per desk, by design).
-   - On success calls `startPaperSession(runId)` (phase 12 gates) → invokes `engineAdapter.startPaper()` → stores the returned `containerName` on the `paperSessions` row.
-2. The launched container carries `quantdesk.runId`, `quantdesk.deskId`, `quantdesk.engine`, `quantdesk.kind=paper` labels — verify Freqtrade (already true) and add for any other adapter that lacks them.
-3. `mcp__quantdesk__run_paper({runId})` is the non-interactive variant for retrigger and observer-turn recovery paths; it runs the same `startPaperSession` flow without the user-consent expectation. Agents should normally use `go_paper`; `run_paper` exists for server-driven recovery.
-4. Both tools return `{ sessionId, containerName }` on success.
-
-## Then implement
-
-- Register `go_paper` and `run_paper` tool handlers in `server/src/mcp/server.ts`.
-- Handlers call into `paper-sessions.startPaperSession` + `engineAdapter.startPaper`.
-- Update the prompt tool glossary (`server/src/services/prompts/tools-glossary.ts`) so the analyst knows both tools exist and which one to call.
-- Update `doc/agent/MCP.md` with the two tool signatures + precondition chain.
+1. `mcp__quantdesk__run_paper({runId})` tool handler:
+   - Same preconditions as `go_paper` (`runs.result.validation.verdict === "approve"`, one-paper-per-desk).
+   - Returns `{sessionId, containerName}` on success.
+   - Distinct from `go_paper` only in that it is expected on the recovery path, not the happy path — the tool glossary should reflect that.

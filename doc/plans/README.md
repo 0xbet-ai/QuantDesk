@@ -19,13 +19,9 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 
 | # | Title | Kind |
 |---|-------|------|
-| 11 | [paperSessions table schema](11_paper_schema.md) | TODO |
-| 12 | [paper-sessions service: promotion gates](12_paper_gates.md) | TODO |
-| 13 | [Paper trading MCP tools (go_paper / run_paper)](13_paper_dispatch.md) | TODO |
-| 14 | [Boot-time paper reconcile](14_paper_reconcile.md) | TODO |
+| 13 | [Paper trading MCP tools: `run_paper` recovery sibling](13_paper_dispatch.md) | TODO (partial — `go_paper` done) |
 | 15 | [Paper status polling](15_paper_status_polling.md) | TODO |
 | 16 | [Observer turns while paper runs](16_paper_observer_turns.md) | TODO |
-| 17 | [Paper UI wiring + desk header widget](17_paper_ui.md) | TODO |
 
 ### Group E — BUG fixes (code violates spec)
 
@@ -45,14 +41,13 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 | 24 | [Secret scrubbing on the way in](24_memory_scrubbing.md) | TODO |
 | 25 | [Prompt injection ordering + budget guard](25_memory_injection.md) | TODO |
 
-### Group G — UX
-
-| # | Title | Kind |
-|---|-------|------|
-| 26 | [Server-side P1 bootstrap for catalog desks](26_catalog_p1_bootstrap.md) | TODO |
-
-
 ## DONE (baseline — already in code)
+
+### Paper trading (phases 11, 12, 14, 17)
+- **Paper session schema** — `paperSessions` table with `deskId`, `runId`, `engine`, `containerName`, `status` lifecycle, `startedAt` / `stoppedAt` / `lastStatusAt`. Migration wired into the baseline drizzle set. — `packages/db/src/schema.ts`
+- **Promotion gates** — `startPaper` / `stopPaper` / `getActiveSession` enforce the "one paper session per desk" invariant and the `runs.result.validation.verdict === "approve"` precondition, and drive the state transitions. All gating is in the service layer, not the route. — `server/src/services/paper-sessions.ts`
+- **Boot-time reconcile** — `reconcilePaperSessions()` queries `docker ps --filter label=quantdesk.kind=paper` at startup, then for each stored row either keeps it running (live container still present), marks it `failed` with a rule #12 system comment (DB says running but container vanished during restart), or cleans up the orphan container (live container without a matching DB row). — `server/src/services/startup-cleanup.ts`
+- **Paper UI + desk header widget** — `PaperTradingView` renders the live status block, stop button, and WebSocket status feed; the desk header surfaces the active paper widget so operators see the session without drilling in. — `ui/src/components/PaperTradingView.tsx`
 
 ### Agent protocol (phase 27)
 - **MCP tool migration** — the bracketed-marker protocol (`[DATA_FETCH]`, `[RUN_BACKTEST]`, etc.) is gone. Every lifecycle action (data_fetch, register_dataset, run_backtest, set_experiment_title, request_validation, submit_rm_verdict, new_experiment, complete_experiment) is now an MCP tool hosted in-process at `POST /mcp` on the parent server. Claude CLI connects via `--mcp-config` → `{"type":"http","url":"http://127.0.0.1:PORT/mcp","headers":{"X-QuantDesk-Experiment":..., "X-QuantDesk-Desk":...}}`. Tool handlers run in-process with full access to the DB, event emitter, engine adapters, and `triggerAgent`. Dead-end guard's hadMarker signal is now driven by `tool_call` streaming chunks instead of marker regex. See `doc/agent/MCP.md`. — `server/src/mcp/{server,http-route}.ts`, `server/src/services/{agent-trigger,prompts/analyst-system}.ts`, `packages/shared/src/agent-markers.ts` (reduced to defensive stripping).
