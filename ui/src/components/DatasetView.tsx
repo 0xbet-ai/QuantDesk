@@ -1,34 +1,13 @@
-import { ChevronRight, Database, Eye, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { Database, Folder, Search, Trash2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Dataset, DatasetPreview, Desk } from "../lib/api.js";
 import { deleteDataset, listDatasets, previewDataset, previewDatasetGlobal } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
-import { ScrollArea } from "./ui/scroll-area.js";
+import { Button } from "./ui/button.js";
+import { Input } from "./ui/input.js";
 
 interface Props {
 	desk: Desk;
-}
-
-function formatDate(dateStr: string): string {
-	return new Date(dateStr).toLocaleDateString("en-US", {
-		month: "short",
-		day: "numeric",
-		year: "numeric",
-	});
-}
-
-function formatRelativeTime(timestamp: string): string {
-	const diff = Date.now() - new Date(timestamp).getTime();
-	const seconds = Math.floor(diff / 1000);
-	const minutes = Math.floor(seconds / 60);
-	const hours = Math.floor(minutes / 60);
-	const days = Math.floor(hours / 24);
-
-	if (seconds < 60) return "just now";
-	if (minutes < 60) return `${minutes}m ago`;
-	if (hours < 24) return `${hours}h ago`;
-	if (days < 7) return `${days}d ago`;
-	return formatDate(timestamp);
 }
 
 function formatBytes(bytes: number): string {
@@ -192,10 +171,20 @@ export function DatasetPreviewModal({
 	);
 }
 
+/**
+ * Per-desk datasets view. Dense list grouped by exchange with a single
+ * search box that matches across pair / exchange / timeframe / experiment /
+ * date range, and recent-first ordering. Adapted from the previous global
+ * datasets view — scoping is now automatic via `listDatasets(desk.id)`,
+ * which joins through `desk_datasets` on the server.
+ */
 export function DatasetView({ desk }: Props) {
 	const [datasets, setDatasets] = useState<Dataset[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [confirmingId, setConfirmingId] = useState<string | null>(null);
+	const [deletingId, setDeletingId] = useState<string | null>(null);
 	const [previewing, setPreviewing] = useState<Dataset | null>(null);
+	const [query, setQuery] = useState("");
 
 	const refresh = useCallback(() => {
 		setLoading(true);
@@ -207,118 +196,135 @@ export function DatasetView({ desk }: Props) {
 
 	useEffect(() => {
 		refresh();
+		// Agents create datasets in the background as they fetch data. The
+		// server doesn't emit a `dataset.new` WS event yet, so we poll every
+		// 4s while the view is mounted and refresh on window focus so a
+		// Cmd-Tab back picks up new rows immediately.
+		const interval = setInterval(refresh, 4000);
+		const onFocus = () => refresh();
+		window.addEventListener("focus", onFocus);
+		return () => {
+			clearInterval(interval);
+			window.removeEventListener("focus", onFocus);
+		};
 	}, [refresh]);
 
-	const handleDelete = async (datasetId: string) => {
-		await deleteDataset(desk.id, datasetId);
-		refresh();
+	const handleDelete = async (id: string) => {
+		setDeletingId(id);
+		try {
+			await deleteDataset(desk.id, id);
+			setConfirmingId(null);
+			refresh();
+		} catch (err) {
+			console.error("Failed to delete dataset:", err);
+		} finally {
+			setDeletingId(null);
+		}
 	};
 
+	// Recent first + client-side search, then group by exchange.
+	const { filtered, grouped } = useMemo(() => {
+		const sorted = [...datasets].sort(
+			(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+		);
+		const q = query.trim().toLowerCase();
+		const list = q
+			? sorted.filter((d) => {
+					const blob = [
+						d.exchange,
+						d.pairs.join(" "),
+						d.timeframe,
+						d.dateRange.start,
+						d.dateRange.end,
+						d.createdByExperimentTitle ?? "",
+						d.createdByExperimentNumber != null ? `#${d.createdByExperimentNumber}` : "",
+					]
+						.join(" ")
+						.toLowerCase();
+					return blob.includes(q);
+				})
+			: sorted;
+		const groups = new Map<string, Dataset[]>();
+		for (const d of list) {
+			const key = d.exchange.toLowerCase();
+			const arr = groups.get(key) ?? [];
+			arr.push(d);
+			groups.set(key, arr);
+		}
+		return { filtered: list, grouped: groups };
+	}, [datasets, query]);
+
 	return (
-		<div className="flex flex-col h-full">
-			{/* Breadcrumb */}
-			<div className="px-6 h-12 flex items-center gap-1.5 text-[13px] text-muted-foreground shrink-0 border-b border-border">
-				<span>{desk.name}</span>
-				<ChevronRight className="size-3" />
-				<span className="text-foreground font-medium">Datasets</span>
+		<div className="flex-1 flex flex-col min-h-0">
+			<div className="h-12 shrink-0 border-b border-border flex items-center px-6 gap-3">
+				<div className="flex items-center gap-2 min-w-0">
+					<Database className="size-4 text-muted-foreground shrink-0" />
+					<h1 className="text-sm font-medium">Datasets</h1>
+				</div>
+				<div className="flex-1" />
+				<div className="relative">
+					<Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/70 pointer-events-none" />
+					<Input
+						type="search"
+						value={query}
+						onChange={(e) => setQuery(e.target.value)}
+						placeholder="Search pair, exchange, timeframe…"
+						className="h-8 w-64 pl-8 text-xs"
+					/>
+				</div>
 			</div>
 
-			{/* Content */}
-			<ScrollArea className="flex-1">
-				<div className="max-w-3xl px-6 py-6">
-					{/* Title */}
-					<div className="flex items-center gap-2.5 mb-6">
-						<Database className="size-5 text-muted-foreground" />
-						<h2 className="text-sm font-semibold">Datasets</h2>
-						<span className="text-xs text-muted-foreground">
-							Market data downloaded by the agent
-						</span>
+			<div className="flex-1 overflow-y-auto">
+				{loading ? (
+					<div className="p-6 text-sm text-muted-foreground">Loading…</div>
+				) : datasets.length === 0 ? (
+					<div className="p-6 text-sm text-muted-foreground">
+						No datasets yet. The agent will download market data here as experiments run.
 					</div>
-
-					{loading ? (
-						<div className="text-[13px] text-muted-foreground">Loading...</div>
-					) : datasets.length === 0 ? (
-						<div className="text-[13px] text-muted-foreground">No datasets yet.</div>
-					) : (
-						<div className="space-y-6">
-							{Object.entries(
-								datasets.reduce<Record<string, typeof datasets>>((acc, ds) => {
-									const key = ds.exchange.toLowerCase();
-									(acc[key] ??= []).push(ds);
-									return acc;
-								}, {}),
-							).map(([exchange, items]) => (
-								<div key={exchange}>
-									<div className="flex items-center gap-2 mb-3">
-										<Database className="size-3.5 text-muted-foreground/60" />
-										<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-											{exchange}
-										</span>
-										<span className="text-[11px] text-muted-foreground/50">
-											{items.length} dataset{items.length !== 1 ? "s" : ""}
-										</span>
-									</div>
-									<div className="space-y-2 pl-5">
-										{items.map((ds) => (
-											<button
-												type="button"
-												key={ds.id}
-												onClick={() => setPreviewing(ds)}
-												className="w-full text-left rounded-lg border border-border p-3 shadow-sm hover:bg-accent/30 transition-colors group"
-											>
-												<div className="flex items-center justify-between gap-3">
-													<div className="min-w-0 flex-1">
-														<div className="flex items-center gap-2 mb-1">
-															<span className="text-[13px] font-medium font-mono">
-																{ds.pairs.map((p) => p.split(":")[0]).join(", ")}
-															</span>
-															{ds.pairs.some((p) => p.includes(":")) && (
-																<span className="text-[9px] px-1 py-px rounded bg-muted text-muted-foreground uppercase leading-none">
-																	perp
-																</span>
-															)}
-														</div>
-														<div className="flex items-center gap-3 text-xs text-muted-foreground">
-															<span
-																className={cn(
-																	"rounded bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide",
-																)}
-															>
-																{ds.timeframe}
-															</span>
-															<span>
-																{formatDate(ds.dateRange.start)} — {formatDate(ds.dateRange.end)}
-															</span>
-															<span className="text-border">|</span>
-															<span>{formatRelativeTime(ds.createdAt)}</span>
-														</div>
-													</div>
-													<div className="flex items-center gap-1 shrink-0">
-														<div className="p-1.5 rounded text-muted-foreground/40 group-hover:text-foreground transition-colors">
-															<Eye className="size-3.5" />
-														</div>
-														<button
-															type="button"
-															onClick={(e) => {
-																e.stopPropagation();
-																handleDelete(ds.id);
-															}}
-															className="p-1.5 rounded text-muted-foreground/50 hover:text-red-500 transition-colors"
-														>
-															<Trash2 className="size-3.5" />
-														</button>
-													</div>
-												</div>
-											</button>
-										))}
-									</div>
+				) : filtered.length === 0 ? (
+					<div className="p-6 text-sm text-muted-foreground">
+						No datasets match{" "}
+						<span className="font-mono text-foreground">&ldquo;{query}&rdquo;</span>.{" "}
+						<button
+							type="button"
+							onClick={() => setQuery("")}
+							className="underline hover:text-foreground"
+						>
+							Clear search
+						</button>
+					</div>
+				) : (
+					<div className="px-3 py-2 space-y-4">
+						{[...grouped.entries()].map(([exchange, items]) => (
+							<div key={exchange}>
+								<div className="flex items-center gap-2 px-3 py-1.5 mb-1">
+									<Database className="size-3.5 text-muted-foreground/60" />
+									<span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+										{exchange}
+									</span>
+									<span className="text-[11px] text-muted-foreground/50">
+										{items.length} dataset{items.length !== 1 ? "s" : ""}
+									</span>
 								</div>
-							))}
-						</div>
-					)}
-				</div>
-			</ScrollArea>
-
+								<div className="pl-6">
+									{items.map((d) => (
+										<DatasetRow
+											key={d.id}
+											dataset={d}
+											confirming={confirmingId === d.id}
+											deleting={deletingId === d.id}
+											onOpen={() => setPreviewing(d)}
+											onStartConfirm={() => setConfirmingId(d.id)}
+											onCancelConfirm={() => setConfirmingId(null)}
+											onConfirmDelete={() => handleDelete(d.id)}
+										/>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				)}
+			</div>
 			{previewing && (
 				<DatasetPreviewModal
 					dataset={previewing}
@@ -328,4 +334,145 @@ export function DatasetView({ desk }: Props) {
 			)}
 		</div>
 	);
+}
+
+interface DatasetRowProps {
+	dataset: Dataset;
+	confirming: boolean;
+	deleting: boolean;
+	onOpen: () => void;
+	onStartConfirm: () => void;
+	onCancelConfirm: () => void;
+	onConfirmDelete: () => void;
+}
+
+function DatasetRow({
+	dataset: d,
+	confirming,
+	deleting,
+	onOpen,
+	onStartConfirm,
+	onCancelConfirm,
+	onConfirmDelete,
+}: DatasetRowProps) {
+	const pairsText = d.pairs
+		.map((p) => {
+			// CCXT perp symbols look like "BTC/USDC:USDC" — strip the
+			// `:settle` suffix for compactness (the perp badge conveys
+			// the same info).
+			const [pair] = p.split(":");
+			return pair;
+		})
+		.join(", ");
+	const hasPerp = d.pairs.some((p) => p.includes(":"));
+
+	return (
+		<div
+			className={cn(
+				"group flex items-center gap-3 h-10 px-3 rounded-md cursor-pointer",
+				"hover:bg-muted/40",
+			)}
+			onClick={onOpen}
+			onKeyDown={(e) => {
+				if (e.key === "Enter" || e.key === " ") {
+					e.preventDefault();
+					onOpen();
+				}
+			}}
+			// biome-ignore lint/a11y/useSemanticElements: row can't be a real <button> — it nests action buttons (delete confirm/cancel)
+			role="button"
+			tabIndex={0}
+			title={`${d.path}\nAdded ${new Date(d.createdAt).toLocaleString()}`}
+		>
+			<Folder className="size-4 text-muted-foreground/70 shrink-0" />
+			<div className="flex items-baseline gap-1.5 min-w-0 shrink-0">
+				<span className="text-[13px] font-medium text-foreground truncate">{pairsText}</span>
+				{hasPerp && (
+					<span className="text-[9px] px-1 py-px rounded bg-muted text-muted-foreground uppercase leading-none">
+						perp
+					</span>
+				)}
+			</div>
+			<span className="text-[11px] text-muted-foreground font-mono shrink-0">{d.timeframe}</span>
+			<span className="text-[11px] text-muted-foreground/80 shrink-0">{d.exchange}</span>
+			<span className="text-[11px] text-muted-foreground/80 font-mono shrink-0 hidden md:inline">
+				{d.dateRange.start} → {d.dateRange.end}
+			</span>
+			<div className="flex-1" />
+			{d.createdByExperimentNumber != null && (
+				<span className="text-[11px] text-muted-foreground/70 truncate max-w-[280px] hidden lg:inline">
+					#{d.createdByExperimentNumber}
+					{d.createdByExperimentTitle && (
+						<span className="text-muted-foreground/50">{` · ${d.createdByExperimentTitle}`}</span>
+					)}
+				</span>
+			)}
+			<span className="text-[11px] text-muted-foreground/60 tabular-nums shrink-0 w-[68px] text-right hidden sm:inline">
+				{formatRelative(d.createdAt)}
+			</span>
+			{confirming ? (
+				<div
+					className="flex items-center gap-1 shrink-0"
+					onClick={(e) => e.stopPropagation()}
+					onKeyDown={(e) => e.stopPropagation()}
+					role="presentation"
+				>
+					<Button
+						variant="destructive"
+						size="sm"
+						className="h-6 px-2 text-[11px]"
+						onClick={onConfirmDelete}
+						disabled={deleting}
+					>
+						{deleting ? "Deleting…" : "Confirm"}
+					</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						className="h-6 px-2 text-[11px]"
+						onClick={onCancelConfirm}
+						disabled={deleting}
+					>
+						Cancel
+					</Button>
+				</div>
+			) : (
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					className={cn(
+						"shrink-0 text-muted-foreground hover:text-destructive",
+						"opacity-0 group-hover:opacity-100 transition-opacity",
+					)}
+					onClick={(e) => {
+						e.stopPropagation();
+						onStartConfirm();
+					}}
+					title="Delete dataset"
+				>
+					<Trash2 className="size-3.5" />
+				</Button>
+			)}
+		</div>
+	);
+}
+
+function formatRelative(iso: string): string {
+	const then = new Date(iso).getTime();
+	const now = Date.now();
+	const diff = Math.max(0, now - then);
+	const sec = Math.floor(diff / 1000);
+	if (sec < 60) return `${sec}s ago`;
+	const min = Math.floor(sec / 60);
+	if (min < 60) return `${min}m ago`;
+	const hr = Math.floor(min / 60);
+	if (hr < 24) return `${hr}h ago`;
+	const day = Math.floor(hr / 24);
+	if (day < 14) return `${day}d ago`;
+	const wk = Math.floor(day / 7);
+	if (wk < 8) return `${wk}w ago`;
+	const mo = Math.floor(day / 30);
+	if (mo < 12) return `${mo}mo ago`;
+	const yr = Math.floor(day / 365);
+	return `${yr}y ago`;
 }
