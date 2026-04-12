@@ -327,14 +327,19 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 	// step — that's the only step where the "Bring your own" section is
 	// rendered, so we can avoid the request on non-custom flows that never
 	// open the picker. Failures are non-fatal: the picker just shows empty.
+	// Uses a ref (not state) to flag "already fetched" because an empty
+	// response must still count as a completed fetch — otherwise
+	// `availableDatasets.length === 0` would re-trigger the effect forever.
+	const datasetsFetchedRef = useRef(false);
 	useEffect(() => {
-		if (step !== "strategy" || availableDatasets.length > 0 || datasetsLoading) return;
+		if (step !== "strategy" || datasetsFetchedRef.current) return;
+		datasetsFetchedRef.current = true;
 		setDatasetsLoading(true);
 		listAllDatasets()
 			.then(setAvailableDatasets)
 			.catch(() => setAvailableDatasets([]))
 			.finally(() => setDatasetsLoading(false));
-	}, [step, availableDatasets.length, datasetsLoading]);
+	}, [step]);
 
 	const toggleVenue = (id: string) => {
 		setSelectedVenues((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
