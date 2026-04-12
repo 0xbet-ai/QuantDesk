@@ -16,7 +16,8 @@ interface LiveEvent {
 		| "turn.status"
 		| "run.log_chunk"
 		| "paper.status"
-		| "paper.log";
+		| "paper.log"
+		| "experiment.created";
 	payload: Record<string, unknown>;
 	createdAt: string;
 }

@@ -11,7 +11,7 @@ import {
 	Shield,
 	User,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import venues from "../../../strategies/venues.json";
 import type { Desk, Experiment, Run, Strategy } from "../lib/api.js";
 import {
@@ -96,6 +96,33 @@ export function DeskPanel({
 	const [bestReturns, setBestReturns] = useState<Record<string, number | null>>({});
 	const [runningExperiments, setRunningExperiments] = useState<Record<string, boolean>>({});
 	const [liveAgentExperiments, setLiveAgentExperiments] = useState<Set<string>>(() => new Set());
+
+	// Track newly-arrived experiment IDs so we can flash a highlight
+	// animation in the sidebar when the agent creates a new experiment.
+	// Compares the current `experiments` prop against the previous
+	// render's snapshot; any ID that wasn't present last time gets a
+	// 3-second highlight.
+	const prevExpIdsRef = useRef<Set<string>>(new Set(experiments.map((e) => e.id)));
+	const [newExpIds, setNewExpIds] = useState<Set<string>>(new Set());
+	useEffect(() => {
+		const prev = prevExpIdsRef.current;
+		const fresh = new Set<string>();
+		for (const exp of experiments) {
+			if (!prev.has(exp.id)) fresh.add(exp.id);
+		}
+		prevExpIdsRef.current = new Set(experiments.map((e) => e.id));
+		if (fresh.size > 0) {
+			setNewExpIds((old) => new Set([...old, ...fresh]));
+			const timer = setTimeout(() => {
+				setNewExpIds((old) => {
+					const next = new Set(old);
+					for (const id of fresh) next.delete(id);
+					return next;
+				});
+			}, 3000);
+			return () => clearTimeout(timer);
+		}
+	}, [experiments]);
 
 	const [strategy, setStrategy] = useState<Strategy | null>(null);
 
@@ -258,10 +285,12 @@ export function DeskPanel({
 							return (
 								<div
 									key={exp.id}
-									className={`group relative w-full min-w-0 flex items-center ${
-										exp.id === selectedExperimentId
-											? "bg-accent text-accent-foreground"
-											: "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
+									className={`group relative w-full min-w-0 flex items-center transition-colors ${
+										newExpIds.has(exp.id)
+											? "animate-pulse bg-blue-100/60 dark:bg-blue-900/30"
+											: exp.id === selectedExperimentId
+												? "bg-accent text-accent-foreground"
+												: "text-foreground/80 hover:bg-accent/50 hover:text-foreground"
 									}`}
 								>
 									<button
