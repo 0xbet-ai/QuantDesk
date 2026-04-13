@@ -193,10 +193,36 @@ ${desk.description ?? ""}
 		}
 	}
 
-	// 7. ## Context Summary (conditional — memory summaries from MEMORY.md)
+	// 7. ## Context Summary — past experiment learnings injected into the
+	//    prompt so the analyst doesn't repeat failed hypotheses or forget
+	//    validated ones. Token-budgeted: if the combined summaries exceed
+	//    MEMORY_TOKEN_BUDGET, older experiment summaries are dropped
+	//    (most-recent-first priority) while desk-level summaries are
+	//    always kept (they're the most compressed / highest-signal layer).
 	if (memorySummaries.length > 0) {
-		const summaryLines = memorySummaries.map((s) => `[${s.level}] ${s.content}`);
-		sections.push(`## Context Summary\n${summaryLines.join("\n\n")}`);
+		const MEMORY_TOKEN_BUDGET = 4000;
+		// Separate desk-level (always keep) from experiment-level (trim oldest first)
+		const deskSummaries = memorySummaries.filter((s) => s.level === "desk");
+		const expSummaries = memorySummaries.filter((s) => s.level !== "desk");
+		// Reverse experiment summaries so most recent is first (will be kept on trim)
+		const expReversed = [...expSummaries].reverse();
+
+		// Always include desk summaries
+		const kept: typeof memorySummaries = [...deskSummaries];
+		let tokens = deskSummaries.reduce((sum, s) => sum + estimateTokens(`[${s.level}] ${s.content}`), 0);
+
+		// Add experiment summaries newest-first until budget is hit
+		for (const s of expReversed) {
+			const cost = estimateTokens(`[${s.level}] ${s.content}`);
+			if (tokens + cost > MEMORY_TOKEN_BUDGET) break;
+			tokens += cost;
+			kept.push(s);
+		}
+
+		if (kept.length > 0) {
+			const summaryLines = kept.map((s) => `[${s.level}] ${s.content}`);
+			sections.push(`## Context Summary (past experiments)\n${summaryLines.join("\n\n")}`);
+		}
 	}
 
 	// 8. ## Conversation — full thread on first run, diff since last turn on resume
