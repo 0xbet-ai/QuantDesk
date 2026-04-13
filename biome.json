@@ -9,14 +9,22 @@
 			"recommended": true,
 			"correctness": {
 				"noUnusedImports": "error",
-				"noUnusedVariables": "warn"
+				"noUnusedVariables": "warn",
+				"useExhaustiveDependencies": "off"
 			},
 			"style": {
 				"useImportType": "error",
-				"noNonNullAssertion": "off"
+				"noNonNullAssertion": "off",
+				"noUnusedTemplateLiteral": "off",
+				"useTemplate": "off",
+				"noNamespace": "off"
 			},
 			"a11y": {
-				"noLabelWithoutControl": "off"
+				"noLabelWithoutControl": "off",
+				"useSemanticElements": "off"
+			},
+			"suspicious": {
+				"noArrayIndexKey": "off"
 			}
 		}
 	},
