@@ -78,7 +78,7 @@ returned tool_result payload.
 
 1. **English only** — all code, comments, UI strings, docs, commits. Exception: `README.md` files must be provided in all supported UI languages (`en`, `ko`, `ja`, `zh`, `es`, `pt-BR`, `fr`) using the naming convention `README.<lang>.md` (e.g. `README.ko.md`). The root `README.md` is always English.
 2. **File refs** — repo-root relative (`src/core/runner.ts:42`), never absolute.
-3. **Commits** — `<type>: <description>`. Types: `feat`, `fix`, `refactor`, `docs`, `chore`.
+3. **Commits** — `<type>: <description>`. Types: `feat`, `fix`, `refactor`, `docs`, `chore`. **No scoped prefixes** — write `fix: ...`, never `fix(ui): ...` or `feat(server): ...`.
 4. **Secrets** — never commit. Use env vars. `.env` is gitignored.
 5. **Scope** — backtesting and paper trading only. **Live trading is an explicit forever non-goal** — never implement, design for, or expose real-money trading in APIs or UI. No API keys for trading, no custody, no order routing to real venues.
 6. **Engine selection is automatic, but the resolved engine is visible.** Users pick a **strategy mode** (`classic` or `realtime`) and a venue at desk creation; the system auto-resolves the engine (Freqtrade / Nautilus / Generic) from that pair and pins it for the desk's lifetime. The resolved engine is shown on the Desk Settings page so operators can read the Run transcripts, match behaviour to `doc/engine/README.md`, and debug cross-engine issues (e.g. "this container error is a Nautilus pyo3 binding, not Freqtrade"). Users must NOT be asked to pick an engine directly — the pick is always through `(mode, venue)`. The full mapping and the closed whitelist live in `doc/engine/README.md`.
