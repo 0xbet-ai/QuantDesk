@@ -171,6 +171,12 @@ export const createDesk = (
 export const updateDesk = (id: string, data: Partial<Desk>) =>
 	api<Desk>(`/desks/${id}`, { method: "PATCH", body: JSON.stringify(data) });
 export const archiveDesk = (id: string) => api<Desk>(`/desks/${id}/archive`, { method: "POST" });
+export const exportDesk = (id: string) => api<Record<string, unknown>>(`/desks/${id}/export`);
+export const importDeskPackage = (pkg: Record<string, unknown>) =>
+	api<{ deskId: string; experimentCount: number }>("/desks/import", {
+		method: "POST",
+		body: JSON.stringify(pkg),
+	});
 
 export const listExperiments = (deskId: string) =>
 	api<Experiment[]>(`/desks/${deskId}/experiments`);

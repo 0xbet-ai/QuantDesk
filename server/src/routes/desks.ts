@@ -8,6 +8,7 @@ import {
 	listDatasets,
 	previewDataset,
 } from "../services/datasets.js";
+import { exportDesk, importDesk } from "../services/desk-package.js";
 import { archiveDesk, createDesk, getDesk, listDesks, updateDesk } from "../services/desks.js";
 import { createExperiment, listExperiments } from "../services/experiments.js";
 import { getCode, getDiff, getLog, listFiles } from "../services/workspace.js";
@@ -89,6 +90,26 @@ router.get("/:id/active-experiments", async (req, res, next) => {
 router.post("/:id/experiments", async (req, res, next) => {
 	try {
 		const result = await createExperiment({ deskId: req.params.id, ...req.body });
+		res.status(201).json(result);
+	} catch (err) {
+		next(err);
+	}
+});
+
+router.get("/:id/export", async (req, res, next) => {
+	try {
+		const pkg = await exportDesk(req.params.id);
+		const filename = `${pkg.desk.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_${new Date().toISOString().slice(0, 10)}.json`;
+		res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+		res.json(pkg);
+	} catch (err) {
+		next(err);
+	}
+});
+
+router.post("/import", async (req, res, next) => {
+	try {
+		const result = await importDesk(req.body);
 		res.status(201).json(result);
 	} catch (err) {
 		next(err);

@@ -1,10 +1,10 @@
 import { ChevronRight, Download, Lock, Settings, Upload } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import strategyCatalog from "../../../strategies/freqtrade.json";
 import nautilusCatalog from "../../../strategies/nautilus.json";
 import venues from "../../../strategies/venues.json";
 import type { Desk } from "../lib/api.js";
-import { archiveDesk, updateDesk } from "../lib/api.js";
+import { archiveDesk, exportDesk, importDeskPackage, updateDesk } from "../lib/api.js";
 
 const allStrategies = [...strategyCatalog, ...nautilusCatalog];
 
@@ -56,6 +56,8 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 	const [archiving, setArchiving] = useState(false);
 	const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 	const [archiveConfirmText, setArchiveConfirmText] = useState("");
+	const [exporting, setExporting] = useState(false);
+	const importRef = useRef<HTMLInputElement>(null);
 
 	useEffect(() => {
 		setName(desk.name);
@@ -167,7 +169,7 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 							</div>
 							<Lock className="size-3 text-muted-foreground" />
 						</div>
-						<div className="rounded-lg border border-border p-4 space-y-6">
+						<div className="rounded-lg border border-border p-4 space-y-8">
 							{(() => {
 								const strategy = desk.strategyId
 									? allStrategies.find((s) => s.id === desk.strategyId)
@@ -278,14 +280,61 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 							file.
 						</p>
 						<div className="flex gap-2">
-							<Button variant="outline" size="sm" disabled>
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={exporting}
+								onClick={async () => {
+									setExporting(true);
+									try {
+										const pkg = await exportDesk(desk.id);
+										const blob = new Blob([JSON.stringify(pkg, null, 2)], {
+											type: "application/json",
+										});
+										const url = URL.createObjectURL(blob);
+										const a = document.createElement("a");
+										a.href = url;
+										a.download = `${desk.name.replace(/[^a-zA-Z0-9_-]/g, "_")}_${new Date().toISOString().slice(0, 10)}.json`;
+										a.click();
+										URL.revokeObjectURL(url);
+									} catch (err) {
+										console.error("Export failed:", err);
+									} finally {
+										setExporting(false);
+									}
+								}}
+							>
 								<Download className="size-4" />
-								Export
+								{exporting ? "Exporting..." : "Export"}
 							</Button>
-							<Button variant="outline" size="sm" disabled>
+							<Button variant="outline" size="sm" onClick={() => importRef.current?.click()}>
 								<Upload className="size-4" />
 								Import
 							</Button>
+							<input
+								ref={importRef}
+								type="file"
+								accept=".json"
+								className="hidden"
+								onChange={async (e) => {
+									const file = e.target.files?.[0];
+									if (!file) return;
+									try {
+										const text = await file.text();
+										const pkg = JSON.parse(text);
+										const result = await importDeskPackage(pkg);
+										alert(
+											`Imported desk with ${result.experimentCount} experiment(s). Refresh to see it in the sidebar.`,
+										);
+										onUpdated();
+									} catch (err) {
+										console.error("Import failed:", err);
+										alert("Import failed. Check console for details.");
+									} finally {
+										e.target.value = "";
+									}
+								}}
+							/>
 						</div>
 					</Section>
 
