@@ -1,0 +1,3 @@
+{"type":"system","subtype":"init","session_id":"gemini-sess-abc123"}
+{"type":"assistant","message":{"content":[{"type":"text","text":"I'll analyze the strategy and run a backtest."}]}}
+{"type":"result","result":"I'll analyze the strategy and run a backtest.","session_id":"gemini-sess-abc123","usage":{"input_tokens":800,"output_tokens":25},"total_cost_usd":0.02}

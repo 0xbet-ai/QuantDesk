@@ -14,6 +14,14 @@ describe("adapter registry", () => {
 		expect(getAgentAdapter("codex").name).toBe("codex");
 	});
 
+	it('returns Gemini adapter for "gemini"', () => {
+		expect(getAgentAdapter("gemini").name).toBe("gemini");
+	});
+
+	it('returns HTTP adapter for "http"', () => {
+		expect(getAgentAdapter("http").name).toBe("http");
+	});
+
 	it("throws for unknown adapter", () => {
 		expect(() => getAgentAdapter("gpt")).toThrow("Unknown agent adapter: gpt");
 	});
@@ -67,5 +75,81 @@ describe("Codex adapter", () => {
 	it("sessionId is null → fresh session", () => {
 		const args = adapter.buildSpawnArgs("test prompt");
 		expect(args).not.toContain("resume");
+	});
+});
+
+describe("Gemini adapter", () => {
+	const adapter = getAgentAdapter("gemini");
+	const fixture = readFileSync(resolve(fixturesDir, "gemini-stream.jsonl"), "utf-8");
+	const lines = fixture.trim().split("\n");
+
+	it("parseOutputStream extracts sessionId, usage, resultText", () => {
+		const result = adapter.parseOutputStream(lines);
+		expect(result.sessionId).toBe("gemini-sess-abc123");
+		expect(result.resultText).toBe("I'll analyze the strategy and run a backtest.");
+		expect(result.usage.inputTokens).toBe(800);
+		expect(result.usage.outputTokens).toBe(25);
+		expect(result.usage.costUsd).toBe(0.02);
+	});
+
+	it("sessionId provided → --resume flag in spawn args", () => {
+		const args = adapter.buildSpawnArgs("test prompt", "gemini-sess-abc123");
+		expect(args).toContain("--resume");
+		expect(args).toContain("gemini-sess-abc123");
+	});
+
+	it("sessionId is null → no resume flag", () => {
+		const args = adapter.buildSpawnArgs("test prompt");
+		expect(args).not.toContain("--resume");
+	});
+
+	it("parseStreamLine handles text events", () => {
+		const chunk = adapter.parseStreamLine('{"type":"text","part":{"text":"hello"}}');
+		expect(chunk).toEqual({ type: "text", content: "hello" });
+	});
+
+	it("parseStreamLine handles system init", () => {
+		const chunk = adapter.parseStreamLine(
+			'{"type":"system","subtype":"init","session_id":"sess-1"}',
+		);
+		expect(chunk).toEqual({ type: "init", model: "gemini", sessionId: "sess-1" });
+	});
+});
+
+describe("HTTP adapter", () => {
+	const adapter = getAgentAdapter("http");
+
+	it("parseOutputStream handles OpenAI chat-completions format", () => {
+		const lines = [
+			JSON.stringify({
+				id: "chatcmpl-abc",
+				choices: [{ message: { content: "Hello from LLM" } }],
+				usage: { prompt_tokens: 100, completion_tokens: 50 },
+			}),
+		];
+		const result = adapter.parseOutputStream(lines);
+		expect(result.sessionId).toBe("chatcmpl-abc");
+		expect(result.resultText).toBe("Hello from LLM");
+		expect(result.usage.inputTokens).toBe(100);
+		expect(result.usage.outputTokens).toBe(50);
+	});
+
+	it("parseOutputStream handles Ollama format", () => {
+		const lines = [JSON.stringify({ response: "Ollama says hi" })];
+		const result = adapter.parseOutputStream(lines);
+		expect(result.resultText).toBe("Ollama says hi");
+	});
+
+	it("parseOutputStream handles plain text", () => {
+		const result = adapter.parseOutputStream(["Just plain text"]);
+		expect(result.resultText).toBe("Just plain text");
+		expect(result.sessionId).toBe("http-session");
+	});
+
+	it("buildSpawnArgs returns __http_adapter__ marker", () => {
+		const args = adapter.buildSpawnArgs("hello", "sess-1");
+		expect(args[0]).toBe("__http_adapter__");
+		expect(args[1]).toBe("hello");
+		expect(args[2]).toBe("sess-1");
 	});
 });

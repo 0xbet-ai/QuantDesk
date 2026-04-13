@@ -11,10 +11,12 @@ import {
 	Brain,
 	Briefcase,
 	CandlestickChart,
+	ChevronDown,
 	Code2,
 	Crosshair,
 	FlaskConical,
 	GitBranch,
+	Globe,
 	Grid3x3,
 	Layers,
 	LineChart,
@@ -264,7 +266,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 	const [budget, setBudget] = useState("10000");
 	const [targetReturn, setTargetReturn] = useState("15");
 	const [stopLoss, setStopLoss] = useState("5");
-	const [adapterType, setAdapterType] = useState<"claude" | "codex">("claude");
+	const [adapterType, setAdapterType] = useState<"claude" | "codex" | "gemini" | "http">("claude");
+	const [showMoreAdapters, setShowMoreAdapters] = useState(false);
 	const [adapterModel, setAdapterModel] = useState("default");
 	const [adapterTesting, setAdapterTesting] = useState(false);
 	const [adapterTestResult, setAdapterTestResult] = useState<"success" | "error" | null>(null);
@@ -1376,13 +1379,18 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									</div>
 								</div>
 
-								<div className="space-y-4 max-w-md">
+								<div className="space-y-4 max-w-lg">
 									<div>
 										<label className="text-xs text-foreground/60 mb-2 block">Adapter type</label>
+										{/* Primary adapters — Recommended */}
 										<div className="grid grid-cols-2 gap-3">
 											<button
 												type="button"
-												onClick={() => setAdapterType("claude")}
+												onClick={() => {
+													setAdapterType("claude");
+													setAdapterModel("default");
+													setAdapterTestResult(null);
+												}}
 												className={cn(
 													"relative p-4 rounded-lg border text-center transition-colors",
 													adapterType === "claude"
@@ -1390,11 +1398,9 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 														: "border-border hover:bg-accent/50",
 												)}
 											>
-												{adapterType === "claude" && (
-													<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-green-500 text-white rounded-full">
-														Selected
-													</span>
-												)}
+												<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-green-500 text-white rounded-full">
+													Recommended
+												</span>
 												<Sparkles className="size-5 mx-auto mb-2 text-foreground/70" />
 												<div className="text-[13px] font-medium">Claude Code</div>
 												<div className="text-[11px] text-muted-foreground mt-0.5">
@@ -1403,7 +1409,11 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											</button>
 											<button
 												type="button"
-												onClick={() => setAdapterType("codex")}
+												onClick={() => {
+													setAdapterType("codex");
+													setAdapterModel("default");
+													setAdapterTestResult(null);
+												}}
 												className={cn(
 													"relative p-4 rounded-lg border text-center transition-colors",
 													adapterType === "codex"
@@ -1411,11 +1421,9 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 														: "border-border hover:bg-accent/50",
 												)}
 											>
-												{adapterType === "codex" && (
-													<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-green-500 text-white rounded-full">
-														Selected
-													</span>
-												)}
+												<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-green-500 text-white rounded-full">
+													Recommended
+												</span>
 												<Code2 className="size-5 mx-auto mb-2 text-foreground/70" />
 												<div className="text-[13px] font-medium">Codex</div>
 												<div className="text-[11px] text-muted-foreground mt-0.5">
@@ -1423,6 +1431,75 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 												</div>
 											</button>
 										</div>
+
+										{/* More Agent Adapter Types — collapsible */}
+										<button
+											type="button"
+											onClick={() => setShowMoreAdapters((v) => !v)}
+											className="flex items-center gap-1.5 text-xs text-foreground/60 hover:text-foreground mt-3 mb-1"
+										>
+											<ChevronDown
+												className={cn(
+													"size-3.5 transition-transform",
+													showMoreAdapters ? "rotate-0" : "-rotate-90",
+												)}
+											/>
+											More Agent Adapter Types
+										</button>
+										{showMoreAdapters && (
+											<div className="grid grid-cols-2 gap-3">
+												<button
+													type="button"
+													onClick={() => {
+														setAdapterType("gemini");
+														setAdapterModel("default");
+														setAdapterTestResult(null);
+													}}
+													className={cn(
+														"relative p-4 rounded-lg border text-center transition-colors",
+														adapterType === "gemini"
+															? "border-foreground bg-accent"
+															: "border-border hover:bg-accent/50",
+													)}
+												>
+													{adapterType === "gemini" && (
+														<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-green-500 text-white rounded-full">
+															Selected
+														</span>
+													)}
+													<Sparkles className="size-5 mx-auto mb-2 text-foreground/70" />
+													<div className="text-[13px] font-medium">Gemini CLI</div>
+													<div className="text-[11px] text-muted-foreground mt-0.5">
+														Local Gemini agent
+													</div>
+												</button>
+												<button
+													type="button"
+													onClick={() => {
+														setAdapterType("http");
+														setAdapterModel("default");
+														setAdapterTestResult(null);
+													}}
+													className={cn(
+														"relative p-4 rounded-lg border text-center transition-colors",
+														adapterType === "http"
+															? "border-foreground bg-accent"
+															: "border-border hover:bg-accent/50",
+													)}
+												>
+													{adapterType === "http" && (
+														<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-green-500 text-white rounded-full">
+															Selected
+														</span>
+													)}
+													<Globe className="size-5 mx-auto mb-2 text-foreground/70" />
+													<div className="text-[13px] font-medium">HTTP</div>
+													<div className="text-[11px] text-muted-foreground mt-0.5">
+														Generic LLM proxy
+													</div>
+												</button>
+											</div>
+										)}
 									</div>
 
 									<div>
@@ -1435,14 +1512,34 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											<option value="default">Default</option>
 											{adapterType === "claude" && (
 												<>
+													<option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
+													<option value="claude-haiku-4-6">Claude Haiku 4.6</option>
 													<option value="claude-opus-4-6">Claude Opus 4.6</option>
+													<option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5</option>
 													<option value="claude-sonnet-4-6">Claude Sonnet 4.6</option>
 												</>
 											)}
 											{adapterType === "codex" && (
 												<>
+													<option value="codex-mini-latest">Codex Mini</option>
+													<option value="gpt-5">gpt-5</option>
+													<option value="gpt-5-mini">gpt-5-mini</option>
+													<option value="gpt-5-nano">gpt-5-nano</option>
+													<option value="gpt-5.3-codex">gpt-5.3-codex</option>
+													<option value="gpt-5.3-codex-spark">gpt-5.3-codex-spark</option>
+													<option value="gpt-5.4">gpt-5.4</option>
 													<option value="o3">o3</option>
+													<option value="o3-mini">o3-mini</option>
 													<option value="o4-mini">o4-mini</option>
+												</>
+											)}
+											{adapterType === "gemini" && (
+												<>
+													<option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+													<option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+													<option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</option>
+													<option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+													<option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
 												</>
 											)}
 										</select>
@@ -1481,8 +1578,14 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									</div>
 									{adapterTestResult === "error" && (
 										<div className="text-xs text-destructive">
-											{adapterType === "claude" ? "Claude CLI" : "Codex CLI"} not found or not
-											responding. Make sure it's installed.
+											{adapterType === "claude"
+												? "Claude CLI"
+												: adapterType === "codex"
+													? "Codex CLI"
+													: adapterType === "gemini"
+														? "Gemini CLI"
+														: "HTTP endpoint"}{" "}
+											not found or not responding. Make sure it's installed.
 										</div>
 									)}
 								</div>
