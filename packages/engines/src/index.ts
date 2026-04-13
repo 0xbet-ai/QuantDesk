@@ -26,8 +26,8 @@ export {
 	type LogStreamOptions,
 	type RunResult as DockerRunResult,
 } from "./docker.js";
+export { deriveMetrics } from "./metrics.js";
 export {
-	deriveMetrics,
 	type BacktestConfig,
 	type BacktestResult,
 	type DataConfig,
