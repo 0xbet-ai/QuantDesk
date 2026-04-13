@@ -65,7 +65,7 @@ function TeamAvatars() {
 			{teamMembers.map((m) => (
 				<div
 					key={m.label}
-					className={`flex size-7 items-center justify-center rounded-full ${m.bg} ring-2 ring-background cursor-default`}
+					className={`flex size-5 items-center justify-center rounded-full ${m.bg} ring-2 ring-background cursor-default transition-transform duration-150 hover:scale-125 hover:z-10`}
 					onPointerEnter={handlePointerEnter(m.label)}
 				>
 					<m.icon className={`size-2.5 ${m.fg}`} />
