@@ -395,7 +395,6 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 								if (trades.length === 0) return null;
 								type Row = {
 									key: string;
-									idx: number;
 									time: string | undefined;
 									label: string;
 									colorClass: string;
@@ -408,7 +407,6 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 									const isLong = t.side === "buy";
 									rows.push({
 										key: `${i}-open`,
-										idx: i + 1,
 										time: t.openedAt,
 										label: isLong ? "BUY" : "SELL",
 										colorClass: "text-green-600 dark:text-green-400",
@@ -418,7 +416,6 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 									equity += t.pnl;
 									rows.push({
 										key: `${i}-close`,
-										idx: i + 1,
 										time: t.closedAt,
 										label: isLong ? "SELL" : "BUY",
 										colorClass: "text-red-500",
@@ -448,7 +445,6 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 											<table className="w-full text-[11px]">
 												<thead>
 													<tr className="text-muted-foreground">
-														<th className="text-left font-medium py-0.5">#</th>
 														<th className="text-left font-medium py-0.5">Time</th>
 														<th className="text-left font-medium py-0.5">Side</th>
 														<th className="text-right font-medium py-0.5">PnL</th>
@@ -458,7 +454,6 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 												<tbody>
 													{rows.map((r) => (
 														<tr key={r.key} className="border-t border-border/30">
-															<td className="py-0.5 text-muted-foreground">{r.idx}</td>
 															<td className="py-0.5 text-muted-foreground">
 																{formatTime(r.time)}
 															</td>
