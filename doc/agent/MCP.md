@@ -24,54 +24,40 @@ turn N   agent: "I'd like to download 180 days of BTC/USDT 1h from binance.
 
 user: "yes, but use ETH/USDT instead."
 
-turn N+1 agent: "Switching to ETH/USDT. Downloading now."
-                → mcp__quantdesk__data_fetch({
+turn N+1 agent: "Switching to ETH/USDT. Writing fetcher script."
+                → writes fetch_eth.py to workspace
+                → mcp__quantdesk__run_script({ scriptPath: "fetch_eth.py" })
+                ← { exitCode: 0, stdout: "saved 5000 rows..." }
+                → mcp__quantdesk__register_dataset({
                     exchange: "binance",
                     pairs: ["ETH/USDT"],
                     timeframe: "1h",
-                    days: 180,
-                    tradingMode: "spot",
-                    rationale: "baseline per user instruction"
+                    dateRange: { start: "2025-10-01", end: "2026-04-01" },
+                    path: "data/binance"
                   })
-                ← { datasetId, path, ... }
+                ← { datasetId, linked: true }
                 agent continues same turn with the return value in context
 ```
 
-Tools that need conversational approval before they fire: `data_fetch`, `request_validation`, `new_experiment`, `complete_experiment`.
+Tools that need conversational approval before they fire: `new_experiment`, `complete_experiment`.
 
 Tools that fire directly without asking: `register_dataset` (registering already-downloaded data — no network I/O), `run_backtest` (re-runs on the current desk's existing dataset are routine), `set_experiment_title` (cosmetic rename), `submit_rm_verdict` (the RM's own decision output).
 
 ## Tools
-
-### `data_fetch`
-
-```
-data_fetch({ exchange, pairs[], timeframe, days, tradingMode?, rationale? })
-  requires:  user has agreed in the immediately preceding exchange
-  effect:    download data via engineAdapter.downloadData,
-             insert a `datasets` row and a `desk_datasets` link
-             (or reuse an existing row when the cache already holds it)
-  returns:   { datasetId, exchange, pairs, timeframe, dateRange, path }
-             on error: { isError: true, content: "…" } — read the text,
-             correct the call, or ask the user on the same turn
-  postcond:  desk has ≥1 desk_datasets link covering the requested range
-             → matches run_backtest.requires
-```
 
 ### `register_dataset`
 
 ```
 register_dataset({ exchange, pairs[], timeframe, dateRange:{start,end}, path })
   requires:  the dataset already exists on disk
-             (typically produced by a workspace-local fetch_data.py)
+             (produced by a fetcher script run via `run_script`)
   effect:    insert a `datasets` row and a `desk_datasets` link
   returns:   { datasetId, linked: true }
   postcond:  desk has ≥1 desk_datasets link
              → matches run_backtest.requires
-  notes:     call this BEFORE run_backtest whenever you downloaded
-             data yourself instead of calling data_fetch. Missing
-             this step is the #1 cause of "no dataset registered"
-             run_backtest errors.
+  notes:     call this BEFORE run_backtest after every data fetch.
+             Missing this step is the #1 cause of "no dataset
+             registered" run_backtest errors.
 ```
 
 ### `run_backtest`
@@ -132,7 +118,7 @@ run_script({ scriptPath })
              package.json / Cargo.toml / go.mod) before execution.
              Available on every desk regardless of the managed
              engine — the engine container is only used by
-             data_fetch / run_backtest; everything else the agent
+             run_backtest; everything else the agent
              writes runs in the generic sandbox.
   returns:   { exitCode, stdout, stderr }
              on error: { isError: true, content: "…" }
@@ -272,7 +258,7 @@ get_paper_status({})
 
 Trace the lifecycle by matching `postcond` to `requires`:
 
-- `data_fetch.postcond` (≥1 desk_datasets link) → `run_backtest.requires`
+- `register_dataset.postcond` (≥1 desk_datasets link) → `run_backtest.requires`
 - `register_dataset.postcond` (≥1 desk_datasets link) → `run_backtest.requires`
 - `run_backtest.postcond` (runs row exists) → `request_validation.requires`
 - `submit_rm_verdict` records the verdict on the latest run and wakes the analyst
@@ -285,7 +271,7 @@ There is no global state machine — only signatures lining up across turns. Add
 
 There is **no automatic stage-level retry**. If a tool's effect fails, the tool returns `{ isError: true, content: "…" }` on the same turn. The agent reads the error in its working context and must respond with one of:
 
-1. **A corrected tool call** — different parameters, a fallback path, or a different tool (`register_dataset` instead of `data_fetch`, etc.).
+1. **A corrected tool call** — different parameters, a fallback path, or a different approach (fix the fetcher script and re-run via `run_script`, etc.).
 2. **A specific question to the user** — naming what the agent needs to proceed.
 
 An apology, a passive "I'll wait for guidance", or a restatement of the failure counts as abandoning the task and violates the "never give up silently" rule in the analyst system prompt.

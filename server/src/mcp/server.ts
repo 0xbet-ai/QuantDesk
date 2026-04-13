@@ -2,7 +2,6 @@
  * QuantDesk MCP server — phases 27b/c/d.
  *
  * Tools registered (1:1 with the legacy marker protocol):
- *   - data_fetch             → replaces [DATA_FETCH]
  *   - register_dataset       → replaces [DATASET]
  *   - run_backtest           → replaces [RUN_BACKTEST] + [BACKTEST_RESULT]
  *   - set_experiment_title   → replaces [EXPERIMENT_TITLE]
@@ -42,7 +41,8 @@ import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog } from "../services/agent-log.js";
 import type { AgentRole, TriggerAgentOptions } from "../services/agent-trigger.js";
 import { systemComment } from "../services/comments.js";
-import { executeDataFetch } from "../services/data-fetch.js";
+// executeDataFetch kept in data-fetch.ts for reference but no longer
+// wired to an MCP tool — see the "data_fetch (REMOVED)" comment below.
 import { completeAndCreateNewExperiment, completeExperiment } from "../services/experiments.js";
 import { autoIncrementRunNumber, shouldAssignBaseline } from "../services/logic.js";
 import {
@@ -222,65 +222,14 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 		{ capabilities: { tools: {} } },
 	);
 
-	// ── data_fetch ────────────────────────────────────────────────────
-	server.registerTool(
-		"data_fetch",
-		{
-			description:
-				"Download market data (OHLCV) for this desk. Blocks until the " +
-				"download finishes and returns the registered dataset. Requires " +
-				"prior user consent in the conversation (CLAUDE.md rule #13).",
-			inputSchema: {
-				exchange: z.string().min(1),
-				pairs: z.array(z.string().min(1)).min(1),
-				timeframe: z.string().min(1),
-				// Coerce string → number for LLM-stringified values. See runNumber note below.
-				days: z.coerce.number().int().positive(),
-				tradingMode: z.enum(["spot", "margin", "futures"]).optional(),
-				rationale: z.string().optional(),
-			},
-		},
-		async (args) => {
-			try {
-				const result = await executeDataFetch({
-					experimentId: ctx.experimentId,
-					proposal: {
-						exchange: args.exchange,
-						pairs: args.pairs,
-						timeframe: args.timeframe,
-						days: args.days,
-						tradingMode: args.tradingMode ?? "spot",
-						rationale: args.rationale ?? "",
-					},
-				});
-				if (!result || result.length === 0) {
-					return errorResult(
-						"data_fetch: no dataset produced (download may have failed or this engine has no server-side fetcher). Write a fetcher script yourself and run it with run_script, then call register_dataset. See the Data acquisition section in your prompt.",
-					);
-				}
-				return textResult(
-					JSON.stringify(
-						{
-							datasets: result.map((ds) => ({
-								datasetId: ds.id,
-								exchange: ds.exchange,
-								pair: ds.pairs[0],
-								timeframe: ds.timeframe,
-								dateRange: ds.dateRange,
-								path: ds.path,
-							})),
-						},
-						null,
-						2,
-					),
-				);
-			} catch (err) {
-				return errorResult(
-					`data_fetch failed: ${err instanceof Error ? err.message : String(err)}`,
-				);
-			}
-		},
-	);
+	// ── data_fetch (REMOVED) ──────────────────────────────────────────
+	// `data_fetch` was a wrapper around `engineAdapter.downloadData()`
+	// — only freqtrade had an implementation (its `download-data` CLI);
+	// nautilus and generic both threw "no server-side downloader". In
+	// practice the agent writes its own fetcher script (guided by the
+	// venue fetch guide) and runs it via `run_script`, which is more
+	// flexible, better error-reported, and engine-agnostic. Unified on
+	// `run_script` + `register_dataset` for all engines.
 
 	// ── register_dataset ──────────────────────────────────────────────
 	server.registerTool(
