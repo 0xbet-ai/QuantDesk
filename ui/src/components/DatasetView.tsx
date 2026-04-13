@@ -401,7 +401,7 @@ function DatasetRow({
 			<span className="text-[11px] text-muted-foreground font-mono shrink-0">{d.timeframe}</span>
 			<span className="text-[11px] text-muted-foreground/80 shrink-0">{d.exchange}</span>
 			<span className="text-[11px] text-muted-foreground/80 font-mono shrink-0 hidden md:inline">
-				{d.dateRange.start} → {d.dateRange.end}
+				{new Date(d.dateRange.start + "T00:00:00").toLocaleDateString("en-US")} → {new Date(d.dateRange.end + "T00:00:00").toLocaleDateString("en-US")}
 			</span>
 			<div className="flex-1" />
 			{d.createdByExperimentNumber != null && (
