@@ -121,12 +121,8 @@ function summarizeEntry(entry: AgentLogEntry): string | null {
 			const isError = entry.isError === true;
 			const inTok = typeof entry.inputTokens === "number" ? entry.inputTokens : 0;
 			const outTok = typeof entry.outputTokens === "number" ? entry.outputTokens : 0;
-			const cost =
-				typeof entry.costUsd === "number" && entry.costUsd > 0
-					? ` cost=$${entry.costUsd.toFixed(4)}`
-					: "";
 			const status = isError ? color("✗", "red") : color("✓", "green");
-			return `${color("result        ", "magenta")} ${status} ${color(`in=${inTok} out=${outTok}${cost}`, "dim")}`;
+			return `${color("result        ", "magenta")} ${status} ${color(`in=${inTok} out=${outTok}`, "dim")}`;
 		}
 		case "stdout":
 			return `${color("stdout        ", "yellow")} ${color(preview(entry.content, 200), "dim")}`;
