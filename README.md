@@ -143,12 +143,10 @@ Engine resolution is automatic: pick a strategy mode (`classic` or `realtime`) a
 Open source. Self-hosted. No account required.
 
 ```bash
-git clone https://github.com/graykode/QuantDesk.git
+git clone https://github.com/0xbet-ai/QuantDesk.git
 cd QuantDesk
 pnpm install
-pnpm onboard      # checks Docker, pulls engine images
-pnpm db:migrate
-pnpm dev
+pnpm onboard --yes   # pulls engine images, migrates DB, starts server
 ```
 
 This starts the API + UI at `http://localhost:3000`. An embedded PostgreSQL boots in-process — no Docker needed for the database. Docker is used exclusively for engine containers.
