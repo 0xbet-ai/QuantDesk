@@ -1,0 +1,117 @@
+name: Bug Report
+description: Report a bug in QuantDesk
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please fill out as much detail as you can so we can reproduce the issue.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe what you expected vs. what actually happened.
+      placeholder: "I expected X to happen, but instead Y happened."
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps to trigger the bug.
+      placeholder: |
+        1. Create a desk with ...
+        2. Start an experiment ...
+        3. Run backtest ...
+        4. See error
+    validations:
+      required: true
+
+  - type: dropdown
+    id: strategy_mode
+    attributes:
+      label: Strategy mode
+      description: The strategy mode selected when creating the desk.
+      options:
+        - classic (Freqtrade)
+        - realtime (Nautilus)
+        - generic (fallback)
+    validations:
+      required: true
+
+  - type: input
+    id: venue
+    attributes:
+      label: Venue
+      description: The venue selected when creating the desk (e.g. Binance, Polymarket, Kalshi).
+      placeholder: "Binance"
+    validations:
+      required: true
+
+  - type: input
+    id: pairs
+    attributes:
+      label: Trading pairs
+      description: The pair(s) configured on the desk.
+      placeholder: "BTC/USDT, ETH/USDT"
+    validations:
+      required: false
+
+  - type: input
+    id: timeframe
+    attributes:
+      label: Timeframe
+      description: Candle timeframe if applicable.
+      placeholder: "1h"
+    validations:
+      required: false
+
+  - type: textarea
+    id: desk_config
+    attributes:
+      label: Desk configuration
+      description: Any other desk settings that may be relevant (budget, target return, stop-loss, date range, etc.).
+      placeholder: |
+        Budget: $10,000
+        Target return: 15%
+        Stop-loss: 10%
+        Date range: 2025-01-01 to 2026-01-01
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Paste relevant logs from `pnpm dev` or the agent session transcript.
+        Transcripts live at `~/.quantdesk/logs/<experimentId>.jsonl`.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "macOS 15.2 / Ubuntu 24.04 / Windows 11"
+    validations:
+      required: true
+
+  - type: input
+    id: node_version
+    attributes:
+      label: Node.js version
+      placeholder: "v22.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: docker_version
+    attributes:
+      label: Docker version
+      placeholder: "Docker 27.0.0"
+    validations:
+      required: false
