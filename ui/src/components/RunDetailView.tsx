@@ -435,7 +435,7 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 					{/* Right: run detail */}
 					{selectedRun && (
 						<ScrollArea className="flex-1 min-w-0">
-							<div className="p-4">
+							<div className="p-4 max-w-4xl">
 								<RunDetail
 									run={selectedRun}
 									baseline={baseline}
