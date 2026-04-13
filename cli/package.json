@@ -4,6 +4,10 @@
   "description": "AI-agent workspace for quantitative trading",
   "type": "module",
   "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/0xbet-ai/QuantDesk"
+  },
   "bin": {
     "quantdesk": "./dist/index.js"
   },
