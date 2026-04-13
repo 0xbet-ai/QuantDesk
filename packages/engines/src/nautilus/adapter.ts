@@ -13,17 +13,18 @@ import {
 } from "../docker.js";
 import { ENGINE_IMAGES } from "../images.js";
 import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
-import type {
-	BacktestConfig,
-	BacktestResult,
-	DataConfig,
-	DataRef,
-	EngineAdapter,
-	NormalizedResult,
-	PaperConfig,
-	PaperHandle,
-	PaperStatus,
-	TradeEntry,
+import {
+	deriveMetrics,
+	type BacktestConfig,
+	type BacktestResult,
+	type DataConfig,
+	type DataRef,
+	type EngineAdapter,
+	type NormalizedResult,
+	type PaperConfig,
+	type PaperHandle,
+	type PaperStatus,
+	type TradeEntry,
 } from "../types.js";
 
 /**
@@ -138,7 +139,10 @@ export class NautilusAdapter implements EngineAdapter {
 		if (!event) {
 			throw new Error("nautilus backtest completed but no backtest_result event on stdout");
 		}
-		return { raw: result.stdout, normalized: this.parseResult(JSON.stringify(event)) };
+		return {
+			raw: result.stdout,
+			normalized: this.parseResult(JSON.stringify(event), config.wallet),
+		};
 	}
 
 	async startPaper(config: PaperConfig): Promise<PaperHandle> {
@@ -212,7 +216,7 @@ export class NautilusAdapter implements EngineAdapter {
 		}
 	}
 
-	parseResult(raw: string): NormalizedResult {
+	parseResult(raw: string, wallet = 10_000): NormalizedResult {
 		let data: NautilusBacktestEvent | LegacyNautilusResult;
 		try {
 			data = JSON.parse(raw);
@@ -220,54 +224,35 @@ export class NautilusAdapter implements EngineAdapter {
 			throw new Error("Failed to parse nautilus result: invalid JSON");
 		}
 
-		// Modern runner.py shape
-		if ("returnPct" in data && typeof data.returnPct === "number") {
-			const evt = data as NautilusBacktestEvent;
-			if (typeof evt.totalTrades !== "number") {
-				throw new Error("Failed to parse nautilus result: missing totalTrades");
-			}
-			const trades: TradeEntry[] = (evt.trades ?? []).map((t) => ({
-				pair: t.pair,
-				side: t.side.toLowerCase() === "sell" ? "sell" : "buy",
-				price: t.price,
-				amount: t.amount,
-				pnl: t.pnl,
-				openedAt: t.openedAt,
-				closedAt: t.closedAt,
+		// Extract trades from either the modern runner.py shape or the
+		// legacy fixture shape. Metrics are NO LONGER read from the
+		// engine output — they're derived uniformly from the trade list
+		// by `deriveMetrics()` so drawdown/return/winRate are always
+		// consistent regardless of what the agent's strategy.run()
+		// returns (the Nautilus drawdown=0.00% bug was exactly this:
+		// the agent forgot to compute drawdownPct and the old code
+		// silently fell back to 0).
+		let trades: TradeEntry[];
+		const eventWallet = (data as unknown as Record<string, unknown>).wallet;
+		const effectiveWallet =
+			typeof eventWallet === "number" && eventWallet > 0 ? eventWallet : wallet;
+
+		if ("trades" in data && Array.isArray(data.trades)) {
+			const rawTrades = data.trades as NautilusTrade[];
+			trades = rawTrades.map((t) => ({
+				pair: t.pair ?? (t as unknown as { instrument_id?: string }).instrument_id?.split(".")[0] ?? "?",
+				side: (t.side ?? "").toLowerCase() === "sell" ? ("sell" as const) : ("buy" as const),
+				price: t.price ?? (t as unknown as { avg_price?: number }).avg_price ?? 0,
+				amount: t.amount ?? (t as unknown as { quantity?: number }).quantity ?? 0,
+				pnl: t.pnl ?? (t as unknown as { realized_pnl?: number }).realized_pnl ?? 0,
+				openedAt: t.openedAt ?? (t as unknown as { ts_opened?: string }).ts_opened ?? "",
+				closedAt: t.closedAt ?? (t as unknown as { ts_closed?: string }).ts_closed ?? "",
 			}));
-			return {
-				returnPct: evt.returnPct,
-				drawdownPct: -Math.abs(evt.drawdownPct),
-				winRate: evt.winRate,
-				totalTrades: evt.totalTrades,
-				trades,
-			};
+		} else {
+			trades = [];
 		}
 
-		// Legacy shape (kept for the existing fixture)
-		const legacy = data as LegacyNautilusResult;
-		if (typeof legacy.total_return !== "number" || typeof legacy.total_trades !== "number") {
-			throw new Error("Failed to parse nautilus result: missing required fields");
-		}
-		const trades: TradeEntry[] = (legacy.trades ?? []).map((t) => {
-			const pair = t.instrument_id.split(".")[0] ?? t.instrument_id;
-			return {
-				pair,
-				side: t.side === "SELL" ? ("sell" as const) : ("buy" as const),
-				price: t.avg_price,
-				amount: t.quantity,
-				pnl: t.realized_pnl,
-				openedAt: t.ts_opened,
-				closedAt: t.ts_closed,
-			};
-		});
-		return {
-			returnPct: legacy.total_return,
-			drawdownPct: -Math.abs(legacy.max_drawdown),
-			winRate: legacy.win_rate,
-			totalTrades: legacy.total_trades,
-			trades,
-		};
+		return deriveMetrics(trades, effectiveWallet);
 	}
 
 	workspaceTemplate(_opts: { venue: string }): Record<string, string> {

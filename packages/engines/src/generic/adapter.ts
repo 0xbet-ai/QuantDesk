@@ -5,16 +5,18 @@ import { extname, join, resolve } from "node:path";
 import { DockerError, hasImage, quantdeskLabels, runContainer } from "../docker.js";
 import { ENGINE_IMAGES } from "../images.js";
 import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
-import type {
-	BacktestConfig,
-	BacktestResult,
-	DataConfig,
-	DataRef,
-	EngineAdapter,
-	NormalizedResult,
-	PaperConfig,
-	PaperHandle,
-	PaperStatus,
+import {
+	deriveMetrics,
+	type BacktestConfig,
+	type BacktestResult,
+	type DataConfig,
+	type DataRef,
+	type EngineAdapter,
+	type NormalizedResult,
+	type PaperConfig,
+	type PaperHandle,
+	type PaperStatus,
+	type TradeEntry,
 } from "../types.js";
 
 /**
@@ -233,7 +235,7 @@ export class GenericAdapter implements EngineAdapter {
 			.split("\n")
 			.filter((l) => l.trim().length > 0);
 		const lastLine = lines[lines.length - 1] ?? "";
-		const normalized = this.parseResult(lastLine);
+		const normalized = this.parseResult(lastLine, config.wallet);
 		return { raw: result.stdout, normalized };
 	}
 
@@ -249,24 +251,37 @@ export class GenericAdapter implements EngineAdapter {
 		throw new Error("generic engine does not support paper trading");
 	}
 
-	parseResult(raw: string): NormalizedResult {
-		let data: NormalizedResult;
+	parseResult(raw: string, wallet = 10_000): NormalizedResult {
+		let data: Record<string, unknown>;
 		try {
 			data = JSON.parse(raw);
 		} catch {
 			throw new Error("Failed to parse generic result: script must output JSON to stdout");
 		}
 
-		if (typeof data.returnPct !== "number" || typeof data.totalTrades !== "number") {
-			throw new Error("Failed to parse generic result: must include returnPct and totalTrades");
+		// If the script provided trades, derive all metrics uniformly.
+		// If not, fall back to reading pre-computed metrics from the JSON
+		// (backwards compat with scripts that already compute them).
+		const trades: TradeEntry[] = Array.isArray(data.trades)
+			? (data.trades as TradeEntry[])
+			: [];
+
+		if (trades.length > 0) {
+			return deriveMetrics(trades, wallet);
 		}
 
+		// Fallback: script provided metrics directly (no trades array)
+		if (typeof data.returnPct !== "number" || typeof data.totalTrades !== "number") {
+			throw new Error(
+				"Failed to parse generic result: must include either a `trades` array or `returnPct` + `totalTrades`",
+			);
+		}
 		return {
-			returnPct: data.returnPct,
-			drawdownPct: data.drawdownPct ?? 0,
-			winRate: data.winRate ?? 0,
-			totalTrades: data.totalTrades,
-			trades: data.trades ?? [],
+			returnPct: data.returnPct as number,
+			drawdownPct: (data.drawdownPct as number) ?? 0,
+			winRate: (data.winRate as number) ?? 0,
+			totalTrades: data.totalTrades as number,
+			trades: [],
 		};
 	}
 
