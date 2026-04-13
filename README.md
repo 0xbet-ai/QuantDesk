@@ -153,7 +153,7 @@ Open source. Self-hosted. No account required.
 npx quantdesk onboard --yes
 ```
 
-That's it. Clones the repo, installs dependencies, pulls engine Docker images, migrates the database, and starts the server at `http://localhost:3000`.
+That's it. Clones the repo, installs dependencies, pulls engine Docker images, migrates the database, and starts the server at `http://localhost:5173`.
 
 An embedded PostgreSQL boots in-process — no Docker needed for the database. Docker is used exclusively for engine containers.
 
