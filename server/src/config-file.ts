@@ -41,7 +41,17 @@ const DEFAULT_LOG_LEVEL: LogLevel = "info";
 
 // Agent
 const DEFAULT_AGENT_MODEL = "claude-opus-4-6";
-const DEFAULT_HEARTBEAT_MS = 90_000;
+// 5 minutes. The previous 90s default caused false-positive "heartbeat
+// timeout" messages during two legitimate silent periods:
+//   1. Docker container execution (fixed by PYTHONUNBUFFERED=1 +
+//      heartbeat proxy in onLogLine — see f9c34da / e07fe5f)
+//   2. Claude's extended thinking (2-3 min of internal reasoning before
+//      emitting any stream chunk — CLI doesn't stream thinking blocks
+//      in real time, so the heartbeat goes stale). We can't inject
+//      heartbeat during thinking — it's internal to the CLI subprocess.
+//      5 minutes gives enough headroom for deep thinking while still
+//      catching genuinely dead agents within a reasonable window.
+const DEFAULT_HEARTBEAT_MS = 300_000;
 const DEFAULT_WATCHDOG_INTERVAL_MS = 30_000;
 const DEFAULT_ADAPTER_TEST_TIMEOUT_MS = 5_000;
 
