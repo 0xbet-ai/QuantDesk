@@ -151,7 +151,9 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 	const baseline = visibleRuns.find((r) => r.status === "completed") ?? null;
 
 	return (
-		<div className="px-4 py-3 space-y-0">
+		<div className="flex flex-col h-full">
+			{/* Scrollable area: experiment info + runs + trade log */}
+			<div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-0">
 			{/* Experiment properties */}
 			{experiment && (
 				<>
@@ -416,12 +418,19 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 													<tr key={r.idx} className="border-t border-border/30">
 														<td className="py-0.5 text-muted-foreground">{r.idx}</td>
 														<td className="py-0.5 text-muted-foreground">
-															{new Date(r.closedAt || r.openedAt).toLocaleDateString(undefined, {
-																month: "2-digit",
-																day: "2-digit",
-																hour: "2-digit",
-																minute: "2-digit",
-															})}
+															{(() => {
+																const raw = r.closedAt || r.openedAt;
+																if (!raw) return "—";
+																const d = new Date(raw);
+																return Number.isNaN(d.getTime())
+																	? "—"
+																	: d.toLocaleDateString(undefined, {
+																			month: "2-digit",
+																			day: "2-digit",
+																			hour: "2-digit",
+																			minute: "2-digit",
+																		});
+															})()}
 														</td>
 														<td
 															className={cn(
@@ -462,7 +471,9 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 				</>
 			)}
 
-			{/* Paper Trading section */}
+			</div>{/* end scrollable area */}
+
+			{/* Paper Trading section — pinned to bottom */}
 			{(() => {
 				const isActive =
 					paperSession && (paperSession.status === "running" || paperSession.status === "pending");
@@ -486,8 +497,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 				if (!isActive && !isFailed && !bestRun) return null;
 
 				return (
-					<>
-						<div className="border-b border-border my-2" />
+					<div className="shrink-0 border-t border-border px-4 py-3">
 						<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
 							Paper Trading
 						</div>
@@ -662,7 +672,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 								{paperError}
 							</div>
 						)}
-					</>
+					</div>
 				);
 			})()}
 		</div>
