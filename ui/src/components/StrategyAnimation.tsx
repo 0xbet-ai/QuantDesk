@@ -617,7 +617,7 @@ function DefaultAnimation() {
 	);
 }
 
-const animationMap: Record<string, () => JSX.Element> = {
+const animationMap: Record<string, () => React.JSX.Element> = {
 	trend_following: TrendFollowing,
 	mean_reversion: MeanReversion,
 	market_making: MarketMaking,
