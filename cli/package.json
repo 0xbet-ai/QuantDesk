@@ -1,6 +1,6 @@
 {
   "name": "quantdesk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AI-agent workspace for quantitative trading",
   "type": "module",
   "license": "AGPL-3.0-or-later",
