@@ -42,8 +42,19 @@ export interface RunValidation {
 	at: string;
 }
 
+export interface TradeLogEntry {
+	pair: string;
+	side: "buy" | "sell";
+	price: number;
+	amount: number;
+	pnl: number;
+	openedAt: string;
+	closedAt: string;
+}
+
 export interface RunResult {
 	metrics: Metric[];
+	trades?: TradeLogEntry[];
 	validation?: RunValidation;
 }
 

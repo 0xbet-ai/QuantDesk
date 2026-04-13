@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
-import type { Experiment, PaperSession, PaperStatusData, Run } from "../lib/api.js";
+import type { Experiment, PaperSession, PaperStatusData, Run, TradeLogEntry } from "../lib/api.js";
 import {
 	getActivePaperSession,
 	getPaperStatus,
@@ -25,6 +25,7 @@ interface Props {
 	experiment: Experiment | null;
 	experimentId: string;
 	deskId: string;
+	wallet?: number;
 }
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -36,7 +37,7 @@ function PropRow({ label, children }: { label: string; children: React.ReactNode
 	);
 }
 
-export function PropsPanel({ experiment, experimentId, deskId }: Props) {
+export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }: Props) {
 	const [runs, setRuns] = useState<Run[]>([]);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 	// Local "in-flight validation" tracker. Set when the user clicks a
@@ -381,6 +382,80 @@ export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 									vs baseline {delta > 0 ? "+" : ""}
 									{runM0.format === "percent" ? `${delta.toFixed(2)}%` : delta.toFixed(2)}
 								</div>
+							);
+						})()}
+
+						{/* Trade Log */}
+						{(() => {
+							const trades: TradeLogEntry[] = selectedRun.result?.trades ?? [];
+							if (trades.length === 0) return null;
+							let equity = wallet;
+							const rows = trades.map((t, i) => {
+								equity += t.pnl;
+								return { ...t, idx: i + 1, equity };
+							});
+							return (
+								<>
+									<div className="border-b border-border my-2" />
+									<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+										Trade Log ({trades.length})
+									</div>
+									<div className="max-h-64 overflow-y-auto">
+										<table className="w-full text-[11px]">
+											<thead>
+												<tr className="text-muted-foreground">
+													<th className="text-left font-medium py-0.5">#</th>
+													<th className="text-left font-medium py-0.5">Time</th>
+													<th className="text-left font-medium py-0.5">Side</th>
+													<th className="text-right font-medium py-0.5">PnL</th>
+													<th className="text-right font-medium py-0.5">Equity</th>
+												</tr>
+											</thead>
+											<tbody>
+												{rows.map((r) => (
+													<tr key={r.idx} className="border-t border-border/30">
+														<td className="py-0.5 text-muted-foreground">{r.idx}</td>
+														<td className="py-0.5 text-muted-foreground">
+															{new Date(r.closedAt || r.openedAt).toLocaleDateString(undefined, {
+																month: "2-digit",
+																day: "2-digit",
+																hour: "2-digit",
+																minute: "2-digit",
+															})}
+														</td>
+														<td
+															className={cn(
+																"py-0.5 font-medium",
+																r.side === "buy" ? "text-green-600 dark:text-green-400" : "text-red-500",
+															)}
+														>
+															{r.side.toUpperCase()}
+														</td>
+														<td
+															className={cn(
+																"py-0.5 text-right font-mono",
+																r.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500",
+															)}
+														>
+															{r.pnl >= 0 ? "+" : ""}
+															{r.pnl.toFixed(2)}
+														</td>
+														<td className="py-0.5 text-right font-mono text-foreground/80">
+															${r.equity.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+														</td>
+													</tr>
+												))}
+											</tbody>
+										</table>
+									</div>
+									<div className="text-[10px] text-muted-foreground mt-1">
+										${wallet.toLocaleString()} → ${equity.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+										{" "}
+										<span className={cn(equity >= wallet ? "text-green-500" : "text-red-500")}>
+											({equity >= wallet ? "+" : ""}{((equity - wallet) / wallet * 100).toFixed(2)}%)
+										</span>
+									</div>
+								</>
 							);
 						})()}
 					</div>
