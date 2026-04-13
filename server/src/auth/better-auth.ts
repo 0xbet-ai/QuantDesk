@@ -12,11 +12,11 @@
  */
 
 import { randomUUID } from "node:crypto";
-import type { Request, RequestHandler, Response } from "express";
-import { hashSync, compareSync } from "bcryptjs";
 import { db } from "@quantdesk/db";
 import { authSessions, authUsers } from "@quantdesk/db/schema";
+import { compareSync, hashSync } from "bcryptjs";
 import { eq } from "drizzle-orm";
+import type { Request, RequestHandler, Response } from "express";
 
 // ── Session helpers ─────────────────────────────────────────────────
 
@@ -192,11 +192,7 @@ export async function resolveSession(req: Request): Promise<AuthSessionResult | 
 		.limit(1);
 	if (!session || session.expiresAt < new Date()) return null;
 
-	const [user] = await db
-		.select()
-		.from(authUsers)
-		.where(eq(authUsers.id, session.userId))
-		.limit(1);
+	const [user] = await db.select().from(authUsers).where(eq(authUsers.id, session.userId)).limit(1);
 	if (!user) return null;
 
 	return {

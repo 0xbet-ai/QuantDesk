@@ -240,7 +240,8 @@ describe("buildRiskManagerPrompt", () => {
 			codeDiff: {
 				targetCommit: "abc1234",
 				againstPrevious: "diff --git a/strategy.py b/strategy.py\n+rsi_period = 14",
-				againstBaseline: "diff --git a/strategy.py b/strategy.py\n+rsi_period = 14\n+ema_period = 7",
+				againstBaseline:
+					"diff --git a/strategy.py b/strategy.py\n+rsi_period = 14\n+ema_period = 7",
 				previousLabel: "Run #3 vs Run #2",
 				baselineLabel: "Run #3 vs Run #1 (baseline)",
 				truncated: false,

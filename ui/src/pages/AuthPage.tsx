@@ -89,7 +89,11 @@ export function AuthPage({ onAuthenticated }: Props) {
 						/>
 					</div>
 
-					{error && <div className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-md px-3 py-2">{error}</div>}
+					{error && (
+						<div className="text-sm text-red-500 bg-red-50 dark:bg-red-900/20 rounded-md px-3 py-2">
+							{error}
+						</div>
+					)}
 
 					<button
 						type="submit"
@@ -104,14 +108,22 @@ export function AuthPage({ onAuthenticated }: Props) {
 					{mode === "signin" ? (
 						<>
 							No account?{" "}
-							<button type="button" onClick={() => setMode("signup")} className="text-foreground underline">
+							<button
+								type="button"
+								onClick={() => setMode("signup")}
+								className="text-foreground underline"
+							>
 								Sign up
 							</button>
 						</>
 					) : (
 						<>
 							Already have an account?{" "}
-							<button type="button" onClick={() => setMode("signin")} className="text-foreground underline">
+							<button
+								type="button"
+								onClick={() => setMode("signin")}
+								className="text-foreground underline"
+							>
 								Sign in
 							</button>
 						</>

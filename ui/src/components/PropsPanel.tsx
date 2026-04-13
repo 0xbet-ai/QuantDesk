@@ -154,324 +154,338 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 		<div className="flex flex-col h-full">
 			{/* Scrollable area: experiment info + runs + trade log */}
 			<div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-0">
-			{/* Experiment properties */}
-			{experiment && (
-				<>
-					<PropRow label="Status">
-						<span className="flex items-center gap-1.5">
-							<StatusDot status={experiment.status} />
-							{experiment.status}
-						</span>
-					</PropRow>
-					<PropRow label="Runs">
-						<span className="text-muted-foreground">{visibleRuns.length}</span>
-					</PropRow>
-				</>
-			)}
-
-			{/* Separator */}
-			<div className="border-b border-border my-2" />
-
-			{/* Run list */}
-			<div>
-				<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-					Runs
-				</div>
-				{visibleRuns.length === 0 ? (
-					<div className="text-xs text-muted-foreground py-2">No runs yet</div>
-				) : (
-					(() => {
-						// Use the first run with metrics to determine column headers
-						const sampleMetrics = visibleRuns.find((r) => r.result?.metrics?.length)?.result
-							?.metrics;
-						const col1Label = sampleMetrics?.[0]?.label ?? "Value";
-						return (
-							<div className="max-h-[280px] overflow-y-auto">
-								<table className="w-full text-xs">
-									<thead>
-										<tr className="text-muted-foreground border-b border-border">
-											<th className="text-left py-1.5 font-medium">#</th>
-											<th className="text-left py-1.5 font-medium pl-6">{col1Label}</th>
-											<th className="text-right py-1.5 font-medium w-20 pr-4">Validate</th>
-										</tr>
-									</thead>
-									<tbody>
-										{(() => {
-											// Find the best run by primary metric (highest return)
-											const completedRuns = visibleRuns.filter(
-												(r) => r.status === "completed" && r.result?.metrics?.[0]?.value != null,
-											);
-											const bestRunId =
-												completedRuns.length > 0
-													? completedRuns.reduce((best, r) =>
-															(r.result?.metrics?.[0]?.value ?? Number.NEGATIVE_INFINITY) >
-															(best.result?.metrics?.[0]?.value ?? Number.NEGATIVE_INFINITY)
-																? r
-																: best,
-														).id
-													: null;
-											return visibleRuns.map((run) => {
-												const m0 = run.result?.metrics?.[0];
-												const ret = m0?.value;
-												const isBase = baseline?.id === run.id;
-												const isBest = run.id === bestRunId && completedRuns.length > 1;
-												return (
-													<tr
-														key={run.id}
-														onClick={() =>
-															setSelectedRunId((prev) => (prev === run.id ? null : run.id))
-														}
-														onKeyDown={(e) =>
-															e.key === "Enter" &&
-															setSelectedRunId((prev) => (prev === run.id ? null : run.id))
-														}
-														className={cn(
-															"group cursor-pointer transition-colors border-b border-border/50",
-															run.id === selectedRunId
-																? "bg-accent"
-																: isBest
-																	? "bg-green-500/10 hover:bg-green-500/15"
-																	: "hover:bg-accent/50",
-														)}
-													>
-														<td className="py-1.5">
-															{run.runNumber}
-															{isBase && (
-																<span className="ml-1 text-[10px] text-muted-foreground">base</span>
-															)}
-														</td>
-														<td className="text-left py-1.5 pl-6">
-															{run.status === "running" ? (
-																<span className="flex items-center justify-start gap-1">
-																	<StatusDot status="running" />
-																	<span className="text-[10px] text-blue-400">running</span>
-																</span>
-															) : ret != null ? (
-																<span className={ret > 0 ? "text-green-500" : "text-red-500"}>
-																	{ret > 0 ? "+" : ""}
-																	{ret.toFixed(1)}%
-																</span>
-															) : (
-																<span className="text-muted-foreground">&mdash;</span>
-															)}
-														</td>
-														<td className="w-20 text-right pr-4">
-															{run.status === "completed" &&
-																(() => {
-																	const verdict = (
-																		run.result?.validation as { verdict?: string } | undefined
-																	)?.verdict;
-																	const isValidating = validatingRunId === run.id;
-																	const isOtherValidating =
-																		validatingRunId !== null && !isValidating;
-																	const Icon = isValidating
-																		? Loader2
-																		: verdict === "approve"
-																			? ShieldCheck
-																			: verdict === "reject"
-																				? ShieldX
-																				: Shield;
-																	const iconColor = isValidating
-																		? "text-blue-500"
-																		: verdict === "approve"
-																			? "text-green-500"
-																			: verdict === "reject"
-																				? "text-red-500"
-																				: "text-muted-foreground";
-																	const tooltip = isValidating
-																		? `Validating Run #${run.runNumber}…`
-																		: isOtherValidating
-																			? `Another validation in progress — wait until it finishes`
-																			: verdict === "approve"
-																				? `Risk Manager approved — click to re-validate Run #${run.runNumber}`
-																				: verdict === "reject"
-																					? `Risk Manager rejected — click to re-validate Run #${run.runNumber}`
-																					: `Validate Run #${run.runNumber} with Risk Manager`;
-																	return (
-																		<button
-																			type="button"
-																			disabled={isOtherValidating || isValidating}
-																			onClick={(e) => {
-																				e.stopPropagation();
-																				if (validatingRunId !== null) return;
-																				setValidatingRunId(run.id);
-																				window.dispatchEvent(
-																					new CustomEvent("quantdesk:send-chat", {
-																						detail: `Validate Run #${run.runNumber}`,
-																					}),
-																				);
-																			}}
-																			title={tooltip}
-																			className={cn(
-																				"p-0.5 rounded transition-opacity hover:bg-accent disabled:cursor-not-allowed",
-																				isValidating
-																					? "opacity-100"
-																					: isOtherValidating
-																						? "opacity-20"
-																						: verdict
-																							? "opacity-100"
-																							: "opacity-40 group-hover:opacity-100",
-																				iconColor,
-																			)}
-																		>
-																			<Icon
-																				className={cn("size-3.5", isValidating && "animate-spin")}
-																			/>
-																		</button>
-																	);
-																})()}
-														</td>
-													</tr>
-												);
-											});
-										})()}
-									</tbody>
-								</table>
-							</div>
-						);
-					})()
+				{/* Experiment properties */}
+				{experiment && (
+					<>
+						<PropRow label="Status">
+							<span className="flex items-center gap-1.5">
+								<StatusDot status={experiment.status} />
+								{experiment.status}
+							</span>
+						</PropRow>
+						<PropRow label="Runs">
+							<span className="text-muted-foreground">{visibleRuns.length}</span>
+						</PropRow>
+					</>
 				)}
-			</div>
 
-			{/* Selected Run Detail */}
-			{selectedRun && (
-				<>
-					<div className="border-b border-border my-2" />
-					<div className="space-y-0">
-						<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-							Run #{selectedRun.runNumber}
-						</div>
+				{/* Separator */}
+				<div className="border-b border-border my-2" />
 
-						{selectedRun.result?.metrics?.map((m) => {
-							const toneClass =
-								m.tone === "positive" && m.value > 0
-									? "text-green-500"
-									: m.tone === "negative"
-										? "text-red-500"
-										: "";
-							const formatted =
-								m.format === "percent"
-									? `${m.value > 0 && m.tone === "positive" ? "+" : ""}${m.value.toFixed(2)}%`
-									: m.format === "integer"
-										? Math.round(m.value).toLocaleString()
-										: m.format === "currency"
-											? `$${m.value.toLocaleString()}`
-											: m.value.toFixed(2);
+				{/* Run list */}
+				<div>
+					<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+						Runs
+					</div>
+					{visibleRuns.length === 0 ? (
+						<div className="text-xs text-muted-foreground py-2">No runs yet</div>
+					) : (
+						(() => {
+							// Use the first run with metrics to determine column headers
+							const sampleMetrics = visibleRuns.find((r) => r.result?.metrics?.length)?.result
+								?.metrics;
+							const col1Label = sampleMetrics?.[0]?.label ?? "Value";
 							return (
-								<PropRow key={m.key} label={m.label}>
-									<span className={toneClass}>{formatted}</span>
-								</PropRow>
-							);
-						})}
-
-						{(() => {
-							const runM0 = selectedRun.result?.metrics?.[0];
-							const baseM0 = baseline?.result?.metrics?.[0];
-							if (!runM0 || !baseM0 || selectedRun.isBaseline) return null;
-							const delta = runM0.value - baseM0.value;
-							return (
-								<div
-									className={cn(
-										"flex items-center gap-1.5 text-xs mt-2",
-										delta > 0
-											? "text-green-500"
-											: delta < 0
-												? "text-red-500"
-												: "text-muted-foreground",
-									)}
-								>
-									<TrendingUp className="size-3" />
-									vs baseline {delta > 0 ? "+" : ""}
-									{runM0.format === "percent" ? `${delta.toFixed(2)}%` : delta.toFixed(2)}
+								<div className="max-h-[280px] overflow-y-auto">
+									<table className="w-full text-xs">
+										<thead>
+											<tr className="text-muted-foreground border-b border-border">
+												<th className="text-left py-1.5 font-medium">#</th>
+												<th className="text-left py-1.5 font-medium pl-6">{col1Label}</th>
+												<th className="text-right py-1.5 font-medium w-20 pr-4">Validate</th>
+											</tr>
+										</thead>
+										<tbody>
+											{(() => {
+												// Find the best run by primary metric (highest return)
+												const completedRuns = visibleRuns.filter(
+													(r) => r.status === "completed" && r.result?.metrics?.[0]?.value != null,
+												);
+												const bestRunId =
+													completedRuns.length > 0
+														? completedRuns.reduce((best, r) =>
+																(r.result?.metrics?.[0]?.value ?? Number.NEGATIVE_INFINITY) >
+																(best.result?.metrics?.[0]?.value ?? Number.NEGATIVE_INFINITY)
+																	? r
+																	: best,
+															).id
+														: null;
+												return visibleRuns.map((run) => {
+													const m0 = run.result?.metrics?.[0];
+													const ret = m0?.value;
+													const isBase = baseline?.id === run.id;
+													const isBest = run.id === bestRunId && completedRuns.length > 1;
+													return (
+														<tr
+															key={run.id}
+															onClick={() =>
+																setSelectedRunId((prev) => (prev === run.id ? null : run.id))
+															}
+															onKeyDown={(e) =>
+																e.key === "Enter" &&
+																setSelectedRunId((prev) => (prev === run.id ? null : run.id))
+															}
+															className={cn(
+																"group cursor-pointer transition-colors border-b border-border/50",
+																run.id === selectedRunId
+																	? "bg-accent"
+																	: isBest
+																		? "bg-green-500/10 hover:bg-green-500/15"
+																		: "hover:bg-accent/50",
+															)}
+														>
+															<td className="py-1.5">
+																{run.runNumber}
+																{isBase && (
+																	<span className="ml-1 text-[10px] text-muted-foreground">
+																		base
+																	</span>
+																)}
+															</td>
+															<td className="text-left py-1.5 pl-6">
+																{run.status === "running" ? (
+																	<span className="flex items-center justify-start gap-1">
+																		<StatusDot status="running" />
+																		<span className="text-[10px] text-blue-400">running</span>
+																	</span>
+																) : ret != null ? (
+																	<span className={ret > 0 ? "text-green-500" : "text-red-500"}>
+																		{ret > 0 ? "+" : ""}
+																		{ret.toFixed(1)}%
+																	</span>
+																) : (
+																	<span className="text-muted-foreground">&mdash;</span>
+																)}
+															</td>
+															<td className="w-20 text-right pr-4">
+																{run.status === "completed" &&
+																	(() => {
+																		const verdict = (
+																			run.result?.validation as { verdict?: string } | undefined
+																		)?.verdict;
+																		const isValidating = validatingRunId === run.id;
+																		const isOtherValidating =
+																			validatingRunId !== null && !isValidating;
+																		const Icon = isValidating
+																			? Loader2
+																			: verdict === "approve"
+																				? ShieldCheck
+																				: verdict === "reject"
+																					? ShieldX
+																					: Shield;
+																		const iconColor = isValidating
+																			? "text-blue-500"
+																			: verdict === "approve"
+																				? "text-green-500"
+																				: verdict === "reject"
+																					? "text-red-500"
+																					: "text-muted-foreground";
+																		const tooltip = isValidating
+																			? `Validating Run #${run.runNumber}…`
+																			: isOtherValidating
+																				? `Another validation in progress — wait until it finishes`
+																				: verdict === "approve"
+																					? `Risk Manager approved — click to re-validate Run #${run.runNumber}`
+																					: verdict === "reject"
+																						? `Risk Manager rejected — click to re-validate Run #${run.runNumber}`
+																						: `Validate Run #${run.runNumber} with Risk Manager`;
+																		return (
+																			<button
+																				type="button"
+																				disabled={isOtherValidating || isValidating}
+																				onClick={(e) => {
+																					e.stopPropagation();
+																					if (validatingRunId !== null) return;
+																					setValidatingRunId(run.id);
+																					window.dispatchEvent(
+																						new CustomEvent("quantdesk:send-chat", {
+																							detail: `Validate Run #${run.runNumber}`,
+																						}),
+																					);
+																				}}
+																				title={tooltip}
+																				className={cn(
+																					"p-0.5 rounded transition-opacity hover:bg-accent disabled:cursor-not-allowed",
+																					isValidating
+																						? "opacity-100"
+																						: isOtherValidating
+																							? "opacity-20"
+																							: verdict
+																								? "opacity-100"
+																								: "opacity-40 group-hover:opacity-100",
+																					iconColor,
+																				)}
+																			>
+																				<Icon
+																					className={cn("size-3.5", isValidating && "animate-spin")}
+																				/>
+																			</button>
+																		);
+																	})()}
+															</td>
+														</tr>
+													);
+												});
+											})()}
+										</tbody>
+									</table>
 								</div>
 							);
-						})()}
+						})()
+					)}
+				</div>
 
-						{/* Trade Log */}
-						{(() => {
-							const trades: TradeLogEntry[] = selectedRun.result?.trades ?? [];
-							if (trades.length === 0) return null;
-							let equity = wallet;
-							const rows = trades.map((t, i) => {
-								equity += t.pnl;
-								return { ...t, idx: i + 1, equity };
-							});
-							return (
-								<>
-									<div className="border-b border-border my-2" />
-									<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-										Trade Log ({trades.length})
+				{/* Selected Run Detail */}
+				{selectedRun && (
+					<>
+						<div className="border-b border-border my-2" />
+						<div className="space-y-0">
+							<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+								Run #{selectedRun.runNumber}
+							</div>
+
+							{selectedRun.result?.metrics?.map((m) => {
+								const toneClass =
+									m.tone === "positive" && m.value > 0
+										? "text-green-500"
+										: m.tone === "negative"
+											? "text-red-500"
+											: "";
+								const formatted =
+									m.format === "percent"
+										? `${m.value > 0 && m.tone === "positive" ? "+" : ""}${m.value.toFixed(2)}%`
+										: m.format === "integer"
+											? Math.round(m.value).toLocaleString()
+											: m.format === "currency"
+												? `$${m.value.toLocaleString()}`
+												: m.value.toFixed(2);
+								return (
+									<PropRow key={m.key} label={m.label}>
+										<span className={toneClass}>{formatted}</span>
+									</PropRow>
+								);
+							})}
+
+							{(() => {
+								const runM0 = selectedRun.result?.metrics?.[0];
+								const baseM0 = baseline?.result?.metrics?.[0];
+								if (!runM0 || !baseM0 || selectedRun.isBaseline) return null;
+								const delta = runM0.value - baseM0.value;
+								return (
+									<div
+										className={cn(
+											"flex items-center gap-1.5 text-xs mt-2",
+											delta > 0
+												? "text-green-500"
+												: delta < 0
+													? "text-red-500"
+													: "text-muted-foreground",
+										)}
+									>
+										<TrendingUp className="size-3" />
+										vs baseline {delta > 0 ? "+" : ""}
+										{runM0.format === "percent" ? `${delta.toFixed(2)}%` : delta.toFixed(2)}
 									</div>
-									<div className="max-h-64 overflow-y-auto">
-										<table className="w-full text-[11px]">
-											<thead>
-												<tr className="text-muted-foreground">
-													<th className="text-left font-medium py-0.5">#</th>
-													<th className="text-left font-medium py-0.5">Time</th>
-													<th className="text-left font-medium py-0.5">Side</th>
-													<th className="text-right font-medium py-0.5">PnL</th>
-													<th className="text-right font-medium py-0.5">Equity</th>
-												</tr>
-											</thead>
-											<tbody>
-												{rows.map((r) => (
-													<tr key={r.idx} className="border-t border-border/30">
-														<td className="py-0.5 text-muted-foreground">{r.idx}</td>
-														<td className="py-0.5 text-muted-foreground">
-															{(() => {
-																const raw = r.closedAt || r.openedAt;
-																if (!raw) return "—";
-																const d = new Date(raw);
-																return Number.isNaN(d.getTime())
-																	? "—"
-																	: d.toLocaleDateString(undefined, {
-																			month: "2-digit",
-																			day: "2-digit",
-																			hour: "2-digit",
-																			minute: "2-digit",
-																		});
-															})()}
-														</td>
-														<td
-															className={cn(
-																"py-0.5 font-medium",
-																r.side === "buy" ? "text-green-600 dark:text-green-400" : "text-red-500",
-															)}
-														>
-															{r.side.toUpperCase()}
-														</td>
-														<td
-															className={cn(
-																"py-0.5 text-right font-mono",
-																r.pnl >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500",
-															)}
-														>
-															{r.pnl >= 0 ? "+" : ""}
-															{r.pnl.toFixed(2)}
-														</td>
-														<td className="py-0.5 text-right font-mono text-foreground/80">
-															${r.equity.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-														</td>
+								);
+							})()}
+
+							{/* Trade Log */}
+							{(() => {
+								const trades: TradeLogEntry[] = selectedRun.result?.trades ?? [];
+								if (trades.length === 0) return null;
+								let equity = wallet;
+								const rows = trades.map((t, i) => {
+									equity += t.pnl;
+									return { ...t, idx: i + 1, equity };
+								});
+								return (
+									<>
+										<div className="border-b border-border my-2" />
+										<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+											Trade Log ({trades.length})
+										</div>
+										<div className="max-h-64 overflow-y-auto">
+											<table className="w-full text-[11px]">
+												<thead>
+													<tr className="text-muted-foreground">
+														<th className="text-left font-medium py-0.5">#</th>
+														<th className="text-left font-medium py-0.5">Time</th>
+														<th className="text-left font-medium py-0.5">Side</th>
+														<th className="text-right font-medium py-0.5">PnL</th>
+														<th className="text-right font-medium py-0.5">Equity</th>
 													</tr>
-												))}
-											</tbody>
-										</table>
-									</div>
-									<div className="text-[10px] text-muted-foreground mt-1">
-										${wallet.toLocaleString()} → ${equity.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-										{" "}
-										<span className={cn(equity >= wallet ? "text-green-500" : "text-red-500")}>
-											({equity >= wallet ? "+" : ""}{((equity - wallet) / wallet * 100).toFixed(2)}%)
-										</span>
-									</div>
-								</>
-							);
-						})()}
-					</div>
-				</>
-			)}
-
-			</div>{/* end scrollable area */}
+												</thead>
+												<tbody>
+													{rows.map((r) => (
+														<tr key={r.idx} className="border-t border-border/30">
+															<td className="py-0.5 text-muted-foreground">{r.idx}</td>
+															<td className="py-0.5 text-muted-foreground">
+																{(() => {
+																	const raw = r.closedAt || r.openedAt;
+																	if (!raw) return "—";
+																	const d = new Date(raw);
+																	return Number.isNaN(d.getTime())
+																		? "—"
+																		: d.toLocaleDateString(undefined, {
+																				month: "2-digit",
+																				day: "2-digit",
+																				hour: "2-digit",
+																				minute: "2-digit",
+																			});
+																})()}
+															</td>
+															<td
+																className={cn(
+																	"py-0.5 font-medium",
+																	r.side === "buy"
+																		? "text-green-600 dark:text-green-400"
+																		: "text-red-500",
+																)}
+															>
+																{r.side.toUpperCase()}
+															</td>
+															<td
+																className={cn(
+																	"py-0.5 text-right font-mono",
+																	r.pnl >= 0
+																		? "text-green-600 dark:text-green-400"
+																		: "text-red-500",
+																)}
+															>
+																{r.pnl >= 0 ? "+" : ""}
+																{r.pnl.toFixed(2)}
+															</td>
+															<td className="py-0.5 text-right font-mono text-foreground/80">
+																$
+																{r.equity.toLocaleString(undefined, {
+																	minimumFractionDigits: 0,
+																	maximumFractionDigits: 0,
+																})}
+															</td>
+														</tr>
+													))}
+												</tbody>
+											</table>
+										</div>
+										<div className="text-[10px] text-muted-foreground mt-1">
+											${wallet.toLocaleString()} → $
+											{equity.toLocaleString(undefined, {
+												minimumFractionDigits: 0,
+												maximumFractionDigits: 0,
+											})}{" "}
+											<span className={cn(equity >= wallet ? "text-green-500" : "text-red-500")}>
+												({equity >= wallet ? "+" : ""}
+												{(((equity - wallet) / wallet) * 100).toFixed(2)}%)
+											</span>
+										</div>
+									</>
+								);
+							})()}
+						</div>
+					</>
+				)}
+			</div>
+			{/* end scrollable area */}
 
 			{/* Paper Trading section — pinned to bottom */}
 			{(() => {

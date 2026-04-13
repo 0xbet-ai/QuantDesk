@@ -216,7 +216,7 @@ const ChatInputBar = memo(function ChatInputBar({
 			busyRef.current = false;
 			// Re-sync button state after send completes.
 			if (btnRef.current) {
-				btnRef.current.disabled = disabled || !(inputRef.current?.value.trim());
+				btnRef.current.disabled = disabled || !inputRef.current?.value.trim();
 			}
 		}
 	};
@@ -226,7 +226,7 @@ const ChatInputBar = memo(function ChatInputBar({
 	useEffect(() => {
 		if (inputRef.current) inputRef.current.disabled = disabled;
 		if (btnRef.current) {
-			btnRef.current.disabled = disabled || !(inputRef.current?.value.trim());
+			btnRef.current.disabled = disabled || !inputRef.current?.value.trim();
 		}
 	}, [disabled]);
 
@@ -239,13 +239,11 @@ const ChatInputBar = memo(function ChatInputBar({
 					// Toggle send button enabled/disabled WITHOUT setState —
 					// pure DOM write, zero React re-render.
 					if (btnRef.current) {
-						btnRef.current.disabled =
-							disabled || !(inputRef.current?.value.trim());
+						btnRef.current.disabled = disabled || !inputRef.current?.value.trim();
 					}
 				}}
 				onKeyDown={(e) => {
-					if (e.key === "Enter" && !e.nativeEvent.isComposing && !disabled)
-						submit();
+					if (e.key === "Enter" && !e.nativeEvent.isComposing && !disabled) submit();
 				}}
 				placeholder={placeholder}
 				disabled={disabled}

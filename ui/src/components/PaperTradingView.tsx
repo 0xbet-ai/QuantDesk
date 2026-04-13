@@ -424,10 +424,7 @@ export function PaperTradingView({ desk }: Props) {
 			    the initial layout is resolution-independent. */}
 			<div ref={splitContainerRef} className="flex-1 min-h-0 flex flex-col">
 				{/* Trade history */}
-				<div
-					className="min-h-0 overflow-y-auto"
-					style={{ flex: `${1 - logFraction} 1 0%` }}
-				>
+				<div className="min-h-0 overflow-y-auto" style={{ flex: `${1 - logFraction} 1 0%` }}>
 					<div className="px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
 						Trades ({trades.length})
 					</div>

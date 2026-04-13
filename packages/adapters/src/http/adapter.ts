@@ -56,7 +56,6 @@ export class HttpAdapter implements AgentAdapter {
 				sessionId: "http-session",
 				resultText: "",
 				usage: { inputTokens: 0, outputTokens: 0 },
-				
 			};
 		}
 

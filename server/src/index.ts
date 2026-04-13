@@ -79,10 +79,12 @@ if (config.auth.deploymentMode === "authenticated") {
 	app.use(cookieParser());
 	const { createAuthRouter, resolveSession } = await import("./auth/better-auth.js");
 	app.use("/api/auth", createAuthRouter({ disableSignUp: config.auth.disableSignUp }));
-	app.use(actorMiddleware({
-		deploymentMode: config.auth.deploymentMode,
-		resolveSession: (req) => resolveSession(req),
-	}));
+	app.use(
+		actorMiddleware({
+			deploymentMode: config.auth.deploymentMode,
+			resolveSession: (req) => resolveSession(req),
+		}),
+	);
 } else {
 	app.use(actorMiddleware({ deploymentMode: "local_trusted" }));
 }

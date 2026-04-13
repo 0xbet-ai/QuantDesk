@@ -152,7 +152,9 @@ async function generateMemorySummary(experimentId: string): Promise<string> {
 		const v = result.validation;
 		if (v?.verdict === "reject" && v.reason) {
 			const short = v.reason.slice(0, 200).replace(/\n+/g, " ").trim();
-			rejectionReasons.push(`  Run #${run.runNumber} rejected: ${short}${v.reason.length > 200 ? "..." : ""}`);
+			rejectionReasons.push(
+				`  Run #${run.runNumber} rejected: ${short}${v.reason.length > 200 ? "..." : ""}`,
+			);
 		}
 	}
 	if (rejectionReasons.length > 0) {

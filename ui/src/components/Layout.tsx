@@ -1,4 +1,14 @@
-import { ChevronLeft, ChevronRight, Menu, Moon, PanelRight, Plus, Settings, Sun, X } from "lucide-react";
+import {
+	ChevronLeft,
+	ChevronRight,
+	Menu,
+	Moon,
+	PanelRight,
+	Plus,
+	Settings,
+	Sun,
+	X,
+} from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../context/ThemeContext.js";
@@ -183,14 +193,25 @@ export function Layout({
 					<div className="flex-1" />
 				</nav>
 				<div className="flex items-center gap-1 px-3 py-2 border-t border-border shrink-0">
-					<Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={() => setSidebarOpen(false)}>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						className="text-muted-foreground"
+						onClick={() => setSidebarOpen(false)}
+					>
 						<ChevronLeft className="h-4 w-4" />
 					</Button>
 					<div className="flex-1" />
 					<Button variant="ghost" size="icon-sm" className="text-muted-foreground" title="Settings">
 						<Settings className="h-4 w-4" />
 					</Button>
-					<Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={toggleTheme} title={`Switch to ${nextTheme} mode`}>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						className="text-muted-foreground"
+						onClick={toggleTheme}
+						title={`Switch to ${nextTheme} mode`}
+					>
 						{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
 					</Button>
 				</div>
@@ -213,9 +234,7 @@ export function Layout({
 			)}
 
 			{/* ── Col 3 — Main content (always visible) ──────────── */}
-			<div className="flex-1 flex flex-col min-w-0 pt-12 lg:pt-0">
-				{main}
-			</div>
+			<div className="flex-1 flex flex-col min-w-0 pt-12 lg:pt-0">{main}</div>
 
 			{/* ── Desktop: Properties panel ───────────────────────── */}
 			{selectedExperiment && panel && (

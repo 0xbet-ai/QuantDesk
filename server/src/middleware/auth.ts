@@ -10,8 +10,8 @@
  *   protected routes return 401.
  */
 
-import type { Request, RequestHandler } from "express";
 import type { DeploymentMode } from "@quantdesk/shared";
+import type { Request, RequestHandler } from "express";
 
 export interface Actor {
 	userId: string | null;

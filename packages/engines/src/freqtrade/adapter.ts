@@ -21,21 +21,21 @@ import {
 	stopContainer,
 } from "../docker.js";
 import { ENGINE_IMAGES } from "../images.js";
-import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
 import { deriveMetrics } from "../metrics.js";
-import {
-	type BacktestConfig,
-	type BacktestResult,
-	type DataConfig,
-	type DataRef,
-	type EngineAdapter,
-	type NormalizedResult,
-	type PaperCandle,
-	type PaperConfig,
-	type PaperHandle,
-	type PaperStatus,
-	type PaperTrade,
-	type TradeEntry,
+import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
+import type {
+	BacktestConfig,
+	BacktestResult,
+	DataConfig,
+	DataRef,
+	EngineAdapter,
+	NormalizedResult,
+	PaperCandle,
+	PaperConfig,
+	PaperHandle,
+	PaperStatus,
+	PaperTrade,
+	TradeEntry,
 } from "../types.js";
 
 // The freqtrade container mounts workspace → /freqtrade/user_data.

@@ -717,9 +717,7 @@ export async function triggerAgent(
 				if (finalText) {
 					const lastChunk = assistantTextChunks[assistantTextChunks.length - 1]?.trim();
 					if (lastChunk !== finalText) {
-						assembledText = assembledText
-							? `${assembledText}\n\n${finalText}`
-							: finalText;
+						assembledText = assembledText ? `${assembledText}\n\n${finalText}` : finalText;
 					}
 				}
 			}

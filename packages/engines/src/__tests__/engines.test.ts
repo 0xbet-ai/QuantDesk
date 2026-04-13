@@ -92,8 +92,24 @@ describe("generic parseResult", () => {
 	it("derives metrics from trades array via deriveMetrics()", () => {
 		const json = JSON.stringify({
 			trades: [
-				{ pair: "BTC/USDT", side: "buy", price: 40000, amount: 0.5, pnl: 200, openedAt: "2025-01-01", closedAt: "2025-01-02" },
-				{ pair: "BTC/USDT", side: "buy", price: 41000, amount: 0.5, pnl: -50, openedAt: "2025-01-03", closedAt: "2025-01-04" },
+				{
+					pair: "BTC/USDT",
+					side: "buy",
+					price: 40000,
+					amount: 0.5,
+					pnl: 200,
+					openedAt: "2025-01-01",
+					closedAt: "2025-01-02",
+				},
+				{
+					pair: "BTC/USDT",
+					side: "buy",
+					price: 41000,
+					amount: 0.5,
+					pnl: -50,
+					openedAt: "2025-01-03",
+					closedAt: "2025-01-04",
+				},
 			],
 		});
 		const result = adapter.parseResult(json);

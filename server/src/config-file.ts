@@ -196,9 +196,7 @@ export function readConfigFile(): QuantDeskConfig | null {
 	}
 	const parsed = quantdeskConfigSchema.safeParse(raw);
 	if (!parsed.success) {
-		throw new Error(
-			`QuantDesk config at ${path} failed validation: ${parsed.error.message}`,
-		);
+		throw new Error(`QuantDesk config at ${path} failed validation: ${parsed.error.message}`);
 	}
 	return parsed.data;
 }
@@ -247,19 +245,13 @@ export function loadConfig(): ResolvedConfig {
 	const envLogLevel = process.env.LOG_LEVEL as LogLevel | undefined;
 	const level = envLogLevel ?? file?.logging?.level ?? DEFAULT_LOG_LEVEL;
 	const logDir =
-		process.env.QUANTDESK_LOG_DIR ??
-		file?.logging?.logDir ??
-		join(homedir(), ".quantdesk", "logs");
+		process.env.QUANTDESK_LOG_DIR ?? file?.logging?.logDir ?? join(homedir(), ".quantdesk", "logs");
 
 	// ── agent ────────────────────────────────────────────────────────
-	const defaultModel =
-		process.env.AGENT_MODEL ?? file?.agent?.defaultModel ?? DEFAULT_AGENT_MODEL;
-	const heartbeatThresholdMs =
-		file?.agent?.heartbeatThresholdMs ?? DEFAULT_HEARTBEAT_MS;
-	const watchdogIntervalMs =
-		file?.agent?.watchdogIntervalMs ?? DEFAULT_WATCHDOG_INTERVAL_MS;
-	const adapterTestTimeoutMs =
-		file?.agent?.adapterTestTimeoutMs ?? DEFAULT_ADAPTER_TEST_TIMEOUT_MS;
+	const defaultModel = process.env.AGENT_MODEL ?? file?.agent?.defaultModel ?? DEFAULT_AGENT_MODEL;
+	const heartbeatThresholdMs = file?.agent?.heartbeatThresholdMs ?? DEFAULT_HEARTBEAT_MS;
+	const watchdogIntervalMs = file?.agent?.watchdogIntervalMs ?? DEFAULT_WATCHDOG_INTERVAL_MS;
+	const adapterTestTimeoutMs = file?.agent?.adapterTestTimeoutMs ?? DEFAULT_ADAPTER_TEST_TIMEOUT_MS;
 
 	// ── engine ───────────────────────────────────────────────────────
 	const imageOverrides = file?.engine?.imageOverrides ?? {};
@@ -268,11 +260,7 @@ export function loadConfig(): ResolvedConfig {
 		DEFAULT_BACKTEST_CPUS,
 		DEFAULT_BACKTEST_MEMORY_GB,
 	);
-	const paperRes = pickResources(
-		file?.engine?.paper,
-		DEFAULT_PAPER_CPUS,
-		DEFAULT_PAPER_MEMORY_GB,
-	);
+	const paperRes = pickResources(file?.engine?.paper, DEFAULT_PAPER_CPUS, DEFAULT_PAPER_MEMORY_GB);
 	// Generic falls back to backtest if unspecified — they share the
 	// same default shape (2 CPU / 2 GB) and operators usually want a
 	// single knob unless they hit a specific generic workload.

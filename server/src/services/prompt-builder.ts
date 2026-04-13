@@ -209,7 +209,10 @@ ${desk.description ?? ""}
 
 		// Always include desk summaries
 		const kept: typeof memorySummaries = [...deskSummaries];
-		let tokens = deskSummaries.reduce((sum, s) => sum + estimateTokens(`[${s.level}] ${s.content}`), 0);
+		let tokens = deskSummaries.reduce(
+			(sum, s) => sum + estimateTokens(`[${s.level}] ${s.content}`),
+			0,
+		);
 
 		// Add experiment summaries newest-first until budget is hit
 		for (const s of expReversed) {

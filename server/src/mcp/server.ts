@@ -1358,9 +1358,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						console.error("Retrigger on new experiment failed:", err);
 					});
 				}
-				return textResult(
-					JSON.stringify({ newExperimentId: next.id, title: args.title }, null, 2),
-				);
+				return textResult(JSON.stringify({ newExperimentId: next.id, title: args.title }, null, 2));
 			} catch (err) {
 				return errorResult(
 					`new_experiment failed: ${err instanceof Error ? err.message : String(err)}`,

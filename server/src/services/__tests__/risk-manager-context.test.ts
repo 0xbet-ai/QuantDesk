@@ -2,10 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import {
-	collectAnalystTrailFromEntries,
-	collectCodeDiff,
-} from "../risk-manager-context.js";
+import { collectAnalystTrailFromEntries, collectCodeDiff } from "../risk-manager-context.js";
 import { commitCode, hasChanges, initWorkspace } from "../workspace.js";
 
 function makeRun(overrides: {
@@ -30,11 +27,7 @@ afterEach(() => {
 
 describe("collectCodeDiff", () => {
 	it("returns null when workspacePath is missing", async () => {
-		const result = await collectCodeDiff(
-			null,
-			makeRun({ runNumber: 1, commitHash: "abc" }),
-			[],
-		);
+		const result = await collectCodeDiff(null, makeRun({ runNumber: 1, commitHash: "abc" }), []);
 		expect(result).toBeNull();
 	});
 
@@ -153,9 +146,7 @@ describe("collectAnalystTrailFromEntries", () => {
 
 	it("truncates very long chunks to keep the prompt budget", () => {
 		const huge = "x".repeat(5000);
-		const trail = collectAnalystTrailFromEntries([
-			{ ts: "t0", type: "thinking", content: huge },
-		]);
+		const trail = collectAnalystTrailFromEntries([{ ts: "t0", type: "thinking", content: huge }]);
 		expect(trail).toHaveLength(1);
 		expect(trail[0]?.content.length).toBeLessThan(huge.length);
 		expect(trail[0]?.content).toMatch(/truncated/);

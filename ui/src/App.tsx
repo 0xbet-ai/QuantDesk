@@ -274,22 +274,25 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
 	// Authenticated mode — need session
 	if (!hasSession) {
-		return (
-			<AuthPageWrapper
-				onAuthenticated={() => setHasSession(true)}
-			/>
-		);
+		return <AuthPageWrapper onAuthenticated={() => setHasSession(true)} />;
 	}
 
 	return <>{children}</>;
 }
 
 function AuthPageWrapper({ onAuthenticated }: { onAuthenticated: () => void }) {
-	const [Page, setPage] = useState<React.ComponentType<{ onAuthenticated: () => void }> | null>(null);
+	const [Page, setPage] = useState<React.ComponentType<{ onAuthenticated: () => void }> | null>(
+		null,
+	);
 	useEffect(() => {
 		import("./pages/AuthPage.js").then((m) => setPage(() => m.AuthPage));
 	}, []);
-	if (!Page) return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading...</div>;
+	if (!Page)
+		return (
+			<div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+				Loading...
+			</div>
+		);
 	return <Page onAuthenticated={onAuthenticated} />;
 }
 

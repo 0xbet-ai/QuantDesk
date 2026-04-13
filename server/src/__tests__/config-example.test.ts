@@ -60,10 +60,9 @@ describe("config.example.json", () => {
 		// whenever the experiments section grows.
 		const expected = ["maxIterationsPerExperiment"];
 		for (const key of expected) {
-			expect(
-				parsed.experiments ?? {},
-				`example.experiments must document "${key}"`,
-			).toHaveProperty(key);
+			expect(parsed.experiments ?? {}, `example.experiments must document "${key}"`).toHaveProperty(
+				key,
+			);
 		}
 	});
 });

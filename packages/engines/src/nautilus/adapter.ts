@@ -12,19 +12,19 @@ import {
 	stopContainer,
 } from "../docker.js";
 import { ENGINE_IMAGES } from "../images.js";
-import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
 import { deriveMetrics } from "../metrics.js";
-import {
-	type BacktestConfig,
-	type BacktestResult,
-	type DataConfig,
-	type DataRef,
-	type EngineAdapter,
-	type NormalizedResult,
-	type PaperConfig,
-	type PaperHandle,
-	type PaperStatus,
-	type TradeEntry,
+import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
+import type {
+	BacktestConfig,
+	BacktestResult,
+	DataConfig,
+	DataRef,
+	EngineAdapter,
+	NormalizedResult,
+	PaperConfig,
+	PaperHandle,
+	PaperStatus,
+	TradeEntry,
 } from "../types.js";
 
 /**
@@ -240,7 +240,10 @@ export class NautilusAdapter implements EngineAdapter {
 		if ("trades" in data && Array.isArray(data.trades)) {
 			const rawTrades = data.trades as NautilusTrade[];
 			trades = rawTrades.map((t) => ({
-				pair: t.pair ?? (t as unknown as { instrument_id?: string }).instrument_id?.split(".")[0] ?? "?",
+				pair:
+					t.pair ??
+					(t as unknown as { instrument_id?: string }).instrument_id?.split(".")[0] ??
+					"?",
 				side: (t.side ?? "").toLowerCase() === "sell" ? ("sell" as const) : ("buy" as const),
 				price: t.price ?? (t as unknown as { avg_price?: number }).avg_price ?? 0,
 				amount: t.amount ?? (t as unknown as { quantity?: number }).quantity ?? 0,

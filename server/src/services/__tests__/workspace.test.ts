@@ -99,7 +99,9 @@ describe("getHead", () => {
 
 describe("ensureCommit", () => {
 	it("commits when the workspace is dirty and returns the new hash", async () => {
-		const dir = await initWorkspace("desk-ensure-dirty", "freqtrade", workspacesRoot, { venue: "binance" });
+		const dir = await initWorkspace("desk-ensure-dirty", "freqtrade", workspacesRoot, {
+			venue: "binance",
+		});
 		const before = await getHead(dir);
 
 		await writeFile(join(dir, "config.json"), '{"timeframe":"1h"}');
@@ -111,7 +113,9 @@ describe("ensureCommit", () => {
 	});
 
 	it("returns the current HEAD unchanged when the workspace is clean", async () => {
-		const dir = await initWorkspace("desk-ensure-clean", "freqtrade", workspacesRoot, { venue: "binance" });
+		const dir = await initWorkspace("desk-ensure-clean", "freqtrade", workspacesRoot, {
+			venue: "binance",
+		});
 		const before = await getHead(dir);
 
 		const hash1 = await ensureCommit(dir, "pre-run #1");
@@ -125,7 +129,9 @@ describe("ensureCommit", () => {
 		// Simulates a freqtrade run dropping backtest_results/*.zip into the
 		// workspace between two agent edits. A subsequent ensureCommit() must
 		// ignore the output artifacts and only snapshot reproducible inputs.
-		const dir = await initWorkspace("desk-ignore", "freqtrade", workspacesRoot, { venue: "binance" });
+		const dir = await initWorkspace("desk-ignore", "freqtrade", workspacesRoot, {
+			venue: "binance",
+		});
 
 		// Engine writes an output file.
 		const { mkdir } = await import("node:fs/promises");
