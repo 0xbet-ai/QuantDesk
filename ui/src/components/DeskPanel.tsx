@@ -241,7 +241,7 @@ export function DeskPanel({
 					</div>
 					<h2 className="text-xs font-semibold truncate flex-1">{desk.name}</h2>
 					{/* Team avatars */}
-					<div className="flex items-center -space-x-1 shrink-0">
+					<div className="flex items-center gap-0.5 shrink-0">
 						<Tooltip delayDuration={0}>
 							<TooltipTrigger asChild>
 								<div className="flex size-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40 ring-2 ring-background transition-transform duration-150 hover:scale-125 hover:z-10">
