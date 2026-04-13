@@ -1130,7 +1130,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 												    paths before the desk row is written. */}
 													<div className="border-t border-border pt-4">
 														<div className="text-[10px] font-medium uppercase tracking-widest text-foreground/40 mb-2">
-															Bring your own (optional)
+															{t("wizard.bringYourOwn")}
 														</div>
 														<div className="space-y-3">
 															<div>
@@ -1138,7 +1138,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																	htmlFor="seed-code-path"
 																	className="text-xs font-medium text-foreground/70 mb-1 block"
 																>
-																	Seed code directory
+																	{t("wizard.seedCodeDir")}
 																</label>
 																<div className="flex items-center gap-1.5">
 																	<input
@@ -1154,18 +1154,18 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																		onClick={() => setFolderPicker({ kind: "seed" })}
 																		className="shrink-0 px-2 py-1.5 text-[11px] rounded-md border border-border bg-background hover:bg-accent transition-colors"
 																	>
-																		Browse
+																		{t("wizard.browse")}
 																	</button>
 																</div>
 																<div className="text-[10px] text-foreground/40 mt-1">
-																	Contents are copied into the desk workspace at creation.
+																	{t("wizard.seedCodeHint")}
 																</div>
 															</div>
 
 															<div>
 																<div className="flex items-center justify-between mb-1">
 																	<span className="text-xs font-medium text-foreground/70">
-																		External datasets
+																		{t("wizard.externalDatasets")}
 																	</span>
 																	<button
 																		type="button"
@@ -1177,16 +1177,12 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																		}
 																		className="text-[11px] text-foreground/60 hover:text-foreground transition-colors"
 																	>
-																		+ Add
+																		+ {t("wizard.add")}
 																	</button>
 																</div>
 																{externalMounts.length === 0 ? (
 																	<div className="text-[10px] text-foreground/40">
-																		Bind-mount existing local data into{" "}
-																		<code className="font-mono">
-																			/workspace/data/external/&lt;label&gt;
-																		</code>{" "}
-																		(read-only).
+																		{t("wizard.externalDatasetsHint")}
 																	</div>
 																) : (
 																	<div className="space-y-2.5">
@@ -1247,7 +1243,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																						}
 																						className="shrink-0 px-2 py-1 text-[10px] rounded-md border border-border bg-background hover:bg-accent transition-colors"
 																					>
-																						Browse
+																						{t("wizard.browse")}
 																					</button>
 																				</div>
 																			</div>
@@ -1259,22 +1255,20 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 															<div>
 																<div className="flex items-center justify-between mb-1">
 																	<span className="text-xs font-medium text-foreground/70">
-																		Reuse existing datasets
+																		{t("wizard.reuseDatasets")}
 																	</span>
 																	{availableDatasets.length > 0 && (
 																		<span className="text-[10px] text-foreground/40 tabular-nums">
 																			{reusedDatasetIds.length} / {availableDatasets.length}{" "}
-																			selected
+																			{t("wizard.selected")}
 																		</span>
 																	)}
 																</div>
 																{datasetsLoading ? (
-																	<div className="text-[10px] text-foreground/40">Loading…</div>
+																	<div className="text-[10px] text-foreground/40">{t("common.loading")}</div>
 																) : availableDatasets.length === 0 ? (
 																	<div className="text-[10px] text-foreground/40">
-																		Nothing in the catalog yet. Datasets downloaded by any desk's
-																		agent will appear here and can be linked on future desks without
-																		a re-download.
+																		{t("wizard.noDatasetsYet")}
 																	</div>
 																) : (
 																	<div className="rounded-md border border-border bg-muted/20 max-h-44 overflow-y-auto divide-y divide-border/60">

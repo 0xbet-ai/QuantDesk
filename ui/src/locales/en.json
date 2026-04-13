@@ -201,7 +201,17 @@
 		"missionHint": "Minimum 10 characters. The agent matches its response language to this description on the first turn.",
 		"searchPlaceholder": "Search strategies or indicators...",
 		"customVenuePlaceholder": "e.g. Uniswap (Base)",
-		"customStrategyPlaceholder": "e.g. A momentum strategy that buys when RSI crosses above 30 and sells when it crosses below 70. Use a 14-period RSI on 1h candles. Add a stop-loss at 2% and take-profit at 5%. Trade only during high-volume hours..."
+		"customStrategyPlaceholder": "e.g. A momentum strategy that buys when RSI crosses above 30 and sells when it crosses below 70. Use a 14-period RSI on 1h candles. Add a stop-loss at 2% and take-profit at 5%. Trade only during high-volume hours...",
+		"bringYourOwn": "Bring your own (optional)",
+		"seedCodeDir": "Seed code directory",
+		"seedCodeHint": "Contents are copied into the desk workspace at creation.",
+		"browse": "Browse",
+		"externalDatasets": "External datasets",
+		"externalDatasetsHint": "Bind-mount existing local data into /workspace/data/external/<label> (read-only).",
+		"add": "Add",
+		"reuseDatasets": "Reuse existing datasets",
+		"selected": "selected",
+		"noDatasetsYet": "Nothing in the catalog yet. Datasets downloaded by any desk's agent will appear here and can be linked on future desks without a re-download."
 	},
 
 	"settings": {
