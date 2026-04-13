@@ -431,7 +431,10 @@ const markdownComponents = {
 			return <CollapsibleCode lang={match[1]!}>{children}</CollapsibleCode>;
 		}
 		return (
-			<code className="bg-muted px-1 py-0.5 rounded text-[12px]" {...props}>
+			<code
+				className="bg-muted px-1 py-0.5 rounded text-[12px] before:content-none after:content-none"
+				{...props}
+			>
 				{children}
 			</code>
 		);
