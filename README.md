@@ -143,15 +143,26 @@ Engine resolution is automatic: pick a strategy mode (`classic` or `realtime`) a
 Open source. Self-hosted. No account required.
 
 ```bash
+npx quantdesk onboard --yes
+```
+
+That's it. Clones the repo, installs dependencies, pulls engine Docker images, migrates the database, and starts the server at `http://localhost:3000`.
+
+An embedded PostgreSQL boots in-process — no Docker needed for the database. Docker is used exclusively for engine containers.
+
+> **Requirements:** Node.js 20+, pnpm 9.15+, Docker (running), Claude CLI (`claude`) or Codex CLI (`codex`)
+
+<details>
+<summary>Manual setup</summary>
+
+```bash
 git clone https://github.com/0xbet-ai/QuantDesk.git
 cd QuantDesk
 pnpm install
-pnpm onboard --yes   # pulls engine images, migrates DB, starts server
+pnpm onboard --yes
 ```
 
-This starts the API + UI at `http://localhost:3000`. An embedded PostgreSQL boots in-process — no Docker needed for the database. Docker is used exclusively for engine containers.
-
-> **Requirements:** Node.js 20+, pnpm 9.15+, Docker (running), Claude CLI (`claude`) or Codex CLI (`codex`)
+</details>
 
 <br/>
 
