@@ -1,6 +1,7 @@
-import { ChevronLeft, ChevronRight, Menu, Moon, PanelRight, Plus, Sun, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Globe, Menu, Moon, PanelRight, Plus, Sun, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { supportedLanguages } from "../i18n.js";
 import { useTheme } from "../context/ThemeContext.js";
 import type { Desk, Experiment } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
@@ -35,8 +36,17 @@ export function Layout({
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
 	const { theme, toggleTheme } = useTheme();
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
 	const nextTheme = theme === "dark" ? "light" : "dark";
+
+	const cycleLang = () => {
+		const codes: string[] = supportedLanguages.map((l) => l.code);
+		const idx = codes.indexOf(i18n.language);
+		const next = codes[(idx + 1) % codes.length]!;
+		i18n.changeLanguage(next);
+		localStorage.setItem("quantdesk.lang", next);
+	};
+	const currentLangLabel = supportedLanguages.find((l) => l.code === i18n.language)?.label ?? "EN";
 
 	return (
 		<div className="flex h-screen bg-background text-foreground">
@@ -53,6 +63,9 @@ export function Layout({
 						<PanelRight className="size-4" />
 					</Button>
 				)}
+				<Button variant="ghost" size="icon-sm" onClick={cycleLang}>
+					<Globe className="size-4" />
+				</Button>
 				<Button variant="ghost" size="icon-sm" onClick={toggleTheme}>
 					{theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
 				</Button>
@@ -192,6 +205,15 @@ export function Layout({
 						<ChevronLeft className="h-4 w-4" />
 					</Button>
 					<div className="flex-1" />
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						className="text-muted-foreground"
+						onClick={cycleLang}
+						title={`Language: ${currentLangLabel}`}
+					>
+						<Globe className="h-4 w-4" />
+					</Button>
 					<Button
 						variant="ghost"
 						size="icon-sm"
