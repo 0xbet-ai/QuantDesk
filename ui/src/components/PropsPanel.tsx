@@ -393,11 +393,51 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 							{(() => {
 								const trades: TradeLogEntry[] = selectedRun.result?.trades ?? [];
 								if (trades.length === 0) return null;
+								type Row = {
+									key: string;
+									idx: number;
+									time: string | undefined;
+									label: string;
+									colorClass: string;
+									pnl: number | null;
+									equity: number;
+								};
 								let equity = wallet;
-								const rows = trades.map((t, i) => {
+								const rows: Row[] = [];
+								for (const [i, t] of trades.entries()) {
+									const isLong = t.side === "buy";
+									rows.push({
+										key: `${i}-open`,
+										idx: i + 1,
+										time: t.openedAt,
+										label: isLong ? "BUY" : "SELL",
+										colorClass: "text-green-600 dark:text-green-400",
+										pnl: null,
+										equity,
+									});
 									equity += t.pnl;
-									return { ...t, idx: i + 1, equity };
-								});
+									rows.push({
+										key: `${i}-close`,
+										idx: i + 1,
+										time: t.closedAt,
+										label: isLong ? "SELL" : "BUY",
+										colorClass: "text-red-500",
+										pnl: t.pnl,
+										equity,
+									});
+								}
+								const formatTime = (raw: string | undefined) => {
+									if (!raw) return "—";
+									const d = new Date(raw);
+									return Number.isNaN(d.getTime())
+										? "—"
+										: d.toLocaleDateString(undefined, {
+												month: "2-digit",
+												day: "2-digit",
+												hour: "2-digit",
+												minute: "2-digit",
+											});
+								};
 								return (
 									<>
 										<div className="border-b border-border my-2" />
@@ -417,43 +457,27 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 												</thead>
 												<tbody>
 													{rows.map((r) => (
-														<tr key={r.idx} className="border-t border-border/30">
+														<tr key={r.key} className="border-t border-border/30">
 															<td className="py-0.5 text-muted-foreground">{r.idx}</td>
 															<td className="py-0.5 text-muted-foreground">
-																{(() => {
-																	const raw = r.closedAt || r.openedAt;
-																	if (!raw) return "—";
-																	const d = new Date(raw);
-																	return Number.isNaN(d.getTime())
-																		? "—"
-																		: d.toLocaleDateString(undefined, {
-																				month: "2-digit",
-																				day: "2-digit",
-																				hour: "2-digit",
-																				minute: "2-digit",
-																			});
-																})()}
+																{formatTime(r.time)}
 															</td>
-															<td
-																className={cn(
-																	"py-0.5 font-medium",
-																	r.side === "buy"
-																		? "text-green-600 dark:text-green-400"
-																		: "text-red-500",
-																)}
-															>
-																{r.side.toUpperCase()}
+															<td className={cn("py-0.5 font-medium", r.colorClass)}>
+																{r.label}
 															</td>
 															<td
 																className={cn(
 																	"py-0.5 text-right font-mono",
-																	r.pnl >= 0
-																		? "text-green-600 dark:text-green-400"
-																		: "text-red-500",
+																	r.pnl === null
+																		? "text-muted-foreground"
+																		: r.pnl >= 0
+																			? "text-green-600 dark:text-green-400"
+																			: "text-red-500",
 																)}
 															>
-																{r.pnl >= 0 ? "+" : ""}
-																{r.pnl.toFixed(2)}
+																{r.pnl === null
+																	? "—"
+																	: `${r.pnl >= 0 ? "+" : ""}${r.pnl.toFixed(2)}`}
 															</td>
 															<td className="py-0.5 text-right font-mono text-foreground/80">
 																$
