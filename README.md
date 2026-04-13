@@ -3,7 +3,6 @@
 
 <p align="center">
   <a href="#quickstart"><strong>Quickstart</strong></a> &middot;
-  <a href="doc/OVERVIEW.md"><strong>Docs</strong></a> &middot;
   <a href="https://github.com/0xbet-ai/QuantDesk"><strong>GitHub</strong></a>
 </p>
 
