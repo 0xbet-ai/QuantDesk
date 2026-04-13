@@ -13,8 +13,8 @@ import {
 } from "../docker.js";
 import { ENGINE_IMAGES } from "../images.js";
 import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
+import { deriveMetrics } from "../metrics.js";
 import {
-	deriveMetrics,
 	type BacktestConfig,
 	type BacktestResult,
 	type DataConfig,

@@ -89,17 +89,24 @@ describe("nautilus parseResult", () => {
 describe("generic parseResult", () => {
 	const adapter = getAdapter("generic");
 
-	it("parses stdout JSON → NormalizedResult", () => {
+	it("derives metrics from trades array via deriveMetrics()", () => {
 		const json = JSON.stringify({
-			returnPct: 15.2,
-			drawdownPct: -4.5,
-			winRate: 0.68,
-			totalTrades: 120,
-			trades: [],
+			trades: [
+				{ pair: "BTC/USDT", side: "buy", price: 40000, amount: 0.5, pnl: 200, openedAt: "2025-01-01", closedAt: "2025-01-02" },
+				{ pair: "BTC/USDT", side: "buy", price: 41000, amount: 0.5, pnl: -50, openedAt: "2025-01-03", closedAt: "2025-01-04" },
+			],
 		});
 		const result = adapter.parseResult(json);
-		expect(result.returnPct).toBe(15.2);
-		expect(result.totalTrades).toBe(120);
+		// PnL = 200 + (-50) = 150. wallet=10000. return = 1.5%
+		expect(result.returnPct).toBeCloseTo(1.5);
+		expect(result.totalTrades).toBe(2);
+		expect(result.winRate).toBeCloseTo(0.5);
+		expect(result.drawdownPct).toBeLessThan(0);
+	});
+
+	it("throws when trades array is empty or missing", () => {
+		const json = JSON.stringify({ returnPct: 15.2, totalTrades: 120 });
+		expect(() => adapter.parseResult(json)).toThrow("must include a `trades` array");
 	});
 
 	it("throws with meaningful message on non-JSON stdout", () => {
