@@ -175,7 +175,22 @@ export async function listDesks() {
 
 export async function getDesk(id: string) {
 	const [desk] = await db.select().from(desks).where(eq(desks.id, id));
-	return desk ?? null;
+	if (!desk) return null;
+
+	// Attach the adapter info from the analyst agent session
+	const [session] = await db
+		.select({
+			adapterType: agentSessions.adapterType,
+			adapterConfig: agentSessions.adapterConfig,
+		})
+		.from(agentSessions)
+		.where(eq(agentSessions.deskId, id));
+
+	return {
+		...desk,
+		adapterType: session?.adapterType ?? "claude",
+		adapterConfig: session?.adapterConfig ?? {},
+	};
 }
 
 interface UpdateDeskInput {

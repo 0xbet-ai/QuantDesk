@@ -1,7 +1,14 @@
 import type { ChildProcess } from "node:child_process";
 import { spawn } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getAgentAdapter } from "@quantdesk/adapters";
@@ -289,6 +296,51 @@ function buildMcpConfigForTurn(experimentId: string, deskId: string): string {
 	return path;
 }
 
+/**
+ * Build a managed CODEX_HOME for a single turn.
+ *
+ * Codex CLI doesn't support `--mcp-config`; it reads MCP servers from
+ * `config.toml` under `$CODEX_HOME`. We copy the user's real config,
+ * symlink auth, and inject the QuantDesk MCP server entry.
+ */
+function buildCodexHomeForTurn(experimentId: string, deskId: string): string {
+	const sharedHome = join(homedir(), ".codex");
+	const managed = mkdtempSync(join(tmpdir(), "quantdesk-codex-home-"));
+
+	// Copy config.toml from the real home (preserves model/personality)
+	const srcConfig = join(sharedHome, "config.toml");
+	const dstConfig = join(managed, "config.toml");
+	if (existsSync(srcConfig)) {
+		copyFileSync(srcConfig, dstConfig);
+	}
+
+	// Symlink auth.json so login state is shared
+	const srcAuth = join(sharedHome, "auth.json");
+	const dstAuth = join(managed, "auth.json");
+	if (existsSync(srcAuth) && !existsSync(dstAuth)) {
+		symlinkSync(srcAuth, dstAuth);
+	}
+
+	// Append the QuantDesk MCP server to config.toml
+	const port = getConfig().server.port;
+	const mcpBlock = `
+[mcp_servers.quantdesk]
+type = "http"
+url = "http://127.0.0.1:${port}/mcp"
+
+[mcp_servers.quantdesk.headers]
+X-QuantDesk-Experiment = "${experimentId}"
+X-QuantDesk-Desk = "${deskId}"
+`;
+	writeFileSync(dstConfig, (existsSync(dstConfig) ? "" : "") + mcpBlock, { flag: "a" });
+
+	// Ensure sessions dir exists so Codex doesn't error on resume
+	const sessDir = join(managed, "sessions");
+	if (!existsSync(sessDir)) mkdirSync(sessDir, { recursive: true });
+
+	return managed;
+}
+
 export type AgentRole = "analyst" | "risk_manager";
 
 export interface TriggerAgentOptions {
@@ -432,6 +484,10 @@ export async function triggerAgent(
 			const adapter = getAgentAdapter(session.adapterType);
 
 			const mcpConfigPath = buildMcpConfigForTurn(experimentId, desk.id);
+			// Codex CLI doesn't support --mcp-config, so we build a managed
+			// CODEX_HOME with the MCP server injected into config.toml.
+			const codexHome =
+				adapter.name === "codex" ? buildCodexHomeForTurn(experimentId, desk.id) : undefined;
 			// Sandbox the CLI's file tools to the desk workspace so it cannot
 			// read the QuantDesk server's own source/doc tree even with
 			// absolute paths. Adapter ignores it when not supported.
@@ -469,6 +525,7 @@ export async function triggerAgent(
 				spawnCli(args, stdin, {
 					cwd: desk.workspacePath ?? undefined,
 					experimentId,
+					extraEnv: codexHome ? { CODEX_HOME: codexHome } : undefined,
 					onLine: (line) => {
 						const chunk = adapter.parseStreamLine(line);
 						if (chunk) {

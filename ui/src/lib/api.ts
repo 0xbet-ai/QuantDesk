@@ -13,6 +13,8 @@ export interface Desk {
 	config: Record<string, unknown>;
 	description: string | null;
 	status: string;
+	adapterType?: string;
+	adapterConfig?: Record<string, unknown>;
 	createdAt: string;
 	updatedAt: string;
 }

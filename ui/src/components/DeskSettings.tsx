@@ -244,6 +244,20 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 									</span>
 								</div>
 							</Field>
+							<Field label="Agent">
+								<div className="flex items-center gap-2">
+									<Badge variant="outline" className="font-mono">
+										{desk.adapterType ?? "claude"}
+									</Badge>
+									{(() => {
+										const model = desk.adapterConfig?.model;
+										if (typeof model === "string" && model !== "default") {
+											return <span className="text-xs text-muted-foreground">{model}</span>;
+										}
+										return null;
+									})()}
+								</div>
+							</Field>
 							<p className="text-xs text-muted-foreground">
 								Set at creation. Create a new desk to change venues or strategy.
 							</p>

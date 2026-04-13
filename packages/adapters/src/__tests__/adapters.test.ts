@@ -58,12 +58,13 @@ describe("Codex adapter", () => {
 	const fixture = readFileSync(resolve(fixturesDir, "codex-stream.jsonl"), "utf-8");
 	const lines = fixture.trim().split("\n");
 
-	it("parseOutputStream extracts threadId, usage, summary", () => {
+	it("parseOutputStream extracts threadId, usage, summary, cost", () => {
 		const result = adapter.parseOutputStream(lines);
 		expect(result.sessionId).toBe("019d6039-8675-7241-9e79-cbfcbcb3fd44");
 		expect(result.resultText).toBe("I'll analyze the strategy and run a backtest.");
 		expect(result.usage.inputTokens).toBe(14972);
 		expect(result.usage.outputTokens).toBe(33);
+		expect(result.usage.costUsd).toBe(0.045);
 	});
 
 	it("threadId provided → resume {threadId} in spawn args", () => {
@@ -75,6 +76,37 @@ describe("Codex adapter", () => {
 	it("sessionId is null → fresh session", () => {
 		const args = adapter.buildSpawnArgs("test prompt");
 		expect(args).not.toContain("resume");
+	});
+
+	it("parseStreamLine handles thread.started as init", () => {
+		const chunk = adapter.parseStreamLine('{"type":"thread.started","thread_id":"t-123"}');
+		expect(chunk).toEqual({ type: "init", model: "codex", sessionId: "t-123" });
+	});
+
+	it("parseStreamLine handles item.completed agent_message", () => {
+		const chunk = adapter.parseStreamLine(
+			'{"type":"item.completed","item":{"type":"agent_message","text":"hello"}}',
+		);
+		expect(chunk).toEqual({ type: "text", content: "hello" });
+	});
+
+	it("parseStreamLine handles item.completed reasoning", () => {
+		const chunk = adapter.parseStreamLine(
+			'{"type":"item.completed","item":{"type":"reasoning","text":"thinking..."}}',
+		);
+		expect(chunk).toEqual({ type: "text", content: "thinking..." });
+	});
+
+	it("parseStreamLine handles item.started command_execution", () => {
+		const chunk = adapter.parseStreamLine(
+			'{"type":"item.started","item":{"type":"command_execution","command":"ls -la"}}',
+		);
+		expect(chunk).toEqual({ type: "tool_call", name: "shell", input: { command: "ls -la" } });
+	});
+
+	it("parseStreamLine handles error events", () => {
+		const chunk = adapter.parseStreamLine('{"type":"error","message":"something broke"}');
+		expect(chunk).toEqual({ type: "text", content: "[Codex error] something broke" });
 	});
 });
 

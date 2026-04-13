@@ -43,6 +43,7 @@ function collapseBlankLines(text: string): string {
 }
 
 export function stripAgentMarkers(text: string): string {
+	if (!text) return "";
 	let out = text;
 	for (const name of LEGACY_MARKERS) {
 		out = out.replace(blockRegex(name), "");
