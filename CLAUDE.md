@@ -57,6 +57,8 @@ To point at an external Postgres instead, set `DATABASE_URL` before running any 
 | `PORT` | `3000` |
 | `AGENT_MODEL` | `claude-opus-4-6` |
 | `LOG_LEVEL` | `info` |
+| `QUANTDESK_DEPLOYMENT_MODE` | `local_trusted` — set to `authenticated` to require email/password login |
+| `BETTER_AUTH_SECRET` | (auto-generated) — override for production session signing |
 
 ## Debugging
 
