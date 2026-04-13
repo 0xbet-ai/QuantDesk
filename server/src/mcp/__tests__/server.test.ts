@@ -20,7 +20,6 @@ describe("createQuantdeskMcpServer", () => {
 		expect(names).toEqual(
 			[
 				"complete_experiment",
-				"data_fetch",
 				"get_paper_status",
 				"go_paper",
 				"new_experiment",
