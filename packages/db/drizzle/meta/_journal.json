@@ -85,6 +85,13 @@
       "when": 1775960528356,
       "tag": "0011_loud_kree",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1776064414917,
+      "tag": "0012_opposite_giant_man",
+      "breakpoints": true
     }
   ]
 }

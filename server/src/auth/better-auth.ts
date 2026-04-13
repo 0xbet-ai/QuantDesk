@@ -15,28 +15,8 @@ import { randomUUID } from "node:crypto";
 import type { Request, RequestHandler, Response } from "express";
 import { hashSync, compareSync } from "bcryptjs";
 import { db } from "@quantdesk/db";
+import { authSessions, authUsers } from "@quantdesk/db/schema";
 import { eq } from "drizzle-orm";
-import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-
-// ── Schema (inline — will also be added to packages/db/src/schema.ts) ──
-
-export const authUsers = pgTable("auth_users", {
-	id: uuid("id").primaryKey().defaultRandom(),
-	email: text("email").notNull().unique(),
-	name: text("name"),
-	passwordHash: text("password_hash").notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
-
-export const authSessions = pgTable("auth_sessions", {
-	id: uuid("id").primaryKey().defaultRandom(),
-	userId: uuid("user_id")
-		.notNull()
-		.references(() => authUsers.id),
-	token: text("token").notNull().unique(),
-	expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
 
 // ── Session helpers ─────────────────────────────────────────────────
 

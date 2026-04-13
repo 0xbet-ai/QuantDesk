@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 620" fill="none">
+  <style>
+    .box { fill: #ffffff; stroke: #d1d5db; stroke-width: 1.5; rx: 12; }
+    .box-accent { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.5; rx: 12; }
+    .box-loop { fill: #fefce8; stroke: #ca8a04; stroke-width: 1.5; rx: 12; stroke-dasharray: 6 3; }
+    .box-risk { fill: #fef2f2; stroke: #dc2626; stroke-width: 1.5; rx: 12; }
+    .box-paper { fill: #f0fdf4; stroke: #16a34a; stroke-width: 1.5; rx: 12; }
+    .title { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; font-weight: 600; fill: #1e293b; }
+    .subtitle { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 12px; fill: #64748b; }
+    .label { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 11px; fill: #94a3b8; font-weight: 500; }
+    .arrow { stroke: #94a3b8; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead); }
+    .arrow-approve { stroke: #16a34a; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead-green); }
+    .loop-arrow { stroke: #ca8a04; stroke-width: 1.5; fill: none; marker-end: url(#arrowhead-amber); }
+    .step-num { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 10px; font-weight: 700; fill: #ffffff; }
+    .step-circle { fill: #3b82f6; }
+    .step-circle-amber { fill: #ca8a04; }
+    .step-circle-red { fill: #dc2626; }
+    .step-circle-green { fill: #16a34a; }
+    .flow-label { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 11px; fill: #64748b; }
+    .loop-title { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 11px; font-weight: 600; fill: #ca8a04; }
+  </style>
+
+  <defs>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#94a3b8" />
+    </marker>
+    <marker id="arrowhead-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#16a34a" />
+    </marker>
+    <marker id="arrowhead-amber" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#ca8a04" />
+    </marker>
+  </defs>
+
+  <!-- Step 1: Strategy Desk -->
+  <circle cx="218" cy="38" r="10" class="step-circle" />
+  <text x="218" y="42" text-anchor="middle" class="step-num">1</text>
+  <rect x="236" y="16" width="320" height="44" class="box" />
+  <text x="396" y="36" text-anchor="middle" class="title">Strategy Desk</text>
+  <text x="396" y="52" text-anchor="middle" class="subtitle">budget &middot; target return &middot; stop-loss &middot; venue</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="396" y1="60" x2="396" y2="96" class="arrow" />
+
+  <!-- Step 2: Analyst Agent -->
+  <circle cx="218" cy="118" r="10" class="step-circle" />
+  <text x="218" y="122" text-anchor="middle" class="step-num">2</text>
+  <rect x="236" y="96" width="320" height="44" class="box-accent" />
+  <text x="396" y="116" text-anchor="middle" class="title">Analyst Agent</text>
+  <text x="396" y="132" text-anchor="middle" class="subtitle">"momentum strategy on ETH/USDT 1h candles"</text>
+
+  <!-- Arrow 2→Loop -->
+  <line x1="396" y1="140" x2="396" y2="176" class="arrow" />
+
+  <!-- Experiment Loop Box -->
+  <rect x="160" y="176" width="472" height="200" class="box-loop" />
+  <text x="396" y="196" text-anchor="middle" class="loop-title">Experiment Loop</text>
+
+  <!-- Fetch Data -->
+  <rect x="188" y="220" width="120" height="40" class="box" />
+  <text x="248" y="244" text-anchor="middle" class="title" font-size="13">Fetch Data</text>
+
+  <!-- Arrow: Fetch → Write -->
+  <line x1="308" y1="240" x2="332" y2="240" class="arrow" />
+
+  <!-- Write Strategy -->
+  <rect x="332" y="220" width="136" height="40" class="box" />
+  <text x="400" y="244" text-anchor="middle" class="title" font-size="13">Write Strategy</text>
+
+  <!-- Arrow: Write → Backtest -->
+  <line x1="468" y1="240" x2="492" y2="240" class="arrow" />
+
+  <!-- Backtest -->
+  <rect x="492" y="220" width="112" height="40" class="box" />
+  <text x="548" y="244" text-anchor="middle" class="title" font-size="13">Backtest</text>
+
+  <!-- Iterate loop arrow (backtest → back to fetch) -->
+  <path d="M 548 260 L 548 310 L 248 310 L 248 260" class="loop-arrow" />
+  <text x="398" y="328" text-anchor="middle" class="flow-label">iterate until metrics converge</text>
+
+  <!-- Arrow Loop→Risk -->
+  <line x1="396" y1="376" x2="396" y2="412" class="arrow" />
+
+  <!-- Step 3: Risk Manager -->
+  <circle cx="218" cy="434" r="10" class="step-circle-red" />
+  <text x="218" y="438" text-anchor="middle" class="step-num">3</text>
+  <rect x="236" y="412" width="320" height="56" class="box-risk" />
+  <text x="396" y="435" text-anchor="middle" class="title">Risk Manager</text>
+  <text x="396" y="452" text-anchor="middle" class="subtitle">overfitting? look-ahead bias? unrealistic returns?</text>
+  <text x="396" y="464" text-anchor="middle" class="subtitle" font-weight="600" fill="#dc2626">approve / reject</text>
+
+  <!-- Arrow Risk→Paper (approved) -->
+  <line x1="396" y1="468" x2="396" y2="510" class="arrow-approve" />
+  <text x="418" y="496" class="label" fill="#16a34a">approved</text>
+
+  <!-- Step 4: Paper Trading -->
+  <circle cx="218" cy="532" r="10" class="step-circle-green" />
+  <text x="218" y="536" text-anchor="middle" class="step-num">4</text>
+  <rect x="236" y="510" width="320" height="44" class="box-paper" />
+  <text x="396" y="530" text-anchor="middle" class="title">Paper Trading</text>
+  <text x="396" y="546" text-anchor="middle" class="subtitle">real market feeds &middot; simulated wallet &middot; no real money</text>
+
+  <!-- Reject loop: Risk Manager back to Analyst -->
+  <path d="M 236 448 L 140 448 L 140 120 L 236 120" class="arrow" stroke-dasharray="4 3" />
+  <text x="120" y="290" text-anchor="middle" class="label" transform="rotate(-90, 120, 290)">rejected &mdash; iterate</text>
+</svg>
