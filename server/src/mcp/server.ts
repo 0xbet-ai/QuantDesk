@@ -57,7 +57,7 @@ export interface McpServerContext {
 	deskId: string;
 }
 
-function normalizedResultToMetrics(normalized: NormalizedResult) {
+function normalizedResultToPayload(normalized: NormalizedResult) {
 	return {
 		metrics: [
 			{
@@ -87,6 +87,10 @@ function normalizedResultToMetrics(normalized: NormalizedResult) {
 				format: "integer",
 			},
 		],
+		// Persist the full trade list so the UI can render a trade log
+		// with running equity. Previously only the 4 summary metrics
+		// were stored — individual trades were computed then discarded.
+		trades: normalized.trades,
 	};
 }
 
@@ -567,7 +571,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 					},
 				});
 
-				const resultPayload = normalizedResultToMetrics(backtestResult.normalized);
+				const resultPayload = normalizedResultToPayload(backtestResult.normalized);
 
 				// A 0-trade backtest is not a valid result — the strategy
 				// never entered a position, so the return/drawdown/win-rate
