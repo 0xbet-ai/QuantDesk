@@ -1,21 +1,27 @@
 {
   "name": "quantdesk",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "AI-agent workspace for quantitative trading",
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "bin": {
     "quantdesk": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "tsc",
+    "build": "node esbuild.config.mjs",
     "typecheck": "tsc --noEmit",
     "onboard": "tsx src/index.ts onboard"
   },
-  "dependencies": {
-    "@quantdesk/db": "workspace:*",
-    "@quantdesk/engines": "workspace:*"
-  },
   "devDependencies": {
+    "@quantdesk/db": "workspace:*",
+    "@quantdesk/engines": "workspace:*",
+    "esbuild": ">=0.25.0",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3"
   }
