@@ -72,7 +72,7 @@ function detectLogLevel(line: string): LogLevel {
  *      writes these from inside the docker container, which defaults
  *      to UTC.
  *
- * Both formats are replaced with `toLocaleString(undefined, ...)` so
+ * Both formats are replaced with `toLocaleString("en-US", ...)` so
  * the value is automatically rendered in whatever timezone the user's
  * browser is in. The rest of the line (indicator values, signal
  * flags, log level, message body) is left untouched.
@@ -82,7 +82,7 @@ function detectLogLevel(line: string): LogLevel {
  */
 function localizeTimestamps(line: string): string {
 	const fmt = (d: Date): string =>
-		d.toLocaleString(undefined, {
+		d.toLocaleString("en-US", {
 			year: "numeric",
 			month: "2-digit",
 			day: "2-digit",
@@ -118,7 +118,7 @@ function formatPnl(v: number): string {
 }
 
 function formatTime(iso: string): string {
-	return new Date(iso).toLocaleString(undefined, {
+	return new Date(iso).toLocaleString("en-US", {
 		month: "short",
 		day: "numeric",
 		hour: "2-digit",

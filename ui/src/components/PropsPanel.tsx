@@ -428,7 +428,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 									const d = new Date(raw);
 									return Number.isNaN(d.getTime())
 										? "—"
-										: d.toLocaleDateString(undefined, {
+										: d.toLocaleDateString("en-US", {
 												month: "2-digit",
 												day: "2-digit",
 												hour: "2-digit",
@@ -594,7 +594,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 								)}
 								<div className="text-[10px] text-muted-foreground">
 									Started{" "}
-									{new Date(paperSession.startedAt).toLocaleString(undefined, {
+									{new Date(paperSession.startedAt).toLocaleString("en-US", {
 										month: "short",
 										day: "numeric",
 										hour: "2-digit",

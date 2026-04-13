@@ -77,11 +77,11 @@ export function TurnDetailPage() {
 							<RoleIcon className="h-3 w-3" />
 							<span>{isAnalyst ? "Analyst" : "Risk Manager"}</span>
 							<span>·</span>
-							<span>{new Date(turn.startedAt).toLocaleString()}</span>
+							<span>{new Date(turn.startedAt).toLocaleString("en-US")}</span>
 							{turn.endedAt && (
 								<>
 									<span>→</span>
-									<span>{new Date(turn.endedAt).toLocaleTimeString()}</span>
+									<span>{new Date(turn.endedAt).toLocaleTimeString("en-US")}</span>
 								</>
 							)}
 							<StatusBadge
@@ -119,7 +119,7 @@ export function TurnDetailPage() {
 											<div className="mb-1 flex items-center gap-2 text-[11px] text-muted-foreground">
 												<span className="font-medium">{c.author}</span>
 												<span>·</span>
-												<span>{new Date(c.createdAt).toLocaleTimeString()}</span>
+												<span>{new Date(c.createdAt).toLocaleTimeString("en-US")}</span>
 											</div>
 											<div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-[13px] prose-p:my-2 prose-ul:my-2 prose-li:my-0.5 prose-headings:mt-4 prose-headings:mb-2">
 												<Markdown remarkPlugins={[remarkGfm]}>{c.content}</Markdown>

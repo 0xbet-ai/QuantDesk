@@ -385,7 +385,7 @@ function DatasetRow({
 			}}
 			role="button"
 			tabIndex={0}
-			title={`${d.path}\nAdded ${new Date(d.createdAt).toLocaleString()}`}
+			title={`${d.path}\nAdded ${new Date(d.createdAt).toLocaleString("en-US")}`}
 		>
 			<Folder className="size-4 text-muted-foreground/70 shrink-0" />
 			<div className="flex items-baseline gap-1.5 min-w-0 shrink-0">

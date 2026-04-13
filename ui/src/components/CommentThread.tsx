@@ -1004,7 +1004,7 @@ export function CommentThread({
 												{config.label}
 											</span>
 											<span className="text-xs text-muted-foreground ml-auto">
-												{new Date(c.createdAt).toLocaleTimeString([], {
+												{new Date(c.createdAt).toLocaleTimeString("en-US", {
 													hour: "2-digit",
 													minute: "2-digit",
 												})}

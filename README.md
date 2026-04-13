@@ -15,7 +15,7 @@
 <br/>
 
 <div align="center">
-  <img src="doc/assets/demo.gif" alt="QuantDesk demo" width="100%" />
+  <video src="doc/assets/demo.mp4" width="100%" autoplay loop muted playsinline></video>
 </div>
 
 <br/>
