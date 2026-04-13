@@ -1403,17 +1403,19 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											</button>
 											<button
 												type="button"
-												disabled
-												aria-disabled="true"
-												title="Codex adapter is temporarily disabled"
+												onClick={() => setAdapterType("codex")}
 												className={cn(
 													"relative p-4 rounded-lg border text-center transition-colors",
-													"border-border opacity-50 cursor-not-allowed",
+													adapterType === "codex"
+														? "border-foreground bg-accent"
+														: "border-border hover:bg-accent/50",
 												)}
 											>
-												<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground rounded-full">
-													Coming soon
-												</span>
+												{adapterType === "codex" && (
+													<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-green-500 text-white rounded-full">
+														Selected
+													</span>
+												)}
 												<Code2 className="size-5 mx-auto mb-2 text-foreground/70" />
 												<div className="text-[13px] font-medium">Codex</div>
 												<div className="text-[11px] text-muted-foreground mt-0.5">
