@@ -125,23 +125,23 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 					</div>
 
 					{/* General */}
-					<Section label="General">
-						<Field label="Desk name">
+					<Section label={t("settings.general")}>
+						<Field label={t("settings.deskName")}>
 							<Input value={name} onChange={(e) => setName(e.target.value)} />
 						</Field>
-						<Field label="Description">
+						<Field label={t("settings.description")}>
 							<Textarea
 								value={description}
 								onChange={(e) => setDescription(e.target.value)}
 								rows={3}
-								placeholder="Optional desk description"
+								placeholder={t("settings.descriptionPlaceholder")}
 							/>
 						</Field>
 					</Section>
 
 					{/* Constraints */}
-					<Section label="Constraints">
-						<Field label="Budget (USD)">
+					<Section label={t("settings.constraints")}>
+						<Field label={t("settings.budgetUsd")}>
 							<Input
 								inputMode="numeric"
 								value={Number(budget).toLocaleString("en-US")}
@@ -151,14 +151,14 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 								}}
 							/>
 						</Field>
-						<Field label="Target return %">
+						<Field label={t("settings.targetReturn")}>
 							<Input
 								type="number"
 								value={targetReturn}
 								onChange={(e) => setTargetReturn(e.target.value)}
 							/>
 						</Field>
-						<Field label="Stop loss % (max drawdown)">
+						<Field label={t("settings.stopLoss")}>
 							<Input type="number" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} />
 						</Field>
 					</Section>
@@ -272,16 +272,13 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 					{/* Save */}
 					{hasChanges && (
 						<Button onClick={handleSave} disabled={saving || !name.trim()}>
-							{saving ? "Saving..." : "Save changes"}
+							{saving ? t("settings.saving") : t("settings.saveChanges")}
 						</Button>
 					)}
 
 					{/* Export / Import */}
 					<Section label={t("settings.deskPackage")}>
-						<p className="text-[13px] text-muted-foreground">
-							Export this desk as a JSON package (settings, strategy, experiments) or import from a
-							file.
-						</p>
+						<p className="text-[13px] text-muted-foreground">{t("settings.exportDesc")}</p>
 						<div className="flex gap-2">
 							<Button
 								variant="outline"
@@ -308,11 +305,11 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 								}}
 							>
 								<Download className="size-4" />
-								{exporting ? "Exporting..." : "Export"}
+								{exporting ? t("settings.exporting") : t("settings.export")}
 							</Button>
 							<Button variant="outline" size="sm" onClick={() => importRef.current?.click()}>
 								<Upload className="size-4" />
-								Import
+								{t("settings.import")}
 							</Button>
 							<input
 								ref={importRef}
@@ -344,15 +341,13 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 					{/* Danger Zone */}
 					<div>
 						<div className="text-[10px] font-medium uppercase tracking-widest font-mono text-destructive mb-3">
-							Danger Zone
+							{t("settings.dangerZone")}
 						</div>
 						<div className="rounded-lg border border-destructive/30 p-4 space-y-3">
-							<p className="text-[13px] text-muted-foreground">
-								Archive this desk to hide it from the sidebar. This cannot be undone.
-							</p>
+							<p className="text-[13px] text-muted-foreground">{t("settings.archiveDesc")}</p>
 							{!showArchiveConfirm ? (
 								<Button variant="destructive" size="sm" onClick={() => setShowArchiveConfirm(true)}>
-									Archive desk
+									{t("settings.archiveDesk")}
 								</Button>
 							) : (
 								<div className="space-y-3">

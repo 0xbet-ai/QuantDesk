@@ -1,3 +1,11 @@
+<p align="center">
+  <a href="README.md">English</a> &middot;
+  <a href="README.ko.md">한국어</a> &middot;
+  <a href="README.zh.md">中文</a> &middot;
+  <a href="README.ja.md">日本語</a> &middot;
+  <a href="README.es.md">Español</a>
+</p>
+
 <h1 align="center">QuantDesk</h1>
 <p align="center">퀀트 트레이딩을 위한 AI 에이전트 워크스페이스</p>
 

@@ -216,6 +216,23 @@
 
 	"settings": {
 		"title": "데스크 설정",
+		"exportDesc": "이 데스크를 JSON 패키지(설정, 전략, 실험)로 내보내거나 파일에서 가져옵니다.",
+		"export": "내보내기",
+		"exporting": "내보내는 중...",
+		"import": "가져오기",
+		"saving": "저장 중...",
+		"saveChanges": "변경사항 저장",
+		"general": "일반",
+		"deskName": "데스크 이름",
+		"description": "설명",
+		"descriptionPlaceholder": "데스크 설명 (선택)",
+		"constraints": "제약 조건",
+		"budgetUsd": "예산 (USD)",
+		"targetReturn": "목표 수익률 %",
+		"stopLoss": "손절 % (최대 낙폭)",
+		"dangerZone": "위험 구역",
+		"archiveDesc": "이 데스크를 아카이브하여 사이드바에서 숨깁니다. 되돌릴 수 없습니다.",
+		"archiveDesk": "데스크 아카이브",
 		"strategyAndVenues": "전략 & 거래소",
 		"venues": "거래소",
 		"engine": "엔진",
@@ -241,6 +258,8 @@
 
 	"runDetail": {
 		"title": "백테스트",
-		"noRun": "백테스트 실행 없음"
+		"noRun": "백테스트 실행 없음",
+		"duration": "소요 시간",
+		"vsBaseline": "기준 대비"
 	}
 }

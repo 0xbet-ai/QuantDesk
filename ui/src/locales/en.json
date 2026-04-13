@@ -216,6 +216,23 @@
 
 	"settings": {
 		"title": "Desk Settings",
+		"exportDesc": "Export this desk as a JSON package (settings, strategy, experiments) or import from a file.",
+		"export": "Export",
+		"exporting": "Exporting...",
+		"import": "Import",
+		"saving": "Saving...",
+		"saveChanges": "Save changes",
+		"general": "General",
+		"deskName": "Desk name",
+		"description": "Description",
+		"descriptionPlaceholder": "Optional desk description",
+		"constraints": "Constraints",
+		"budgetUsd": "Budget (USD)",
+		"targetReturn": "Target return %",
+		"stopLoss": "Stop loss % (max drawdown)",
+		"dangerZone": "Danger Zone",
+		"archiveDesc": "Archive this desk to hide it from the sidebar. This cannot be undone.",
+		"archiveDesk": "Archive desk",
 		"strategyAndVenues": "Strategy & Venues",
 		"venues": "Venues",
 		"engine": "Engine",
@@ -241,6 +258,8 @@
 
 	"runDetail": {
 		"title": "Backtests",
-		"noRun": "No backtest run"
+		"noRun": "No backtest run",
+		"duration": "Duration",
+		"vsBaseline": "vs baseline"
 	}
 }

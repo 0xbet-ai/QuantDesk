@@ -120,6 +120,7 @@ function RunDetail({
 	paperError: string | null;
 	transcriptEntries: TranscriptEntry[];
 }) {
+	const { t } = useTranslation();
 	const hasResult = !!run.result;
 	const hasDuration =
 		run.completedAt && new Date(run.completedAt).getTime() - new Date(run.createdAt).getTime() > 0;
@@ -149,7 +150,9 @@ function RunDetail({
 						{hasDuration && (
 							<>
 								<span className="text-border">|</span>
-								<span>Duration: {formatDuration(run.createdAt, run.completedAt!)}</span>
+								<span>
+									{t("runDetail.duration")}: {formatDuration(run.createdAt, run.completedAt!)}
+								</span>
 							</>
 						)}
 					</div>
@@ -213,7 +216,9 @@ function RunDetail({
 						<div className="border-t border-border px-4 py-2.5">
 							<div className="flex items-center gap-1.5 text-xs">
 								<TrendingUp className="h-3 w-3 text-green-500" />
-								<span className="text-muted-foreground">vs baseline ({primaryLabel})</span>
+								<span className="text-muted-foreground">
+									{t("runDetail.vsBaseline")} ({primaryLabel})
+								</span>
 								<span
 									className={cn(
 										"font-mono font-medium",
