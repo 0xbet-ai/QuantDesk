@@ -1,6 +1,5 @@
-<p align="center">
-  <img src="doc/assets/header.png" alt="QuantDesk — AI-agent workspace for quantitative trading" width="720" />
-</p>
+<h1 align="center">QuantDesk</h1>
+<p align="center">AI-agent workspace for quantitative trading</p>
 
 <p align="center">
   <a href="#quickstart"><strong>Quickstart</strong></a> &middot;
@@ -25,7 +24,7 @@
 
 ## What is QuantDesk?
 
-# Find profitable strategies fast — before the market moves on
+**Find profitable strategies fast — before the market moves on.**
 
 In the vibe coding era, hundreds of products ship every day, but maintenance and iteration are the real bottleneck. Trading strategies are different: **a strategy that works for one day is already profitable.** When it stops working, you find the next one.
 
@@ -56,29 +55,29 @@ The hard part isn't writing the code — it's the tedious cycle of downloading d
 <table>
 <tr>
 <td align="center" width="33%">
-<h3>Analyst Agent</h3>
+<strong>Analyst Agent</strong><br/>
 Writes strategy code, fetches market data, runs backtests, and iterates based on results. Speaks your language — describe a thesis in plain English and the agent builds it.
 </td>
 <td align="center" width="33%">
-<h3>Risk Manager</h3>
+<strong>Risk Manager</strong><br/>
 Independent validation agent. Checks for overfitting, look-ahead bias, survivorship bias, and unrealistic assumptions. Blocks paper trading until it approves.
 </td>
 <td align="center" width="33%">
-<h3>Paper Trading</h3>
+<strong>Paper Trading</strong><br/>
 Promote approved strategies to paper mode. Real market feeds, simulated wallet. Prove a strategy works before going live — no API keys, no real money at risk.
 </td>
 </tr>
 <tr>
 <td align="center">
-<h3>Experiment Tracking</h3>
+<strong>Experiment Tracking</strong><br/>
 Every hypothesis gets its own experiment. Compare runs side-by-side with normalized metrics across different engines and timeframes.
 </td>
 <td align="center">
-<h3>Code Versioning</h3>
+<strong>Code Versioning</strong><br/>
 Per-desk git workspace. The agent commits on every change. Each run links to its exact commit hash — full reproducibility.
 </td>
 <td align="center">
-<h3>Pluggable Engines</h3>
+<strong>Pluggable Engines</strong><br/>
 Freqtrade for classic TA strategies. Nautilus Trader for event-driven tick-level strategies. Generic fallback for anything else — the agent writes scripts in Python, Node, Rust, or Go.
 </td>
 </tr>
@@ -155,6 +154,28 @@ pnpm dev
 This starts the API + UI at `http://localhost:3000`. An embedded PostgreSQL boots in-process — no Docker needed for the database. Docker is used exclusively for engine containers.
 
 > **Requirements:** Node.js 20+, pnpm 9.15+, Docker (running), Claude CLI (`claude`) or Codex CLI (`codex`)
+
+<br/>
+
+## Authentication
+
+By default QuantDesk runs in **local trusted mode** — no login, single user, zero configuration. This is ideal for local development.
+
+To enable login (for shared servers or cloud deployments):
+
+```bash
+QUANTDESK_DEPLOYMENT_MODE=authenticated pnpm dev
+```
+
+On first visit you'll see a sign-up page. Create your account with email and password — that's it.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `QUANTDESK_DEPLOYMENT_MODE` | `local_trusted` | Set to `authenticated` to require login |
+| `BETTER_AUTH_SECRET` | `quantdesk-dev-secret` | Session signing secret — **change this in production** |
+| `DATABASE_URL` | (embedded) | External Postgres URL for shared deployments |
+
+For production, also set `auth.disableSignUp: true` in `~/.quantdesk/config.json` after creating your account to prevent unauthorized sign-ups.
 
 <br/>
 
