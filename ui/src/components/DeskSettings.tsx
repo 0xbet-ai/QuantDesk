@@ -39,9 +39,9 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
 	return (
-		<div className="space-y-1.5">
+		<div className="flex flex-col gap-2">
 			<label className="text-xs text-muted-foreground">{label}</label>
-			{children}
+			<div>{children}</div>
 		</div>
 	);
 }
@@ -169,7 +169,7 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 							</div>
 							<Lock className="size-3 text-muted-foreground" />
 						</div>
-						<div className="rounded-lg border border-border p-4 space-y-8">
+						<div className="rounded-lg border border-border p-4 space-y-5">
 							{(() => {
 								const strategy = desk.strategyId
 									? allStrategies.find((s) => s.id === desk.strategyId)
