@@ -221,3 +221,23 @@ export const paperSessions = pgTable("paper_sessions", {
 	stoppedAt: timestamp("stopped_at", { withTimezone: true }),
 	lastStatusAt: timestamp("last_status_at", { withTimezone: true }),
 });
+
+// ── Auth (only used in "authenticated" deployment mode) ─────────────
+
+export const authUsers = pgTable("auth_users", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	email: text("email").notNull().unique(),
+	name: text("name"),
+	passwordHash: text("password_hash").notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const authSessions = pgTable("auth_sessions", {
+	id: uuid("id").primaryKey().defaultRandom(),
+	userId: uuid("user_id")
+		.notNull()
+		.references(() => authUsers.id),
+	token: text("token").notNull().unique(),
+	expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
