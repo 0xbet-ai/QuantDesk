@@ -4,12 +4,12 @@
 <p align="center">
   <a href="#quickstart"><strong>Quickstart</strong></a> &middot;
   <a href="doc/OVERVIEW.md"><strong>Docs</strong></a> &middot;
-  <a href="https://github.com/graykode/QuantDesk"><strong>GitHub</strong></a>
+  <a href="https://github.com/0xbet-ai/QuantDesk"><strong>GitHub</strong></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/graykode/QuantDesk/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="AGPL-3.0 License" /></a>
-  <a href="https://github.com/graykode/QuantDesk/stargazers"><img src="https://img.shields.io/github/stars/graykode/QuantDesk?style=flat" alt="Stars" /></a>
+  <a href="https://github.com/0xbet-ai/QuantDesk/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="AGPL-3.0 License" /></a>
+  <a href="https://github.com/0xbet-ai/QuantDesk/stargazers"><img src="https://img.shields.io/github/stars/0xbet-ai/QuantDesk?style=flat" alt="Stars" /></a>
 </p>
 
 <br/>
