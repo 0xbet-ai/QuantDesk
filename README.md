@@ -88,37 +88,9 @@ Freqtrade for classic TA strategies. Nautilus Trader for event-driven tick-level
 
 ## Workflow
 
-```
-                  ┌─────────────────────────────────────────────────┐
-                  │                  Strategy Desk                  │
-                  │  budget · target return · stop-loss · venue(s)  │
-                  └────────────────────┬────────────────────────────┘
-                                       │
-                          ┌────────────▼────────────┐
-                          │    Analyst Agent         │
-                          │  "momentum strategy on   │
-                          │   ETH/USDT 1h candles"   │
-                          └────────────┬────────────┘
-                                       │
-              ┌────────────────────────▼────────────────────────┐
-              │            Experiment Loop                      │
-              │                                                │
-              │  fetch data ──▶ write strategy ──▶ backtest    │
-              │       ▲                               │        │
-              │       └───────── iterate ◀────────────┘        │
-              └────────────────────────┬───────────────────────┘
-                                       │
-                          ┌────────────▼────────────┐
-                          │    Risk Manager          │
-                          │  overfitting? bias?      │
-                          │  approve / reject        │
-                          └────────────┬────────────┘
-                                       │ approved
-                          ┌────────────▼────────────┐
-                          │    Paper Trading         │
-                          │  real feeds, fake money  │
-                          └─────────────────────────┘
-```
+<p align="center">
+  <img src="doc/assets/workflow.svg" alt="QuantDesk workflow: Strategy Desk → Analyst Agent → Experiment Loop (fetch data → write strategy → backtest → iterate) → Risk Manager → Paper Trading" width="640" />
+</p>
 
 <br/>
 

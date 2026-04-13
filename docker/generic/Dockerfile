@@ -12,10 +12,14 @@
 # the container so repeat runs are fast. Per CLAUDE.md rule #11 the
 # tag is pinned and floats only when we deliberately rebuild.
 #
-# Build locally:
+# Published to ghcr.io/0xbet-ai/quantdesk-generic via the
+# docker-generic.yml GitHub Actions workflow (multi-arch: amd64+arm64).
+# Pulled automatically during `npx quantdesk onboard`.
+#
+# Build locally (for development):
 #   pnpm build:generic-image
 # which expands to:
-#   docker build -t quantdesk/generic:0.1.0 docker/generic/
+#   docker build -t ghcr.io/0xbet-ai/quantdesk-generic:0.1.0 docker/generic/
 
 FROM ubuntu:24.04
 
