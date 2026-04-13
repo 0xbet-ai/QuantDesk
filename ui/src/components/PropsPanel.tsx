@@ -194,7 +194,9 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 											<tr className="text-muted-foreground border-b border-border">
 												<th className="text-left py-1.5 font-medium">#</th>
 												<th className="text-left py-1.5 font-medium pl-6">{col1Label}</th>
-												<th className="text-right py-1.5 font-medium w-20 pr-4">{t("propsPanel.validate")}</th>
+												<th className="text-right py-1.5 font-medium w-20 pr-4">
+													{t("propsPanel.validate")}
+												</th>
 											</tr>
 										</thead>
 										<tbody>
@@ -248,7 +250,9 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 																{run.status === "running" ? (
 																	<span className="flex items-center justify-start gap-1">
 																		<StatusDot status="running" />
-																		<span className="text-[10px] text-blue-400">{t("propsPanel.running")}</span>
+																		<span className="text-[10px] text-blue-400">
+																			{t("propsPanel.running")}
+																		</span>
 																	</span>
 																) : ret != null ? (
 																	<span className={ret > 0 ? "text-green-500" : "text-red-500"}>
@@ -450,7 +454,9 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 														<th className="text-left font-medium py-0.5">{t("propsPanel.time")}</th>
 														<th className="text-left font-medium py-0.5">{t("propsPanel.side")}</th>
 														<th className="text-right font-medium py-0.5">{t("propsPanel.pnl")}</th>
-														<th className="text-right font-medium py-0.5">{t("propsPanel.equity")}</th>
+														<th className="text-right font-medium py-0.5">
+															{t("propsPanel.equity")}
+														</th>
 													</tr>
 												</thead>
 												<tbody>
@@ -540,7 +546,9 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 										<span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
 									</span>
 									<span className="text-xs font-medium text-green-600 dark:text-green-400">
-										{paperSession.status === "pending" ? t("propsPanel.starting") : t("propsPanel.running")}
+										{paperSession.status === "pending"
+											? t("propsPanel.starting")
+											: t("propsPanel.running")}
 									</span>
 									{paperStatus && (
 										<span className="text-[11px] text-muted-foreground ml-auto tabular-nums">
@@ -617,7 +625,9 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 							<div className="space-y-1">
 								<div className="flex items-center gap-2">
 									<span className="h-2 w-2 rounded-full bg-destructive" />
-									<span className="text-xs font-medium text-destructive">{t("propsPanel.failed")}</span>
+									<span className="text-xs font-medium text-destructive">
+										{t("propsPanel.failed")}
+									</span>
 								</div>
 								<div
 									className="text-[10px] text-muted-foreground truncate"

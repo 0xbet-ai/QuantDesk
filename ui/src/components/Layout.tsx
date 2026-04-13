@@ -1,8 +1,18 @@
-import { ChevronLeft, ChevronRight, Globe, Menu, Moon, PanelRight, Plus, Sun, X } from "lucide-react";
+import {
+	ChevronLeft,
+	ChevronRight,
+	Globe,
+	Menu,
+	Moon,
+	PanelRight,
+	Plus,
+	Sun,
+	X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { supportedLanguages } from "../i18n.js";
 import { useTheme } from "../context/ThemeContext.js";
+import { supportedLanguages } from "../i18n.js";
 import type { Desk, Experiment } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
 import { SidebarSection } from "./SidebarSection.js";

@@ -351,7 +351,9 @@ export function DeskPanel({
 						className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground/70 hover:bg-accent/50 hover:text-foreground transition-colors w-full text-left disabled:opacity-40 disabled:hover:bg-transparent"
 					>
 						<Plus className="h-4 w-4 shrink-0" />
-						<span className="truncate">{creating ? t("deskPanel.creating") : t("deskPanel.newExperiment")}</span>
+						<span className="truncate">
+							{creating ? t("deskPanel.creating") : t("deskPanel.newExperiment")}
+						</span>
 					</button>
 
 					{/* Experiments */}
@@ -400,7 +402,9 @@ export function DeskPanel({
 							);
 						})}
 						{experiments.length === 0 && (
-							<div className="px-3 py-2 text-xs text-muted-foreground">{t("deskPanel.noExperiments")}</div>
+							<div className="px-3 py-2 text-xs text-muted-foreground">
+								{t("deskPanel.noExperiments")}
+							</div>
 						)}
 					</SidebarSection>
 				</div>

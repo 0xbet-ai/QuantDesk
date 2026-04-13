@@ -574,9 +574,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											rows={4}
 											placeholder={t("wizard.missionPlaceholder")}
 										/>
-										<p className="text-[11px] text-foreground/40 mt-1">
-											{t("wizard.missionHint")}
-										</p>
+										<p className="text-[11px] text-foreground/40 mt-1">{t("wizard.missionHint")}</p>
 									</div>
 								</div>
 							</div>
@@ -1265,7 +1263,9 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																	)}
 																</div>
 																{datasetsLoading ? (
-																	<div className="text-[10px] text-foreground/40">{t("common.loading")}</div>
+																	<div className="text-[10px] text-foreground/40">
+																		{t("common.loading")}
+																	</div>
 																) : availableDatasets.length === 0 ? (
 																	<div className="text-[10px] text-foreground/40">
 																		{t("wizard.noDatasetsYet")}
