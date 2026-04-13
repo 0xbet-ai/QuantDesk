@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { authApi } from "../lib/auth.js";
 
 interface Props {
@@ -12,6 +13,7 @@ export function AuthPage({ onAuthenticated }: Props) {
 	const [name, setName] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
+	const { t } = useTranslation();
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -35,9 +37,9 @@ export function AuthPage({ onAuthenticated }: Props) {
 		<div className="min-h-screen flex items-center justify-center bg-background">
 			<div className="w-full max-w-sm space-y-6 px-4">
 				<div className="text-center space-y-2">
-					<h1 className="text-2xl font-bold tracking-tight">QuantDesk</h1>
+					<h1 className="text-2xl font-bold tracking-tight">{t("layout.appName")}</h1>
 					<p className="text-sm text-muted-foreground">
-						{mode === "signin" ? "Sign in to your account" : "Create a new account"}
+						{mode === "signin" ? t("auth.signInTitle") : t("auth.signUpTitle")}
 					</p>
 				</div>
 
@@ -94,7 +96,7 @@ export function AuthPage({ onAuthenticated }: Props) {
 						disabled={loading}
 						className="w-full rounded-md bg-foreground text-background py-2 text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
 					>
-						{loading ? "..." : mode === "signin" ? "Sign In" : "Sign Up"}
+						{loading ? "..." : mode === "signin" ? t("auth.signIn") : t("auth.signUp")}
 					</button>
 				</form>
 

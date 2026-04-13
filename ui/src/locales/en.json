@@ -1,0 +1,200 @@
+{
+	"common": {
+		"loading": "Loading...",
+		"save": "Save",
+		"cancel": "Cancel",
+		"close": "Close",
+		"send": "Send",
+		"stop": "Stop",
+		"delete": "Delete",
+		"confirm": "Confirm",
+		"error": "Error",
+		"success": "Success",
+		"yes": "Yes",
+		"no": "No",
+		"back": "Back",
+		"next": "Next",
+		"noData": "No data"
+	},
+
+	"layout": {
+		"appName": "QuantDesk",
+		"newDesk": "New Desk",
+		"noDesks": "No desks yet",
+		"properties": "Properties",
+		"desks": "Desks",
+		"selectDesk": "Select a desk to get started",
+		"noExperiments": "No experiments yet",
+		"switchToLight": "Switch to light mode",
+		"switchToDark": "Switch to dark mode"
+	},
+
+	"auth": {
+		"signIn": "Sign In",
+		"signUp": "Sign Up",
+		"signOut": "Sign Out",
+		"signInTitle": "Sign in to your account",
+		"signUpTitle": "Create a new account",
+		"email": "Email",
+		"password": "Password",
+		"name": "Name",
+		"emailPlaceholder": "you@example.com",
+		"passwordPlaceholder": "8+ characters",
+		"namePlaceholder": "Your name",
+		"noAccount": "No account?",
+		"haveAccount": "Already have an account?",
+		"authFailed": "Authentication failed"
+	},
+
+	"deskPanel": {
+		"newExperiment": "New Experiment",
+		"creating": "Creating...",
+		"experiments": "Experiments",
+		"noExperiments": "No experiments yet",
+		"budget": "Budget",
+		"target": "Target",
+		"stopLoss": "Stop loss",
+		"strategy": "Strategy",
+		"you": "You — Lead",
+		"analyst": "Analyst — Strategy research & backtests",
+		"riskManager": "Risk Manager — Position sizing & risk review",
+		"paperTrading": "Paper Trading",
+		"backtests": "Backtests",
+		"code": "Code",
+		"datasets": "Datasets",
+		"activity": "Activity",
+		"settings": "Settings"
+	},
+
+	"propsPanel": {
+		"status": "Status",
+		"runs": "Runs",
+		"runsTitle": "RUNS",
+		"noRuns": "No runs yet",
+		"base": "base",
+		"validate": "Validate",
+		"validating": "Validating...",
+		"tradeLog": "Trade Log",
+		"time": "Time",
+		"side": "Side",
+		"pnl": "PnL",
+		"equity": "Equity",
+		"vsBaseline": "vs baseline",
+		"paperTrading": "Paper Trading",
+		"running": "Running",
+		"starting": "Starting…",
+		"stopping": "Stopping…",
+		"failed": "Failed",
+		"paperTrade": "Paper Trade",
+		"rejectedStartAnyway": "Rejected — start anyway",
+		"positions": "Positions"
+	},
+
+	"paperTradingView": {
+		"title": "Paper Trading",
+		"noSession": "No active paper trading session. Start one from the Properties panel.",
+		"waitingForTrade": "Waiting for first trade...",
+		"noTrades": "No trades",
+		"containerLog": "Container log",
+		"waitingForOutput": "Waiting for freqtrade output... (bot heartbeat every minute, entry signals when strategy triggers)",
+		"lines": "lines",
+		"trades": "Trades",
+		"pair": "Pair",
+		"side": "Side",
+		"entry": "Entry",
+		"exit": "Exit",
+		"pnl": "PnL",
+		"time": "Time"
+	},
+
+	"commentThread": {
+		"typePlaceholder": "Type a comment...",
+		"agentWorking": "Agent is working...",
+		"warmingUp": "Agent is warming up…",
+		"viewTranscript": "View agent transcript",
+		"hideTranscript": "Hide transcript",
+		"noComments": "No comments yet",
+		"continued": "continued (no user reply)",
+		"agentTurnCompleted": "Agent Turn Completed",
+		"open": "Open"
+	},
+
+	"wizard": {
+		"title": "New Desk",
+		"desk": "Desk",
+		"market": "Market",
+		"venue": "Venue",
+		"mode": "Mode",
+		"strategy": "Strategy",
+		"agent": "Agent",
+		"config": "Config",
+		"launch": "Launch",
+		"general": "General",
+		"deskName": "Desk name",
+		"description": "Description",
+		"descriptionPlaceholder": "Optional desk description",
+		"constraints": "Constraints",
+		"budgetUsd": "Budget (USD)",
+		"targetReturn": "Target return %",
+		"stopLoss": "Stop loss % (max drawdown)",
+		"crypto": "Crypto",
+		"cryptoDescription": "Bitcoin, altcoins, perps, on-chain DEXes",
+		"stocks": "Stocks",
+		"stocksDescription": "Equities, ETFs, options",
+		"predictionMarkets": "Prediction Markets",
+		"predictionMarketsDescription": "Polymarket — yes/no outcomes",
+		"forex": "Forex",
+		"forexDescription": "Currency pairs (coming soon)",
+		"commodities": "Commodities",
+		"commoditiesDescription": "Gold, oil, agricultural (coming soon)",
+		"adapterType": "Adapter type",
+		"adapterCheck": "Adapter environment check",
+		"claudeCode": "Claude Code",
+		"claudeCodeDesc": "Local Claude agent",
+		"codex": "Codex",
+		"codexDesc": "Local Codex agent",
+		"model": "Model",
+		"testNow": "Test now",
+		"testing": "Testing...",
+		"passed": "Passed",
+		"cliNotFound": "{{adapter}} CLI not found or not responding.",
+		"chooseStrategy": "Choose a strategy",
+		"customStrategy": "Custom Strategy",
+		"customStrategyDesc": "Tell the agent what to build",
+		"creating": "Creating...",
+		"classic": "Classic",
+		"classicDescription": "Candle-based technical analysis — trend following, mean reversion, momentum. Powered by Freqtrade.",
+		"realtime": "Realtime",
+		"realtimeDescription": "Event-driven tick-level strategies — market making, arbitrage, HFT. Powered by Nautilus Trader."
+	},
+
+	"settings": {
+		"title": "Desk Settings",
+		"strategyAndVenues": "Strategy & Venues",
+		"venues": "Venues",
+		"engine": "Engine",
+		"autoDerived": "auto-derived from {{mode}} + {{venue}}",
+		"setAtCreation": "Set at creation. Create a new desk to change venues or strategy.",
+		"customStrategy": "Custom Strategy",
+		"noVenues": "No venues selected",
+		"deskPackage": "Desk Package"
+	},
+
+	"activity": {
+		"title": "Activity",
+		"noActivity": "No activity yet"
+	},
+
+	"codeView": {
+		"title": "Code"
+	},
+
+	"datasetView": {
+		"title": "Datasets"
+	},
+
+	"runDetail": {
+		"title": "Backtests",
+		"noRun": "No backtest run"
+	}
+}

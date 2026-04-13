@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight, Menu, Moon, PanelRight, Plus, Settings, Sun, X } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../context/ThemeContext.js";
 import type { Desk, Experiment } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
@@ -34,6 +35,7 @@ export function Layout({
 	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 	const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
 	const { theme, toggleTheme } = useTheme();
+	const { t } = useTranslation();
 	const nextTheme = theme === "dark" ? "light" : "dark";
 
 	return (
@@ -44,7 +46,7 @@ export function Layout({
 					<Menu className="size-4" />
 				</Button>
 				<span className="text-sm font-semibold truncate flex-1">
-					{selectedDesk?.name ?? "QuantDesk"}
+					{selectedDesk?.name ?? t("layout.appName")}
 				</span>
 				{selectedExperiment && panel && (
 					<Button variant="ghost" size="icon-sm" onClick={() => setMobilePanelOpen(true)}>
@@ -69,7 +71,7 @@ export function Layout({
 					{/* Drawer */}
 					<div className="relative w-72 max-w-[85vw] bg-background border-r border-border flex flex-col animate-in slide-in-from-left duration-200">
 						<div className="flex items-center justify-between px-3 py-3 border-b border-border">
-							<span className="text-sm font-semibold">QuantDesk</span>
+							<span className="text-sm font-semibold">{t("layout.appName")}</span>
 							<Button variant="ghost" size="icon-sm" onClick={() => setMobileMenuOpen(false)}>
 								<X className="size-4" />
 							</Button>
@@ -86,7 +88,7 @@ export function Layout({
 									className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground/70 hover:bg-accent/50 hover:text-foreground transition-colors w-full text-left"
 								>
 									<Plus className="h-4 w-4 shrink-0" />
-									<span>New Desk</span>
+									<span>{t("layout.newDesk")}</span>
 								</button>
 								<SidebarSection label="Desks">
 									{desks.map((desk) => (
@@ -128,7 +130,7 @@ export function Layout({
 					/>
 					<div className="relative bg-background border-t border-border rounded-t-xl max-h-[80vh] flex flex-col animate-in slide-in-from-bottom duration-200">
 						<div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
-							<span className="text-sm font-medium">Properties</span>
+							<span className="text-sm font-medium">{t("layout.properties")}</span>
 							<Button variant="ghost" size="icon-sm" onClick={() => setMobilePanelOpen(false)}>
 								<X className="size-4" />
 							</Button>
@@ -154,7 +156,7 @@ export function Layout({
 							className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground/70 hover:bg-accent/50 hover:text-foreground transition-colors w-full text-left"
 						>
 							<Plus className="h-4 w-4 shrink-0" />
-							<span className="truncate">New Desk</span>
+							<span className="truncate">{t("layout.newDesk")}</span>
 						</button>
 					</div>
 					<SidebarSection label="Desks">
@@ -175,7 +177,7 @@ export function Layout({
 							</button>
 						))}
 						{desks.length === 0 && (
-							<div className="px-3 py-2 text-xs text-muted-foreground">No desks yet</div>
+							<div className="px-3 py-2 text-xs text-muted-foreground">{t("layout.noDesks")}</div>
 						)}
 					</SidebarSection>
 					<div className="flex-1" />
@@ -228,7 +230,7 @@ export function Layout({
 					{panelOpen && (
 						<div className="hidden lg:flex w-80 min-w-[320px] shrink-0 border-l border-border flex-col">
 							<div className="flex items-center justify-between px-4 h-12 border-b border-border shrink-0">
-								<span className="text-sm font-medium">Properties</span>
+								<span className="text-sm font-medium">{t("layout.properties")}</span>
 								<Button variant="ghost" size="icon-xs" onClick={() => setPanelOpen(false)}>
 									<PanelRight className="size-4" />
 								</Button>
