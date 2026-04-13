@@ -22,4 +22,4 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter quantdesk build
-      - run: cd cli && npm publish --provenance --access public
+      - run: cd cli && npx npm@latest publish --provenance --access public
