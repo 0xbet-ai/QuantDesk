@@ -1323,7 +1323,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																						</div>
 																						<div className="flex items-baseline gap-1.5 flex-wrap text-foreground/40 text-[10px] font-mono mt-0.5">
 																							<span>
-																								{d.dateRange.start} → {d.dateRange.end}
+																								{new Date(d.dateRange.start + "T00:00:00").toLocaleDateString("en-US")} → {new Date(d.dateRange.end + "T00:00:00").toLocaleDateString("en-US")}
 																							</span>
 																							{deskLabel && (
 																								<>
