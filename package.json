@@ -16,6 +16,7 @@
     "db:reset": "pnpm --filter @quantdesk/db reset && pnpm db:migrate && pnpm db:seed",
     "clean:runs": "rm -rf server/workspaces ~/.quantdesk/logs ~/.quantdesk/datacache && pnpm db:reset",
     "build:generic-image": "docker build -t ghcr.io/0xbet-ai/quantdesk-generic:0.1.0 docker/generic/",
+    "release:generic": "bash scripts/release-generic.sh",
     "onboard": "pnpm --filter quantdesk onboard"
   },
   "devDependencies": {
