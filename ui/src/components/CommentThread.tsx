@@ -244,7 +244,8 @@ const ChatInputBar = memo(function ChatInputBar({
 					}
 				}}
 				onKeyDown={(e) => {
-					if (e.key === "Enter" && !disabled) submit();
+					if (e.key === "Enter" && !e.nativeEvent.isComposing && !disabled)
+						submit();
 				}}
 				placeholder={placeholder}
 				disabled={disabled}
