@@ -76,7 +76,7 @@ returned tool_result payload.
 
 ## Rules
 
-1. **English only** — all code, comments, UI strings, docs, commits. Exception: `README.md` files must be provided in all supported UI languages (`en`, `ko`, `ja`, `zh`, `es`, `pt-BR`, `fr`) using the naming convention `README.<lang>.md` (e.g. `README.ko.md`). The root `README.md` is always English.
+1. **English only** — all code, comments, UI strings, docs, commits. Exception: `README.md` files must be provided in all supported UI languages (`en`, `ko`, `ja`, `zh`, `es`, `pt-BR`, `fr`) using the naming convention `README.<lang>.md` (e.g. `README.ko.md`). The root `README.md` is always English. **Any change to `README.md` must be applied to all language variants in the same commit.**
 2. **File refs** — repo-root relative (`src/core/runner.ts:42`), never absolute.
 3. **Commits** — `<type>: <description>`. Types: `feat`, `fix`, `refactor`, `docs`, `chore`. **No scoped prefixes** — write `fix: ...`, never `fix(ui): ...` or `feat(server): ...`.
 4. **Secrets** — never commit. Use env vars. `.env` is gitignored.

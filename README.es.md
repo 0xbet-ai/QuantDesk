@@ -154,7 +154,7 @@ Código abierto. Auto-alojado. Sin cuenta requerida.
 npx quantdesk onboard --yes
 ```
 
-Eso es todo. Clona el repositorio, instala dependencias, descarga imágenes Docker de los motores, ejecuta migraciones de base de datos e inicia el servidor en `http://localhost:3000`.
+Eso es todo. Clona el repositorio, instala dependencias, descarga imágenes Docker de los motores, ejecuta migraciones de base de datos e inicia el servidor en `http://localhost:5173`.
 
 Un PostgreSQL embebido se inicia en proceso — no se necesita Docker para la base de datos. Docker se usa exclusivamente para los contenedores de motores.
 
