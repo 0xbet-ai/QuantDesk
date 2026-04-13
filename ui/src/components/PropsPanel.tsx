@@ -186,7 +186,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 							// Use the first run with metrics to determine column headers
 							const sampleMetrics = visibleRuns.find((r) => r.result?.metrics?.length)?.result
 								?.metrics;
-							const col1Label = sampleMetrics?.[0]?.label ?? "Value";
+							const col1Label = sampleMetrics?.[0]?.label ?? t("propsPanel.value");
 							return (
 								<div className="max-h-[280px] overflow-y-auto">
 									<table className="w-full text-xs">
@@ -287,14 +287,16 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 																					? "text-red-500"
 																					: "text-muted-foreground";
 																		const tooltip = isValidating
-																			? `Validating Run #${run.runNumber}…`
+																			? t("propsPanel.tooltipValidating", { num: run.runNumber })
 																			: isOtherValidating
-																				? `Another validation in progress — wait until it finishes`
+																				? t("propsPanel.tooltipWaiting")
 																				: verdict === "approve"
-																					? `Risk Manager approved — click to re-validate Run #${run.runNumber}`
+																					? t("propsPanel.tooltipApproved")
 																					: verdict === "reject"
-																						? `Risk Manager rejected — click to re-validate Run #${run.runNumber}`
-																						: `Validate Run #${run.runNumber} with Risk Manager`;
+																						? t("propsPanel.tooltipRejected")
+																						: t("propsPanel.tooltipValidate", {
+																								num: run.runNumber,
+																							});
 																		return (
 																			<button
 																				type="button"
@@ -347,7 +349,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 						<div className="border-b border-border my-2" />
 						<div className="space-y-0">
 							<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-								Run #{selectedRun.runNumber}
+								{t("propsPanel.runNumber", { num: selectedRun.runNumber })}
 							</div>
 
 							{selectedRun.result?.metrics?.map((m) => {
@@ -559,7 +561,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 								{paperStatus && paperSession.status === "running" && (
 									<div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] tabular-nums">
 										<div>
-											<div className="text-muted-foreground">Unrealized</div>
+											<div className="text-muted-foreground">{t("propsPanel.unrealized")}</div>
 											<div
 												className={cn(
 													"font-mono font-medium",
@@ -571,7 +573,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 											</div>
 										</div>
 										<div>
-											<div className="text-muted-foreground">Realized</div>
+											<div className="text-muted-foreground">{t("propsPanel.realized")}</div>
 											<div
 												className={cn(
 													"font-mono font-medium",
@@ -587,7 +589,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 											<div className="font-mono font-medium">{paperStatus.openPositions}</div>
 										</div>
 										<div>
-											<div className="text-muted-foreground">Total PnL</div>
+											<div className="text-muted-foreground">{t("propsPanel.totalPnl")}</div>
 											<div
 												className={cn(
 													"font-mono font-medium",
@@ -603,7 +605,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 									</div>
 								)}
 								<div className="text-[10px] text-muted-foreground">
-									Started{" "}
+									{t("propsPanel.started")}{" "}
 									{new Date(paperSession.startedAt).toLocaleString("en-US", {
 										month: "short",
 										day: "numeric",
@@ -633,7 +635,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 									className="text-[10px] text-muted-foreground truncate"
 									title={paperSession.error ?? undefined}
 								>
-									{paperSession.error ?? "Unknown error"}
+									{paperSession.error ?? t("propsPanel.unknownError")}
 								</div>
 							</div>
 						) : bestRun ? (
@@ -653,7 +655,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 									const reason = (bestRun.result?.validation as { reason?: string } | undefined)
 										?.reason;
 									const msg =
-										`Risk Manager rejected Run #${bestRun.runNumber}` +
+										t("propsPanel.confirmRejectedPaper", { num: bestRun.runNumber }) +
 										(reason ? `:\n\n${reason}\n\n` : ".\n\n") +
 										"Start paper trading anyway?";
 									if (window.confirm(msg)) {
@@ -673,10 +675,10 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 										disabled={startingPaper || paperSent}
 										title={
 											isApproved
-												? "Start paper trading"
+												? t("propsPanel.tooltipStartPaper")
 												: isRejected
-													? "Risk Manager rejected — click to start anyway"
-													: "Discuss paper trading with agent"
+													? t("propsPanel.tooltipRejectedStart")
+													: t("propsPanel.tooltipDiscussPaper")
 										}
 										className={cn(
 											"flex items-center gap-2.5 w-full px-2 py-1.5 rounded-md transition-colors",
@@ -693,12 +695,14 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 											</div>
 										)}
 										<div className="text-left">
-											<div className="text-xs font-medium">Run #{bestRun.runNumber}</div>
+											<div className="text-xs font-medium">
+												{t("propsPanel.runNumber", { num: bestRun.runNumber })}
+											</div>
 											<div className="text-[10px] text-muted-foreground">
 												{startingPaper
 													? t("propsPanel.starting")
 													: isApproved
-														? "Ready"
+														? t("propsPanel.ready")
 														: isRejected
 															? t("propsPanel.rejectedStartAnyway")
 															: t("propsPanel.paperTrade")}

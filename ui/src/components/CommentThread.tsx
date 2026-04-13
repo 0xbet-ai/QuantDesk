@@ -43,11 +43,15 @@ interface Props {
 	onExperimentCreated?: (newExperimentId: string) => void;
 }
 
-const authorConfig: Record<string, { icon: typeof User; color: string; label: string }> = {
-	user: { icon: User, color: "text-blue-400", label: "You" },
-	analyst: { icon: Bot, color: "text-green-400", label: "Analyst" },
-	risk_manager: { icon: Shield, color: "text-orange-400", label: "Risk Manager" },
-	system: { icon: Bot, color: "text-muted-foreground", label: "System" },
+const authorConfig: Record<string, { icon: typeof User; color: string; labelKey: string }> = {
+	user: { icon: User, color: "text-blue-400", labelKey: "commentThread.authorYou" },
+	analyst: { icon: Bot, color: "text-green-400", labelKey: "commentThread.authorAnalyst" },
+	risk_manager: {
+		icon: Shield,
+		color: "text-orange-400",
+		labelKey: "commentThread.authorRiskManager",
+	},
+	system: { icon: Bot, color: "text-muted-foreground", labelKey: "commentThread.authorSystem" },
 };
 
 function CollapsibleCode({ lang, children }: { lang: string; children: ReactNode }) {
@@ -144,7 +148,9 @@ function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
 				</div>
 			)}
 			{open && entries && entries.length === 0 && (
-				<div className="mt-2 text-[11px] text-muted-foreground">No transcript available.</div>
+				<div className="mt-2 text-[11px] text-muted-foreground">
+					{t("commentThread.noTranscript")}
+				</div>
 			)}
 		</div>
 	);
@@ -719,7 +725,9 @@ export function CommentThread({
 		<div className="flex flex-col h-full">
 			{/* Header */}
 			<div className="px-4 h-12 flex items-center gap-2 shrink-0">
-				<span className="text-[13px] font-semibold">Experiment #{experiment.number}</span>
+				<span className="text-[13px] font-semibold">
+					{t("commentThread.experimentHeader", { num: experiment.number })}
+				</span>
 				<span className="text-[13px] text-muted-foreground">— {experiment.title}</span>
 			</div>
 			<Separator />
@@ -1004,7 +1012,7 @@ export function CommentThread({
 												<Icon className={cn("size-3", config.color)} />
 											</div>
 											<span className={cn("text-xs font-medium", config.color)}>
-												{config.label}
+												{t(config.labelKey)}
 											</span>
 											<span className="text-xs text-muted-foreground ml-auto">
 												{new Date(c.createdAt).toLocaleTimeString("en-US", {

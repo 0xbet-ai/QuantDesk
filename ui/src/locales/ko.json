@@ -87,7 +87,24 @@
 		"failed": "실패",
 		"paperTrade": "페이퍼 트레이드",
 		"rejectedStartAnyway": "거부됨 — 그래도 시작",
-		"positions": "포지션"
+		"positions": "포지션",
+		"value": "값",
+		"tooltipValidating": "실행 #{{num}} 검증 중...",
+		"tooltipWaiting": "다른 검증이 진행 중...",
+		"tooltipApproved": "리스크 매니저 승인됨",
+		"tooltipRejected": "리스크 매니저 거부됨",
+		"tooltipValidate": "실행 #{{num}} 검증",
+		"runNumber": "실행 #{{num}}",
+		"unrealized": "미실현",
+		"realized": "실현",
+		"totalPnl": "총 손익",
+		"started": "시작",
+		"unknownError": "알 수 없는 오류",
+		"confirmRejectedPaper": "리스크 매니저가 실행 #{{num}}을 거부했습니다. 그래도 페이퍼 트레이딩을 시작하시겠습니까?",
+		"tooltipStartPaper": "페이퍼 트레이딩 시작",
+		"tooltipRejectedStart": "리스크 매니저 거부됨 — 클릭하면 그래도 시작",
+		"tooltipDiscussPaper": "에이전트와 페이퍼 트레이딩 논의",
+		"ready": "준비"
 	},
 
 	"paperTradingView": {
@@ -116,7 +133,13 @@
 		"noComments": "아직 코멘트가 없습니다",
 		"continued": "계속됨 (사용자 응답 없음)",
 		"agentTurnCompleted": "에이전트 턴 완료",
-		"open": "열기"
+		"open": "열기",
+		"authorYou": "사용자",
+		"authorAnalyst": "애널리스트",
+		"authorRiskManager": "리스크 매니저",
+		"authorSystem": "시스템",
+		"noTranscript": "트랜스크립트가 없습니다.",
+		"experimentHeader": "실험 #{{num}}"
 	},
 
 	"wizard": {
@@ -211,7 +234,31 @@
 		"add": "추가",
 		"reuseDatasets": "기존 데이터셋 재사용",
 		"selected": "선택됨",
-		"noDatasetsYet": "아직 카탈로그에 없습니다. 다른 데스크의 에이전트가 다운로드한 데이터셋이 여기에 표시되며, 재다운로드 없이 연결할 수 있습니다."
+		"noDatasetsYet": "아직 카탈로그에 없습니다. 다른 데스크의 에이전트가 다운로드한 데이터셋이 여기에 표시되며, 재다운로드 없이 연결할 수 있습니다.",
+		"centralized": "중앙화",
+		"decentralized": "탈중앙화",
+		"brokers": "브로커",
+		"noVenuesAvailable": "이 마켓에 아직 사용 가능한 거래소가 없습니다.",
+		"custom": "커스텀",
+		"loadingStrategies": "전략 로딩 중...",
+		"retry": "재시도",
+		"noStrategiesMatch": "\"{{search}}\"에 맞는 전략이 없습니다",
+		"indicators": "지표",
+		"timeframes": "타임프레임",
+		"recommend": "(추천)",
+		"viewSource": "소스 보기",
+		"moreAdapterTypes": "추가 에이전트 어댑터 유형",
+		"selectedBadge": "선택됨",
+		"default": "기본",
+		"timeframeLabel": "타임프레임",
+		"source": "소스",
+		"noStrategySelected": "전략이 선택되지 않았습니다",
+		"venuesLabel": "거래소",
+		"none": "없음",
+		"budgetLabel": "예산",
+		"targetLabel": "목표",
+		"stopLossLabel": "손절",
+		"fromDesk": "{{desk}}에서"
 	},
 
 	"settings": {
@@ -245,21 +292,79 @@
 
 	"activity": {
 		"title": "활동",
-		"noActivity": "아직 활동이 없습니다"
+		"noActivity": "아직 활동이 없습니다",
+		"justNow": "방금",
+		"actorYou": "사용자",
+		"actorSystem": "시스템",
+		"actorAnalyst": "애널리스트",
+		"actorRiskManager": "리스크 매니저"
 	},
 
 	"codeView": {
-		"title": "코드"
+		"title": "코드",
+		"justNow": "방금",
+		"noChanges": "이 커밋에 변경사항 없음",
+		"filesChanged": "{{count}}개 파일 변경",
+		"notInitialized": "워크스페이스가 초기화되지 않았습니다. 백테스트를 실행하여 생성하세요.",
+		"diff": "차이점",
+		"files": "파일",
+		"commits": "커밋",
+		"loadingDiff": "차이점 로딩 중...",
+		"loadingFile": "파일 로딩 중...",
+		"selectFile": "볼 파일을 선택하세요"
 	},
 
 	"datasetView": {
-		"title": "데이터셋"
+		"title": "데이터셋",
+		"rows": "행",
+		"columns": "열",
+		"showingFirstRows": "처음 {{count}}행 표시",
+		"loadingPreview": "미리보기 로딩 중...",
+		"searchPlaceholder": "페어, 거래소, 타임프레임 검색...",
+		"noDatasets": "아직 데이터셋이 없습니다. 실험이 실행되면 에이전트가 시장 데이터를 여기에 다운로드합니다.",
+		"noMatch": "일치하는 데이터셋 없음",
+		"clearSearch": "검색 초기화",
+		"datasetCount": "{{count}}개 데이터셋",
+		"deleting": "삭제 중..."
+	},
+
+	"turnCard": {
+		"paperTradingRun": "페이퍼 트레이딩 실행",
+		"backtestRun": "백테스트 실행",
+		"agentTurn": "에이전트 턴",
+		"completed": "완료",
+		"stopped": "중지됨",
+		"awaitingResponse": "응답 대기 중",
+		"validating": "검증 중...",
+		"failed": "실패",
+		"analyst": "애널리스트",
+		"riskManager": "리스크 매니저",
+		"agentWorking": "에이전트가 실험 #{{num}}에서 작업 중...",
+		"agentFinished": "에이전트가 실험 #{{num}}을 완료했습니다",
+		"agentWaiting": "에이전트가 응답을 기다리고 있습니다...",
+		"rmValidating": "리스크 매니저가 검증 중...",
+		"agentFailed": "에이전트가 정상적으로 완료되지 않았습니다...",
+		"live": "실시간",
+		"waitingForOutput": "에이전트 출력 대기 중..."
 	},
 
 	"runDetail": {
 		"title": "백테스트",
 		"noRun": "백테스트 실행 없음",
 		"duration": "소요 시간",
-		"vsBaseline": "기준 대비"
+		"vsBaseline": "기준 대비",
+		"justNow": "방금",
+		"base": "기본",
+		"running": "실행 중",
+		"baseline": "기준",
+		"rmApproved": "리스크 매니저: 승인",
+		"rmRejected": "리스크 매니저: 거부",
+		"notValidated": "아직 검증되지 않음 — 페이퍼 트레이딩을 활성화하려면 에이전트에게 검증을 요청하세요",
+		"startingPaper": "시작 중...",
+		"startPaperTrading": "페이퍼 트레이딩 시작",
+		"agentTranscript": "에이전트 트랜스크립트",
+		"noTranscript": "트랜스크립트가 없습니다.",
+		"experimentNumber": "실험 #{{num}}",
+		"loading": "로딩 중..."
 	}
 }

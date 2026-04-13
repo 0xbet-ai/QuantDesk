@@ -28,6 +28,7 @@ export function DatasetPreviewModal({
 	deskId?: string;
 	onClose: () => void;
 }) {
+	const { t } = useTranslation();
 	const [preview, setPreview] = useState<DatasetPreview | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -100,16 +101,17 @@ export function DatasetPreviewModal({
 							<span className="font-medium text-foreground">
 								{preview.totalRows.toLocaleString()}
 							</span>{" "}
-							rows
+							{t("datasetView.rows")}
 						</span>
 						<span>
-							<span className="font-medium text-foreground">{preview.headers.length}</span> columns
+							<span className="font-medium text-foreground">{preview.headers.length}</span>{" "}
+							{t("datasetView.columns")}
 						</span>
 						<span>
 							<span className="font-medium text-foreground">{formatBytes(preview.fileSize)}</span>
 						</span>
 						<span className="text-muted-foreground/70">
-							Showing first {preview.rows.length} rows
+							{t("datasetView.showingFirstRows", { count: preview.rows.length })}
 						</span>
 					</div>
 				)}
@@ -118,7 +120,7 @@ export function DatasetPreviewModal({
 				<div className="flex-1 overflow-auto">
 					{loading ? (
 						<div className="flex items-center justify-center h-64 text-[13px] text-muted-foreground">
-							Loading preview...
+							{t("datasetView.loadingPreview")}
 						</div>
 					) : error ? (
 						<div className="flex items-center justify-center h-64 text-[13px] text-muted-foreground">
@@ -270,7 +272,7 @@ export function DatasetView({ desk }: Props) {
 						type="search"
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
-						placeholder="Search pair, exchange, timeframe…"
+						placeholder={t("datasetView.searchPlaceholder")}
 						className="h-8 w-64 pl-8 text-xs"
 					/>
 				</div>
@@ -278,21 +280,19 @@ export function DatasetView({ desk }: Props) {
 
 			<div className="flex-1 overflow-y-auto">
 				{loading ? (
-					<div className="p-6 text-sm text-muted-foreground">Loading…</div>
+					<div className="p-6 text-sm text-muted-foreground">{t("common.loading")}</div>
 				) : datasets.length === 0 ? (
-					<div className="p-6 text-sm text-muted-foreground">
-						No datasets yet. The agent will download market data here as experiments run.
-					</div>
+					<div className="p-6 text-sm text-muted-foreground">{t("datasetView.noDatasets")}</div>
 				) : filtered.length === 0 ? (
 					<div className="p-6 text-sm text-muted-foreground">
-						No datasets match{" "}
+						{t("datasetView.noMatch")}{" "}
 						<span className="font-mono text-foreground">&ldquo;{query}&rdquo;</span>.{" "}
 						<button
 							type="button"
 							onClick={() => setQuery("")}
 							className="underline hover:text-foreground"
 						>
-							Clear search
+							{t("datasetView.clearSearch")}
 						</button>
 					</div>
 				) : (
@@ -305,7 +305,7 @@ export function DatasetView({ desk }: Props) {
 										{exchange}
 									</span>
 									<span className="text-[11px] text-muted-foreground/50">
-										{items.length} dataset{items.length !== 1 ? "s" : ""}
+										{t("datasetView.datasetCount", { count: items.length })}
 									</span>
 								</div>
 								<div className="pl-6">
@@ -357,6 +357,7 @@ function DatasetRow({
 	onCancelConfirm,
 	onConfirmDelete,
 }: DatasetRowProps) {
+	const { t } = useTranslation();
 	const pairsText = d.pairs
 		.map((p) => {
 			// CCXT perp symbols look like "BTC/USDC:USDC" — strip the
@@ -430,7 +431,7 @@ function DatasetRow({
 						onClick={onConfirmDelete}
 						disabled={deleting}
 					>
-						{deleting ? "Deleting…" : "Confirm"}
+						{deleting ? t("datasetView.deleting") : t("common.confirm")}
 					</Button>
 					<Button
 						variant="ghost"
@@ -439,7 +440,7 @@ function DatasetRow({
 						onClick={onCancelConfirm}
 						disabled={deleting}
 					>
-						Cancel
+						{t("common.cancel")}
 					</Button>
 				</div>
 			) : (

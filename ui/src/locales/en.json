@@ -87,7 +87,24 @@
 		"failed": "Failed",
 		"paperTrade": "Paper Trade",
 		"rejectedStartAnyway": "Rejected — start anyway",
-		"positions": "Positions"
+		"positions": "Positions",
+		"value": "Value",
+		"tooltipValidating": "Validating Run #{{num}}…",
+		"tooltipWaiting": "Another validation in progress — wait until it finishes",
+		"tooltipApproved": "Risk Manager approved",
+		"tooltipRejected": "Risk Manager rejected",
+		"tooltipValidate": "Validate Run #{{num}} with Risk Manager",
+		"runNumber": "Run #{{num}}",
+		"unrealized": "Unrealized",
+		"realized": "Realized",
+		"totalPnl": "Total PnL",
+		"started": "Started",
+		"unknownError": "Unknown error",
+		"confirmRejectedPaper": "Risk Manager rejected Run #{{num}}",
+		"tooltipStartPaper": "Start paper trading",
+		"tooltipRejectedStart": "Risk Manager rejected — click to start anyway",
+		"tooltipDiscussPaper": "Discuss paper trading with agent",
+		"ready": "Ready"
 	},
 
 	"paperTradingView": {
@@ -116,7 +133,13 @@
 		"noComments": "No comments yet",
 		"continued": "continued (no user reply)",
 		"agentTurnCompleted": "Agent Turn Completed",
-		"open": "Open"
+		"open": "Open",
+		"authorYou": "You",
+		"authorAnalyst": "Analyst",
+		"authorRiskManager": "Risk Manager",
+		"authorSystem": "System",
+		"noTranscript": "No transcript available.",
+		"experimentHeader": "Experiment #{{num}}"
 	},
 
 	"wizard": {
@@ -211,7 +234,31 @@
 		"add": "Add",
 		"reuseDatasets": "Reuse existing datasets",
 		"selected": "selected",
-		"noDatasetsYet": "Nothing in the catalog yet. Datasets downloaded by any desk's agent will appear here and can be linked on future desks without a re-download."
+		"noDatasetsYet": "Nothing in the catalog yet. Datasets downloaded by any desk's agent will appear here and can be linked on future desks without a re-download.",
+		"centralized": "Centralized",
+		"decentralized": "Decentralized",
+		"brokers": "Brokers",
+		"noVenuesAvailable": "No venues available for this market yet.",
+		"custom": "Custom",
+		"loadingStrategies": "Loading strategies...",
+		"retry": "Retry",
+		"noStrategiesMatch": "No strategies match \"{{search}}\"",
+		"indicators": "Indicators",
+		"timeframes": "Timeframes",
+		"recommend": "(Recommend)",
+		"viewSource": "View source",
+		"moreAdapterTypes": "More Agent Adapter Types",
+		"selectedBadge": "Selected",
+		"default": "Default",
+		"timeframeLabel": "Timeframe",
+		"source": "Source",
+		"noStrategySelected": "No strategy selected",
+		"venuesLabel": "Venues",
+		"none": "none",
+		"budgetLabel": "Budget",
+		"targetLabel": "Target",
+		"stopLossLabel": "Stop Loss",
+		"fromDesk": "from {{desk}}"
 	},
 
 	"settings": {
@@ -245,21 +292,79 @@
 
 	"activity": {
 		"title": "Activity",
-		"noActivity": "No activity yet"
+		"noActivity": "No activity yet",
+		"justNow": "just now",
+		"actorYou": "You",
+		"actorSystem": "System",
+		"actorAnalyst": "Analyst",
+		"actorRiskManager": "Risk Manager"
 	},
 
 	"codeView": {
-		"title": "Code"
+		"title": "Code",
+		"justNow": "just now",
+		"noChanges": "No changes in this commit",
+		"filesChanged": "{{count}} file(s) changed",
+		"notInitialized": "Workspace not initialized. Run a backtest to create it.",
+		"diff": "Diff",
+		"files": "Files",
+		"commits": "Commits",
+		"loadingDiff": "Loading diff...",
+		"loadingFile": "Loading file...",
+		"selectFile": "Select a file to view"
 	},
 
 	"datasetView": {
-		"title": "Datasets"
+		"title": "Datasets",
+		"rows": "rows",
+		"columns": "columns",
+		"showingFirstRows": "Showing first {{count}} rows",
+		"loadingPreview": "Loading preview...",
+		"searchPlaceholder": "Search pair, exchange, timeframe...",
+		"noDatasets": "No datasets yet. The agent will download market data here as experiments run.",
+		"noMatch": "No datasets match",
+		"clearSearch": "Clear search",
+		"datasetCount": "{{count}} dataset(s)",
+		"deleting": "Deleting..."
+	},
+
+	"turnCard": {
+		"paperTradingRun": "Paper Trading Run",
+		"backtestRun": "Backtest Run",
+		"agentTurn": "Agent Turn",
+		"completed": "Completed",
+		"stopped": "Stopped",
+		"awaitingResponse": "Awaiting Your Response",
+		"validating": "Validating...",
+		"failed": "Failed",
+		"analyst": "Analyst",
+		"riskManager": "Risk Manager",
+		"agentWorking": "Agent is working on Experiment #{{num}}",
+		"agentFinished": "Agent finished Experiment #{{num}}",
+		"agentWaiting": "Agent is waiting on you...",
+		"rmValidating": "Risk Manager is validating...",
+		"agentFailed": "Agent did not finish cleanly...",
+		"live": "Live",
+		"waitingForOutput": "Waiting for agent output..."
 	},
 
 	"runDetail": {
 		"title": "Backtests",
 		"noRun": "No backtest run",
 		"duration": "Duration",
-		"vsBaseline": "vs baseline"
+		"vsBaseline": "vs baseline",
+		"justNow": "just now",
+		"base": "base",
+		"running": "running",
+		"baseline": "baseline",
+		"rmApproved": "Risk Manager: Approved",
+		"rmRejected": "Risk Manager: Rejected",
+		"notValidated": "Not validated yet — request validation from the agent to enable paper trading",
+		"startingPaper": "Starting…",
+		"startPaperTrading": "Start Paper Trading",
+		"agentTranscript": "Agent Transcript",
+		"noTranscript": "No transcript available.",
+		"experimentNumber": "Experiment #{{num}}",
+		"loading": "Loading..."
 	}
 }

@@ -1,5 +1,6 @@
 import { Bot, ExternalLink, Shield, Square } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "../lib/utils.js";
 import { StatusBadge } from "./StatusBadge.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
@@ -78,6 +79,7 @@ export function TurnCard({
 	nestedComments,
 	footer,
 }: TurnCardProps) {
+	const { t } = useTranslation();
 	const streaming = status === "running";
 	// Auto-scroll the transcript container to the bottom whenever a new
 	// entry arrives while the turn is live. This keeps the latest tool
@@ -94,19 +96,23 @@ export function TurnCard({
 	const isAwaitingUser = status === "awaiting_user";
 	const isAwaitingValidation = status === "awaiting_validation";
 	const modeLabel =
-		mode === "paper" ? "Paper Trading Run" : mode === "backtest" ? "Backtest Run" : "Agent Turn";
+		mode === "paper"
+			? t("turnCard.paperTradingRun")
+			: mode === "backtest"
+				? t("turnCard.backtestRun")
+				: t("turnCard.agentTurn");
 	const terminalLabel =
 		status === "completed"
-			? `${modeLabel} Completed`
+			? `${modeLabel} ${t("turnCard.completed")}`
 			: status === "stopped"
-				? `${modeLabel} Stopped`
+				? `${modeLabel} ${t("turnCard.stopped")}`
 				: status === "awaiting_user"
-					? `${modeLabel} · Awaiting Your Response`
+					? `${modeLabel} · ${t("turnCard.awaitingResponse")}`
 					: status === "awaiting_validation"
-						? "Validating..."
-						: `${modeLabel} Failed`;
+						? t("turnCard.validating")
+						: `${modeLabel} ${t("turnCard.failed")}`;
 	const isAnalyst = agentRole !== "risk_manager";
-	const roleLabel = isAnalyst ? "Analyst" : "Risk Manager";
+	const roleLabel = isAnalyst ? t("turnCard.analyst") : t("turnCard.riskManager");
 	const RoleIcon = isAnalyst ? Bot : Shield;
 	const avatarBg = isAnalyst
 		? "bg-purple-100 dark:bg-purple-900/40"
@@ -158,14 +164,14 @@ export function TurnCard({
 						</div>
 						<div className="mt-1 text-xs text-muted-foreground">
 							{streaming
-								? `Agent is working on Experiment #${experimentNumber}`
+								? t("turnCard.agentWorking", { num: experimentNumber })
 								: status === "completed"
-									? `Agent finished Experiment #${experimentNumber}`
+									? t("turnCard.agentFinished", { num: experimentNumber })
 									: status === "awaiting_user"
-										? `Agent is waiting on you — Experiment #${experimentNumber}`
+										? t("turnCard.agentWaiting")
 										: status === "awaiting_validation"
-											? `Risk Manager is validating — Experiment #${experimentNumber}`
-											: `Agent did not finish cleanly — Experiment #${experimentNumber}`}
+											? t("turnCard.rmValidating")
+											: t("turnCard.agentFailed")}
 						</div>
 						{isTerminal && isFailed && failureReason && (
 							<div className="mt-1 text-[11px] font-mono text-red-600 dark:text-red-400">
@@ -196,7 +202,7 @@ export function TurnCard({
 									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
 									<span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
 								</span>
-								Live
+								{t("turnCard.live")}
 							</span>
 						)}
 						{streaming && (
@@ -206,7 +212,7 @@ export function TurnCard({
 								className="inline-flex items-center gap-1 rounded-full border border-red-500/20 bg-red-500/[0.06] px-2.5 py-1 text-[11px] font-medium text-red-700 transition-colors hover:bg-red-500/[0.12] dark:text-red-300"
 							>
 								<Square className="h-2.5 w-2.5" fill="currentColor" />
-								Stop
+								{t("common.stop")}
 							</button>
 						)}
 						{onOpen && hasRun && (
@@ -215,7 +221,7 @@ export function TurnCard({
 								onClick={onOpen}
 								className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background/70 px-2.5 py-1 text-[11px] font-medium text-cyan-700 transition-colors hover:border-cyan-500/30 hover:text-cyan-600 dark:text-cyan-300"
 							>
-								Open
+								{t("commentThread.open")}
 								<ExternalLink className="h-3 w-3" />
 							</button>
 						)}
@@ -238,7 +244,7 @@ export function TurnCard({
 							entries={entries}
 							density="compact"
 							streaming={streaming}
-							emptyMessage="Waiting for agent output..."
+							emptyMessage={t("turnCard.waitingForOutput")}
 						/>
 					</div>
 				)}

@@ -26,12 +26,12 @@ interface RunDetailViewProps {
 	onBack: () => void;
 }
 
-function relativeTime(dateStr: string): string {
+function relativeTime(dateStr: string, justNowLabel: string): string {
 	const diff = Date.now() - new Date(dateStr).getTime();
 	const seconds = Math.floor(diff / 1000);
 	const minutes = Math.floor(seconds / 60);
 	const hours = Math.floor(minutes / 60);
-	if (seconds < 60) return "just now";
+	if (seconds < 60) return justNowLabel;
 	if (minutes < 60) return `${minutes}m ago`;
 	if (hours < 24) return `${hours}h ago`;
 	return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -63,6 +63,7 @@ function RunListItem({
 	isSelected,
 	onClick,
 }: { run: Run; isBaseline: boolean; isSelected: boolean; onClick: () => void }) {
+	const { t } = useTranslation();
 	const ret = primaryValue(run);
 	const retFormat = run.result?.metrics?.[0]?.format ?? "number";
 	return (
@@ -81,13 +82,13 @@ function RunListItem({
 				<StatusBadge status={run.status} />
 				{isBaseline && (
 					<span className="text-[10px] text-muted-foreground bg-muted rounded px-1 py-0.5 shrink-0">
-						base
+						{t("runDetail.base")}
 					</span>
 				)}
 			</div>
 			<div className="text-xs font-mono tabular-nums shrink-0 ml-2">
 				{run.status === "running" ? (
-					<span className="text-cyan-500">running</span>
+					<span className="text-cyan-500">{t("runDetail.running")}</span>
 				) : ret != null ? (
 					<span
 						className={
@@ -136,7 +137,7 @@ function RunDetail({
 						<span className="text-xs font-mono text-muted-foreground">Run #{run.runNumber}</span>
 						{baseline?.id === run.id && (
 							<span className="text-[10px] bg-muted rounded px-1.5 py-0.5 font-medium text-muted-foreground">
-								baseline
+								{t("runDetail.baseline")}
 							</span>
 						)}
 						<span className="bg-muted rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -146,7 +147,7 @@ function RunDetail({
 
 					{/* Timing */}
 					<div className="flex items-center gap-2 text-xs text-muted-foreground">
-						<span>{relativeTime(run.createdAt)}</span>
+						<span>{relativeTime(run.createdAt, t("runDetail.justNow"))}</span>
 						{hasDuration && (
 							<>
 								<span className="text-border">|</span>
@@ -263,7 +264,7 @@ function RunDetail({
 										<XCircle className="size-3.5 shrink-0" />
 									)}
 									<span className="font-medium shrink-0">
-										Risk Manager: {isApproved ? "Approved" : "Rejected"}
+										{isApproved ? t("runDetail.rmApproved") : t("runDetail.rmRejected")}
 									</span>
 									{validation.reason && (
 										<span
@@ -277,9 +278,7 @@ function RunDetail({
 							) : (
 								<div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border bg-muted/30 text-xs text-muted-foreground">
 									<Shield className="size-3.5 shrink-0" />
-									<span>
-										Not validated yet — request validation from the agent to enable paper trading
-									</span>
+									<span>{t("runDetail.notValidated")}</span>
 								</div>
 							)}
 
@@ -292,7 +291,9 @@ function RunDetail({
 										disabled={paperStarting}
 									>
 										<Play className="size-4 mr-2" />
-										{paperStarting ? "Starting…" : "Start Paper Trading"}
+										{paperStarting
+											? t("runDetail.startingPaper")
+											: t("runDetail.startPaperTrading")}
 									</Button>
 									{paperError && (
 										<div className="text-xs text-red-600 dark:text-red-400 px-1">{paperError}</div>
@@ -308,7 +309,7 @@ function RunDetail({
 				<div className="border border-border rounded-lg overflow-hidden shadow-sm">
 					<div className="px-4 py-2.5 border-b border-border bg-muted/30">
 						<span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-							Agent Transcript
+							{t("runDetail.agentTranscript")}
 						</span>
 					</div>
 					<div className="p-3">
@@ -316,7 +317,7 @@ function RunDetail({
 							entries={transcriptEntries}
 							density="compact"
 							streaming={false}
-							emptyMessage="No transcript available."
+							emptyMessage={t("runDetail.noTranscript")}
 						/>
 					</div>
 				</div>
@@ -402,10 +403,12 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 					className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
 				>
 					<ArrowLeft className="h-3.5 w-3.5" />
-					Back
+					{t("common.back")}
 				</button>
 				<Separator orientation="vertical" className="h-4" />
-				<span className="text-[13px] font-semibold">Experiment #{experiment.number}</span>
+				<span className="text-[13px] font-semibold">
+					{t("runDetail.experimentNumber", { num: experiment.number })}
+				</span>
 				<span className="text-[13px] text-muted-foreground">— {t("runDetail.title")}</span>
 			</div>
 			<Separator />
@@ -413,7 +416,7 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 			{/* Content */}
 			{loading ? (
 				<div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-					Loading...
+					{t("common.loading")}
 				</div>
 			) : runs.length === 0 ? (
 				<div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">

@@ -20,7 +20,7 @@ interface Props {
 	desk: Desk;
 }
 
-function formatRelativeTime(timestamp: string): string {
+function formatRelativeTime(timestamp: string, justNowLabel: string): string {
 	const now = Date.now();
 	const diff = now - new Date(timestamp).getTime();
 	const seconds = Math.floor(diff / 1000);
@@ -28,18 +28,18 @@ function formatRelativeTime(timestamp: string): string {
 	const hours = Math.floor(minutes / 60);
 	const days = Math.floor(hours / 24);
 
-	if (seconds < 60) return "just now";
+	if (seconds < 60) return justNowLabel;
 	if (minutes < 60) return `${minutes}m ago`;
 	if (hours < 24) return `${hours}h ago`;
 	if (days < 7) return `${days}d ago`;
 	return new Date(timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function actorLabel(actor: string): string {
-	if (actor === "You") return "You";
-	if (actor === "System") return "System";
-	if (actor === "analyst") return "Analyst";
-	if (actor === "risk_manager") return "Risk Manager";
+function actorLabel(actor: string, t: (key: string) => string): string {
+	if (actor === "You") return t("activity.actorYou");
+	if (actor === "System") return t("activity.actorSystem");
+	if (actor === "analyst") return t("activity.actorAnalyst");
+	if (actor === "risk_manager") return t("activity.actorRiskManager");
 	return actor.charAt(0).toUpperCase() + actor.slice(1);
 }
 
@@ -59,10 +59,10 @@ function actorIconColor(actor: string): string {
 	return "text-purple-600 dark:text-purple-400";
 }
 
-function stripActorPrefix(summary: string, actor: string): string {
+function stripActorPrefix(summary: string, actor: string, t: (key: string) => string): string {
 	// Remove leading actor mention so the badge isn't duplicated.
 	// e.g. "You commented" -> "commented", "analyst commented" -> "commented"
-	const label = actorLabel(actor);
+	const label = actorLabel(actor, t);
 	const lower = summary.toLowerCase();
 	const candidates = [label.toLowerCase(), actor.toLowerCase()];
 	for (const c of candidates) {
@@ -119,7 +119,7 @@ export function ActivityView({ desk }: Props) {
 					</div>
 
 					{loading ? (
-						<div className="text-[13px] text-muted-foreground">Loading...</div>
+						<div className="text-[13px] text-muted-foreground">{t("common.loading")}</div>
 					) : items.length === 0 ? (
 						<div className="text-[13px] text-muted-foreground">{t("activity.noActivity")}</div>
 					) : (
@@ -141,7 +141,7 @@ export function ActivityView({ desk }: Props) {
 										<span
 											className={`px-2 py-0.5 rounded-full text-[11px] font-medium shrink-0 ${actorBadgeColor(item.actor)}`}
 										>
-											{actorLabel(item.actor)}
+											{actorLabel(item.actor, t)}
 										</span>
 
 										{/* Icon */}
@@ -150,7 +150,7 @@ export function ActivityView({ desk }: Props) {
 										{/* Summary + detail */}
 										<div className="flex-1 min-w-0 flex items-center gap-1.5">
 											<span className="text-[13px] text-foreground">
-												{stripActorPrefix(item.summary, item.actor)}
+												{stripActorPrefix(item.summary, item.actor, t)}
 											</span>
 											{item.detail && (
 												<span className="text-[13px] text-muted-foreground truncate">
@@ -161,7 +161,7 @@ export function ActivityView({ desk }: Props) {
 
 										{/* Timestamp */}
 										<span className="text-xs text-muted-foreground shrink-0">
-											{formatRelativeTime(item.timestamp)}
+											{formatRelativeTime(item.timestamp, t("activity.justNow"))}
 										</span>
 									</div>
 								);

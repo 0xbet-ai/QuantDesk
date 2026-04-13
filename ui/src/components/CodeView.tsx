@@ -13,14 +13,14 @@ interface Props {
 
 type ViewMode = "files" | "diff";
 
-function formatRelativeTime(dateStr: string): string {
+function formatRelativeTime(dateStr: string, t: (key: string) => string): string {
 	const diff = Date.now() - new Date(dateStr).getTime();
 	const seconds = Math.floor(diff / 1000);
 	const minutes = Math.floor(seconds / 60);
 	const hours = Math.floor(minutes / 60);
 	const days = Math.floor(hours / 24);
 
-	if (seconds < 60) return "just now";
+	if (seconds < 60) return t("codeView.justNow");
 	if (minutes < 60) return `${minutes}m ago`;
 	if (hours < 24) return `${hours}h ago`;
 	if (days < 7) return `${days}d ago`;
@@ -111,12 +111,13 @@ function parseDiff(raw: string): DiffFile[] {
 // ── Diff renderer ────────────────────────────────────────────────────
 
 function DiffView({ rawDiff }: { rawDiff: string }) {
+	const { t } = useTranslation();
 	const files = useMemo(() => parseDiff(rawDiff), [rawDiff]);
 
 	if (files.length === 0) {
 		return (
 			<div className="flex items-center justify-center h-full text-[13px] text-muted-foreground">
-				No changes in this commit
+				{t("codeView.noChanges")}
 			</div>
 		);
 	}
@@ -125,7 +126,7 @@ function DiffView({ rawDiff }: { rawDiff: string }) {
 		<div className="p-4 space-y-6">
 			{/* Summary */}
 			<div className="text-xs text-muted-foreground">
-				{files.length} file{files.length !== 1 ? "s" : ""} changed
+				{t("codeView.filesChanged", { count: files.length })}
 			</div>
 
 			{files.map((file) => (
@@ -294,7 +295,7 @@ export function CodeView({ desk }: Props) {
 					<span className="text-foreground font-medium">{t("codeView.title")}</span>
 				</div>
 				<div className="flex-1 flex items-center justify-center text-[13px] text-muted-foreground">
-					Workspace not initialized. Run a backtest to create it.
+					{t("codeView.notInitialized")}
 				</div>
 			</div>
 		);
@@ -306,7 +307,7 @@ export function CodeView({ desk }: Props) {
 			<div className="px-6 h-12 flex items-center gap-1.5 text-[13px] text-muted-foreground shrink-0 border-b border-border">
 				<span>{desk.name}</span>
 				<ChevronRight className="size-3" />
-				<span className="text-foreground font-medium">Code</span>
+				<span className="text-foreground font-medium">{t("codeView.title")}</span>
 				{activeCommit && (
 					<>
 						<ChevronRight className="size-3" />
@@ -328,7 +329,7 @@ export function CodeView({ desk }: Props) {
 						)}
 					>
 						<FileDiff className="size-3" />
-						Diff
+						{t("codeView.diff")}
 					</button>
 					<button
 						type="button"
@@ -341,14 +342,14 @@ export function CodeView({ desk }: Props) {
 						)}
 					>
 						<FileCode2 className="size-3" />
-						Files
+						{t("codeView.files")}
 					</button>
 				</div>
 			</div>
 
 			{loading ? (
 				<div className="flex-1 flex items-center justify-center text-[13px] text-muted-foreground">
-					Loading...
+					{t("common.loading")}
 				</div>
 			) : (
 				<div className="flex flex-1 min-h-0">
@@ -357,7 +358,7 @@ export function CodeView({ desk }: Props) {
 						{/* Commits section */}
 						<div className="px-3 py-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
 							<History className="size-3" />
-							Commits
+							{t("codeView.commits")}
 						</div>
 						<div className="max-h-[40%] overflow-y-auto overflow-x-hidden border-b border-border">
 							{commits.map((c) => {
@@ -388,7 +389,7 @@ export function CodeView({ desk }: Props) {
 												{c.hash.slice(0, 7)}
 											</span>
 											<span className="text-[11px] text-muted-foreground ml-auto shrink-0">
-												{formatRelativeTime(c.date)}
+												{formatRelativeTime(c.date, t)}
 											</span>
 										</div>
 										<div className="flex items-center gap-1.5 mt-0.5 min-w-0">
@@ -409,7 +410,7 @@ export function CodeView({ desk }: Props) {
 						{/* Files section */}
 						<div className="px-3 py-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
 							<FileCode2 className="size-3" />
-							Files
+							{t("codeView.files")}
 						</div>
 						<div className="flex-1 overflow-y-auto overflow-x-hidden">
 							{files.map((f) => (
@@ -453,7 +454,7 @@ export function CodeView({ desk }: Props) {
 									<DiffView rawDiff={diffContent} />
 								) : (
 									<div className="flex items-center justify-center h-full text-[13px] text-muted-foreground">
-										Loading diff...
+										{t("codeView.loadingDiff")}
 									</div>
 								)
 							) : fileContent != null ? (
@@ -486,11 +487,11 @@ export function CodeView({ desk }: Props) {
 								</Highlight>
 							) : selectedFile ? (
 								<div className="flex items-center justify-center h-full text-[13px] text-muted-foreground">
-									Loading file...
+									{t("codeView.loadingFile")}
 								</div>
 							) : (
 								<div className="flex items-center justify-center h-full text-[13px] text-muted-foreground">
-									Select a file to view
+									{t("codeView.selectFile")}
 								</div>
 							)}
 						</div>

@@ -47,7 +47,7 @@ export function AuthPage({ onAuthenticated }: Props) {
 					{mode === "signup" && (
 						<div>
 							<label className="text-sm font-medium" htmlFor="name">
-								Name
+								{t("auth.name")}
 							</label>
 							<input
 								id="name"
@@ -55,13 +55,13 @@ export function AuthPage({ onAuthenticated }: Props) {
 								value={name}
 								onChange={(e) => setName(e.target.value)}
 								className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-								placeholder="Your name"
+								placeholder={t("auth.namePlaceholder")}
 							/>
 						</div>
 					)}
 					<div>
 						<label className="text-sm font-medium" htmlFor="email">
-							Email
+							{t("auth.email")}
 						</label>
 						<input
 							id="email"
@@ -70,12 +70,12 @@ export function AuthPage({ onAuthenticated }: Props) {
 							value={email}
 							onChange={(e) => setEmail(e.target.value)}
 							className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-							placeholder="you@example.com"
+							placeholder={t("auth.emailPlaceholder")}
 						/>
 					</div>
 					<div>
 						<label className="text-sm font-medium" htmlFor="password">
-							Password
+							{t("auth.password")}
 						</label>
 						<input
 							id="password"
@@ -85,7 +85,7 @@ export function AuthPage({ onAuthenticated }: Props) {
 							value={password}
 							onChange={(e) => setPassword(e.target.value)}
 							className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-							placeholder="8+ characters"
+							placeholder={t("auth.passwordPlaceholder")}
 						/>
 					</div>
 
@@ -107,24 +107,24 @@ export function AuthPage({ onAuthenticated }: Props) {
 				<div className="text-center text-sm text-muted-foreground">
 					{mode === "signin" ? (
 						<>
-							No account?{" "}
+							{t("auth.noAccount")}{" "}
 							<button
 								type="button"
 								onClick={() => setMode("signup")}
 								className="text-foreground underline"
 							>
-								Sign up
+								{t("auth.signUp")}
 							</button>
 						</>
 					) : (
 						<>
-							Already have an account?{" "}
+							{t("auth.haveAccount")}{" "}
 							<button
 								type="button"
 								onClick={() => setMode("signin")}
 								className="text-foreground underline"
 							>
-								Sign in
+								{t("auth.signIn")}
 							</button>
 						</>
 					)}
