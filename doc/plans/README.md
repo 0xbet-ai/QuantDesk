@@ -15,18 +15,10 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 
 ## Phases (in execution order)
 
-### Group D — Paper trading lifecycle
-
-| # | Title | Kind |
-|---|-------|------|
-| 13 | [Paper trading MCP tools: `run_paper` recovery sibling](13_paper_dispatch.md) | TODO (partial — `go_paper`/`stop_paper`/`get_paper_status` done, `run_paper` auto-restart deferred) |
-| 16 | [Observer turns while paper runs](16_paper_observer_turns.md) | TODO |
-
 ### Group E — BUG fixes (code violates spec)
 
 | # | Title | Kind |
 |---|-------|------|
-| 18 | [Generic downloadData must run inside container](18_generic_download_in_container.md) | BUG |
 | 19 | [Generic startPaper / stopPaper / getPaperStatus](19_generic_paper.md) | BUG |
 | 20 | [Image whitelist: ensureImage runtime guard](20_image_ensure_guard.md) | TODO |
 | 21 | [Image whitelist: registry constructor guard](21_image_registry_guard.md) | TODO |
@@ -36,7 +28,6 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 | # | Title | Kind |
 |---|-------|------|
 | 24 | [Secret scrubbing on the way in](24_memory_scrubbing.md) | TODO |
-| 25 | [Prompt injection ordering + budget guard](25_memory_injection.md) | TODO |
 
 ## DONE (baseline — already in code)
 
