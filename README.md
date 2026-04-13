@@ -14,13 +14,15 @@
 
 <br/>
 
-<!--
 <div align="center">
-  <video src="https://github.com/user-attachments/assets/PLACEHOLDER" width="600" controls></video>
+  <a href="https://app.supademo.com/demo/cmnx4sr0u1iljypqxzq2wrgw6">
+    <img src="doc/assets/logos/demo-thumbnail.png" alt="Watch the interactive demo" width="600" />
+  </a>
+  <br/>
+  <a href="https://app.supademo.com/demo/cmnx4sr0u1iljypqxzq2wrgw6"><strong>▶ Watch the interactive demo</strong></a>
 </div>
 
 <br/>
--->
 
 ## What is QuantDesk?
 
@@ -29,6 +31,8 @@
 In the vibe coding era, hundreds of products ship every day, but maintenance and iteration are the real bottleneck. Trading strategies are different: **a strategy that works for one day is already profitable.** When it stops working, you find the next one.
 
 The hard part isn't writing the code — it's the tedious cycle of downloading data, backtesting, tweaking parameters, checking for overfitting, and validating in paper mode. QuantDesk automates this entire loop with AI agents so you can focus on the ideas, not the plumbing.
+
+> **Every script runs inside an isolated Docker container.** Nothing touches your host machine — strategies, backtests, data fetches, and paper trading all execute in sandboxed containers with pinned images. Your local environment stays clean no matter what the agent writes.
 
 |        | Step                      | What happens                                                                                           |
 | ------ | ------------------------- | ------------------------------------------------------------------------------------------------------ |
