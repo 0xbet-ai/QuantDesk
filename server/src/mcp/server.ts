@@ -41,8 +41,6 @@ import { publishExperimentEvent } from "../realtime/live-events.js";
 import { appendAgentLog } from "../services/agent-log.js";
 import type { AgentRole, TriggerAgentOptions } from "../services/agent-trigger.js";
 import { systemComment } from "../services/comments.js";
-// executeDataFetch kept in data-fetch.ts for reference but no longer
-// wired to an MCP tool — see the "data_fetch (REMOVED)" comment below.
 import { completeAndCreateNewExperiment, completeExperiment } from "../services/experiments.js";
 import { autoIncrementRunNumber, shouldAssignBaseline } from "../services/logic.js";
 import {
