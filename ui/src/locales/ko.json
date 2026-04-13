@@ -1,0 +1,200 @@
+{
+	"common": {
+		"loading": "로딩 중...",
+		"save": "저장",
+		"cancel": "취소",
+		"close": "닫기",
+		"send": "전송",
+		"stop": "중지",
+		"delete": "삭제",
+		"confirm": "확인",
+		"error": "오류",
+		"success": "성공",
+		"yes": "예",
+		"no": "아니오",
+		"back": "뒤로",
+		"next": "다음",
+		"noData": "데이터 없음"
+	},
+
+	"layout": {
+		"appName": "QuantDesk",
+		"newDesk": "새 데스크",
+		"noDesks": "데스크가 없습니다",
+		"properties": "속성",
+		"desks": "데스크",
+		"selectDesk": "시작하려면 데스크를 선택하세요",
+		"noExperiments": "실험이 없습니다",
+		"switchToLight": "라이트 모드로 전환",
+		"switchToDark": "다크 모드로 전환"
+	},
+
+	"auth": {
+		"signIn": "로그인",
+		"signUp": "회원가입",
+		"signOut": "로그아웃",
+		"signInTitle": "계정에 로그인",
+		"signUpTitle": "새 계정 만들기",
+		"email": "이메일",
+		"password": "비밀번호",
+		"name": "이름",
+		"emailPlaceholder": "you@example.com",
+		"passwordPlaceholder": "8자 이상",
+		"namePlaceholder": "이름을 입력하세요",
+		"noAccount": "계정이 없으신가요?",
+		"haveAccount": "이미 계정이 있으신가요?",
+		"authFailed": "인증에 실패했습니다"
+	},
+
+	"deskPanel": {
+		"newExperiment": "새 실험",
+		"creating": "생성 중...",
+		"experiments": "실험",
+		"noExperiments": "실험이 없습니다",
+		"budget": "예산",
+		"target": "목표",
+		"stopLoss": "손절",
+		"strategy": "전략",
+		"you": "사용자 — 리드",
+		"analyst": "애널리스트 — 전략 연구 & 백테스트",
+		"riskManager": "리스크 매니저 — 포지션 사이징 & 리스크 검토",
+		"paperTrading": "페이퍼 트레이딩",
+		"backtests": "백테스트",
+		"code": "코드",
+		"datasets": "데이터셋",
+		"activity": "활동",
+		"settings": "설정"
+	},
+
+	"propsPanel": {
+		"status": "상태",
+		"runs": "실행",
+		"runsTitle": "실행 목록",
+		"noRuns": "실행 기록이 없습니다",
+		"base": "기본",
+		"validate": "검증",
+		"validating": "검증 중...",
+		"tradeLog": "거래 로그",
+		"time": "시간",
+		"side": "방향",
+		"pnl": "손익",
+		"equity": "자산",
+		"vsBaseline": "기준 대비",
+		"paperTrading": "페이퍼 트레이딩",
+		"running": "실행 중",
+		"starting": "시작 중…",
+		"stopping": "중지 중…",
+		"failed": "실패",
+		"paperTrade": "페이퍼 트레이드",
+		"rejectedStartAnyway": "거부됨 — 그래도 시작",
+		"positions": "포지션"
+	},
+
+	"paperTradingView": {
+		"title": "페이퍼 트레이딩",
+		"noSession": "활성 페이퍼 트레이딩 세션이 없습니다. 속성 패널에서 시작하세요.",
+		"waitingForTrade": "첫 거래를 기다리는 중...",
+		"noTrades": "거래 없음",
+		"containerLog": "컨테이너 로그",
+		"waitingForOutput": "Freqtrade 출력 대기 중... (봇 하트비트 매분, 전략 트리거 시 진입 시그널)",
+		"lines": "줄",
+		"trades": "거래",
+		"pair": "페어",
+		"side": "방향",
+		"entry": "진입",
+		"exit": "청산",
+		"pnl": "손익",
+		"time": "시간"
+	},
+
+	"commentThread": {
+		"typePlaceholder": "코멘트를 입력하세요...",
+		"agentWorking": "에이전트가 작업 중입니다...",
+		"warmingUp": "에이전트 준비 중…",
+		"viewTranscript": "에이전트 트랜스크립트 보기",
+		"hideTranscript": "트랜스크립트 숨기기",
+		"noComments": "아직 코멘트가 없습니다",
+		"continued": "계속됨 (사용자 응답 없음)",
+		"agentTurnCompleted": "에이전트 턴 완료",
+		"open": "열기"
+	},
+
+	"wizard": {
+		"title": "새 데스크",
+		"desk": "데스크",
+		"market": "마켓",
+		"venue": "거래소",
+		"mode": "모드",
+		"strategy": "전략",
+		"agent": "에이전트",
+		"config": "설정",
+		"launch": "시작",
+		"general": "일반",
+		"deskName": "데스크 이름",
+		"description": "설명",
+		"descriptionPlaceholder": "데스크 설명 (선택)",
+		"constraints": "제약 조건",
+		"budgetUsd": "예산 (USD)",
+		"targetReturn": "목표 수익률 %",
+		"stopLoss": "손절 % (최대 낙폭)",
+		"crypto": "암호화폐",
+		"cryptoDescription": "비트코인, 알트코인, 선물, 온체인 DEX",
+		"stocks": "주식",
+		"stocksDescription": "주식, ETF, 옵션",
+		"predictionMarkets": "예측 시장",
+		"predictionMarketsDescription": "Polymarket — 예/아니오 결과",
+		"forex": "외환",
+		"forexDescription": "통화 쌍 (출시 예정)",
+		"commodities": "원자재",
+		"commoditiesDescription": "금, 원유, 농산물 (출시 예정)",
+		"adapterType": "어댑터 유형",
+		"adapterCheck": "어댑터 환경 확인",
+		"claudeCode": "Claude Code",
+		"claudeCodeDesc": "로컬 Claude 에이전트",
+		"codex": "Codex",
+		"codexDesc": "로컬 Codex 에이전트",
+		"model": "모델",
+		"testNow": "지금 테스트",
+		"testing": "테스트 중...",
+		"passed": "통과",
+		"cliNotFound": "{{adapter}} CLI를 찾을 수 없거나 응답하지 않습니다.",
+		"chooseStrategy": "전략 선택",
+		"customStrategy": "커스텀 전략",
+		"customStrategyDesc": "에이전트에게 만들 전략을 설명하세요",
+		"creating": "생성 중...",
+		"classic": "클래식",
+		"classicDescription": "캔들 기반 기술적 분석 — 추세 추종, 평균 회귀, 모멘텀. Freqtrade 기반.",
+		"realtime": "실시간",
+		"realtimeDescription": "이벤트 기반 틱 단위 전략 — 마켓 메이킹, 차익거래, HFT. Nautilus Trader 기반."
+	},
+
+	"settings": {
+		"title": "데스크 설정",
+		"strategyAndVenues": "전략 & 거래소",
+		"venues": "거래소",
+		"engine": "엔진",
+		"autoDerived": "{{mode}} + {{venue}}에서 자동 결정",
+		"setAtCreation": "생성 시 설정됩니다. 거래소나 전략을 변경하려면 새 데스크를 만드세요.",
+		"customStrategy": "커스텀 전략",
+		"noVenues": "선택된 거래소 없음",
+		"deskPackage": "데스크 패키지"
+	},
+
+	"activity": {
+		"title": "활동",
+		"noActivity": "아직 활동이 없습니다"
+	},
+
+	"codeView": {
+		"title": "코드"
+	},
+
+	"datasetView": {
+		"title": "데이터셋"
+	},
+
+	"runDetail": {
+		"title": "백테스트",
+		"noRun": "백테스트 실행 없음"
+	}
+}

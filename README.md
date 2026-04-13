@@ -1,3 +1,8 @@
+<p align="center">
+  <a href="README.md">English</a> &middot;
+  <a href="README.ko.md">한국어</a>
+</p>
+
 <h1 align="center">QuantDesk</h1>
 <p align="center">AI-agent workspace for quantitative trading</p>
 
