@@ -195,7 +195,13 @@
 		"classicDescription": "캔들 기반 기술적 분석 — 추세 추종, 평균 회귀, 모멘텀. Freqtrade 기반.",
 		"realtime": "실시간",
 		"realtimeDescription": "이벤트 기반 틱 단위 전략 — 마켓 메이킹, 차익거래, HFT. Nautilus Trader 기반.",
-		"soon": "출시 예정"
+		"soon": "출시 예정",
+		"deskNamePlaceholder": "BTC 추세 추종",
+		"missionPlaceholder": "이 전략이 달성하려는 목표는 무엇인가요? (에이전트가 응답할 언어로 작성하세요)",
+		"missionHint": "최소 10자. 에이전트는 첫 턴에서 이 설명의 언어에 맞춰 응답합니다.",
+		"searchPlaceholder": "전략 또는 지표 검색...",
+		"customVenuePlaceholder": "예: Uniswap (Base)",
+		"customStrategyPlaceholder": "예: RSI가 30 위로 교차하면 매수하고 70 아래로 교차하면 매도하는 모멘텀 전략. 1시간 캔들에서 14기간 RSI 사용. 손절 2%, 익절 5%. 거래량이 많은 시간에만 거래..."
 	},
 
 	"settings": {

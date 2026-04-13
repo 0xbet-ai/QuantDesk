@@ -195,7 +195,13 @@
 		"classicDescription": "Candle-based technical analysis — trend following, mean reversion, momentum. Powered by Freqtrade.",
 		"realtime": "Realtime",
 		"realtimeDescription": "Event-driven tick-level strategies — market making, arbitrage, HFT. Powered by Nautilus Trader.",
-		"soon": "Soon"
+		"soon": "Soon",
+		"deskNamePlaceholder": "BTC Trend Follow",
+		"missionPlaceholder": "What is this strategy trying to achieve? (write in the language you want the agent to reply in)",
+		"missionHint": "Minimum 10 characters. The agent matches its response language to this description on the first turn.",
+		"searchPlaceholder": "Search strategies or indicators...",
+		"customVenuePlaceholder": "e.g. Uniswap (Base)",
+		"customStrategyPlaceholder": "e.g. A momentum strategy that buys when RSI crosses above 30 and sells when it crosses below 70. Use a 14-period RSI on 1h candles. Add a stop-loss at 2% and take-profit at 5%. Trade only during high-volume hours..."
 	},
 
 	"settings": {

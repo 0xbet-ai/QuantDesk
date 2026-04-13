@@ -559,7 +559,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											id="desk-name"
 											value={name}
 											onChange={(e) => setName(e.target.value)}
-											placeholder="BTC Trend Follow"
+											placeholder={t("wizard.deskNamePlaceholder")}
 											autoFocus
 										/>
 									</div>
@@ -572,11 +572,10 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											value={description}
 											onChange={(e) => setDescription(e.target.value)}
 											rows={4}
-											placeholder="What is this strategy trying to achieve? (write in the language you want the agent to reply in)"
+											placeholder={t("wizard.missionPlaceholder")}
 										/>
 										<p className="text-[11px] text-foreground/40 mt-1">
-											Minimum 10 characters. The agent matches its response language to this
-											description on the first turn.
+											{t("wizard.missionHint")}
 										</p>
 									</div>
 								</div>
@@ -722,7 +721,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											value={customVenue}
 											onChange={(e) => setCustomVenue(e.target.value)}
 											onKeyDown={(e) => e.key === "Enter" && addCustomVenue()}
-											placeholder="e.g. Uniswap (Base)"
+											placeholder={t("wizard.customVenuePlaceholder")}
 											className="flex-1"
 										/>
 										<Button variant="outline" size="sm" onClick={addCustomVenue}>
@@ -870,7 +869,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 												<Input
 													value={strategySearch}
 													onChange={(e) => setStrategySearch(e.target.value)}
-													placeholder="Search strategies or indicators..."
+													placeholder={t("wizard.searchPlaceholder")}
 													className="pl-9"
 												/>
 											</div>
@@ -1119,7 +1118,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 															onChange={(e) => setCustomStrategyPrompt(e.target.value)}
 															rows={10}
 															className="min-h-[200px] resize-y"
-															placeholder="e.g. A momentum strategy that buys when RSI crosses above 30 and sells when it crosses below 70. Use a 14-period RSI on 1h candles. Add a stop-loss at 2% and take-profit at 5%. Trade only during high-volume hours..."
+															placeholder={t("wizard.customStrategyPlaceholder")}
 															required
 														/>
 													</div>
