@@ -24,7 +24,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
-import type { QuantDeskConfig } from "@quantdesk/shared";
+import type { DeploymentMode, QuantDeskConfig } from "@quantdesk/shared";
 import { quantdeskConfigSchema } from "@quantdesk/shared";
 
 // ── Defaults ─────────────────────────────────────────────────────────
@@ -84,6 +84,9 @@ const DEFAULT_PAPER_CONTAINER_STOP_GRACEFUL_SEC = 10;
 // to commit (go_paper / new_experiment / complete_experiment).
 const DEFAULT_MAX_ITERATIONS_PER_EXPERIMENT = 5;
 
+// Auth
+const DEFAULT_DEPLOYMENT_MODE: DeploymentMode = "local_trusted";
+
 // ── Resolved shape (no `undefined` anywhere) ─────────────────────────
 
 export interface EngineResources {
@@ -129,6 +132,11 @@ export interface ResolvedConfig {
 	};
 	experiments: {
 		maxIterationsPerExperiment: number;
+	};
+	auth: {
+		deploymentMode: DeploymentMode;
+		disableSignUp: boolean;
+		allowedHostnames: string[];
 	};
 }
 
@@ -324,6 +332,14 @@ export function loadConfig(): ResolvedConfig {
 		},
 		paper: paperSection,
 		experiments: experimentsSection,
+		auth: {
+			deploymentMode:
+				(process.env.QUANTDESK_DEPLOYMENT_MODE as DeploymentMode) ??
+				file?.auth?.deploymentMode ??
+				DEFAULT_DEPLOYMENT_MODE,
+			disableSignUp: file?.auth?.disableSignUp ?? false,
+			allowedHostnames: file?.auth?.allowedHostnames ?? [],
+		},
 	};
 }
 

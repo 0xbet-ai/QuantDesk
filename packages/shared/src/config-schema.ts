@@ -190,6 +190,30 @@ const experimentsSchema = z
 	})
 	.optional();
 
+// ── auth ─────────────────────────────────────────────────────────────
+const authSchema = z
+	.object({
+		/**
+		 * `"local_trusted"` — single-user localhost, no login required.
+		 * Every request is auto-authenticated as an admin.
+		 * `"authenticated"` — multi-user, login required via Better Auth
+		 * (email/password). Requires `BETTER_AUTH_SECRET` env var.
+		 */
+		deploymentMode: z.enum(["local_trusted", "authenticated"]).optional(),
+		/**
+		 * Whether to allow new sign-ups. When false, only existing users
+		 * can log in — the first admin must be bootstrapped via CLI.
+		 * Only relevant in `authenticated` mode. Defaults to false.
+		 */
+		disableSignUp: z.boolean().optional(),
+		/**
+		 * Hostnames to trust for CORS / cookie security in authenticated
+		 * mode. Defaults to empty (localhost only).
+		 */
+		allowedHostnames: z.array(z.string()).optional(),
+	})
+	.optional();
+
 // ── root ─────────────────────────────────────────────────────────────
 export const quantdeskConfigSchema = z
 	.object({
@@ -201,6 +225,7 @@ export const quantdeskConfigSchema = z
 		engine: engineSchema,
 		paper: paperSchema,
 		experiments: experimentsSchema,
+		auth: authSchema,
 	})
 	.strict();
 

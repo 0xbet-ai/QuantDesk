@@ -5,6 +5,7 @@ import express from "express";
 import { getConfig } from "./config-file.js";
 import { handleMcpRequest } from "./mcp/http-route.js";
 import { setTriggerAgent } from "./mcp/server.js";
+import { actorMiddleware } from "./middleware/auth.js";
 import { errorHandler } from "./middleware/error.js";
 import { setupWebSocket } from "./realtime/websocket.js";
 import commentsRouter from "./routes/comments.js";
@@ -54,9 +55,37 @@ const port = config.server.port;
 
 app.use(express.json());
 
+// ── Health endpoint (public, no auth) ───────────────────────────────
+// Exposes deploymentMode so the UI can decide whether to show a login
+// page. Called before the auth middleware is mounted so it's always
+// reachable.
 app.get("/api/health", (_req, res) => {
-	res.json({ status: "ok" });
+	res.json({
+		status: "ok",
+		deploymentMode: config.auth.deploymentMode,
+	});
 });
+
+// ── Auth routes + middleware ─────────────────────────────────────────
+// In authenticated mode, Better Auth handles /api/auth/* (sign-in,
+// sign-up, sign-out, get-session). The actorMiddleware resolves
+// session cookies for every subsequent request.
+// In local_trusted mode, the middleware auto-assigns an admin actor
+// and no auth routes are needed.
+if (config.auth.deploymentMode === "authenticated") {
+	// Lazy-import to avoid loading auth code in local mode.
+	// Cookie parser needed for session token extraction.
+	const cookieParser = (await import("cookie-parser")).default;
+	app.use(cookieParser());
+	const { createAuthRouter, resolveSession } = await import("./auth/better-auth.js");
+	app.use("/api/auth", createAuthRouter({ disableSignUp: config.auth.disableSignUp }));
+	app.use(actorMiddleware({
+		deploymentMode: config.auth.deploymentMode,
+		resolveSession: (req) => resolveSession(req),
+	}));
+} else {
+	app.use(actorMiddleware({ deploymentMode: "local_trusted" }));
+}
 
 app.use("/api/desks", desksRouter);
 app.use("/api/experiments", experimentsRouter);

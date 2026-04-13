@@ -3,6 +3,8 @@ export { formatAgentMarkersForDisplay, stripAgentMarkers } from "./agent-markers
 export { quantdeskConfigSchema } from "./config-schema.js";
 export type { QuantDeskConfig } from "./config-schema.js";
 
+export type DeploymentMode = "local_trusted" | "authenticated";
+
 // Phase 27d — legacy marker types kept here as thin shims so call sites
 // that still reference them compile while the transition settles.
 export interface DataFetchRequest {

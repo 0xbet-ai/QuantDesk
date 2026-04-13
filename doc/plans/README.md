@@ -19,7 +19,6 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 
 | # | Title | Kind |
 |---|-------|------|
-| 19 | [Generic startPaper / stopPaper / getPaperStatus](19_generic_paper.md) | BUG |
 | 20 | [Image whitelist: ensureImage runtime guard](20_image_ensure_guard.md) | TODO |
 | 21 | [Image whitelist: registry constructor guard](21_image_registry_guard.md) | TODO |
 
@@ -94,8 +93,12 @@ The bracketed-marker protocol (`[DATA_FETCH]` / `[RUN_BACKTEST]` / `[DATASET]` /
 - Pure `hasNextAction(snapshot)` invariant checker — `server/src/services/has-next-action.ts`. Returns `{ ok, reason }` over a `DeskInvariantSnapshot` (pendingProposal count, latest system-comment content, retrigger queue state). The DB-touching `assertNoDeadEnd(deskId)` afterEach helper at `server/src/__tests__/helpers/no-dead-end-after-each.ts` wraps it for integration tests when those land.
 - `doc/agent/MCP.md` is the authoritative dispatch contract. The live tool catalog lives in `server/src/mcp/server.ts`; the `mcp/__tests__/server.test.ts` smoke test asserts the factory registers every expected tool name.
 
-## Open questions
-
-- Observer-turn cadence in phase 16 (fixed interval vs. event-driven only).
-- Whether the risk-manager session in phase 07 reuses the analyst's CLI subprocess or spawns a fresh one with its own `sessionId`.
-- Whether Group A (test harness) lands in this order or interleaves with Group B as the second path it can lint.
+### Retired phases (removed from backlog)
+- **Phase 13** (run_paper auto-restart) — deferred, not needed for current scope.
+- **Phase 15** (paper status polling) — superseded by market tick + container log streaming.
+- **Phase 16** (observer turns) — deferred, not needed for current scope.
+- **Phase 18** (generic downloadData in container) — resolved: adapter throws with delegation message, agent uses `run_script`.
+- **Phase 19** (generic paper trading) — same pattern as 18: adapter throws with delegation message, agent uses `run_script`.
+- **Phase 22** (memory trigger) — implemented in `server/src/services/experiments.ts`.
+- **Phase 23** (memory summarization) — implemented in `generateMemorySummary()`.
+- **Phase 25** (prompt injection ordering + budget guard) — implemented in `prompt-builder.ts` with `MEMORY_TOKEN_BUDGET = 4000`.

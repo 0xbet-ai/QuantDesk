@@ -240,15 +240,24 @@ export class GenericAdapter implements EngineAdapter {
 	}
 
 	async startPaper(_config: PaperConfig): Promise<PaperHandle> {
-		throw new Error("generic engine does not support paper trading");
+		// The agent owns paper trading on generic desks: it writes and
+		// runs a long-lived script via `run_script`, so the server has
+		// no managed paper lifecycle to invoke.
+		throw new Error(
+			"generic engine has no server-side paper runner. Use run_script to start your own paper trading process.",
+		);
 	}
 
 	async stopPaper(_handle: PaperHandle): Promise<void> {
-		throw new Error("generic engine does not support paper trading");
+		throw new Error(
+			"generic engine has no server-side paper runner. Use run_script to manage your own paper trading process.",
+		);
 	}
 
 	async getPaperStatus(_handle: PaperHandle): Promise<PaperStatus> {
-		throw new Error("generic engine does not support paper trading");
+		throw new Error(
+			"generic engine has no server-side paper runner. Use run_script to manage your own paper trading process.",
+		);
 	}
 
 	parseResult(raw: string, wallet = 10_000): NormalizedResult {
