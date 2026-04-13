@@ -27,19 +27,19 @@ export {
 	type RunResult as DockerRunResult,
 } from "./docker.js";
 export { deriveMetrics } from "./metrics.js";
-export {
-	type BacktestConfig,
-	type BacktestResult,
-	type DataConfig,
-	type DataRef,
-	type EngineAdapter,
-	type NormalizedResult,
-	type PaperConfig,
-	type PaperHandle,
-	type PaperStatus,
-	type TradeEntry,
+export type {
+	BacktestConfig,
+	BacktestResult,
+	DataConfig,
+	DataRef,
+	EngineAdapter,
+	NormalizedResult,
+	PaperConfig,
+	PaperHandle,
+	PaperStatus,
+	TradeEntry,
 } from "./types.js";
-export { GenericImageMissingError, UnsupportedRuntimeError } from "./generic/adapter.js";
+export { UnsupportedRuntimeError } from "./generic/adapter.js";
 export {
 	setEngineRuntimeConfig,
 	getEngineRuntimeConfig,

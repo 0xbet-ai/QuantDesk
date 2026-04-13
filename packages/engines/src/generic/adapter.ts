@@ -2,21 +2,27 @@ import crypto from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { extname, join, resolve } from "node:path";
-import { DockerError, hasImage, quantdeskLabels, runContainer } from "../docker.js";
-import { ENGINE_IMAGES } from "../images.js";
-import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
-import { deriveMetrics } from "../metrics.js";
 import {
-	type BacktestConfig,
-	type BacktestResult,
-	type DataConfig,
-	type DataRef,
-	type EngineAdapter,
-	type NormalizedResult,
-	type PaperConfig,
-	type PaperHandle,
-	type PaperStatus,
-	type TradeEntry,
+	DockerError,
+	ensureDockerAvailable,
+	pullImage,
+	quantdeskLabels,
+	runContainer,
+} from "../docker.js";
+import { ENGINE_IMAGES } from "../images.js";
+import { deriveMetrics } from "../metrics.js";
+import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
+import type {
+	BacktestConfig,
+	BacktestResult,
+	DataConfig,
+	DataRef,
+	EngineAdapter,
+	NormalizedResult,
+	PaperConfig,
+	PaperHandle,
+	PaperStatus,
+	TradeEntry,
 } from "../types.js";
 
 /**
@@ -33,25 +39,6 @@ const RUNTIME_BY_EXT: Record<string, "python" | "node" | "bun" | "rust" | "go"> 
 	".rs": "rust",
 	".go": "go",
 };
-
-/**
- * Thrown when `quantdesk/generic:<tag>` is not present locally and we
- * cannot pull it yet (the image currently ships as a build-from-source
- * Dockerfile). Surfaced to the user with an actionable next step.
- */
-export class GenericImageMissingError extends Error {
-	readonly image: string;
-	constructor(image: string) {
-		super(
-			`Generic engine image \`${image}\` is not installed on Docker. ` +
-				`Build it once with \`pnpm build:generic-image\` (or ` +
-				`\`docker build -t ${image} docker/generic/\` from the repo root), ` +
-				`then retry.`,
-		);
-		this.name = "GenericImageMissingError";
-		this.image = image;
-	}
-}
 
 export class UnsupportedRuntimeError extends Error {
 	constructor(ext: string) {
@@ -105,9 +92,8 @@ export class GenericAdapter implements EngineAdapter {
 	}
 
 	async ensureImage(): Promise<void> {
-		if (!(await hasImage(this.image))) {
-			throw new GenericImageMissingError(this.image);
-		}
+		await ensureDockerAvailable();
+		await pullImage(this.image);
 	}
 
 	async downloadData(_config: DataConfig): Promise<DataRef> {

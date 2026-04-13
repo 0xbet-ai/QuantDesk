@@ -173,19 +173,19 @@ workspaces/desk-{id}/
 
 For venues that don't fit Freqtrade or Nautilus (e.g. Kalshi prediction markets, custom venues). The desk's `strategy_mode` is still `classic` or `realtime` — the user picked one of those in the wizard — and the agent writes scripts that follow that mode's philosophy: candle-based polling for `classic`, event-driven for `realtime`. Backtest scripts must output a `NormalizedResult` JSON object as the **last line** of stdout.
 
-Unlike Freqtrade and Nautilus, the generic engine ships its own image (`quantdesk/generic:<pinned>`, defined in `docker/generic/Dockerfile`) that bundles five runtimes: **python3, node, bun, rust, go**. Every agent-authored script — backtest, fetcher, anything else — runs inside this one image so the host stays untouched regardless of the user's OS.
+Unlike Freqtrade and Nautilus, the generic engine ships its own image (`ghcr.io/0xbet-ai/quantdesk-generic:<pinned>`, defined in `docker/generic/Dockerfile`) that bundles five runtimes: **python3, node, bun, rust, go**. Every agent-authored script — backtest, fetcher, anything else — runs inside this one image so the host stays untouched regardless of the user's OS.
 
-**Image distribution.** Until we publish to a registry the image must be built locally:
+**Image distribution.** The image is published to GitHub Container Registry as a multi-arch (amd64 + arm64) build via the `docker-generic.yml` GitHub Actions workflow. It is pulled automatically during `npx quantdesk onboard`. For local development:
 
 ```bash
 pnpm build:generic-image
-# → docker build -t quantdesk/generic:0.1.0 docker/generic/
+# → docker build -t ghcr.io/0xbet-ai/quantdesk-generic:0.1.0 docker/generic/
 ```
 
-`GenericAdapter.ensureImage()` checks for the image and throws `GenericImageMissingError` with the build instructions if it's absent, so a fresh clone surfaces the "run this command" step instead of a cryptic docker error.
+`GenericAdapter.ensureImage()` pulls the image from the registry (idempotent — a no-op if already present), matching Freqtrade and Nautilus adapter behaviour.
 
 ```
-ensureImage()       → verifies quantdesk/generic is present locally
+ensureImage()       → pulls ghcr.io/0xbet-ai/quantdesk-generic from registry
 downloadData()      → NOT implemented — the agent writes a fetcher
                       script, runs it via the `run_script` MCP tool
                       (inside the sandbox), then calls register_dataset
