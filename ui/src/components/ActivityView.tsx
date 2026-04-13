@@ -10,6 +10,7 @@ import {
 	XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import type { ActivityItem, Desk } from "../lib/api.js";
 import { listActivity } from "../lib/api.js";
@@ -81,6 +82,7 @@ const typeIcons: Record<ActivityItem["type"], typeof Activity> = {
 };
 
 export function ActivityView({ desk }: Props) {
+	const { t } = useTranslation();
 	const [items, setItems] = useState<ActivityItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const navigate = useNavigate();
@@ -104,7 +106,7 @@ export function ActivityView({ desk }: Props) {
 			<div className="px-6 h-12 flex items-center gap-1.5 text-[13px] text-muted-foreground shrink-0 border-b border-border">
 				<span>{desk.name}</span>
 				<ChevronRight className="size-3" />
-				<span className="text-foreground font-medium">Activity</span>
+				<span className="text-foreground font-medium">{t("activity.title")}</span>
 			</div>
 
 			{/* Content */}
@@ -113,13 +115,13 @@ export function ActivityView({ desk }: Props) {
 					{/* Title */}
 					<div className="flex items-center gap-2.5 mb-6">
 						<Activity className="size-5 text-muted-foreground" />
-						<h2 className="text-sm font-semibold">Activity</h2>
+						<h2 className="text-sm font-semibold">{t("activity.title")}</h2>
 					</div>
 
 					{loading ? (
 						<div className="text-[13px] text-muted-foreground">Loading...</div>
 					) : items.length === 0 ? (
-						<div className="text-[13px] text-muted-foreground">No activity yet</div>
+						<div className="text-[13px] text-muted-foreground">{t("activity.noActivity")}</div>
 					) : (
 						<div className="divide-y divide-border">
 							{items.map((item) => {

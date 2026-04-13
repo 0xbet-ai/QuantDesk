@@ -12,6 +12,7 @@ import {
 	User,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import venues from "../../../strategies/venues.json";
 import type { Desk, Experiment, Run, Strategy } from "../lib/api.js";
 import {
@@ -51,19 +52,19 @@ interface Props {
 
 const teamMembers = [
 	{
-		label: "You — Lead",
+		labelKey: "deskPanel.you",
 		icon: User,
 		bg: "bg-blue-100 dark:bg-blue-900/40",
 		fg: "text-blue-700 dark:text-blue-300",
 	},
 	{
-		label: "Analyst — Strategy research & backtests",
+		labelKey: "deskPanel.analyst",
 		icon: Bot,
 		bg: "bg-purple-100 dark:bg-purple-900/40",
 		fg: "text-purple-700 dark:text-purple-300",
 	},
 	{
-		label: "Risk Manager — Position sizing & risk review",
+		labelKey: "deskPanel.riskManager",
 		icon: Shield,
 		bg: "bg-orange-100 dark:bg-orange-900/40",
 		fg: "text-orange-700 dark:text-orange-300",
@@ -71,8 +72,9 @@ const teamMembers = [
 ];
 
 function TeamAvatars() {
+	const { t } = useTranslation();
 	const [hovered, setHovered] = useState<string | null>(null);
-	const handlePointerEnter = (label: string) => () => setHovered(label);
+	const handlePointerEnter = (labelKey: string) => () => setHovered(labelKey);
 	const handlePointerLeave = () => setHovered(null);
 	return (
 		<div
@@ -81,16 +83,16 @@ function TeamAvatars() {
 		>
 			{teamMembers.map((m) => (
 				<div
-					key={m.label}
+					key={m.labelKey}
 					className={`flex size-5 items-center justify-center rounded-full ${m.bg} ring-2 ring-background cursor-default transition-transform duration-150 hover:scale-125 hover:z-10`}
-					onPointerEnter={handlePointerEnter(m.label)}
+					onPointerEnter={handlePointerEnter(m.labelKey)}
 				>
 					<m.icon className={`size-2.5 ${m.fg}`} />
 				</div>
 			))}
 			{hovered && (
 				<div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 z-50 whitespace-nowrap rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground pointer-events-none">
-					{hovered}
+					{t(hovered)}
 				</div>
 			)}
 		</div>
@@ -120,6 +122,7 @@ export function DeskPanel({
 	onPageChange,
 	onNewExperiment,
 }: Props) {
+	const { t } = useTranslation();
 	const [creating, setCreating] = useState(false);
 
 	const handleNewExperiment = async () => {
@@ -299,15 +302,15 @@ export function DeskPanel({
 				{/* Stats */}
 				<div className="space-y-1">
 					<div className="flex items-center justify-between py-1">
-						<span className="text-xs text-muted-foreground">Budget</span>
+						<span className="text-xs text-muted-foreground">{t("deskPanel.budget")}</span>
 						<span className="text-xs font-medium">${formatUSD(desk.budget)}</span>
 					</div>
 					<div className="flex items-center justify-between py-1">
-						<span className="text-xs text-muted-foreground">Target</span>
+						<span className="text-xs text-muted-foreground">{t("deskPanel.target")}</span>
 						<span className="text-xs font-medium">+{desk.targetReturn}%</span>
 					</div>
 					<div className="flex items-center justify-between py-1">
-						<span className="text-xs text-muted-foreground">Stop loss</span>
+						<span className="text-xs text-muted-foreground">{t("deskPanel.stopLoss")}</span>
 						<span className="text-xs font-medium">-{desk.stopLoss}%</span>
 					</div>
 				</div>
@@ -315,7 +318,7 @@ export function DeskPanel({
 				{/* Strategy */}
 				{(strategy || desk.strategyId) && (
 					<div className="flex items-center justify-between">
-						<span className="text-xs text-muted-foreground">Strategy</span>
+						<span className="text-xs text-muted-foreground">{t("deskPanel.strategy")}</span>
 						<span className="text-xs font-medium truncate ml-4">{strategy?.name ?? "Custom"}</span>
 					</div>
 				)}
@@ -348,11 +351,11 @@ export function DeskPanel({
 						className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground/70 hover:bg-accent/50 hover:text-foreground transition-colors w-full text-left disabled:opacity-40 disabled:hover:bg-transparent"
 					>
 						<Plus className="h-4 w-4 shrink-0" />
-						<span className="truncate">{creating ? "Creating..." : "New Experiment"}</span>
+						<span className="truncate">{creating ? t("deskPanel.creating") : t("deskPanel.newExperiment")}</span>
 					</button>
 
 					{/* Experiments */}
-					<SidebarSection label="Experiments">
+					<SidebarSection label={t("deskPanel.experiments")}>
 						{experiments.map((exp) => {
 							const best = bestReturns[exp.id];
 							const isRunning =
@@ -397,7 +400,7 @@ export function DeskPanel({
 							);
 						})}
 						{experiments.length === 0 && (
-							<div className="px-3 py-2 text-xs text-muted-foreground">No experiments yet</div>
+							<div className="px-3 py-2 text-xs text-muted-foreground">{t("deskPanel.noExperiments")}</div>
 						)}
 					</SidebarSection>
 				</div>
@@ -407,39 +410,39 @@ export function DeskPanel({
 			{/* Bottom nav — desk-scoped pages */}
 			<div className="shrink-0 border-t border-border px-2 py-2 flex flex-col gap-0.5">
 				<SidebarNavItem
-					label="Paper Trading"
+					label={t("deskPanel.paperTrading")}
 					icon={Play}
 					active={activePage === "paper"}
 					onClick={() => onPageChange("paper")}
 				/>
 				<SidebarNavItem
-					label="Backtests"
+					label={t("deskPanel.backtests")}
 					icon={LineChart}
 					active={activePage === "runs"}
 					onClick={() => onPageChange("runs")}
 				/>
 				<SidebarNavItem
-					label="Code"
+					label={t("deskPanel.code")}
 					icon={Code}
 					active={activePage === "code"}
 					hasUpdate={hasCodeUpdate}
 					onClick={() => onPageChange("code")}
 				/>
 				<SidebarNavItem
-					label="Datasets"
+					label={t("deskPanel.datasets")}
 					icon={Database}
 					active={activePage === "datasets"}
 					hasUpdate={hasDatasetUpdate}
 					onClick={() => onPageChange("datasets")}
 				/>
 				<SidebarNavItem
-					label="Activity"
+					label={t("deskPanel.activity")}
 					icon={Activity}
 					active={activePage === "activity"}
 					onClick={() => onPageChange("activity")}
 				/>
 				<SidebarNavItem
-					label="Settings"
+					label={t("deskPanel.settings")}
 					icon={Settings}
 					active={activePage === "settings"}
 					onClick={() => onPageChange("settings")}

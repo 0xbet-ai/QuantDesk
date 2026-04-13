@@ -8,6 +8,7 @@ import {
 	XCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import type { Experiment, Run } from "../lib/api.js";
 import { getAgentLogs, goPaper, listRuns } from "../lib/api.js";
@@ -320,6 +321,7 @@ function RunDetail({
 }
 
 export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailViewProps) {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const [runs, setRuns] = useState<Run[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -399,7 +401,7 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 				</button>
 				<Separator orientation="vertical" className="h-4" />
 				<span className="text-[13px] font-semibold">Experiment #{experiment.number}</span>
-				<span className="text-[13px] text-muted-foreground">— Runs</span>
+				<span className="text-[13px] text-muted-foreground">— {t("runDetail.title")}</span>
 			</div>
 			<Separator />
 
@@ -410,7 +412,7 @@ export function RunDetailView({ experiment, selectedRunId, onBack }: RunDetailVi
 				</div>
 			) : runs.length === 0 ? (
 				<div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-					No runs yet
+					{t("runDetail.noRun")}
 				</div>
 			) : (
 				<div className="flex flex-1 min-h-0">

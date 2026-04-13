@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
@@ -103,6 +104,7 @@ function stripAuthorPrefixes(text: string): string {
 }
 
 function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
+	const { t } = useTranslation();
 	const [open, setOpen] = useState(false);
 	const [entries, setEntries] = useState<TranscriptEntry[] | null>(null);
 
@@ -134,7 +136,7 @@ function AgentTranscriptToggle({ experimentId }: { experimentId: string }) {
 				className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
 			>
 				{open ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
-				<span>View agent transcript</span>
+				<span>{open ? t("commentThread.hideTranscript") : t("commentThread.viewTranscript")}</span>
 			</button>
 			{open && entries && entries.length > 0 && (
 				<div className="mt-1.5 max-h-[400px] overflow-y-auto rounded-md border border-border/50 bg-muted/20 px-2.5 py-1.5">
@@ -262,6 +264,7 @@ export function CommentThread({
 	onExperimentUpdated,
 	onExperimentCreated,
 }: Props) {
+	const { t } = useTranslation();
 	const [comments, setComments] = useState<Comment[]>([]);
 	const [sending, setSending] = useState(false);
 	const [thinkingRole, setThinkingRole] = useState<string | null>(null);
@@ -1106,7 +1109,7 @@ export function CommentThread({
 									{showContinuationConnector && (
 										<div className="flex items-center gap-2 px-4 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
 											<div className="h-px flex-1 bg-border" />
-											<span>continued (no user reply)</span>
+											<span>{t("commentThread.continued")}</span>
 											<div className="h-px flex-1 bg-border" />
 										</div>
 									)}
@@ -1129,7 +1132,7 @@ export function CommentThread({
 					})()}
 					{comments.length === 0 && !thinkingRole && (
 						<div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-							No comments yet
+							{t("commentThread.noComments")}
 						</div>
 					)}
 					{turnStatus === "running" &&
@@ -1143,7 +1146,7 @@ export function CommentThread({
 							// streamed token.
 							<div className="flex items-center gap-2 px-3 py-3 text-xs text-muted-foreground animate-in fade-in duration-300">
 								<Loader2 className="size-3.5 animate-spin text-cyan-500" />
-								<span>Agent is warming up…</span>
+								<span>{t("commentThread.warmingUp")}</span>
 							</div>
 						)}
 					{turnStatus === "running" &&
@@ -1177,7 +1180,7 @@ export function CommentThread({
 									return showConnector ? (
 										<div className="flex items-center gap-2 px-4 py-1 text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
 											<div className="h-px flex-1 bg-border" />
-											<span>continued (no user reply)</span>
+											<span>{t("commentThread.continued")}</span>
 											<div className="h-px flex-1 bg-border" />
 										</div>
 									) : null;
@@ -1214,9 +1217,9 @@ export function CommentThread({
 					placeholder={
 						thinkingRole
 							? turnStatus === "awaiting_validation"
-								? "Validating..."
-								: "Agent is working..."
-							: "Type a comment..."
+								? t("propsPanel.validating")
+								: t("commentThread.agentWorking")
+							: t("commentThread.typePlaceholder")
 					}
 					onSend={stableOnSend}
 				/>

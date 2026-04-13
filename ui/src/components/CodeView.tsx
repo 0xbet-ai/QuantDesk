@@ -1,6 +1,7 @@
 import { ChevronRight, FileCode2, FileDiff, GitCommit, History } from "lucide-react";
 import { Highlight, themes } from "prism-react-renderer";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../context/ThemeContext.js";
 import type { CommitInfo, Desk } from "../lib/api.js";
 import { getCodeDiff, getCodeFile, getCodeFiles, getCodeLog } from "../lib/api.js";
@@ -205,6 +206,7 @@ function HunkRows({ hunk }: { hunk: DiffHunk }) {
 // ── Main component ───────────────────────────────────────────────────
 
 export function CodeView({ desk }: Props) {
+	const { t } = useTranslation();
 	const { theme } = useTheme();
 	const [commits, setCommits] = useState<CommitInfo[]>([]);
 	const [files, setFiles] = useState<string[]>([]);
@@ -289,7 +291,7 @@ export function CodeView({ desk }: Props) {
 				<div className="px-6 h-12 flex items-center gap-1.5 text-[13px] text-muted-foreground shrink-0 border-b border-border">
 					<span>{desk.name}</span>
 					<ChevronRight className="size-3" />
-					<span className="text-foreground font-medium">Code</span>
+					<span className="text-foreground font-medium">{t("codeView.title")}</span>
 				</div>
 				<div className="flex-1 flex items-center justify-center text-[13px] text-muted-foreground">
 					Workspace not initialized. Run a backtest to create it.

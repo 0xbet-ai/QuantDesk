@@ -1,5 +1,6 @@
 import { ChevronRight, Download, Lock, Settings, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import strategyCatalog from "../../../strategies/freqtrade.json";
 import nautilusCatalog from "../../../strategies/nautilus.json";
 import venues from "../../../strategies/venues.json";
@@ -47,6 +48,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
+	const { t } = useTranslation();
 	const [name, setName] = useState(desk.name);
 	const [description, setDescription] = useState(desk.description ?? "");
 	const [budget, setBudget] = useState(desk.budget);
@@ -119,7 +121,7 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 					{/* Title */}
 					<div className="flex items-center gap-2.5">
 						<Settings className="size-5 text-muted-foreground" />
-						<h2 className="text-sm font-semibold">Desk Settings</h2>
+						<h2 className="text-sm font-semibold">{t("settings.title")}</h2>
 					</div>
 
 					{/* General */}
@@ -165,7 +167,7 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 					<div>
 						<div className="flex items-center gap-1.5 mb-3">
 							<div className="text-[10px] font-medium uppercase tracking-widest font-mono text-muted-foreground">
-								Strategy & Venues
+								{t("settings.strategyAndVenues")}
 							</div>
 							<Lock className="size-3 text-muted-foreground" />
 						</div>
@@ -210,14 +212,14 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 								}
 								return (
 									<div className="space-y-1">
-										<div className="text-[13px] font-medium">Custom Strategy</div>
+										<div className="text-[13px] font-medium">{t("settings.customStrategy")}</div>
 										{desk.description && (
 											<div className="text-xs text-muted-foreground">{desk.description}</div>
 										)}
 									</div>
 								);
 							})()}
-							<Field label="Venues">
+							<Field label={t("settings.venues")}>
 								{desk.venues.length > 0 ? (
 									<div className="flex flex-wrap gap-1.5">
 										{(desk.venues as string[]).map((v) => {
@@ -230,10 +232,10 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 										})}
 									</div>
 								) : (
-									<div className="text-[13px] text-muted-foreground">No venues selected</div>
+									<div className="text-[13px] text-muted-foreground">{t("settings.noVenues")}</div>
 								)}
 							</Field>
-							<Field label="Engine">
+							<Field label={t("settings.engine")}>
 								<div className="flex items-center gap-2">
 									<Badge variant="outline" className="font-mono">
 										{desk.engine}
@@ -242,7 +244,10 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 										className="text-xs text-muted-foreground"
 										title="Auto-derived from (strategy mode, venue) at desk creation; immutable for the desk's lifetime"
 									>
-										auto-derived from {desk.strategyMode} + {desk.venues[0] ?? "venue"}
+										{t("settings.autoDerived", {
+											mode: desk.strategyMode,
+											venue: desk.venues[0] ?? "venue",
+										})}
 									</span>
 								</div>
 							</Field>
@@ -260,9 +265,7 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 									})()}
 								</div>
 							</Field>
-							<p className="text-xs text-muted-foreground">
-								Set at creation. Create a new desk to change venues or strategy.
-							</p>
+							<p className="text-xs text-muted-foreground">{t("settings.setAtCreation")}</p>
 						</div>
 					</div>
 
@@ -274,7 +277,7 @@ export function DeskSettings({ desk, onUpdated, onArchived }: Props) {
 					)}
 
 					{/* Export / Import */}
-					<Section label="Desk Package">
+					<Section label={t("settings.deskPackage")}>
 						<p className="text-[13px] text-muted-foreground">
 							Export this desk as a JSON package (settings, strategy, experiments) or import from a
 							file.

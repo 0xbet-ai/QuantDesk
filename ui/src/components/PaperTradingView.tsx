@@ -8,6 +8,7 @@ import {
 } from "lightweight-charts";
 import { ArrowDownRight, ArrowUpRight, Pause } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import { useTheme } from "../context/ThemeContext.js";
 import type {
@@ -137,6 +138,7 @@ function formatUptime(sec: number): string {
 }
 
 export function PaperTradingView({ desk }: Props) {
+	const { t } = useTranslation();
 	const { theme } = useTheme();
 	const [session, setSession] = useState<PaperSession | null>(null);
 	const [status, setStatus] = useState<PaperStatusData | null>(null);
@@ -360,7 +362,7 @@ export function PaperTradingView({ desk }: Props) {
 	if (!session || (session.status !== "running" && session.status !== "pending")) {
 		return (
 			<div className="flex-1 flex items-center justify-center text-[13px] text-muted-foreground">
-				No active paper trading session. Start one from the Properties panel.
+				{t("paperTradingView.noSession")}
 			</div>
 		);
 	}
@@ -374,7 +376,7 @@ export function PaperTradingView({ desk }: Props) {
 						<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-70" />
 						<span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
 					</span>
-					<span className="text-sm font-medium">Paper Trading</span>
+					<span className="text-sm font-medium">{t("paperTradingView.title")}</span>
 					{status && (
 						<span className="text-xs text-muted-foreground">{formatUptime(status.uptime)}</span>
 					)}
@@ -384,7 +386,7 @@ export function PaperTradingView({ desk }: Props) {
 				{status && (
 					<div className="flex items-center gap-4 text-xs tabular-nums">
 						<div>
-							<span className="text-muted-foreground mr-1">PnL</span>
+							<span className="text-muted-foreground mr-1">{t("paperTradingView.pnl")}</span>
 							<span
 								className={cn(
 									"font-mono font-medium",
@@ -425,22 +427,34 @@ export function PaperTradingView({ desk }: Props) {
 				{/* Trade history */}
 				<div className="min-h-0 overflow-y-auto" style={{ flex: `${1 - logFraction} 1 0%` }}>
 					<div className="px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-						Trades ({trades.length})
+						{t("paperTradingView.trades")} ({trades.length})
 					</div>
 					{trades.length === 0 ? (
 						<div className="px-4 py-8 text-center text-xs text-muted-foreground">
-							{isRunning ? "Waiting for first trade..." : "No trades"}
+							{isRunning ? t("paperTradingView.waitingForTrade") : t("paperTradingView.noTrades")}
 						</div>
 					) : (
 						<table className="w-full text-xs">
 							<thead>
 								<tr className="text-muted-foreground border-b border-border">
-									<th className="text-left px-4 py-1.5 font-medium">Pair</th>
-									<th className="text-left px-2 py-1.5 font-medium">Side</th>
-									<th className="text-right px-2 py-1.5 font-medium">Entry</th>
-									<th className="text-right px-2 py-1.5 font-medium">Exit</th>
-									<th className="text-right px-4 py-1.5 font-medium">PnL</th>
-									<th className="text-right px-4 py-1.5 font-medium">Time</th>
+									<th className="text-left px-4 py-1.5 font-medium">
+										{t("paperTradingView.pair")}
+									</th>
+									<th className="text-left px-2 py-1.5 font-medium">
+										{t("paperTradingView.side")}
+									</th>
+									<th className="text-right px-2 py-1.5 font-medium">
+										{t("paperTradingView.entry")}
+									</th>
+									<th className="text-right px-2 py-1.5 font-medium">
+										{t("paperTradingView.exit")}
+									</th>
+									<th className="text-right px-4 py-1.5 font-medium">
+										{t("paperTradingView.pnl")}
+									</th>
+									<th className="text-right px-4 py-1.5 font-medium">
+										{t("paperTradingView.time")}
+									</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -502,7 +516,7 @@ export function PaperTradingView({ desk }: Props) {
 				<div className="min-h-0 flex flex-col" style={{ flex: `${logFraction} 1 0%` }}>
 					<div className="flex items-center justify-between px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
 						<span className="flex items-center gap-2">
-							<span>Container log</span>
+							<span>{t("paperTradingView.containerLog")}</span>
 							{session?.containerName && (
 								<span
 									className="text-muted-foreground/60 normal-case tracking-normal font-mono"
@@ -513,7 +527,7 @@ export function PaperTradingView({ desk }: Props) {
 							)}
 						</span>
 						<span className="text-muted-foreground/60 normal-case tracking-normal">
-							{logs.length} lines
+							{logs.length} {t("paperTradingView.lines")}
 						</span>
 					</div>
 					<div
@@ -522,8 +536,7 @@ export function PaperTradingView({ desk }: Props) {
 					>
 						{logs.length === 0 ? (
 							<div className="text-muted-foreground/70">
-								Waiting for freqtrade output... (bot heartbeat every minute, entry signals when
-								strategy triggers)
+								{t("paperTradingView.waitingForOutput")}
 							</div>
 						) : (
 							logs.map((l) => {

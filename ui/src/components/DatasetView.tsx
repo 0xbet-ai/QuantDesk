@@ -1,5 +1,6 @@
 import { Database, Folder, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Dataset, DatasetPreview, Desk } from "../lib/api.js";
 import { deleteDataset, listDatasets, previewDataset, previewDatasetGlobal } from "../lib/api.js";
 import { cn } from "../lib/utils.js";
@@ -179,6 +180,7 @@ export function DatasetPreviewModal({
  * which joins through `desk_datasets` on the server.
  */
 export function DatasetView({ desk }: Props) {
+	const { t } = useTranslation();
 	const [datasets, setDatasets] = useState<Dataset[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -259,7 +261,7 @@ export function DatasetView({ desk }: Props) {
 			<div className="h-12 shrink-0 border-b border-border flex items-center px-6 gap-3">
 				<div className="flex items-center gap-2 min-w-0">
 					<Database className="size-4 text-muted-foreground shrink-0" />
-					<h1 className="text-sm font-medium">Datasets</h1>
+					<h1 className="text-sm font-medium">{t("datasetView.title")}</h1>
 				</div>
 				<div className="flex-1" />
 				<div className="relative">

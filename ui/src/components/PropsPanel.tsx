@@ -9,6 +9,7 @@ import {
 	XCircle,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import type { Experiment, PaperSession, PaperStatusData, Run, TradeLogEntry } from "../lib/api.js";
 import {
@@ -38,6 +39,7 @@ function PropRow({ label, children }: { label: string; children: React.ReactNode
 }
 
 export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }: Props) {
+	const { t } = useTranslation();
 	const [runs, setRuns] = useState<Run[]>([]);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
 	// Local "in-flight validation" tracker. Set when the user clicks a
@@ -157,13 +159,13 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 				{/* Experiment properties */}
 				{experiment && (
 					<>
-						<PropRow label="Status">
+						<PropRow label={t("propsPanel.status")}>
 							<span className="flex items-center gap-1.5">
 								<StatusDot status={experiment.status} />
 								{experiment.status}
 							</span>
 						</PropRow>
-						<PropRow label="Runs">
+						<PropRow label={t("propsPanel.runs")}>
 							<span className="text-muted-foreground">{visibleRuns.length}</span>
 						</PropRow>
 					</>
@@ -175,10 +177,10 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 				{/* Run list */}
 				<div>
 					<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-						Runs
+						{t("propsPanel.runsTitle")}
 					</div>
 					{visibleRuns.length === 0 ? (
-						<div className="text-xs text-muted-foreground py-2">No runs yet</div>
+						<div className="text-xs text-muted-foreground py-2">{t("propsPanel.noRuns")}</div>
 					) : (
 						(() => {
 							// Use the first run with metrics to determine column headers
@@ -192,7 +194,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 											<tr className="text-muted-foreground border-b border-border">
 												<th className="text-left py-1.5 font-medium">#</th>
 												<th className="text-left py-1.5 font-medium pl-6">{col1Label}</th>
-												<th className="text-right py-1.5 font-medium w-20 pr-4">Validate</th>
+												<th className="text-right py-1.5 font-medium w-20 pr-4">{t("propsPanel.validate")}</th>
 											</tr>
 										</thead>
 										<tbody>
@@ -238,7 +240,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 																{run.runNumber}
 																{isBase && (
 																	<span className="ml-1 text-[10px] text-muted-foreground">
-																		base
+																		{t("propsPanel.base")}
 																	</span>
 																)}
 															</td>
@@ -246,7 +248,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 																{run.status === "running" ? (
 																	<span className="flex items-center justify-start gap-1">
 																		<StatusDot status="running" />
-																		<span className="text-[10px] text-blue-400">running</span>
+																		<span className="text-[10px] text-blue-400">{t("propsPanel.running")}</span>
 																	</span>
 																) : ret != null ? (
 																	<span className={ret > 0 ? "text-green-500" : "text-red-500"}>
@@ -383,7 +385,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 										)}
 									>
 										<TrendingUp className="size-3" />
-										vs baseline {delta > 0 ? "+" : ""}
+										{t("propsPanel.vsBaseline")} {delta > 0 ? "+" : ""}
 										{runM0.format === "percent" ? `${delta.toFixed(2)}%` : delta.toFixed(2)}
 									</div>
 								);
@@ -439,16 +441,16 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 									<>
 										<div className="border-b border-border my-2" />
 										<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-											Trade Log ({trades.length})
+											{t("propsPanel.tradeLog")} ({trades.length})
 										</div>
 										<div className="max-h-64 overflow-y-auto">
 											<table className="w-full text-[11px]">
 												<thead>
 													<tr className="text-muted-foreground">
-														<th className="text-left font-medium py-0.5">Time</th>
-														<th className="text-left font-medium py-0.5">Side</th>
-														<th className="text-right font-medium py-0.5">PnL</th>
-														<th className="text-right font-medium py-0.5">Equity</th>
+														<th className="text-left font-medium py-0.5">{t("propsPanel.time")}</th>
+														<th className="text-left font-medium py-0.5">{t("propsPanel.side")}</th>
+														<th className="text-right font-medium py-0.5">{t("propsPanel.pnl")}</th>
+														<th className="text-right font-medium py-0.5">{t("propsPanel.equity")}</th>
 													</tr>
 												</thead>
 												<tbody>
@@ -528,7 +530,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 				return (
 					<div className="shrink-0 border-t border-border px-4 py-3">
 						<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-							Paper Trading
+							{t("propsPanel.paperTrading")}
 						</div>
 						{isActive ? (
 							<div className="space-y-2">
@@ -538,7 +540,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 										<span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
 									</span>
 									<span className="text-xs font-medium text-green-600 dark:text-green-400">
-										{paperSession.status === "pending" ? "Starting…" : "Running"}
+										{paperSession.status === "pending" ? t("propsPanel.starting") : t("propsPanel.running")}
 									</span>
 									{paperStatus && (
 										<span className="text-[11px] text-muted-foreground ml-auto tabular-nums">
@@ -573,7 +575,7 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 											</div>
 										</div>
 										<div>
-											<div className="text-muted-foreground">Positions</div>
+											<div className="text-muted-foreground">{t("propsPanel.positions")}</div>
 											<div className="font-mono font-medium">{paperStatus.openPositions}</div>
 										</div>
 										<div>
@@ -608,14 +610,14 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 									className="flex items-center gap-1.5 w-full px-2 py-1 rounded-md text-[11px] font-medium text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
 								>
 									<Pause className="size-3" />
-									{stoppingPaper ? "Stopping…" : "Stop"}
+									{stoppingPaper ? t("propsPanel.stopping") : t("common.stop")}
 								</button>
 							</div>
 						) : isFailed ? (
 							<div className="space-y-1">
 								<div className="flex items-center gap-2">
 									<span className="h-2 w-2 rounded-full bg-destructive" />
-									<span className="text-xs font-medium text-destructive">Failed</span>
+									<span className="text-xs font-medium text-destructive">{t("propsPanel.failed")}</span>
 								</div>
 								<div
 									className="text-[10px] text-muted-foreground truncate"
@@ -684,12 +686,12 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 											<div className="text-xs font-medium">Run #{bestRun.runNumber}</div>
 											<div className="text-[10px] text-muted-foreground">
 												{startingPaper
-													? "Starting…"
+													? t("propsPanel.starting")
 													: isApproved
 														? "Ready"
 														: isRejected
-															? "Rejected — start anyway"
-															: "Paper Trade"}
+															? t("propsPanel.rejectedStartAnyway")
+															: t("propsPanel.paperTrade")}
 											</div>
 										</div>
 									</button>
