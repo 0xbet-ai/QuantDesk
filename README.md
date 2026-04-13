@@ -15,11 +15,7 @@
 <br/>
 
 <div align="center">
-  <a href="https://app.supademo.com/demo/cmnx4sr0u1iljypqxzq2wrgw6">
-    <img src="doc/assets/logos/demo-thumbnail.png" alt="Watch the interactive demo" width="600" />
-  </a>
-  <br/>
-  <a href="https://app.supademo.com/demo/cmnx4sr0u1iljypqxzq2wrgw6"><strong>▶ Watch the interactive demo</strong></a>
+  <img src="doc/assets/demo.gif" alt="QuantDesk demo" width="600" />
 </div>
 
 <br/>
