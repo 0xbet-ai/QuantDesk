@@ -5,7 +5,6 @@ import {
 	Moon,
 	PanelRight,
 	Plus,
-	Settings,
 	Sun,
 	X,
 } from "lucide-react";
@@ -202,9 +201,6 @@ export function Layout({
 						<ChevronLeft className="h-4 w-4" />
 					</Button>
 					<div className="flex-1" />
-					<Button variant="ghost" size="icon-sm" className="text-muted-foreground" title="Settings">
-						<Settings className="h-4 w-4" />
-					</Button>
 					<Button
 						variant="ghost"
 						size="icon-sm"
