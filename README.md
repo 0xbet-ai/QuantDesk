@@ -15,7 +15,7 @@
 <br/>
 
 <div align="center">
-  <img src="doc/assets/demo.gif" alt="QuantDesk demo" width="600" />
+  <img src="doc/assets/demo.gif" alt="QuantDesk demo" width="100%" />
 </div>
 
 <br/>
