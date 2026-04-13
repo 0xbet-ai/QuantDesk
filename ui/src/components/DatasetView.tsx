@@ -383,7 +383,6 @@ function DatasetRow({
 					onOpen();
 				}
 			}}
-			// biome-ignore lint/a11y/useSemanticElements: row can't be a real <button> — it nests action buttons (delete confirm/cancel)
 			role="button"
 			tabIndex={0}
 			title={`${d.path}\nAdded ${new Date(d.createdAt).toLocaleString()}`}

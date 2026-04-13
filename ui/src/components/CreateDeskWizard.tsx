@@ -1199,7 +1199,6 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																	<div className="space-y-2.5">
 																		{externalMounts.map((m, i) => (
 																			<div
-																				// biome-ignore lint/suspicious/noArrayIndexKey: row identity is positional in this small editable list
 																				key={i}
 																				className="rounded-md border border-border bg-muted/30 p-2 space-y-1.5"
 																			>

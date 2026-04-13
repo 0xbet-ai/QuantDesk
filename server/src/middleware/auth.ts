@@ -22,7 +22,6 @@ export interface Actor {
 }
 
 declare global {
-	// biome-ignore lint/style/noNamespace: Express augmentation
 	namespace Express {
 		interface Request {
 			actor: Actor;

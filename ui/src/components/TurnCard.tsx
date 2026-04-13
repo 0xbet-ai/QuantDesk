@@ -83,7 +83,6 @@ export function TurnCard({
 	// entry arrives while the turn is live. This keeps the latest tool
 	// call / stdout line in view without the user having to scroll.
 	const transcriptScrollRef = useRef<HTMLDivElement>(null);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: entries.length intentional
 	useEffect(() => {
 		if (!streaming) return;
 		const el = transcriptScrollRef.current;

@@ -38,7 +38,7 @@ router.get("/desks/:deskId/paper/status", async (req, res) => {
 			meta: (session.meta as Record<string, unknown>) ?? {},
 		});
 		res.json(status);
-	} catch (err) {
+	} catch (_err) {
 		// Container might be temporarily unreachable — return null
 		// rather than 500 so the UI degrades gracefully.
 		res.json(null);

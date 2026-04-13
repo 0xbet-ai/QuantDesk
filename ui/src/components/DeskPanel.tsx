@@ -30,7 +30,6 @@ import { Badge } from "./ui/badge.js";
 import { ScrollArea } from "./ui/scroll-area.js";
 import { Separator } from "./ui/separator.js";
 
-
 export type DeskPage =
 	| "experiments"
 	| "paper"
@@ -51,9 +50,24 @@ interface Props {
 }
 
 const teamMembers = [
-	{ label: "You — Lead", icon: User, bg: "bg-blue-100 dark:bg-blue-900/40", fg: "text-blue-700 dark:text-blue-300" },
-	{ label: "Analyst — Strategy research & backtests", icon: Bot, bg: "bg-purple-100 dark:bg-purple-900/40", fg: "text-purple-700 dark:text-purple-300" },
-	{ label: "Risk Manager — Position sizing & risk review", icon: Shield, bg: "bg-orange-100 dark:bg-orange-900/40", fg: "text-orange-700 dark:text-orange-300" },
+	{
+		label: "You — Lead",
+		icon: User,
+		bg: "bg-blue-100 dark:bg-blue-900/40",
+		fg: "text-blue-700 dark:text-blue-300",
+	},
+	{
+		label: "Analyst — Strategy research & backtests",
+		icon: Bot,
+		bg: "bg-purple-100 dark:bg-purple-900/40",
+		fg: "text-purple-700 dark:text-purple-300",
+	},
+	{
+		label: "Risk Manager — Position sizing & risk review",
+		icon: Shield,
+		bg: "bg-orange-100 dark:bg-orange-900/40",
+		fg: "text-orange-700 dark:text-orange-300",
+	},
 ];
 
 function TeamAvatars() {
@@ -61,7 +75,10 @@ function TeamAvatars() {
 	const handlePointerEnter = (label: string) => () => setHovered(label);
 	const handlePointerLeave = () => setHovered(null);
 	return (
-		<div className="relative flex items-center shrink-0 ml-auto" onPointerLeave={handlePointerLeave}>
+		<div
+			className="relative flex items-center shrink-0 ml-auto"
+			onPointerLeave={handlePointerLeave}
+		>
 			{teamMembers.map((m) => (
 				<div
 					key={m.label}

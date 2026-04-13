@@ -352,7 +352,6 @@ export function CommentThread({
 	// register_dataset tool may have run in between).
 	const [datasetsById, setDatasetsById] = useState<Record<string, Dataset>>({});
 	const [previewDataset, setPreviewDataset] = useState<Dataset | null>(null);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reload dataset chips when comment count changes
 	useEffect(() => {
 		listDatasets(experiment.deskId)
 			.then((list) => {
@@ -490,7 +489,6 @@ export function CommentThread({
 
 	// Also scroll when the live TurnCard appears/grows (streamed tokens,
 	// engine log tail, data-fetch progress, or turn status transitions).
-	// biome-ignore lint/correctness/useExhaustiveDependencies: only status/length changes should trigger autoscroll
 	useEffect(() => {
 		bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
 	}, [turnStatus, streamEntries.length]);
@@ -503,7 +501,6 @@ export function CommentThread({
 	//   - no live data-fetch tail, AND
 	//   - no live engine log tail.
 	// failed / stopped stay visible regardless so the user can react.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: comment object identity should not reset the completion fade
 	useEffect(() => {
 		if (turnStatus !== "completed") {
 			setFadingOut(false);

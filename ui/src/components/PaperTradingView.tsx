@@ -257,7 +257,6 @@ export function PaperTradingView({ desk }: Props) {
 	// the signal for "new line arrived"; the effect body reads the DOM
 	// via ref, not logs, so biome's exhaustive-deps would otherwise
 	// flag the dep as unused.
-	// biome-ignore lint/correctness/useExhaustiveDependencies: `logs` triggers the scroll, even though the body only touches the DOM ref
 	useEffect(() => {
 		const el = logContainerRef.current;
 		if (!el) return;

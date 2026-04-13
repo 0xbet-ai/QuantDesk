@@ -454,12 +454,8 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 												<tbody>
 													{rows.map((r) => (
 														<tr key={r.key} className="border-t border-border/30">
-															<td className="py-0.5 text-muted-foreground">
-																{formatTime(r.time)}
-															</td>
-															<td className={cn("py-0.5 font-medium", r.colorClass)}>
-																{r.label}
-															</td>
+															<td className="py-0.5 text-muted-foreground">{formatTime(r.time)}</td>
+															<td className={cn("py-0.5 font-medium", r.colorClass)}>{r.label}</td>
 															<td
 																className={cn(
 																	"py-0.5 text-right font-mono",

@@ -184,10 +184,8 @@ function SyntaxBlock({
 					style={{ ...style, margin: 0, background: "rgb(24 24 27)" }}
 				>
 					{tokens.map((line, i) => (
-						// biome-ignore lint/suspicious/noArrayIndexKey: prism tokens have no stable key
 						<div key={`line-${i}`} {...getLineProps({ line })}>
 							{line.map((token, j) => (
-								// biome-ignore lint/suspicious/noArrayIndexKey: prism tokens have no stable key
 								<span key={`token-${j}`} {...getTokenProps({ token })} />
 							))}
 						</div>
@@ -660,7 +658,6 @@ function CommandGroup({
 				open && hasError && "rounded-xl border border-red-500/20 bg-red-500/[0.04] p-3",
 			)}
 		>
-			{/* biome-ignore lint/a11y/useSemanticElements: nested button */}
 			<div
 				role="button"
 				tabIndex={0}
@@ -764,7 +761,6 @@ function ToolGroup({
 
 	return (
 		<div className="rounded-xl border border-border/40 bg-muted/[0.25]">
-			{/* biome-ignore lint/a11y/useSemanticElements: nested button */}
 			<div
 				role="button"
 				tabIndex={0}
