@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Moon, PanelRight, Plus, Settings, Sun } from "lucide-react";
+import { ChevronLeft, ChevronRight, Menu, Moon, PanelRight, Plus, Settings, Sun, X } from "lucide-react";
 import { useState } from "react";
 import { useTheme } from "../context/ThemeContext.js";
 import type { Desk, Experiment } from "../lib/api.js";
@@ -31,22 +31,121 @@ export function Layout({
 }: LayoutProps) {
 	const [sidebarOpen, setSidebarOpen] = useState(true);
 	const [panelOpen, setPanelOpen] = useState(true);
+	const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+	const [mobilePanelOpen, setMobilePanelOpen] = useState(false);
 	const { theme, toggleTheme } = useTheme();
 	const nextTheme = theme === "dark" ? "light" : "dark";
 
 	return (
 		<div className="flex h-screen bg-background text-foreground">
-			{/* Col 1 */}
+			{/* ── Mobile top bar ──────────────────────────────────── */}
+			<div className="lg:hidden fixed top-0 left-0 right-0 z-30 h-12 bg-background border-b border-border flex items-center px-3 gap-2">
+				<Button variant="ghost" size="icon-sm" onClick={() => setMobileMenuOpen(true)}>
+					<Menu className="size-4" />
+				</Button>
+				<span className="text-sm font-semibold truncate flex-1">
+					{selectedDesk?.name ?? "QuantDesk"}
+				</span>
+				{selectedExperiment && panel && (
+					<Button variant="ghost" size="icon-sm" onClick={() => setMobilePanelOpen(true)}>
+						<PanelRight className="size-4" />
+					</Button>
+				)}
+				<Button variant="ghost" size="icon-sm" onClick={toggleTheme}>
+					{theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+				</Button>
+			</div>
+
+			{/* ── Mobile sidebar overlay ──────────────────────────── */}
+			{mobileMenuOpen && (
+				<div className="lg:hidden fixed inset-0 z-40 flex">
+					{/* Backdrop */}
+					<div
+						className="absolute inset-0 bg-black/40"
+						onClick={() => setMobileMenuOpen(false)}
+						onKeyDown={() => {}}
+						role="presentation"
+					/>
+					{/* Drawer */}
+					<div className="relative w-72 max-w-[85vw] bg-background border-r border-border flex flex-col animate-in slide-in-from-left duration-200">
+						<div className="flex items-center justify-between px-3 py-3 border-b border-border">
+							<span className="text-sm font-semibold">QuantDesk</span>
+							<Button variant="ghost" size="icon-sm" onClick={() => setMobileMenuOpen(false)}>
+								<X className="size-4" />
+							</Button>
+						</div>
+						<div className="flex-1 overflow-y-auto">
+							{/* Desks list */}
+							<nav className="flex flex-col gap-4 px-3 py-2">
+								<button
+									type="button"
+									onClick={() => {
+										onNewDesk();
+										setMobileMenuOpen(false);
+									}}
+									className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-foreground/70 hover:bg-accent/50 hover:text-foreground transition-colors w-full text-left"
+								>
+									<Plus className="h-4 w-4 shrink-0" />
+									<span>New Desk</span>
+								</button>
+								<SidebarSection label="Desks">
+									{desks.map((desk) => (
+										<button
+											key={desk.id}
+											type="button"
+											onClick={() => {
+												onSelectDesk(desk.id);
+												setMobileMenuOpen(false);
+											}}
+											className={cn(
+												"flex items-center gap-2.5 px-3 py-2 text-xs font-medium transition-colors w-full text-left",
+												desk.id === selectedDesk?.id
+													? "bg-accent text-foreground"
+													: "text-foreground/80 hover:bg-accent/50",
+											)}
+										>
+											<DeskIcon className="h-4 w-4 shrink-0" />
+											<span className="truncate">{desk.name}</span>
+										</button>
+									))}
+								</SidebarSection>
+							</nav>
+							{/* DeskPanel (sidebar) inside mobile drawer */}
+							{selectedDesk && <div className="border-t border-border">{sidebar}</div>}
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* ── Mobile properties bottom sheet ─────────────────── */}
+			{mobilePanelOpen && selectedExperiment && panel && (
+				<div className="lg:hidden fixed inset-0 z-40 flex flex-col justify-end">
+					<div
+						className="absolute inset-0 bg-black/40"
+						onClick={() => setMobilePanelOpen(false)}
+						onKeyDown={() => {}}
+						role="presentation"
+					/>
+					<div className="relative bg-background border-t border-border rounded-t-xl max-h-[80vh] flex flex-col animate-in slide-in-from-bottom duration-200">
+						<div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+							<span className="text-sm font-medium">Properties</span>
+							<Button variant="ghost" size="icon-sm" onClick={() => setMobilePanelOpen(false)}>
+								<X className="size-4" />
+							</Button>
+						</div>
+						<ScrollArea className="flex-1">{panel}</ScrollArea>
+					</div>
+				</div>
+			)}
+
+			{/* ── Desktop: Col 1 — Desks sidebar ─────────────────── */}
 			<aside
 				className={cn(
-					"h-full min-h-0 border-r border-border bg-background flex flex-col transition-all duration-100 ease-out",
+					"hidden lg:flex h-full min-h-0 border-r border-border bg-background flex-col transition-all duration-100 ease-out",
 					sidebarOpen ? "w-60" : "w-0 overflow-hidden",
 				)}
 			>
-				{/* Top bar — logo placeholder */}
 				<div className="px-3 h-3 shrink-0" />
-
-				{/* Nav — Paperclip structure */}
 				<nav className="flex-1 min-h-0 overflow-y-auto scrollbar-auto-hide flex flex-col gap-4 px-3 py-2">
 					<div className="flex flex-col gap-0.5">
 						<button
@@ -58,7 +157,6 @@ export function Layout({
 							<span className="truncate">New Desk</span>
 						</button>
 					</div>
-
 					<SidebarSection label="Desks">
 						{desks.map((desk) => (
 							<button
@@ -80,67 +178,55 @@ export function Layout({
 							<div className="px-3 py-2 text-xs text-muted-foreground">No desks yet</div>
 						)}
 					</SidebarSection>
-
 					<div className="flex-1" />
 				</nav>
-
-				{/* Footer */}
 				<div className="flex items-center gap-1 px-3 py-2 border-t border-border shrink-0">
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						className="text-muted-foreground"
-						onClick={() => setSidebarOpen(false)}
-					>
+					<Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={() => setSidebarOpen(false)}>
 						<ChevronLeft className="h-4 w-4" />
 					</Button>
 					<div className="flex-1" />
 					<Button variant="ghost" size="icon-sm" className="text-muted-foreground" title="Settings">
 						<Settings className="h-4 w-4" />
 					</Button>
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						className="text-muted-foreground"
-						onClick={toggleTheme}
-						title={`Switch to ${nextTheme} mode`}
-					>
+					<Button variant="ghost" size="icon-sm" className="text-muted-foreground" onClick={toggleTheme} title={`Switch to ${nextTheme} mode`}>
 						{theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
 					</Button>
 				</div>
 			</aside>
 
-			{/* Collapsed sidebar toggle */}
+			{/* Desktop: collapsed sidebar toggle */}
 			{!sidebarOpen && (
-				<div className="flex items-start pt-3 px-1 border-r border-border">
+				<div className="hidden lg:flex items-start pt-3 px-1 border-r border-border">
 					<Button variant="ghost" size="icon-xs" onClick={() => setSidebarOpen(true)}>
 						<ChevronRight className="size-4" />
 					</Button>
 				</div>
 			)}
 
-			{/* Col 2: Selected desk config + experiment list + paper run list */}
+			{/* ── Desktop: Col 2 — DeskPanel ─────────────────────── */}
 			{selectedDesk && (
-				<div className="w-56 shrink-0 border-r border-border flex flex-col">{sidebar}</div>
+				<div className="hidden lg:flex w-56 shrink-0 border-r border-border flex-col">
+					{sidebar}
+				</div>
 			)}
 
-			{/* Col 3: Comment thread */}
-			<div className="flex-1 flex flex-col min-w-0">{main}</div>
+			{/* ── Col 3 — Main content (always visible) ──────────── */}
+			<div className="flex-1 flex flex-col min-w-0 pt-12 lg:pt-0">
+				{main}
+			</div>
 
-			{/* Props Panel — only when there is actual content to show.
-			    Pages like Backtests render their own detail view in the
-			    main column, so the Properties panel becomes redundant. */}
+			{/* ── Desktop: Properties panel ───────────────────────── */}
 			{selectedExperiment && panel && (
 				<>
 					{!panelOpen && (
-						<div className="flex items-start pt-3 px-1 border-l border-border">
+						<div className="hidden lg:flex items-start pt-3 px-1 border-l border-border">
 							<Button variant="ghost" size="icon-xs" onClick={() => setPanelOpen(true)}>
 								<PanelRight className="size-4" />
 							</Button>
 						</div>
 					)}
 					{panelOpen && (
-						<div className="w-80 min-w-[320px] shrink-0 border-l border-border flex flex-col">
+						<div className="hidden lg:flex w-80 min-w-[320px] shrink-0 border-l border-border flex-col">
 							<div className="flex items-center justify-between px-4 h-12 border-b border-border shrink-0">
 								<span className="text-sm font-medium">Properties</span>
 								<Button variant="ghost" size="icon-xs" onClick={() => setPanelOpen(false)}>
