@@ -58,11 +58,14 @@ function normalizeResult(result: unknown): { metrics: Metric[] } | null {
 
 function normalizeRun<T extends { result: unknown }>(run: T): T {
 	const normalized = normalizeResult(run.result);
-	// Preserve validation field from the original result so the UI
-	// can show approved/rejected status on paper trading cards.
+	// Preserve validation + trades from the original result so the UI
+	// can show approved/rejected status AND the per-trade log.
 	const raw = run.result as Record<string, unknown> | null;
 	const validation = raw?.validation;
-	const result = normalized ? (validation ? { ...normalized, validation } : normalized) : null;
+	const trades = raw?.trades;
+	const result = normalized
+		? { ...normalized, ...(validation ? { validation } : {}), ...(trades ? { trades } : {}) }
+		: null;
 	return { ...run, result } as T;
 }
 
