@@ -46,6 +46,7 @@ describe("config.example.json", () => {
 			"engine",
 			"paper",
 			"experiments",
+			"auth",
 		];
 		const present = Object.keys(parsed).filter((k) => !k.startsWith("$"));
 		for (const section of expected) {

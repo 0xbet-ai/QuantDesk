@@ -55,5 +55,11 @@
 
   "experiments": {
     "maxIterationsPerExperiment": 5
+  },
+
+  "auth": {
+    "deploymentMode": "local_trusted",
+    "disableSignUp": false,
+    "allowedHostnames": []
   }
 }

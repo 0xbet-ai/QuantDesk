@@ -233,6 +233,66 @@ function HomeRoute({
 	);
 }
 
+/**
+ * Auth gate — checks /api/health for deploymentMode. If "authenticated",
+ * verifies session via /api/auth/get-session. If no session, shows the
+ * login page. In "local_trusted" mode, skips auth entirely.
+ */
+export function AuthGate({ children }: { children: React.ReactNode }) {
+	const [mode, setMode] = useState<"loading" | "local_trusted" | "authenticated">("loading");
+	const [hasSession, setHasSession] = useState(false);
+
+	useEffect(() => {
+		fetch("/api/health")
+			.then((r) => r.json())
+			.then((data: { deploymentMode?: string }) => {
+				const dm = data.deploymentMode ?? "local_trusted";
+				if (dm === "authenticated") {
+					setMode("authenticated");
+					// Check session
+					import("./lib/auth.js").then(({ authApi }) => {
+						authApi.getSession().then((s) => setHasSession(!!s));
+					});
+				} else {
+					setMode("local_trusted");
+				}
+			})
+			.catch(() => setMode("local_trusted"));
+	}, []);
+
+	if (mode === "loading") {
+		return (
+			<div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+				Loading...
+			</div>
+		);
+	}
+
+	if (mode === "local_trusted") {
+		return <>{children}</>;
+	}
+
+	// Authenticated mode — need session
+	if (!hasSession) {
+		return (
+			<AuthPageWrapper
+				onAuthenticated={() => setHasSession(true)}
+			/>
+		);
+	}
+
+	return <>{children}</>;
+}
+
+function AuthPageWrapper({ onAuthenticated }: { onAuthenticated: () => void }) {
+	const [Page, setPage] = useState<React.ComponentType<{ onAuthenticated: () => void }> | null>(null);
+	useEffect(() => {
+		import("./pages/AuthPage.js").then((m) => setPage(() => m.AuthPage));
+	}, []);
+	if (!Page) return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Loading...</div>;
+	return <Page onAuthenticated={onAuthenticated} />;
+}
+
 export function App() {
 	const [desks, setDesks] = useState<Desk[]>([]);
 	const [experiments, setExperiments] = useState<Experiment[]>([]);
