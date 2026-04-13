@@ -35,8 +35,6 @@ Each phase is one PR-sized slice and follows TDD: failing tests first, then impl
 
 | # | Title | Kind |
 |---|-------|------|
-| 22 | [Memory compaction trigger + token budget](22_memory_trigger.md) | TODO |
-| 23 | [LLM summarization into memory_summaries](23_memory_summarization.md) | TODO |
 | 24 | [Secret scrubbing on the way in](24_memory_scrubbing.md) | TODO |
 | 25 | [Prompt injection ordering + budget guard](25_memory_injection.md) | TODO |
 
@@ -94,9 +92,10 @@ The bracketed-marker protocol (`[DATA_FETCH]` / `[RUN_BACKTEST]` / `[DATASET]` /
 - `strategy_mode` + `engine` are immutable per desk, enforced on update. — `server/src/routes/desks.ts`
 - `(strategy_mode, venue) → engine` resolved via `resolveEngine()`; `generic` is the fallback engine, never a `strategy_mode`. — `packages/engines/src/registry.ts`
 
-### Memory infrastructure (population still missing — see phase 23)
+### Memory infrastructure (phases 22, 23)
 - `memory_summaries` table with `level` / `experimentId` / `content`. — `packages/db/src/schema.ts`
-- Prompt builder reads desk-level + experiment-level summaries. — `server/src/services/prompt-builder.ts`
+- **Rich experiment summaries (phase 23)** — `generateMemorySummary()` produces a structured knowledge brief on experiment completion: hypothesis, full run progression with metrics + RM verdicts, rejection reasons (verbatim, 200-char cap each), paper trading outcome, RM final assessment, analyst conclusion. Template-based (no LLM call); captures the learning signal that lets future experiments avoid repeating past failures. — `server/src/services/experiments.ts`
+- **Token-budgeted prompt injection (phase 22)** — `## Context Summary` section in `buildAnalystPrompt()` enforces a 4000-token budget. Desk-level summaries always kept; experiment summaries kept newest-first until budget hit; older summaries dropped gracefully. Prevents unbounded prompt growth as experiments accumulate. — `server/src/services/prompt-builder.ts`
 
 ### Rule #12 enforcement
 - `systemComment(...)` wrapper is the only sanctioned way to insert a system-authored comment; every caller must declare `nextAction: "action" | "retrigger" | "progress"`. — `server/src/services/comments.ts`

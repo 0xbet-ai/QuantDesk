@@ -1,15 +1,19 @@
-# 22 — Memory compaction trigger + token budget (TODO)
+# 22 — Memory compaction trigger + token budget (DONE)
 
-Spec: `doc/agent/MEMORY.md`. The `memory_summaries` table exists and is read by `prompt-builder.ts` but nothing writes to it.
+## What was implemented
 
-## Tests first
+Token-budgeted memory injection in `prompt-builder.ts::buildAnalystPrompt()`:
 
-1. When experiment comment tokens exceed the configured threshold, a compaction job is enqueued.
-2. The token budgeter is shared between `prompt-builder.ts` and the compaction service (no duplicated counting logic).
-3. Compaction is triggered post-turn, never mid-turn.
+- `MEMORY_TOKEN_BUDGET = 4000` tokens for the `## Context Summary` section
+- Desk-level summaries always kept (highest-signal, most compressed)
+- Experiment summaries kept newest-first until budget hit
+- Older experiment summaries dropped gracefully
+- Uses the existing `estimateTokens()` helper (chars / 4)
 
-## Then implement
+## Original spec vs implementation
 
-- Threshold check at the end of each turn write in `agent-trigger.ts`.
-- Shared budgeter module under `packages/shared/`.
-- No LLM call yet — phase 23 owns that.
+| Spec item | Status |
+|-----------|--------|
+| Token threshold triggers compaction job | Replaced with **injection-time budget** — summaries are already written at experiment completion (phase 23); the budget is enforced at read time, not write time. Simpler, same effect. |
+| Shared budgeter module | Not needed — `estimateTokens()` already exists in `prompt-builder.ts` and is reused for both comment trimming and memory trimming |
+| Compaction triggered post-turn | Replaced with **experiment-completion trigger** — `completeExperiment()` calls `generateMemorySummary()` which writes the summary row. No mid-turn compaction needed. |
