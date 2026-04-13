@@ -61,7 +61,7 @@ function TeamAvatars() {
 	const handlePointerEnter = (label: string) => () => setHovered(label);
 	const handlePointerLeave = () => setHovered(null);
 	return (
-		<div className="relative flex items-center shrink-0" onPointerLeave={handlePointerLeave}>
+		<div className="relative flex items-center shrink-0 ml-auto" onPointerLeave={handlePointerLeave}>
 			{teamMembers.map((m) => (
 				<div
 					key={m.label}
@@ -265,12 +265,13 @@ export function DeskPanel({
 		<div className="flex flex-col h-full">
 			{/* Desk header */}
 			<div className="px-4 pt-4 pb-3 space-y-4 shrink-0">
-				<div className="flex items-center gap-2.5">
-					<div className="flex size-7 items-center justify-center rounded-md bg-muted shrink-0">
-						<DeskIcon className="size-3.5 text-foreground/70" />
+				<div className="space-y-2">
+					<div className="flex items-center gap-2.5">
+						<div className="flex size-7 items-center justify-center rounded-md bg-muted shrink-0">
+							<DeskIcon className="size-3.5 text-foreground/70" />
+						</div>
+						<h2 className="text-xs font-semibold flex-1">{desk.name}</h2>
 					</div>
-					<h2 className="text-xs font-semibold truncate flex-1">{desk.name}</h2>
-					{/* Team avatars */}
 					<TeamAvatars />
 				</div>
 
