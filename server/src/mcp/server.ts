@@ -537,6 +537,7 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 						configFile: args.configFile,
 					},
 					extraVolumes: externalMountVolumes,
+					wallet: Number(desk.budget) || 10_000,
 					onLogLine: (line, stream) => {
 						publishExperimentEvent({
 							experimentId: ctx.experimentId,

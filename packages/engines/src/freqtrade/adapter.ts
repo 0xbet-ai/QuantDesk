@@ -22,19 +22,20 @@ import {
 } from "../docker.js";
 import { ENGINE_IMAGES } from "../images.js";
 import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
-import type {
-	BacktestConfig,
-	BacktestResult,
-	DataConfig,
-	DataRef,
-	EngineAdapter,
-	NormalizedResult,
-	PaperCandle,
-	PaperConfig,
-	PaperHandle,
-	PaperStatus,
-	PaperTrade,
-	TradeEntry,
+import {
+	deriveMetrics,
+	type BacktestConfig,
+	type BacktestResult,
+	type DataConfig,
+	type DataRef,
+	type EngineAdapter,
+	type NormalizedResult,
+	type PaperCandle,
+	type PaperConfig,
+	type PaperHandle,
+	type PaperStatus,
+	type PaperTrade,
+	type TradeEntry,
 } from "../types.js";
 
 // The freqtrade container mounts workspace → /freqtrade/user_data.
@@ -237,7 +238,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 			);
 		}
 		const raw = readResultFile(resultFile);
-		const normalized = this.parseResult(raw);
+		const normalized = this.parseResult(raw, config.wallet);
 		return { raw, normalized };
 	}
 
@@ -689,7 +690,7 @@ export class FreqtradeAdapter implements EngineAdapter {
 		}
 	}
 
-	parseResult(raw: string): NormalizedResult {
+	parseResult(raw: string, wallet = 10_000): NormalizedResult {
 		let data: LegacyFreqtradeResult | FreqtradeBacktestRaw;
 		try {
 			data = JSON.parse(raw);
@@ -697,18 +698,16 @@ export class FreqtradeAdapter implements EngineAdapter {
 			throw new Error("Failed to parse freqtrade result: invalid JSON");
 		}
 
-		// Detect shape: the full freqtrade export has a top-level `strategy` key,
-		// whereas the simpler fixture we already ship is flat.
 		if (isStrategyScopedResult(data)) {
 			const strategyName = Object.keys(data.strategy)[0];
 			if (!strategyName) {
 				throw new Error("Failed to parse freqtrade result: no strategies in export");
 			}
 			const strat = data.strategy[strategyName]!;
-			return normaliseFreqtradeResult(strat);
+			return normaliseFreqtradeResult(strat, wallet);
 		}
 
-		return normaliseFreqtradeResult(data as unknown as FreqtradeStrategyResult);
+		return normaliseFreqtradeResult(data as unknown as FreqtradeStrategyResult, wallet);
 	}
 
 	workspaceTemplate(opts: { venue: string }): Record<string, string> {
@@ -777,29 +776,15 @@ class QuantDeskStrategy:
 	}
 }
 
-function normaliseFreqtradeResult(strat: FreqtradeStrategyResult): NormalizedResult {
-	const totalTrades = strat.total_trades ?? strat.trade_count;
-	if (typeof totalTrades !== "number") {
-		throw new Error("Failed to parse freqtrade result: missing trade count");
-	}
-	const profit =
-		typeof strat.profit_total_pct === "number"
-			? strat.profit_total_pct
-			: typeof strat.profit_total === "number"
-				? strat.profit_total * 100
-				: undefined;
-	if (profit === undefined) {
-		throw new Error("Failed to parse freqtrade result: missing profit total");
-	}
-
-	// max_drawdown_account is 0–1 ratio; max_drawdown is already percent.
-	const drawdownPct =
-		typeof strat.max_drawdown_account === "number"
-			? strat.max_drawdown_account * 100
-			: (strat.max_drawdown ?? 0);
-	// winrate / win_rate from freqtrade is 0–1 ratio.
-	const winRate = strat.winrate ?? strat.win_rate ?? 0;
-
+/**
+ * Extract trades from freqtrade's result format and derive metrics
+ * uniformly via `deriveMetrics()`. Same calculation as Nautilus and
+ * Generic — no engine-specific metric computation.
+ */
+function normaliseFreqtradeResult(
+	strat: FreqtradeStrategyResult,
+	wallet = 10_000,
+): NormalizedResult {
 	const trades: TradeEntry[] = (strat.trades ?? []).map((t) => ({
 		pair: t.pair,
 		side: t.is_short ? ("sell" as const) : ("buy" as const),
@@ -809,14 +794,7 @@ function normaliseFreqtradeResult(strat: FreqtradeStrategyResult): NormalizedRes
 		openedAt: t.open_date,
 		closedAt: t.close_date,
 	}));
-
-	return {
-		returnPct: profit,
-		drawdownPct: -Math.abs(drawdownPct),
-		winRate,
-		totalTrades,
-		trades,
-	};
+	return deriveMetrics(trades, wallet);
 }
 
 function isStrategyScopedResult(data: unknown): data is FreqtradeBacktestRaw {
