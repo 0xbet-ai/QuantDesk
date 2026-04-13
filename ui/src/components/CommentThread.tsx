@@ -432,9 +432,20 @@ export function CommentThread({
 						}
 						setCurrentTurnId(latest.id);
 						setCurrentTurnRole(latest.agentRole);
-						setTurnStatus(latest.status);
+						// A "running" turn whose heartbeat is stale is
+						// effectively dead (server restart, silent crash,
+						// experiment switch). Treat it as terminal so the
+						// UI doesn't show a perpetual "warming up" shimmer
+						// when the user revisits a past experiment.
+						const HEARTBEAT_STALE_MS = 5 * 60_000; // matches server default
+						const effectiveStatus =
+							latest.status === "running" &&
+							Date.now() - new Date(latest.lastHeartbeatAt).getTime() > HEARTBEAT_STALE_MS
+								? "completed"
+								: latest.status;
+						setTurnStatus(effectiveStatus);
 						setTurnFailureReason(latest.failureReason ?? null);
-						if (latest.status === "running") {
+						if (effectiveStatus === "running") {
 							setThinkingRole(latest.agentRole);
 							setRunStartedAt((prev) => prev ?? new Date(latest.startedAt));
 							// Hydrate streamEntries from the persisted agent log
