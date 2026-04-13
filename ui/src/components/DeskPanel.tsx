@@ -29,7 +29,7 @@ import { DeskIcon } from "./icons/DeskIcon.js";
 import { Badge } from "./ui/badge.js";
 import { ScrollArea } from "./ui/scroll-area.js";
 import { Separator } from "./ui/separator.js";
-import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip.js";
+
 
 export type DeskPage =
 	| "experiments"
@@ -48,6 +48,36 @@ interface Props {
 	onSelectExperiment: (id: string) => void;
 	onPageChange: (page: DeskPage) => void;
 	onNewExperiment: (newExperiment: Experiment) => void;
+}
+
+const teamMembers = [
+	{ label: "You — Lead", icon: User, bg: "bg-blue-100 dark:bg-blue-900/40", fg: "text-blue-700 dark:text-blue-300" },
+	{ label: "Analyst — Strategy research & backtests", icon: Bot, bg: "bg-purple-100 dark:bg-purple-900/40", fg: "text-purple-700 dark:text-purple-300" },
+	{ label: "Risk Manager — Position sizing & risk review", icon: Shield, bg: "bg-orange-100 dark:bg-orange-900/40", fg: "text-orange-700 dark:text-orange-300" },
+];
+
+function TeamAvatars() {
+	const [hovered, setHovered] = useState<string | null>(null);
+	const handlePointerEnter = (label: string) => () => setHovered(label);
+	const handlePointerLeave = () => setHovered(null);
+	return (
+		<div className="relative flex items-center shrink-0" onPointerLeave={handlePointerLeave}>
+			{teamMembers.map((m) => (
+				<div
+					key={m.label}
+					className={`flex size-7 items-center justify-center rounded-full ${m.bg} ring-2 ring-background cursor-default`}
+					onPointerEnter={handlePointerEnter(m.label)}
+				>
+					<m.icon className={`size-2.5 ${m.fg}`} />
+				</div>
+			))}
+			{hovered && (
+				<div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 z-50 whitespace-nowrap rounded-md bg-primary px-3 py-1.5 text-xs text-primary-foreground pointer-events-none">
+					{hovered}
+				</div>
+			)}
+		</div>
+	);
 }
 
 function formatUSD(value: string | number): string {
@@ -241,34 +271,7 @@ export function DeskPanel({
 					</div>
 					<h2 className="text-xs font-semibold truncate flex-1">{desk.name}</h2>
 					{/* Team avatars */}
-					<div className="flex items-center gap-0.5 shrink-0">
-						<Tooltip delayDuration={0}>
-							<TooltipTrigger asChild>
-								<div className="flex size-5 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40 ring-2 ring-background transition-transform duration-150 hover:scale-125 hover:z-10">
-									<User className="size-2.5 text-blue-700 dark:text-blue-300" />
-								</div>
-							</TooltipTrigger>
-							<TooltipContent side="bottom">You — Lead</TooltipContent>
-						</Tooltip>
-						<Tooltip delayDuration={0}>
-							<TooltipTrigger asChild>
-								<div className="flex size-5 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/40 ring-2 ring-background transition-transform duration-150 hover:scale-125 hover:z-10">
-									<Bot className="size-2.5 text-purple-700 dark:text-purple-300" />
-								</div>
-							</TooltipTrigger>
-							<TooltipContent side="bottom">Analyst — Strategy research & backtests</TooltipContent>
-						</Tooltip>
-						<Tooltip delayDuration={0}>
-							<TooltipTrigger asChild>
-								<div className="flex size-5 items-center justify-center rounded-full bg-orange-100 dark:bg-orange-900/40 ring-2 ring-background transition-transform duration-150 hover:scale-125 hover:z-10">
-									<Shield className="size-2.5 text-orange-700 dark:text-orange-300" />
-								</div>
-							</TooltipTrigger>
-							<TooltipContent side="bottom">
-								Risk Manager — Position sizing & risk review
-							</TooltipContent>
-						</Tooltip>
-					</div>
+					<TeamAvatars />
 				</div>
 
 				{desk.description && (
