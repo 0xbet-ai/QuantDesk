@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Globe, Menu, Moon, PanelRight, Plus, Sun, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { supportedLanguages } from "../i18n.js";
 import { useTheme } from "../context/ThemeContext.js";
@@ -39,14 +39,26 @@ export function Layout({
 	const { t, i18n } = useTranslation();
 	const nextTheme = theme === "dark" ? "light" : "dark";
 
-	const cycleLang = () => {
-		const codes: string[] = supportedLanguages.map((l) => l.code);
-		const idx = codes.indexOf(i18n.language);
-		const next = codes[(idx + 1) % codes.length]!;
-		i18n.changeLanguage(next);
-		localStorage.setItem("quantdesk.lang", next);
+	const [langMenuOpen, setLangMenuOpen] = useState(false);
+	const langMenuRef = useRef<HTMLDivElement>(null);
+
+	const selectLang = (code: string) => {
+		i18n.changeLanguage(code);
+		localStorage.setItem("quantdesk.lang", code);
+		setLangMenuOpen(false);
 	};
-	const currentLangLabel = supportedLanguages.find((l) => l.code === i18n.language)?.label ?? "EN";
+
+	// Close dropdown on outside click
+	useEffect(() => {
+		if (!langMenuOpen) return;
+		const handler = (e: MouseEvent) => {
+			if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) {
+				setLangMenuOpen(false);
+			}
+		};
+		document.addEventListener("mousedown", handler);
+		return () => document.removeEventListener("mousedown", handler);
+	}, [langMenuOpen]);
 
 	return (
 		<div className="flex h-screen bg-background text-foreground">
@@ -63,9 +75,29 @@ export function Layout({
 						<PanelRight className="size-4" />
 					</Button>
 				)}
-				<Button variant="ghost" size="icon-sm" onClick={cycleLang}>
-					<Globe className="size-4" />
-				</Button>
+				<div className="relative" ref={langMenuRef}>
+					<Button variant="ghost" size="icon-sm" onClick={() => setLangMenuOpen((v) => !v)}>
+						<Globe className="size-4" />
+					</Button>
+					{langMenuOpen && (
+						<div className="absolute top-full mt-1 right-0 bg-popover border border-border rounded-md shadow-md py-1 min-w-[80px] z-50">
+							{supportedLanguages.map((l) => (
+								<button
+									key={l.code}
+									type="button"
+									className={cn(
+										"w-full text-left px-3 py-1.5 text-xs hover:bg-accent",
+										i18n.language === l.code && "font-semibold text-foreground",
+										i18n.language !== l.code && "text-muted-foreground",
+									)}
+									onClick={() => selectLang(l.code)}
+								>
+									{l.label}
+								</button>
+							))}
+						</div>
+					)}
+				</div>
 				<Button variant="ghost" size="icon-sm" onClick={toggleTheme}>
 					{theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
 				</Button>
@@ -205,15 +237,34 @@ export function Layout({
 						<ChevronLeft className="h-4 w-4" />
 					</Button>
 					<div className="flex-1" />
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						className="text-muted-foreground"
-						onClick={cycleLang}
-						title={`Language: ${currentLangLabel}`}
-					>
-						<Globe className="h-4 w-4" />
-					</Button>
+					<div className="relative" ref={langMenuRef}>
+						<Button
+							variant="ghost"
+							size="icon-sm"
+							className="text-muted-foreground"
+							onClick={() => setLangMenuOpen((v) => !v)}
+						>
+							<Globe className="h-4 w-4" />
+						</Button>
+						{langMenuOpen && (
+							<div className="absolute bottom-full mb-1 right-0 bg-popover border border-border rounded-md shadow-md py-1 min-w-[80px] z-50">
+								{supportedLanguages.map((l) => (
+									<button
+										key={l.code}
+										type="button"
+										className={cn(
+											"w-full text-left px-3 py-1.5 text-xs hover:bg-accent",
+											i18n.language === l.code && "font-semibold text-foreground",
+											i18n.language !== l.code && "text-muted-foreground",
+										)}
+										onClick={() => selectLang(l.code)}
+									>
+										{l.label}
+									</button>
+								))}
+							</div>
+						)}
+					</div>
 					<Button
 						variant="ghost"
 						size="icon-sm"

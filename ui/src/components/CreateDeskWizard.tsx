@@ -39,6 +39,7 @@ import {
 	Zap,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import venues from "../../../strategies/venues.json";
 import type { Dataset, Strategy, StrategyMode } from "../lib/api.js";
 import { createDesk, listAllDatasets, listStrategies } from "../lib/api.js";
@@ -115,17 +116,20 @@ const strategyIcons: Record<string, typeof TrendingUp> = {
 	nt_simpler_quoter: Anchor,
 };
 
-const stepTabs: { key: Step; label: string; icon: React.ComponentType<{ className?: string }> }[] =
-	[
-		{ key: "desk", label: "Desk", icon: DeskIcon },
-		{ key: "market", label: "Market", icon: Layers },
-		{ key: "venue", label: "Venue", icon: Store },
-		{ key: "mode", label: "Mode", icon: Zap },
-		{ key: "strategy", label: "Strategy", icon: FlaskConical },
-		{ key: "agent", label: "Agent", icon: Bot },
-		{ key: "config", label: "Config", icon: Settings2 },
-		{ key: "launch", label: "Launch", icon: Rocket },
-	];
+const stepTabs: {
+	key: Step;
+	i18nKey: string;
+	icon: React.ComponentType<{ className?: string }>;
+}[] = [
+	{ key: "desk", i18nKey: "wizard.desk", icon: DeskIcon },
+	{ key: "market", i18nKey: "wizard.market", icon: Layers },
+	{ key: "venue", i18nKey: "wizard.venue", icon: Store },
+	{ key: "mode", i18nKey: "wizard.mode", icon: Zap },
+	{ key: "strategy", i18nKey: "wizard.strategy", icon: FlaskConical },
+	{ key: "agent", i18nKey: "wizard.agent", icon: Bot },
+	{ key: "config", i18nKey: "wizard.config", icon: Settings2 },
+	{ key: "launch", i18nKey: "wizard.launch", icon: Rocket },
+];
 
 // Intersect strategy modes supported across the selected venues. Custom
 // venues (not in venues.json) are permissive — both modes available. The
@@ -151,43 +155,43 @@ function computeAvailableModes(selectedVenueIds: string[]): StrategyMode[] {
 
 const ASSET_CLASS_META: {
 	id: AssetClass;
-	label: string;
-	description: string;
+	i18nLabel: string;
+	i18nDescription: string;
 	icon: typeof Bitcoin;
 	enabled: boolean;
 }[] = [
 	{
 		id: "crypto",
-		label: "Crypto",
-		description: "Bitcoin, altcoins, perps, on-chain DEXes",
+		i18nLabel: "wizard.crypto",
+		i18nDescription: "wizard.cryptoDescription",
 		icon: Bitcoin,
 		enabled: true,
 	},
 	{
 		id: "stocks",
-		label: "Stocks",
-		description: "US equities, options via Interactive Brokers",
+		i18nLabel: "wizard.stocks",
+		i18nDescription: "wizard.stocksDescription",
 		icon: TrendingUp,
 		enabled: false,
 	},
 	{
 		id: "prediction",
-		label: "Prediction Markets",
-		description: "Polymarket — yes/no outcomes",
+		i18nLabel: "wizard.predictionMarkets",
+		i18nDescription: "wizard.predictionMarketsDescription",
 		icon: Trophy,
 		enabled: true,
 	},
 	{
 		id: "fx",
-		label: "FX",
-		description: "Currency pairs (coming soon)",
+		i18nLabel: "wizard.fx",
+		i18nDescription: "wizard.fxDescription",
 		icon: ArrowLeftRight,
 		enabled: false,
 	},
 	{
 		id: "commodities",
-		label: "Commodities",
-		description: "Gold, oil, agricultural (coming soon)",
+		i18nLabel: "wizard.commodities",
+		i18nDescription: "wizard.commoditiesDescription",
 		icon: Briefcase,
 		enabled: false,
 	},
@@ -229,6 +233,7 @@ function venueName(id: string): string {
 }
 
 export function CreateDeskWizard({ onClose, onCreated }: Props) {
+	const { t } = useTranslation();
 	const [stepIndex, setStepIndex] = useState(0);
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
@@ -525,7 +530,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 										)}
 									>
 										<Icon className="size-3.5" />
-										{tab.label}
+										{t(tab.i18nKey)}
 									</button>
 								);
 							})}
@@ -541,16 +546,14 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 								<div className="flex items-center gap-3 mb-1">
 									<DeskIcon className="size-5 text-foreground/60" />
 									<div>
-										<h3 className="text-sm font-semibold">Name your desk</h3>
-										<p className="text-xs text-foreground/50">
-											This is the workspace for your trading strategy.
-										</p>
+										<h3 className="text-sm font-semibold">{t("wizard.nameYourDesk")}</h3>
+										<p className="text-xs text-foreground/50">{t("wizard.nameYourDeskDesc")}</p>
 									</div>
 								</div>
 								<div className="space-y-4 max-w-sm">
 									<div>
 										<label htmlFor="desk-name" className="text-xs text-foreground/60 mb-1.5 block">
-											Desk name
+											{t("wizard.deskName")}
 										</label>
 										<Input
 											id="desk-name"
@@ -562,7 +565,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									</div>
 									<div>
 										<label htmlFor="desk-desc" className="text-xs text-foreground/60 mb-1.5 block">
-											Mission / goal <span className="text-red-500">*</span>
+											{t("wizard.missionGoal")} <span className="text-red-500">*</span>
 										</label>
 										<Textarea
 											id="desk-desc"
@@ -585,11 +588,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 								<div className="flex items-center gap-3 mb-2">
 									<Layers className="size-5 text-foreground/60" />
 									<div>
-										<h3 className="text-sm font-semibold">Pick a market</h3>
-										<p className="text-xs text-foreground/50">
-											What asset class do you want to trade? You can change venues later, but not
-											the market.
-										</p>
+										<h3 className="text-sm font-semibold">{t("wizard.pickMarket")}</h3>
+										<p className="text-xs text-foreground/50">{t("wizard.pickMarketDesc")}</p>
 									</div>
 								</div>
 
@@ -632,15 +632,15 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 												</div>
 												<div className="space-y-0.5">
 													<div className="text-sm font-semibold text-foreground flex items-center gap-2">
-														{m.label}
+														{t(m.i18nLabel)}
 														{!m.enabled && (
 															<span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
-																Soon
+																{t("wizard.soon")}
 															</span>
 														)}
 													</div>
 													<div className="text-xs text-foreground/60 leading-snug">
-														{m.description}
+														{t(m.i18nDescription)}
 													</div>
 												</div>
 											</button>
@@ -656,11 +656,10 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									<Store className="size-5 text-foreground/60" />
 									<div>
 										<h3 className="text-sm font-semibold">
-											Select venues — {assetClassLabels[selectedAssetClass] ?? selectedAssetClass}
+											{t("wizard.selectVenues")} —{" "}
+											{assetClassLabels[selectedAssetClass] ?? selectedAssetClass}
 										</h3>
-										<p className="text-xs text-foreground/50">
-											Where do you trade? Select one or more. This cannot be changed later.
-										</p>
+										<p className="text-xs text-foreground/50">{t("wizard.selectVenuesDesc")}</p>
 									</div>
 								</div>
 
@@ -755,23 +754,19 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 						{step === "mode" && (
 							<div className="space-y-4">
 								<div>
-									<h3 className="text-sm font-medium">How should the strategy behave?</h3>
-									<p className="text-xs text-muted-foreground">
-										Classic runs on candles (TA, indicators, minute-to-hour). Real-time reacts to
-										every tick and order book update. Cards disabled for the selected venues are not
-										available.
-									</p>
+									<h3 className="text-sm font-medium">{t("wizard.modeTitle")}</h3>
+									<p className="text-xs text-muted-foreground">{t("wizard.modeDesc")}</p>
 								</div>
 								<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 									{(["classic", "realtime"] as const).map((mode) => {
 										const enabled = availableModes.includes(mode);
 										const active = selectedMode === mode;
-										const title = mode === "classic" ? "Classic" : "Real-time";
-										const tag = mode === "classic" ? "Recommended" : "Advanced";
+										const title = mode === "classic" ? t("wizard.classic") : t("wizard.realtime");
+										const tag = mode === "classic" ? t("wizard.recommended") : t("wizard.advanced");
 										const desc =
 											mode === "classic"
-												? "Candle-based polling strategies. TA indicators, trend following, mean reversion, momentum. Minute to hour timeframes."
-												: "Event-driven strategies reacting to ticks and order book deltas. Market making, arbitrage, HFT. Sub-second timeframes.";
+												? t("wizard.classicModeDesc")
+												: t("wizard.realtimeModeDesc");
 										const Icon = mode === "classic" ? BarChart3 : Zap;
 										return (
 											<button
@@ -799,7 +794,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 												<p className="text-xs text-muted-foreground">{desc}</p>
 												{!enabled && (
 													<p className="text-[11px] text-muted-foreground italic">
-														Not available for the selected venues.
+														{t("wizard.modeNotAvailable")}
 													</p>
 												)}
 											</button>
@@ -807,10 +802,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									})}
 								</div>
 								{availableModes.length === 0 && selectedVenues.length > 0 && (
-									<p className="text-xs text-destructive">
-										The selected venues have no managed strategy mode. Paper trading will not be
-										available — pick different venues to enable Classic or Real-time.
-									</p>
+									<p className="text-xs text-destructive">{t("wizard.noModeWarning")}</p>
 								)}
 							</div>
 						)}
@@ -865,9 +857,9 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											<div className="flex items-center gap-3">
 												<FlaskConical className="size-5 text-foreground/60" />
 												<div>
-													<h3 className="text-sm font-semibold">Choose a strategy</h3>
+													<h3 className="text-sm font-semibold">{t("wizard.chooseStrategy")}</h3>
 													<p className="text-xs text-foreground/50">
-														Pick from catalog or let the agent write one from scratch.
+														{t("wizard.chooseStrategyDesc")}
 													</p>
 												</div>
 											</div>
@@ -902,10 +894,10 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 														</div>
 														<div className="min-w-0">
 															<div className="text-[13px] font-medium text-foreground">
-																Custom Strategy
+																{t("wizard.customStrategy")}
 															</div>
 															<div className="text-[11px] text-foreground/50">
-																Agent writes from your description
+																{t("wizard.customStrategyDesc")}
 															</div>
 														</div>
 													</div>
@@ -1106,9 +1098,11 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 															<Sparkles className="size-5 text-foreground/70" />
 														</div>
 														<div>
-															<div className="text-sm font-semibold">Custom Strategy</div>
+															<div className="text-sm font-semibold">
+																{t("wizard.customStrategy")}
+															</div>
 															<div className="text-xs text-foreground/50 mt-0.5">
-																The agent will write strategy code based on your description
+																{t("wizard.customStrategyDetailDesc")}
 															</div>
 														</div>
 													</div>
@@ -1117,7 +1111,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 															htmlFor="strategy-prompt"
 															className="text-[10px] font-medium uppercase tracking-widest text-foreground/40 mb-1.5 block"
 														>
-															Your description
+															{t("wizard.yourDescription")}
 														</label>
 														<Textarea
 															id="strategy-prompt"
@@ -1371,16 +1365,16 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 								<div className="flex items-center gap-3 mb-1">
 									<Bot className="size-5 text-foreground/60" />
 									<div>
-										<h3 className="text-sm font-semibold">Configure agent</h3>
-										<p className="text-xs text-foreground/50">
-											Choose how the AI agent will run tasks for this desk.
-										</p>
+										<h3 className="text-sm font-semibold">{t("wizard.configureAgent")}</h3>
+										<p className="text-xs text-foreground/50">{t("wizard.configureAgentDesc")}</p>
 									</div>
 								</div>
 
 								<div className="space-y-4 max-w-lg">
 									<div>
-										<label className="text-xs text-foreground/60 mb-2 block">Adapter type</label>
+										<label className="text-xs text-foreground/60 mb-2 block">
+											{t("wizard.adapterType")}
+										</label>
 										{/* Primary adapters — Recommended */}
 										<div className="grid grid-cols-2 gap-3">
 											<button
@@ -1398,12 +1392,12 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 												)}
 											>
 												<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-green-500 text-white rounded-full">
-													Recommended
+													{t("wizard.recommended")}
 												</span>
 												<Sparkles className="size-5 mx-auto mb-2 text-foreground/70" />
-												<div className="text-[13px] font-medium">Claude Code</div>
+												<div className="text-[13px] font-medium">{t("wizard.claudeCode")}</div>
 												<div className="text-[11px] text-muted-foreground mt-0.5">
-													Local Claude agent
+													{t("wizard.claudeCodeDesc")}
 												</div>
 											</button>
 											<button
@@ -1421,12 +1415,12 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 												)}
 											>
 												<span className="absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 py-0.5 text-[10px] font-medium bg-green-500 text-white rounded-full">
-													Recommended
+													{t("wizard.recommended")}
 												</span>
 												<Code2 className="size-5 mx-auto mb-2 text-foreground/70" />
-												<div className="text-[13px] font-medium">Codex</div>
+												<div className="text-[13px] font-medium">{t("wizard.codex")}</div>
 												<div className="text-[11px] text-muted-foreground mt-0.5">
-													Local Codex agent
+													{t("wizard.codexDesc")}
 												</div>
 											</button>
 										</div>
@@ -1467,9 +1461,9 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 														</span>
 													)}
 													<Sparkles className="size-5 mx-auto mb-2 text-foreground/70" />
-													<div className="text-[13px] font-medium">Gemini CLI</div>
+													<div className="text-[13px] font-medium">{t("wizard.geminiCli")}</div>
 													<div className="text-[11px] text-muted-foreground mt-0.5">
-														Local Gemini agent
+														{t("wizard.geminiCliDesc")}
 													</div>
 												</button>
 												<button
@@ -1492,9 +1486,9 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 														</span>
 													)}
 													<Globe className="size-5 mx-auto mb-2 text-foreground/70" />
-													<div className="text-[13px] font-medium">HTTP</div>
+													<div className="text-[13px] font-medium">{t("wizard.http")}</div>
 													<div className="text-[11px] text-muted-foreground mt-0.5">
-														Generic LLM proxy
+														{t("wizard.httpDesc")}
 													</div>
 												</button>
 											</div>
@@ -1502,7 +1496,9 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									</div>
 
 									<div>
-										<label className="text-xs text-foreground/60 mb-1.5 block">Model</label>
+										<label className="text-xs text-foreground/60 mb-1.5 block">
+											{t("wizard.model")}
+										</label>
 										<select
 											value={adapterModel}
 											onChange={(e) => setAdapterModel(e.target.value)}
@@ -1546,9 +1542,9 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 
 									<div className="rounded-lg border border-border p-4 flex items-center justify-between">
 										<div>
-											<div className="text-[13px] font-medium">Adapter environment check</div>
+											<div className="text-[13px] font-medium">{t("wizard.adapterCheck")}</div>
 											<div className="text-xs text-muted-foreground mt-0.5">
-												Runs a probe that asks the adapter CLI to respond with hello.
+												{t("wizard.adapterCheckDesc")}
 											</div>
 										</div>
 										<Button
@@ -1569,22 +1565,24 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											}}
 										>
 											{adapterTesting
-												? "Testing..."
+												? t("wizard.testing")
 												: adapterTestResult === "success"
-													? "Passed"
-													: "Test now"}
+													? t("wizard.passed")
+													: t("wizard.testNow")}
 										</Button>
 									</div>
 									{adapterTestResult === "error" && (
 										<div className="text-xs text-destructive">
-											{adapterType === "claude"
-												? "Claude CLI"
-												: adapterType === "codex"
-													? "Codex CLI"
-													: adapterType === "gemini"
-														? "Gemini CLI"
-														: "HTTP endpoint"}{" "}
-											not found or not responding. Make sure it's installed.
+											{t("wizard.cliNotFound", {
+												adapter:
+													adapterType === "claude"
+														? "Claude"
+														: adapterType === "codex"
+															? "Codex"
+															: adapterType === "gemini"
+																? "Gemini"
+																: "HTTP",
+											})}
 										</div>
 									)}
 								</div>
@@ -1596,9 +1594,9 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 								<div className="flex items-center gap-3 mb-1">
 									<Settings2 className="size-5 text-foreground/60" />
 									<div>
-										<h3 className="text-sm font-semibold">Configure constraints</h3>
+										<h3 className="text-sm font-semibold">{t("wizard.configureConstraints")}</h3>
 										<p className="text-xs text-foreground/50">
-											Set budget and risk parameters for this desk.
+											{t("wizard.configureConstraintsDesc")}
 										</p>
 									</div>
 								</div>
@@ -1606,7 +1604,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 								<div className="space-y-4 max-w-xs">
 									<div>
 										<label htmlFor="cfg-budget" className="text-xs text-foreground/60 mb-1.5 block">
-											Budget (USD)
+											{t("wizard.budgetUsd")}
 										</label>
 										<Input
 											id="cfg-budget"
@@ -1620,7 +1618,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									</div>
 									<div>
 										<label htmlFor="cfg-target" className="text-xs text-foreground/60 mb-1.5 block">
-											Target return %
+											{t("wizard.targetReturn")}
 										</label>
 										<Input
 											id="cfg-target"
@@ -1636,7 +1634,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											htmlFor="cfg-stoploss"
 											className="text-xs text-foreground/60 mb-1.5 block"
 										>
-											Stop loss % (max drawdown)
+											{t("wizard.stopLoss")}
 										</label>
 										<Input
 											id="cfg-stoploss"
@@ -1656,8 +1654,8 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 								<div className="flex items-center gap-3">
 									<Rocket className="size-5 text-foreground/60" />
 									<div>
-										<h3 className="text-sm font-semibold">Review and launch</h3>
-										<p className="text-xs text-foreground/50">Confirm your desk configuration.</p>
+										<h3 className="text-sm font-semibold">{t("wizard.reviewAndLaunch")}</h3>
+										<p className="text-xs text-foreground/50">{t("wizard.reviewAndLaunchDesc")}</p>
 									</div>
 								</div>
 
@@ -1710,7 +1708,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 											</>
 										) : selectedStrategyId === "custom" ? (
 											<>
-												<div className="text-[13px] font-medium">Custom Strategy</div>
+												<div className="text-[13px] font-medium">{t("wizard.customStrategy")}</div>
 												{customStrategyPrompt && (
 													<div className="text-xs text-muted-foreground">
 														{customStrategyPrompt}
@@ -1784,7 +1782,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									className="gap-1.5"
 								>
 									<ArrowLeft className="size-4" />
-									Back
+									{t("common.back")}
 								</Button>
 							) : (
 								<div />
@@ -1796,7 +1794,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									className="gap-1.5"
 								>
 									<Rocket className="size-4" />
-									{submitting ? "Creating..." : "Launch"}
+									{submitting ? t("wizard.creating") : t("wizard.launch")}
 								</Button>
 							) : (
 								<Button
@@ -1805,7 +1803,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 									className="gap-1.5"
 								>
 									<ArrowRight className="size-4" />
-									Next
+									{t("common.next")}
 								</Button>
 							)}
 						</div>
