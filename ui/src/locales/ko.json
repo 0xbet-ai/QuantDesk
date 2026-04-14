@@ -75,6 +75,7 @@
 		"validate": "검증",
 		"validating": "검증 중...",
 		"tradeLog": "거래 로그",
+		"tradeLogTruncated": "오래된 {{hidden}}개 생략",
 		"time": "시간",
 		"side": "방향",
 		"pnl": "손익",

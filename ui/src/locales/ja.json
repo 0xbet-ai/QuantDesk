@@ -75,6 +75,7 @@
 		"validate": "検証",
 		"validating": "検証中...",
 		"tradeLog": "取引ログ",
+		"tradeLogTruncated": "古い {{hidden}} 件を非表示",
 		"time": "時刻",
 		"side": "売買",
 		"pnl": "PnL",

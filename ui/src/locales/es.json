@@ -75,6 +75,7 @@
 		"validate": "Validar",
 		"validating": "Validando...",
 		"tradeLog": "Registro de operaciones",
+		"tradeLogTruncated": "{{hidden}} más antiguas ocultas",
 		"time": "Hora",
 		"side": "Lado",
 		"pnl": "PnL",

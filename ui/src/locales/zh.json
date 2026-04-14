@@ -75,6 +75,7 @@
 		"validate": "验证",
 		"validating": "验证中...",
 		"tradeLog": "交易日志",
+		"tradeLogTruncated": "已隐藏最旧 {{hidden}} 条",
 		"time": "时间",
 		"side": "方向",
 		"pnl": "PnL",

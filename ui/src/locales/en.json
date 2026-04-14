@@ -75,6 +75,7 @@
 		"validate": "Validate",
 		"validating": "Validating...",
 		"tradeLog": "Trade Log",
+		"tradeLogTruncated": "oldest {{hidden}} hidden",
 		"time": "Time",
 		"side": "Side",
 		"pnl": "PnL",

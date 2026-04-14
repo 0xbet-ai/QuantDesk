@@ -8,7 +8,7 @@ import {
 	TrendingUp,
 	XCircle,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLiveUpdates } from "../context/LiveUpdatesContext.js";
 import type { Experiment, PaperSession, PaperStatusData, Run, TradeLogEntry } from "../lib/api.js";
@@ -147,6 +147,61 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 		(r) => r.status !== "failed" && r.status !== "stopped" && r.mode !== "paper",
 	);
 	const selectedRun = visibleRuns.find((r) => r.id === selectedRunId) ?? null;
+
+	// Trade log rows — sorted by openedAt ascending (oldest at top, newest
+	// at bottom) and capped so selecting a run with ~10k trades doesn't
+	// freeze the panel by rendering 20k <tr>s. Memoized per-run so row
+	// building doesn't re-run on unrelated re-renders.
+	const tradeLog = useMemo(() => {
+		type Row = {
+			key: string;
+			time: string | undefined;
+			label: string;
+			colorClass: string;
+			pnl: number | null;
+			equity: number;
+		};
+		const trades: TradeLogEntry[] = selectedRun?.result?.trades ?? [];
+		if (trades.length === 0) {
+			return { rows: [] as Row[], totalCount: 0, hiddenCount: 0, finalEquity: wallet };
+		}
+		const sorted = [...trades].sort((a, b) => {
+			const ta = a.openedAt ? new Date(a.openedAt).getTime() : 0;
+			const tb = b.openedAt ? new Date(b.openedAt).getTime() : 0;
+			return ta - tb;
+		});
+		const DISPLAY_CAP_TRADES = 500;
+		const hiddenCount = Math.max(0, sorted.length - DISPLAY_CAP_TRADES);
+		let equity = wallet;
+		// Carry equity through trades that are too old to display so the
+		// first visible row shows the correct running balance.
+		for (let i = 0; i < hiddenCount; i++) {
+			equity += sorted[i]!.pnl;
+		}
+		const rows: Row[] = [];
+		for (let i = hiddenCount; i < sorted.length; i++) {
+			const t = sorted[i]!;
+			const isLong = t.side === "buy";
+			rows.push({
+				key: `${i}-open`,
+				time: t.openedAt,
+				label: isLong ? "BUY" : "SELL",
+				colorClass: "text-green-600 dark:text-green-400",
+				pnl: null,
+				equity,
+			});
+			equity += t.pnl;
+			rows.push({
+				key: `${i}-close`,
+				time: t.closedAt,
+				label: isLong ? "SELL" : "BUY",
+				colorClass: "text-red-500",
+				pnl: t.pnl,
+				equity,
+			});
+		}
+		return { rows, totalCount: sorted.length, hiddenCount, finalEquity: equity };
+	}, [selectedRun?.id, selectedRun?.result?.trades, wallet]);
 	// Baseline = first COMPLETED run in runNumber order, not the first
 	// attempt. Early failed runs shouldn't become the baseline just
 	// because they were the first row in the DB.
@@ -397,115 +452,109 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 								);
 							})()}
 
-							{/* Trade Log */}
-							{(() => {
-								const trades: TradeLogEntry[] = selectedRun.result?.trades ?? [];
-								if (trades.length === 0) return null;
-								type Row = {
-									key: string;
-									time: string | undefined;
-									label: string;
-									colorClass: string;
-									pnl: number | null;
-									equity: number;
-								};
-								let equity = wallet;
-								const rows: Row[] = [];
-								for (const [i, t] of trades.entries()) {
-									const isLong = t.side === "buy";
-									rows.push({
-										key: `${i}-open`,
-										time: t.openedAt,
-										label: isLong ? "BUY" : "SELL",
-										colorClass: "text-green-600 dark:text-green-400",
-										pnl: null,
-										equity,
-									});
-									equity += t.pnl;
-									rows.push({
-										key: `${i}-close`,
-										time: t.closedAt,
-										label: isLong ? "SELL" : "BUY",
-										colorClass: "text-red-500",
-										pnl: t.pnl,
-										equity,
-									});
-								}
-								const formatTime = (raw: string | undefined) => {
-									if (!raw) return "—";
-									const d = new Date(raw);
-									return Number.isNaN(d.getTime())
-										? "—"
-										: d.toLocaleDateString("en-US", {
-												month: "2-digit",
-												day: "2-digit",
-												hour: "2-digit",
-												minute: "2-digit",
-											});
-								};
-								return (
-									<>
-										<div className="border-b border-border my-2" />
-										<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
-											{t("propsPanel.tradeLog")} ({trades.length})
-										</div>
-										<div className="max-h-64 overflow-y-auto">
-											<table className="w-full text-[11px]">
-												<thead>
-													<tr className="text-muted-foreground">
-														<th className="text-left font-medium py-0.5">{t("propsPanel.time")}</th>
-														<th className="text-left font-medium py-0.5">{t("propsPanel.side")}</th>
-														<th className="text-right font-medium py-0.5">{t("propsPanel.pnl")}</th>
-														<th className="text-right font-medium py-0.5">
-															{t("propsPanel.equity")}
-														</th>
-													</tr>
-												</thead>
-												<tbody>
-													{rows.map((r) => (
-														<tr key={r.key} className="border-t border-border/30">
-															<td className="py-0.5 text-muted-foreground">{formatTime(r.time)}</td>
-															<td className={cn("py-0.5 font-medium", r.colorClass)}>{r.label}</td>
-															<td
-																className={cn(
-																	"py-0.5 text-right font-mono",
-																	r.pnl === null
-																		? "text-muted-foreground"
-																		: r.pnl >= 0
-																			? "text-green-600 dark:text-green-400"
-																			: "text-red-500",
-																)}
-															>
-																{r.pnl === null
-																	? "—"
-																	: `${r.pnl >= 0 ? "+" : ""}${r.pnl.toFixed(2)}`}
-															</td>
-															<td className="py-0.5 text-right font-mono text-foreground/80">
-																$
-																{r.equity.toLocaleString(undefined, {
-																	minimumFractionDigits: 0,
-																	maximumFractionDigits: 0,
-																})}
-															</td>
+							{/* Trade Log — oldest at top, newest at bottom. Capped at the
+							    last 500 trades so panels with 10k+ trades don't freeze the
+							    main thread on select; the total count is still reported. */}
+							{tradeLog.totalCount > 0 &&
+								(() => {
+									const formatTime = (raw: string | undefined) => {
+										if (!raw) return "—";
+										const d = new Date(raw);
+										return Number.isNaN(d.getTime())
+											? "—"
+											: d.toLocaleDateString("en-US", {
+													month: "2-digit",
+													day: "2-digit",
+													hour: "2-digit",
+													minute: "2-digit",
+												});
+									};
+									return (
+										<>
+											<div className="border-b border-border my-2" />
+											<div className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 flex items-center justify-between gap-2">
+												<span>
+													{t("propsPanel.tradeLog")} ({tradeLog.totalCount})
+												</span>
+												{tradeLog.hiddenCount > 0 && (
+													<span className="normal-case tracking-normal text-[10px] text-muted-foreground/70 font-normal">
+														{t("propsPanel.tradeLogTruncated", {
+															hidden: tradeLog.hiddenCount,
+														})}
+													</span>
+												)}
+											</div>
+											<div className="max-h-64 overflow-y-auto">
+												<table className="w-full text-[11px]">
+													<thead>
+														<tr className="text-muted-foreground">
+															<th className="text-left font-medium py-0.5">
+																{t("propsPanel.time")}
+															</th>
+															<th className="text-left font-medium py-0.5">
+																{t("propsPanel.side")}
+															</th>
+															<th className="text-right font-medium py-0.5">
+																{t("propsPanel.pnl")}
+															</th>
+															<th className="text-right font-medium py-0.5">
+																{t("propsPanel.equity")}
+															</th>
 														</tr>
-													))}
-												</tbody>
-											</table>
-										</div>
-										<div className="text-[10px] text-muted-foreground mt-1">
-											${wallet.toLocaleString()} → $
-											{equity.toLocaleString(undefined, {
-												minimumFractionDigits: 0,
-												maximumFractionDigits: 0,
-											})}{" "}
-											<span className={cn(equity >= wallet ? "text-green-500" : "text-red-500")}>
-												({equity >= wallet ? "+" : ""}
-												{(((equity - wallet) / wallet) * 100).toFixed(2)}%)
-											</span>
-										</div>
-									</>
-								);
-							})()}
+													</thead>
+													<tbody>
+														{tradeLog.rows.map((r) => (
+															<tr key={r.key} className="border-t border-border/30">
+																<td className="py-0.5 text-muted-foreground">
+																	{formatTime(r.time)}
+																</td>
+																<td className={cn("py-0.5 font-medium", r.colorClass)}>
+																	{r.label}
+																</td>
+																<td
+																	className={cn(
+																		"py-0.5 text-right font-mono",
+																		r.pnl === null
+																			? "text-muted-foreground"
+																			: r.pnl >= 0
+																				? "text-green-600 dark:text-green-400"
+																				: "text-red-500",
+																	)}
+																>
+																	{r.pnl === null
+																		? "—"
+																		: `${r.pnl >= 0 ? "+" : ""}${r.pnl.toFixed(2)}`}
+																</td>
+																<td className="py-0.5 text-right font-mono text-foreground/80">
+																	$
+																	{r.equity.toLocaleString(undefined, {
+																		minimumFractionDigits: 0,
+																		maximumFractionDigits: 0,
+																	})}
+																</td>
+															</tr>
+														))}
+													</tbody>
+												</table>
+											</div>
+											<div className="text-[10px] text-muted-foreground mt-1">
+												${wallet.toLocaleString()} → $
+												{tradeLog.finalEquity.toLocaleString(undefined, {
+													minimumFractionDigits: 0,
+													maximumFractionDigits: 0,
+												})}{" "}
+												<span
+													className={cn(
+														tradeLog.finalEquity >= wallet ? "text-green-500" : "text-red-500",
+													)}
+												>
+													({tradeLog.finalEquity >= wallet ? "+" : ""}
+													{(((tradeLog.finalEquity - wallet) / wallet) * 100).toFixed(2)}%)
+												</span>
+											</div>
+										</>
+									);
+								})()}
 						</div>
 					</>
 				)}
