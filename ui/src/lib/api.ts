@@ -45,13 +45,11 @@ export interface RunValidation {
 }
 
 export interface TradeLogEntry {
-	pair: string;
+	time: string;
 	side: "buy" | "sell";
 	price: number;
 	amount: number;
-	pnl: number;
-	openedAt: string;
-	closedAt: string;
+	metadata?: Record<string, unknown>;
 }
 
 export interface RunResult {

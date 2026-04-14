@@ -1,13 +1,18 @@
 import { z } from "zod";
 
+/**
+ * A single execution event on the trade tape. Only `time / side / price /
+ * amount` are fixed — every strategy-specific field (pair, pnl, fees,
+ * inventory after the fill, slippage, signal source, …) goes in
+ * `metadata`. This schema is what the UI's Trade Log renders against and
+ * what engine adapters / agent backtest scripts must emit.
+ */
 export const tradeEntrySchema = z.object({
-	pair: z.string(),
+	time: z.string(),
 	side: z.enum(["buy", "sell"]),
 	price: z.number(),
 	amount: z.number(),
-	pnl: z.number(),
-	openedAt: z.string(),
-	closedAt: z.string(),
+	metadata: z.record(z.unknown()).optional(),
 });
 
 export type TradeEntry = z.infer<typeof tradeEntrySchema>;

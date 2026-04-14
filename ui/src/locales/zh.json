@@ -78,6 +78,8 @@
 		"tradeLogTruncated": "已隐藏最旧 {{hidden}} 条",
 		"time": "时间",
 		"side": "方向",
+		"price": "价格",
+		"amount": "数量",
 		"pnl": "PnL",
 		"equity": "净值",
 		"vsBaseline": "对比基准",

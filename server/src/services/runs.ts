@@ -56,15 +56,78 @@ function normalizeResult(result: unknown): { metrics: Metric[] } | null {
 	return metrics.length > 0 ? { metrics } : null;
 }
 
+/**
+ * Convert a stored trades blob to the current event-tape shape. Old
+ * runs were saved with the closed-round-trip shape
+ * `{pair, side, price, amount, pnl, openedAt, closedAt}`; the UI only
+ * knows the new event shape `{time, side, price, amount, metadata?}`.
+ * Flatten each old round-trip into two events on the fly so legacy
+ * runs keep rendering without a backfill migration.
+ */
+function normalizeStoredTrades(raw: unknown): unknown {
+	if (!Array.isArray(raw)) return raw;
+	let needsConversion = false;
+	for (const t of raw) {
+		if (t && typeof t === "object" && "openedAt" in (t as object) && !("time" in (t as object))) {
+			needsConversion = true;
+			break;
+		}
+	}
+	if (!needsConversion) return raw;
+	const out: Array<Record<string, unknown>> = [];
+	for (let i = 0; i < raw.length; i++) {
+		const t = raw[i] as Record<string, unknown>;
+		if (!t || typeof t !== "object") continue;
+		if ("time" in t) {
+			out.push(t);
+			continue;
+		}
+		const openSide: "buy" | "sell" = t.side === "sell" ? "sell" : "buy";
+		const closeSide: "buy" | "sell" = openSide === "buy" ? "sell" : "buy";
+		const baseMeta: Record<string, unknown> = { tripId: `t${i}` };
+		if (typeof t.pair === "string") baseMeta.pair = t.pair;
+		const amount = typeof t.amount === "number" ? t.amount : 0;
+		const openPrice = typeof t.price === "number" ? t.price : 0;
+		const closePrice =
+			typeof (t as { closeRate?: number }).closeRate === "number"
+				? (t as { closeRate: number }).closeRate
+				: openPrice;
+		out.push({
+			time: t.openedAt,
+			side: openSide,
+			price: openPrice,
+			amount,
+			metadata: { ...baseMeta, leg: "open" },
+		});
+		out.push({
+			time: t.closedAt,
+			side: closeSide,
+			price: closePrice,
+			amount,
+			metadata: {
+				...baseMeta,
+				leg: "close",
+				...(typeof t.pnl === "number" ? { pnl: t.pnl } : {}),
+			},
+		});
+	}
+	return out;
+}
+
 function normalizeRun<T extends { result: unknown }>(run: T): T {
 	const normalized = normalizeResult(run.result);
 	// Preserve validation + trades from the original result so the UI
 	// can show approved/rejected status AND the per-trade log.
 	const raw = run.result as Record<string, unknown> | null;
 	const validation = raw?.validation;
-	const trades = raw?.trades;
+	const rawTrades = raw?.trades;
+	const trades = rawTrades !== undefined ? normalizeStoredTrades(rawTrades) : undefined;
 	const result = normalized
-		? { ...normalized, ...(validation ? { validation } : {}), ...(trades ? { trades } : {}) }
+		? {
+				...normalized,
+				...(validation ? { validation } : {}),
+				...(trades !== undefined ? { trades } : {}),
+			}
 		: null;
 	return { ...run, result } as T;
 }

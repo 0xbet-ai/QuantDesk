@@ -78,6 +78,8 @@
 		"tradeLogTruncated": "古い {{hidden}} 件を非表示",
 		"time": "時刻",
 		"side": "売買",
+		"price": "価格",
+		"amount": "数量",
 		"pnl": "PnL",
 		"equity": "資産額",
 		"vsBaseline": "ベースライン比",

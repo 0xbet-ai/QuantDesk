@@ -2,6 +2,8 @@ import crypto from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { extname, join, resolve } from "node:path";
+import type { TradeEntry } from "@quantdesk/shared";
+import { tradeEntrySchema } from "@quantdesk/shared";
 import {
 	DockerError,
 	ensureDockerAvailable,
@@ -10,7 +12,7 @@ import {
 	runContainer,
 } from "../docker.js";
 import { ENGINE_IMAGES } from "../images.js";
-import { deriveMetrics } from "../metrics.js";
+import { deriveStatsFromEvents } from "../metrics.js";
 import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-config.js";
 import type {
 	BacktestConfig,
@@ -22,7 +24,6 @@ import type {
 	PaperConfig,
 	PaperHandle,
 	PaperStatus,
-	TradeEntry,
 } from "../types.js";
 
 /**
@@ -254,15 +255,28 @@ export class GenericAdapter implements EngineAdapter {
 			throw new Error("Failed to parse generic result: script must output JSON to stdout");
 		}
 
-		const trades: TradeEntry[] = Array.isArray(data.trades) ? (data.trades as TradeEntry[]) : [];
-		if (trades.length === 0) {
+		const rawTrades = Array.isArray(data.trades) ? data.trades : [];
+		if (rawTrades.length === 0) {
 			throw new Error(
-				"Failed to parse generic result: must include a `trades` array with at least one entry. " +
-					"Each trade needs: { pair, side, price, amount, pnl, openedAt, closedAt }. " +
-					"Metrics (returnPct, drawdownPct, winRate, totalTrades) are derived automatically from trades.",
+				"Failed to parse generic result: must include a `trades` array with at least one event. " +
+					"Each event needs: { time, side, price, amount, metadata? }. " +
+					"`metadata` is free-form (pair, pnl, fees, inventory, …); when an event " +
+					"includes `metadata.pnl` (number), the universal stats (returnPct, " +
+					"drawdownPct, winRate, totalTrades) are derived from those events. " +
+					"Strategy-specific metrics should be published via `record_run_metrics`.",
 			);
 		}
-		return deriveMetrics(trades, wallet);
+		const trades: TradeEntry[] = rawTrades.map((t, i) => {
+			const parsed = tradeEntrySchema.safeParse(t);
+			if (!parsed.success) {
+				throw new Error(
+					`Failed to parse generic result: trades[${i}] is invalid — ${parsed.error.message}`,
+				);
+			}
+			return parsed.data;
+		});
+		const stats = deriveStatsFromEvents(trades, wallet);
+		return { ...stats, trades };
 	}
 
 	workspaceTemplate(_opts: { venue: string }): Record<string, string> {
@@ -287,7 +301,36 @@ The container entrypoint installs dependencies from the manifest
 before running the script. Cache volumes are mounted on the host so
 repeat runs are fast.
 
-The last line of stdout MUST be a NormalizedResult JSON object.
+The last line of stdout MUST be a JSON object with a flat
+\`trades\` array of execution events:
+
+\`\`\`json
+{
+  "trades": [
+    {
+      "time": "2025-01-01T00:00:00Z",
+      "side": "buy",
+      "price": 30000,
+      "amount": 0.01,
+      "metadata": { "pair": "BTC/USDC", "fees": 0.03 }
+    },
+    {
+      "time": "2025-01-01T00:05:00Z",
+      "side": "sell",
+      "price": 30150,
+      "amount": 0.01,
+      "metadata": { "pair": "BTC/USDC", "pnl": 1.47 }
+    }
+  ]
+}
+\`\`\`
+
+Only \`time / side / price / amount\` are fixed — anything else
+(pair, pnl, fees, slippage, inventory after the fill, signal
+source, latency) goes in \`metadata\`. When at least one event
+includes \`metadata.pnl\` (number), the universal stats are derived
+from those events. Strategy-specific metrics belong on the run via
+the \`record_run_metrics\` MCP tool, not in stdout.
 `,
 			// Keep engine outputs, caches, and dependency folders out of git.
 			// The generic engine doesn't dictate output paths, so this is a

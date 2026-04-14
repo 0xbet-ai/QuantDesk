@@ -17,6 +17,7 @@ import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-c
 import type {
 	BacktestConfig,
 	BacktestResult,
+	ClosedTrade,
 	DataConfig,
 	DataRef,
 	EngineAdapter,
@@ -24,7 +25,6 @@ import type {
 	PaperConfig,
 	PaperHandle,
 	PaperStatus,
-	TradeEntry,
 } from "../types.js";
 
 /**
@@ -232,30 +232,40 @@ export class NautilusAdapter implements EngineAdapter {
 		// returns (the Nautilus drawdown=0.00% bug was exactly this:
 		// the agent forgot to compute drawdownPct and the old code
 		// silently fell back to 0).
-		let trades: TradeEntry[];
+		let closed: ClosedTrade[];
 		const eventWallet = (data as unknown as Record<string, unknown>).wallet;
 		const effectiveWallet =
 			typeof eventWallet === "number" && eventWallet > 0 ? eventWallet : wallet;
 
 		if ("trades" in data && Array.isArray(data.trades)) {
 			const rawTrades = data.trades as NautilusTrade[];
-			trades = rawTrades.map((t) => ({
-				pair:
-					t.pair ??
-					(t as unknown as { instrument_id?: string }).instrument_id?.split(".")[0] ??
-					"?",
-				side: (t.side ?? "").toLowerCase() === "sell" ? ("sell" as const) : ("buy" as const),
-				price: t.price ?? (t as unknown as { avg_price?: number }).avg_price ?? 0,
-				amount: t.amount ?? (t as unknown as { quantity?: number }).quantity ?? 0,
-				pnl: t.pnl ?? (t as unknown as { realized_pnl?: number }).realized_pnl ?? 0,
-				openedAt: t.openedAt ?? (t as unknown as { ts_opened?: string }).ts_opened ?? "",
-				closedAt: t.closedAt ?? (t as unknown as { ts_closed?: string }).ts_closed ?? "",
-			}));
+			closed = rawTrades.map((t) => {
+				const altPrice = (t as unknown as { avg_price?: number; close_price?: number }).avg_price;
+				const closePrice =
+					(t as unknown as { close_price?: number; closeRate?: number }).close_price ??
+					(t as unknown as { closeRate?: number }).closeRate ??
+					t.price ??
+					altPrice ??
+					0;
+				return {
+					pair:
+						t.pair ??
+						(t as unknown as { instrument_id?: string }).instrument_id?.split(".")[0] ??
+						"?",
+					openSide: (t.side ?? "").toLowerCase() === "sell" ? ("sell" as const) : ("buy" as const),
+					openPrice: t.price ?? altPrice ?? 0,
+					closePrice,
+					amount: t.amount ?? (t as unknown as { quantity?: number }).quantity ?? 0,
+					pnl: t.pnl ?? (t as unknown as { realized_pnl?: number }).realized_pnl ?? 0,
+					openedAt: t.openedAt ?? (t as unknown as { ts_opened?: string }).ts_opened ?? "",
+					closedAt: t.closedAt ?? (t as unknown as { ts_closed?: string }).ts_closed ?? "",
+				};
+			});
 		} else {
-			trades = [];
+			closed = [];
 		}
 
-		return deriveMetrics(trades, effectiveWallet);
+		return deriveMetrics(closed, effectiveWallet);
 	}
 
 	workspaceTemplate(_opts: { venue: string }): Record<string, string> {

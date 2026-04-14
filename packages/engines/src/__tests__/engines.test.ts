@@ -41,17 +41,20 @@ describe("freqtrade parseResult", () => {
 		expect(result.totalTrades).toBe(2);
 	});
 
-	it("extracts individual TradeEntry[] with pair, side, price, amount, pnl, timestamps", () => {
+	it("flattens each closed round-trip into open + close events on the trade tape", () => {
 		const result = adapter.parseResult(fixture);
-		expect(result.trades).toHaveLength(2);
-		const t = result.trades[0]!;
-		expect(t.pair).toBe("BTC/USDT");
-		expect(t.side).toBe("buy");
-		expect(t.price).toBe(42150.5);
-		expect(t.amount).toBe(0.237);
-		expect(t.pnl).toBe(102.0);
-		expect(t.openedAt).toBe("2025-01-15 10:30:00");
-		expect(t.closedAt).toBe("2025-01-15 11:45:00");
+		// 2 round-trips → 4 events
+		expect(result.trades).toHaveLength(4);
+		const open = result.trades[0]!;
+		expect(open.time).toBe("2025-01-15 10:30:00");
+		expect(open.side).toBe("buy");
+		expect(open.price).toBe(42150.5);
+		expect(open.amount).toBe(0.237);
+		expect(open.metadata).toMatchObject({ pair: "BTC/USDT", leg: "open" });
+		const close = result.trades[1]!;
+		expect(close.time).toBe("2025-01-15 11:45:00");
+		expect(close.side).toBe("sell");
+		expect(close.metadata).toMatchObject({ pair: "BTC/USDT", leg: "close", pnl: 102 });
 	});
 
 	it("throws with meaningful message on error output", () => {
@@ -72,13 +75,13 @@ describe("nautilus parseResult", () => {
 		expect(result.totalTrades).toBe(2);
 	});
 
-	it("extracts TradeEntry[] from nautilus format", () => {
+	it("flattens each round-trip into open + close events on the trade tape", () => {
 		const result = adapter.parseResult(fixture);
-		expect(result.trades).toHaveLength(2);
-		const t = result.trades[0]!;
-		expect(t.pair).toBe("BTC/USDT");
-		expect(t.side).toBe("buy");
-		expect(t.price).toBe(42150.5);
+		expect(result.trades).toHaveLength(4);
+		const open = result.trades[0]!;
+		expect(open.side).toBe("buy");
+		expect(open.price).toBe(42150.5);
+		expect(open.metadata).toMatchObject({ pair: "BTC/USDT", leg: "open" });
 	});
 
 	it("throws with meaningful message on error output", () => {
@@ -89,35 +92,46 @@ describe("nautilus parseResult", () => {
 describe("generic parseResult", () => {
 	const adapter = getAdapter("generic");
 
-	it("derives metrics from trades array via deriveMetrics()", () => {
+	it("derives stats from event-tape metadata.pnl", () => {
 		const json = JSON.stringify({
 			trades: [
 				{
-					pair: "BTC/USDT",
+					time: "2025-01-01T00:00:00Z",
 					side: "buy",
 					price: 40000,
 					amount: 0.5,
-					pnl: 200,
-					openedAt: "2025-01-01",
-					closedAt: "2025-01-02",
+					metadata: { pair: "BTC/USDT" },
 				},
 				{
-					pair: "BTC/USDT",
+					time: "2025-01-02T00:00:00Z",
+					side: "sell",
+					price: 40400,
+					amount: 0.5,
+					metadata: { pair: "BTC/USDT", pnl: 200 },
+				},
+				{
+					time: "2025-01-03T00:00:00Z",
 					side: "buy",
 					price: 41000,
 					amount: 0.5,
-					pnl: -50,
-					openedAt: "2025-01-03",
-					closedAt: "2025-01-04",
+					metadata: { pair: "BTC/USDT" },
+				},
+				{
+					time: "2025-01-04T00:00:00Z",
+					side: "sell",
+					price: 40900,
+					amount: 0.5,
+					metadata: { pair: "BTC/USDT", pnl: -50 },
 				},
 			],
 		});
 		const result = adapter.parseResult(json);
-		// PnL = 200 + (-50) = 150. wallet=10000. return = 1.5%
+		// PnL events: +200, -50 → totalPnl=150, wallet=10000, return=1.5%
 		expect(result.returnPct).toBeCloseTo(1.5);
 		expect(result.totalTrades).toBe(2);
 		expect(result.winRate).toBeCloseTo(0.5);
 		expect(result.drawdownPct).toBeLessThan(0);
+		expect(result.trades).toHaveLength(4);
 	});
 
 	it("throws when trades array is empty or missing", () => {

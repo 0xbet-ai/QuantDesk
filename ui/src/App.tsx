@@ -187,7 +187,6 @@ function DeskRoute({
 						experiment={selectedExperiment}
 						experimentId={expId}
 						deskId={selectedDesk.id}
-						wallet={Number(selectedDesk.budget) || 10_000}
 					/>
 				) : null
 			}

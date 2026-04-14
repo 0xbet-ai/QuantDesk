@@ -26,7 +26,6 @@ interface Props {
 	experiment: Experiment | null;
 	experimentId: string;
 	deskId: string;
-	wallet?: number;
 }
 
 function PropRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -38,7 +37,7 @@ function PropRow({ label, children }: { label: string; children: React.ReactNode
 	);
 }
 
-export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }: Props) {
+export function PropsPanel({ experiment, experimentId, deskId }: Props) {
 	const { t } = useTranslation();
 	const [runs, setRuns] = useState<Run[]>([]);
 	const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
@@ -148,60 +147,42 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 	);
 	const selectedRun = visibleRuns.find((r) => r.id === selectedRunId) ?? null;
 
-	// Trade log rows — sorted by openedAt ascending (oldest at top, newest
-	// at bottom) and capped so selecting a run with ~10k trades doesn't
-	// freeze the panel by rendering 20k <tr>s. Memoized per-run so row
+	// Trade log rows — flat execution events sorted by time ascending
+	// (oldest at top, newest at bottom) and capped so selecting a run
+	// with ~10k events doesn't freeze the panel. Memoized per-run so row
 	// building doesn't re-run on unrelated re-renders.
 	const tradeLog = useMemo(() => {
 		type Row = {
 			key: string;
-			time: string | undefined;
-			label: string;
-			colorClass: string;
-			pnl: number | null;
-			equity: number;
+			time: string;
+			side: "buy" | "sell";
+			price: number;
+			amount: number;
 		};
-		const trades: TradeLogEntry[] = selectedRun?.result?.trades ?? [];
-		if (trades.length === 0) {
-			return { rows: [] as Row[], totalCount: 0, hiddenCount: 0, finalEquity: wallet };
+		const events: TradeLogEntry[] = selectedRun?.result?.trades ?? [];
+		if (events.length === 0) {
+			return { rows: [] as Row[], totalCount: 0, hiddenCount: 0 };
 		}
-		const sorted = [...trades].sort((a, b) => {
-			const ta = a.openedAt ? new Date(a.openedAt).getTime() : 0;
-			const tb = b.openedAt ? new Date(b.openedAt).getTime() : 0;
+		const sorted = [...events].sort((a, b) => {
+			const ta = a.time ? new Date(a.time).getTime() : 0;
+			const tb = b.time ? new Date(b.time).getTime() : 0;
 			return ta - tb;
 		});
-		const DISPLAY_CAP_TRADES = 500;
-		const hiddenCount = Math.max(0, sorted.length - DISPLAY_CAP_TRADES);
-		let equity = wallet;
-		// Carry equity through trades that are too old to display so the
-		// first visible row shows the correct running balance.
-		for (let i = 0; i < hiddenCount; i++) {
-			equity += sorted[i]!.pnl;
-		}
+		const DISPLAY_CAP_EVENTS = 1000;
+		const hiddenCount = Math.max(0, sorted.length - DISPLAY_CAP_EVENTS);
 		const rows: Row[] = [];
 		for (let i = hiddenCount; i < sorted.length; i++) {
 			const t = sorted[i]!;
-			const isLong = t.side === "buy";
 			rows.push({
-				key: `${i}-open`,
-				time: t.openedAt,
-				label: isLong ? "BUY" : "SELL",
-				colorClass: "text-green-600 dark:text-green-400",
-				pnl: null,
-				equity,
-			});
-			equity += t.pnl;
-			rows.push({
-				key: `${i}-close`,
-				time: t.closedAt,
-				label: isLong ? "SELL" : "BUY",
-				colorClass: "text-red-500",
-				pnl: t.pnl,
-				equity,
+				key: `${i}`,
+				time: t.time,
+				side: t.side,
+				price: t.price,
+				amount: t.amount,
 			});
 		}
-		return { rows, totalCount: sorted.length, hiddenCount, finalEquity: equity };
-	}, [selectedRun?.id, selectedRun?.result?.trades, wallet]);
+		return { rows, totalCount: sorted.length, hiddenCount };
+	}, [selectedRun?.id, selectedRun?.result?.trades]);
 	// Baseline = first COMPLETED run in runNumber order, not the first
 	// attempt. Early failed runs shouldn't become the baseline just
 	// because they were the first row in the DB.
@@ -452,9 +433,10 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 								);
 							})()}
 
-							{/* Trade Log — oldest at top, newest at bottom. Capped at the
-							    last 500 trades so panels with 10k+ trades don't freeze the
-							    main thread on select; the total count is still reported. */}
+							{/* Trade Log — flat execution events. Only Time / Side / Price
+							    / Amount are fixed; everything else lives in metadata and is
+							    surfaced via record_run_metrics. Capped at the last 1000
+							    events so runs with 10k+ trades don't freeze the panel. */}
 							{tradeLog.totalCount > 0 &&
 								(() => {
 									const formatTime = (raw: string | undefined) => {
@@ -469,6 +451,16 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 													minute: "2-digit",
 												});
 									};
+									const formatPrice = (n: number) =>
+										n.toLocaleString(undefined, {
+											minimumFractionDigits: 0,
+											maximumFractionDigits: 6,
+										});
+									const formatAmount = (n: number) =>
+										n.toLocaleString(undefined, {
+											minimumFractionDigits: 0,
+											maximumFractionDigits: 8,
+										});
 									return (
 										<>
 											<div className="border-b border-border my-2" />
@@ -495,10 +487,10 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 																{t("propsPanel.side")}
 															</th>
 															<th className="text-right font-medium py-0.5">
-																{t("propsPanel.pnl")}
+																{t("propsPanel.price")}
 															</th>
 															<th className="text-right font-medium py-0.5">
-																{t("propsPanel.equity")}
+																{t("propsPanel.amount")}
 															</th>
 														</tr>
 													</thead>
@@ -508,49 +500,26 @@ export function PropsPanel({ experiment, experimentId, deskId, wallet = 10_000 }
 																<td className="py-0.5 text-muted-foreground">
 																	{formatTime(r.time)}
 																</td>
-																<td className={cn("py-0.5 font-medium", r.colorClass)}>
-																	{r.label}
-																</td>
 																<td
 																	className={cn(
-																		"py-0.5 text-right font-mono",
-																		r.pnl === null
-																			? "text-muted-foreground"
-																			: r.pnl >= 0
-																				? "text-green-600 dark:text-green-400"
-																				: "text-red-500",
+																		"py-0.5 font-medium",
+																		r.side === "buy"
+																			? "text-green-600 dark:text-green-400"
+																			: "text-red-500",
 																	)}
 																>
-																	{r.pnl === null
-																		? "—"
-																		: `${r.pnl >= 0 ? "+" : ""}${r.pnl.toFixed(2)}`}
+																	{r.side.toUpperCase()}
 																</td>
 																<td className="py-0.5 text-right font-mono text-foreground/80">
-																	$
-																	{r.equity.toLocaleString(undefined, {
-																		minimumFractionDigits: 0,
-																		maximumFractionDigits: 0,
-																	})}
+																	{formatPrice(r.price)}
+																</td>
+																<td className="py-0.5 text-right font-mono text-foreground/80">
+																	{formatAmount(r.amount)}
 																</td>
 															</tr>
 														))}
 													</tbody>
 												</table>
-											</div>
-											<div className="text-[10px] text-muted-foreground mt-1">
-												${wallet.toLocaleString()} → $
-												{tradeLog.finalEquity.toLocaleString(undefined, {
-													minimumFractionDigits: 0,
-													maximumFractionDigits: 0,
-												})}{" "}
-												<span
-													className={cn(
-														tradeLog.finalEquity >= wallet ? "text-green-500" : "text-red-500",
-													)}
-												>
-													({tradeLog.finalEquity >= wallet ? "+" : ""}
-													{(((tradeLog.finalEquity - wallet) / wallet) * 100).toFixed(2)}%)
-												</span>
 											</div>
 										</>
 									);

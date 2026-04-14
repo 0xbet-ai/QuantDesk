@@ -78,6 +78,8 @@
 		"tradeLogTruncated": "오래된 {{hidden}}개 생략",
 		"time": "시간",
 		"side": "방향",
+		"price": "가격",
+		"amount": "수량",
 		"pnl": "손익",
 		"equity": "자산",
 		"vsBaseline": "기준 대비",

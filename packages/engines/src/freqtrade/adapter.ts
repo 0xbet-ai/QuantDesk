@@ -26,6 +26,7 @@ import { formatMemory, getEngineRuntimeConfig, resolveImage } from "../runtime-c
 import type {
 	BacktestConfig,
 	BacktestResult,
+	ClosedTrade,
 	DataConfig,
 	DataRef,
 	EngineAdapter,
@@ -35,7 +36,6 @@ import type {
 	PaperHandle,
 	PaperStatus,
 	PaperTrade,
-	TradeEntry,
 } from "../types.js";
 
 // The freqtrade container mounts workspace → /freqtrade/user_data.
@@ -785,16 +785,17 @@ function normaliseFreqtradeResult(
 	strat: FreqtradeStrategyResult,
 	wallet = 10_000,
 ): NormalizedResult {
-	const trades: TradeEntry[] = (strat.trades ?? []).map((t) => ({
+	const closed: ClosedTrade[] = (strat.trades ?? []).map((t) => ({
 		pair: t.pair,
-		side: t.is_short ? ("sell" as const) : ("buy" as const),
-		price: t.open_rate,
+		openSide: t.is_short ? ("sell" as const) : ("buy" as const),
+		openPrice: t.open_rate,
+		closePrice: t.close_rate,
 		amount: t.amount,
 		pnl: t.profit_abs,
 		openedAt: t.open_date,
 		closedAt: t.close_date,
 	}));
-	return deriveMetrics(trades, wallet);
+	return deriveMetrics(closed, wallet);
 }
 
 function isStrategyScopedResult(data: unknown): data is FreqtradeBacktestRaw {

@@ -1,3 +1,5 @@
+import type { TradeEntry } from "@quantdesk/shared";
+
 export interface DataConfig {
 	exchange: string;
 	pairs: string[];
@@ -69,18 +71,36 @@ export interface NormalizedResult {
 	drawdownPct: number;
 	winRate: number;
 	totalTrades: number;
+	/**
+	 * Flat tape of execution events. A managed adapter that only sees
+	 * round-trip closed trades emits TWO events per round trip (an open
+	 * and a close), each with `time / side / price / amount` and any
+	 * supplemental fields (pair, pnl, fees, …) folded into `metadata`.
+	 */
 	trades: TradeEntry[];
 }
 
-export interface TradeEntry {
-	pair: string;
-	side: "buy" | "sell";
-	price: number;
+/**
+ * Adapter-internal: a fully-resolved closed round-trip used to compute
+ * universal stats (returnPct / drawdownPct / winRate / totalTrades).
+ * `deriveMetrics` turns a list of these into both the stats AND the
+ * public `TradeEntry[]` event tape. Adapters reach for this shape only
+ * when their source format reports closed round-trips (Freqtrade,
+ * Nautilus); event-native sources can build the event tape directly
+ * and compute their own stats.
+ */
+export interface ClosedTrade {
+	pair?: string;
+	openSide: "buy" | "sell";
+	openPrice: number;
+	closePrice: number;
 	amount: number;
 	pnl: number;
 	openedAt: string;
 	closedAt: string;
 }
+
+export type { TradeEntry } from "@quantdesk/shared";
 
 export interface BacktestResult {
 	raw: string;

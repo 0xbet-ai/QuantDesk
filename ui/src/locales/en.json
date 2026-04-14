@@ -78,6 +78,8 @@
 		"tradeLogTruncated": "oldest {{hidden}} hidden",
 		"time": "Time",
 		"side": "Side",
+		"price": "Price",
+		"amount": "Amount",
 		"pnl": "PnL",
 		"equity": "Equity",
 		"vsBaseline": "vs baseline",
