@@ -54,6 +54,22 @@ export const SEED_COPY_SKIP_NAMES: readonly string[] = [
  * Phase 10 — external dataset bind-mount label format. Becomes a path
  * segment under `/workspace/data/external/<label>` so it must be safe for
  * filesystems and shells alike: lowercase letters, digits, underscore,
- * hyphen.
+ * hyphen, dot. The leading `[a-z0-9]` anchor prevents hidden-file / parent-
+ * segment injection (`.`, `..`, `.ssh`, …).
  */
-export const EXTERNAL_MOUNT_LABEL_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+export const EXTERNAL_MOUNT_LABEL_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
+
+/**
+ * Derive a valid external-mount label from a file or directory basename.
+ * Lowercases, replaces any character not in the label pattern with `_`,
+ * strips a leading non-`[a-z0-9]` run, and trims to 64 chars. Returns
+ * `null` when the result is empty (e.g. basename was all separators).
+ */
+export function deriveExternalMountLabel(basename: string): string | null {
+	const sanitized = basename
+		.toLowerCase()
+		.replace(/[^a-z0-9._-]/g, "_")
+		.replace(/^[^a-z0-9]+/, "")
+		.slice(0, 64);
+	return sanitized.length > 0 ? sanitized : null;
+}

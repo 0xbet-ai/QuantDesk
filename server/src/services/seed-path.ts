@@ -29,6 +29,12 @@ export interface ValidateSeedPathOptions {
 	 * (`doc/desk/STORAGE.md` "Workspace bootstrap").
 	 */
 	skipSizeCheck?: boolean;
+	/**
+	 * Allow the path to point at a regular file (not just a directory).
+	 * External mounts support file-level bind-mounts; seed paths do not,
+	 * since they are copied into a fresh git workspace.
+	 */
+	allowFile?: boolean;
 }
 
 /**
@@ -87,6 +93,21 @@ export function validateSeedPath(
 		stat = statSync(absolutePath);
 	} catch (err) {
 		return { ok: false, reason: `seed path is not readable: ${(err as Error).message}` };
+	}
+	if (stat.isFile()) {
+		if (!opts.allowFile) {
+			return { ok: false, reason: "seed path must be a directory" };
+		}
+		if (opts.skipSizeCheck) {
+			return { ok: true, absolutePath, totalBytes: stat.size };
+		}
+		if (stat.size > SEED_PATH_MAX_BYTES) {
+			return {
+				ok: false,
+				reason: `seed path is ${(stat.size / 1024 / 1024).toFixed(1)} MB, exceeds the ${SEED_PATH_MAX_BYTES / 1024 / 1024} MB cap`,
+			};
+		}
+		return { ok: true, absolutePath, totalBytes: stat.size };
 	}
 	if (!stat.isDirectory()) {
 		return { ok: false, reason: "seed path must be a directory" };
@@ -152,7 +173,10 @@ export function validateExternalMount(mount: {
 			reason: `external mount label "${mount.label}" must match ${EXTERNAL_MOUNT_LABEL_PATTERN.source}`,
 		};
 	}
-	const pathCheck = validateSeedPath(mount.hostPath, { skipSizeCheck: true });
+	const pathCheck = validateSeedPath(mount.hostPath, {
+		skipSizeCheck: true,
+		allowFile: true,
+	});
 	if (!pathCheck.ok) {
 		return { ok: false, reason: `external mount "${mount.label}": ${pathCheck.reason}` };
 	}

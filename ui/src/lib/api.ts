@@ -143,6 +143,7 @@ export interface ExternalMountInput {
 export interface FsBrowseEntry {
 	name: string;
 	path: string;
+	kind: "dir" | "file";
 }
 
 export interface FsBrowseResponse {
@@ -151,8 +152,13 @@ export interface FsBrowseResponse {
 	entries: FsBrowseEntry[];
 }
 
-export const browseFs = (path?: string) =>
-	api<FsBrowseResponse>(`/fs/browse${path ? `?path=${encodeURIComponent(path)}` : ""}`);
+export const browseFs = (path?: string, opts: { includeFiles?: boolean } = {}) => {
+	const params = new URLSearchParams();
+	if (path) params.set("path", path);
+	if (opts.includeFiles) params.set("includeFiles", "true");
+	const qs = params.toString();
+	return api<FsBrowseResponse>(`/fs/browse${qs ? `?${qs}` : ""}`);
+};
 
 export const createDesk = (
 	data: Partial<Desk> & {

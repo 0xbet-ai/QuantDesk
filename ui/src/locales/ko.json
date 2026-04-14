@@ -229,6 +229,7 @@
 		"seedCodeDir": "시드 코드 디렉토리",
 		"seedCodeHint": "생성 시 데스크 워크스페이스에 복사됩니다.",
 		"browse": "찾아보기",
+		"pickFile": "파일 선택",
 		"externalDatasets": "외부 데이터셋",
 		"externalDatasetsHint": "기존 로컬 데이터를 /workspace/data/external/<label>에 바인드 마운트합니다 (읽기 전용).",
 		"add": "추가",

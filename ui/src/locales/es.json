@@ -229,6 +229,7 @@
 		"seedCodeDir": "Directorio de codigo semilla",
 		"seedCodeHint": "El contenido se copia al espacio de trabajo del escritorio al crearlo.",
 		"browse": "Explorar",
+		"pickFile": "Elegir archivo",
 		"externalDatasets": "Conjuntos de datos externos",
 		"externalDatasetsHint": "Montar datos locales existentes en /workspace/data/external/<etiqueta> (solo lectura).",
 		"add": "Agregar",

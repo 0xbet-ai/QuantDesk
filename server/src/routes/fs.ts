@@ -7,9 +7,9 @@
  * cannot pick `~/.ssh` etc. via the picker because the deny-list filters
  * those entries out of every listing.
  *
- * Listings only include directories — files are filtered. The picker is
- * designed for choosing a folder to seed code from or bind-mount as a
- * dataset, both of which are directory-only operations.
+ * Listings only include directories by default; pass `?includeFiles=true`
+ * to include regular files (used when picking an external dataset file to
+ * bind-mount). Each entry carries a `kind` discriminator.
  */
 
 import { existsSync, readdirSync, statSync } from "node:fs";
@@ -28,6 +28,7 @@ const router = Router();
 interface BrowseEntry {
 	name: string;
 	path: string;
+	kind: "dir" | "file";
 }
 
 interface BrowseResponse {
@@ -58,6 +59,7 @@ function isDeniedPath(absPath: string): boolean {
 router.get("/browse", (req, res, next) => {
 	try {
 		const requested = (req.query.path as string | undefined) ?? homedir();
+		const includeFiles = req.query.includeFiles === "true";
 		if (!isAbsolute(requested)) {
 			throw new HttpError(400, "path must be absolute");
 		}
@@ -84,9 +86,12 @@ router.get("/browse", (req, res, next) => {
 			} catch {
 				continue; // unreadable — skip
 			}
-			if (!childStat.isDirectory()) continue;
 			if (isDeniedPath(childPath)) continue;
-			entries.push({ name, path: childPath });
+			if (childStat.isDirectory()) {
+				entries.push({ name, path: childPath, kind: "dir" });
+			} else if (includeFiles && childStat.isFile()) {
+				entries.push({ name, path: childPath, kind: "file" });
+			}
 		}
 
 		const parent = absPath === "/" ? null : dirname(absPath);

@@ -229,6 +229,7 @@
 		"seedCodeDir": "シードコードディレクトリ",
 		"seedCodeHint": "作成時にデスクのワークスペースに内容がコピーされます。",
 		"browse": "参照",
+		"pickFile": "ファイルを選択",
 		"externalDatasets": "外部データセット",
 		"externalDatasetsHint": "既存のローカルデータを /workspace/data/external/<ラベル> に読み取り専用でバインドマウントします。",
 		"add": "追加",

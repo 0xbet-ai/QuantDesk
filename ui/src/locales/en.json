@@ -229,6 +229,7 @@
 		"seedCodeDir": "Seed code directory",
 		"seedCodeHint": "Contents are copied into the desk workspace at creation.",
 		"browse": "Browse",
+		"pickFile": "Pick file",
 		"externalDatasets": "External datasets",
 		"externalDatasetsHint": "Bind-mount existing local data into /workspace/data/external/<label> (read-only).",
 		"add": "Add",

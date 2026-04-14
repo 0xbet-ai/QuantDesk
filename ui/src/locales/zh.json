@@ -229,6 +229,7 @@
 		"seedCodeDir": "种子代码目录",
 		"seedCodeHint": "创建时内容将被复制到工作台工作区。",
 		"browse": "浏览",
+		"pickFile": "选择文件",
 		"externalDatasets": "外部数据集",
 		"externalDatasetsHint": "将本地数据绑定挂载到 /workspace/data/external/<label>（只读）。",
 		"add": "添加",

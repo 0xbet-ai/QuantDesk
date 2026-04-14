@@ -5,7 +5,11 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SEED_PATH_MAX_BYTES } from "@quantdesk/shared";
+import {
+	EXTERNAL_MOUNT_LABEL_PATTERN,
+	SEED_PATH_MAX_BYTES,
+	deriveExternalMountLabel,
+} from "@quantdesk/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { validateExternalMount, validateExternalMounts, validateSeedPath } from "../seed-path.js";
 
@@ -64,6 +68,23 @@ describe("validateExternalMount", () => {
 		const mountResult = validateExternalMount({ label: "big_ref", hostPath: bigDir });
 		expect(mountResult.ok).toBe(true);
 	});
+
+	it("accepts a file hostPath (bind-mount a single dataset file)", async () => {
+		const bigFile = join(tmpRoot, "big_dataset.csv");
+		await writeFile(bigFile, Buffer.alloc(SEED_PATH_MAX_BYTES + 1024, 0));
+
+		// seed path rejects files outright
+		const seedResult = validateSeedPath(bigFile);
+		expect(seedResult.ok).toBe(false);
+		if (!seedResult.ok) expect(seedResult.reason).toMatch(/must be a directory/);
+
+		// external mount accepts files and skips the size cap
+		const mountResult = validateExternalMount({
+			label: "big_dataset.csv",
+			hostPath: bigFile,
+		});
+		expect(mountResult.ok).toBe(true);
+	});
 });
 
 describe("validateExternalMounts", () => {
@@ -97,5 +118,34 @@ describe("validateExternalMounts", () => {
 			{ label: "bad", hostPath: "/etc/passwd" },
 		]);
 		expect(result.ok).toBe(false);
+	});
+});
+
+describe("deriveExternalMountLabel", () => {
+	it("keeps a clean filename as-is", () => {
+		expect(deriveExternalMountLabel("dataset.csv")).toBe("dataset.csv");
+		expect(deriveExternalMountLabel("eth_usdc-1m.parquet")).toBe("eth_usdc-1m.parquet");
+	});
+
+	it("lowercases and sanitizes non-pattern chars", () => {
+		expect(deriveExternalMountLabel("ETH USDC.CSV")).toBe("eth_usdc.csv");
+	});
+
+	it("strips a leading non-[a-z0-9] run", () => {
+		expect(deriveExternalMountLabel("..hidden.csv")).toBe("hidden.csv");
+		expect(deriveExternalMountLabel("_trail.csv")).toBe("trail.csv");
+	});
+
+	it("returns null for empty / all-invalid input", () => {
+		expect(deriveExternalMountLabel("")).toBe(null);
+		expect(deriveExternalMountLabel("...")).toBe(null);
+	});
+
+	it("always produces a label that matches the label pattern", () => {
+		for (const src of ["My Data.csv", "eth-1m.parquet", "file.name.v2.json"]) {
+			const label = deriveExternalMountLabel(src);
+			expect(label).not.toBeNull();
+			if (label) expect(EXTERNAL_MOUNT_LABEL_PATTERN.test(label)).toBe(true);
+		}
 	});
 });

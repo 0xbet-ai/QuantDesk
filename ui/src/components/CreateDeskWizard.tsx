@@ -1,4 +1,9 @@
-import { type VenueEngines, availableModesForVenues, engineForMode } from "@quantdesk/shared";
+import {
+	type VenueEngines,
+	availableModesForVenues,
+	deriveExternalMountLabel,
+	engineForMode,
+} from "@quantdesk/shared";
 import {
 	Activity,
 	Anchor,
@@ -1190,21 +1195,32 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																				className="rounded-md border border-border bg-muted/30 p-2 space-y-1.5"
 																			>
 																				<div className="flex items-center gap-1.5">
-																					<input
-																						type="text"
-																						value={m.label}
-																						onChange={(e) =>
-																							setExternalMounts((prev) =>
-																								prev.map((row, idx) =>
-																									idx === i
-																										? { ...row, label: e.target.value }
-																										: row,
-																								),
-																							)
+																					<div className="min-w-0 flex-1 flex items-center gap-1.5">
+																						<div
+																							className="min-w-0 flex-1 px-2 py-1 text-[11px] font-mono rounded-md border border-border bg-background text-foreground/80 truncate"
+																							title={m.hostPath || undefined}
+																						>
+																							{m.hostPath || (
+																								<span className="text-foreground/30">
+																									{t("wizard.externalDatasetsHint")}
+																								</span>
+																							)}
+																						</div>
+																						{m.label && (
+																							<span className="shrink-0 px-1.5 py-0.5 text-[10px] font-mono rounded-sm bg-accent text-foreground/70">
+																								{m.label}
+																							</span>
+																						)}
+																					</div>
+																					<button
+																						type="button"
+																						onClick={() =>
+																							setFolderPicker({ kind: "mount", index: i })
 																						}
-																						placeholder="label"
-																						className="min-w-0 flex-1 px-2 py-1 text-[11px] font-mono rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-foreground/30"
-																					/>
+																						className="shrink-0 px-2 py-1 text-[10px] rounded-md border border-border bg-background hover:bg-accent transition-colors"
+																					>
+																						{t("wizard.pickFile")}
+																					</button>
 																					<button
 																						type="button"
 																						onClick={() =>
@@ -1216,32 +1232,6 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 																						aria-label="remove mount"
 																					>
 																						×
-																					</button>
-																				</div>
-																				<div className="flex items-center gap-1.5">
-																					<input
-																						type="text"
-																						value={m.hostPath}
-																						onChange={(e) =>
-																							setExternalMounts((prev) =>
-																								prev.map((row, idx) =>
-																									idx === i
-																										? { ...row, hostPath: e.target.value }
-																										: row,
-																								),
-																							)
-																						}
-																						placeholder="/abs/path/to/data"
-																						className="min-w-0 flex-1 px-2 py-1 text-[11px] font-mono rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-foreground/30"
-																					/>
-																					<button
-																						type="button"
-																						onClick={() =>
-																							setFolderPicker({ kind: "mount", index: i })
-																						}
-																						className="shrink-0 px-2 py-1 text-[10px] rounded-md border border-border bg-background hover:bg-accent transition-colors"
-																					>
-																						{t("wizard.browse")}
 																					</button>
 																				</div>
 																			</div>
@@ -1819,6 +1809,7 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 			</dialog>
 			{folderPicker && (
 				<FolderPickerModal
+					mode={folderPicker.kind === "mount" ? "file" : "folder"}
 					initialPath={
 						folderPicker.kind === "seed"
 							? seedCodePath || undefined
@@ -1829,8 +1820,12 @@ export function CreateDeskWizard({ onClose, onCreated }: Props) {
 							setSeedCodePath(picked);
 						} else {
 							const idx = folderPicker.index;
+							const basename = picked.split("/").filter(Boolean).pop() ?? "";
+							const derivedLabel = deriveExternalMountLabel(basename) ?? "dataset";
 							setExternalMounts((prev) =>
-								prev.map((row, i) => (i === idx ? { ...row, hostPath: picked } : row)),
+								prev.map((row, i) =>
+									i === idx ? { ...row, hostPath: picked, label: derivedLabel } : row,
+								),
 							);
 						}
 						setFolderPicker(null);

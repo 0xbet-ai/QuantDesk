@@ -41,6 +41,7 @@ export type {
 } from "./schemas.js";
 
 export {
+	deriveExternalMountLabel,
 	EXTERNAL_MOUNT_LABEL_PATTERN,
 	SEED_COPY_SKIP_NAMES,
 	SEED_PATH_ABSOLUTE_DENY,
