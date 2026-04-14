@@ -41,7 +41,7 @@ turn N+1 agent: "Switching to ETH/USDT. Writing fetcher script."
 
 Tools that need conversational approval before they fire: `new_experiment`, `complete_experiment`.
 
-Tools that fire directly without asking: `register_dataset` (registering already-downloaded data — no network I/O), `run_backtest` (re-runs on the current desk's existing dataset are routine), `set_experiment_title` (cosmetic rename), `submit_rm_verdict` (the RM's own decision output).
+Tools that fire directly without asking: `register_dataset` (registering already-downloaded data — no network I/O), `run_backtest` (re-runs on the current desk's existing dataset are routine), `record_run_metrics` (annotating results on a run you just produced), `set_experiment_title` (cosmetic rename), `submit_rm_verdict` (the RM's own decision output).
 
 ## Tools
 
@@ -66,15 +66,25 @@ register_dataset({ exchange, pairs[], timeframe, dateRange:{start,end}, path })
 run_backtest({ strategyName?, configFile?, entrypoint? })
   requires:  desk has ≥1 desk_datasets link
   effect:    engineAdapter.runBacktest() in a Docker container,
-             insert a `runs` row with the normalized metrics,
-             link it to the latest registered dataset
-  returns:   { runId, runNumber, isBaseline, metrics[] }
+             insert a `runs` row with the trade list (metrics[] stays
+             empty — the analyst decides what to publish), link it to
+             the latest registered dataset
+  returns:   {
+               runId, runNumber, isBaseline,
+               rawStats: { returnPct, drawdownPct, winRatePct, totalTrades },
+               autoDispatched?, message
+             }
              on error: { isError: true, content: "…" }
-  postcond:  runs row exists with metrics + commit_hash
-             → matches request_validation.requires
-  notes:     the return value replaces the legacy [BACKTEST_RESULT]
-             marker — you react to metrics on the same turn instead
-             of emitting a separate result block.
+  postcond:  runs row exists with trades + commit_hash but NO display
+             metrics yet → the agent MUST call record_run_metrics
+             before ending its turn. RM / UI see empty metrics until
+             then.
+  notes:     the engine does NOT emit display metrics by default —
+             universal stats (return / drawdown / winrate / trades)
+             are returned as `rawStats` for the agent to feed into
+             `record_run_metrics`. Hard-coding the same four metrics
+             for every strategy was misleading; the agent frames the
+             run with strategy-specific measurements instead.
 ```
 
 ### `run_script` vs `run_backtest` — when to use which
@@ -144,6 +154,36 @@ set_experiment_title({ title })  // ≤ 120 chars
   postcond:  experiment has a human title
   notes:     cosmetic, no retrigger. Call whenever you think the
              current experiment needs a better name.
+```
+
+### `record_run_metrics`
+
+```
+record_run_metrics({
+  runNumber? | runId?,              // prefer runNumber
+  metrics: Metric[],                // 1..12 entries
+  replace?: boolean,                // default false
+})
+
+Metric = { key, label, value, format, tone? }
+  key     : /^[a-z0-9_][a-z0-9_.-]*$/, ≤ 64 chars — stable id
+  label   : UI label, ≤ 64 chars
+  value   : finite number
+  format  : "percent" | "number" | "integer" | "currency"
+  tone?   : "positive" | "negative" | "neutral"
+
+  requires:  target run exists in this experiment and status = completed
+  effect:    merge metrics into runs.result.metrics by `key`. Same `key`
+             overrides, new keys append. `replace: true` discards the
+             engine defaults entirely.
+             publish run.status event so the UI refreshes.
+  returns:   { runId, runNumber, replaced, metrics: Metric[] }
+  postcond:  result.metrics contains the merged list (cap 12)
+  notes:     the engine only emits a universal set (Return, Max Drawdown,
+             Win Rate, Trades). Call this to surface strategy-specific
+             measurements — RPI, inventory deviation, volume/liquidity
+             ratio, sharpe, etc. — that the engine doesn't compute.
+             No consent needed, no retrigger.
 ```
 
 ### `request_validation`

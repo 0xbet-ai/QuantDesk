@@ -33,7 +33,7 @@ import {
 	runs,
 } from "@quantdesk/db/schema";
 import { getAdapter as getEngineAdapter } from "@quantdesk/engines";
-import type { NormalizedResult } from "@quantdesk/shared";
+import { type NormalizedResult, type RunMetric, runMetricSchema } from "@quantdesk/shared";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getConfig } from "../config-file.js";
@@ -57,39 +57,34 @@ export interface McpServerContext {
 	deskId: string;
 }
 
+/**
+ * Build what `run_backtest` persists to `runs.result`. Deliberately does
+ * NOT emit any display metrics — the engine computes universal stats
+ * (returnPct, drawdownPct, winRate, totalTrades) but it is the
+ * **analyst's job** to pick which numbers actually describe the strategy
+ * under test and publish them via `record_run_metrics`. A market maker
+ * cares about inventory skew and volume-to-liquidity ratio; a mean-
+ * reversion scalper cares about hit rate at specific horizons; a
+ * momentum strategy cares about trade duration and capture ratio.
+ * Hard-coding the same four metrics for every strategy was actively
+ * misleading, so the UI / RM now see only what the agent writes.
+ *
+ * The raw engine stats are still handed back in the tool's text
+ * response so the agent has the numbers ready to feed into
+ * `record_run_metrics`.
+ */
 function normalizedResultToPayload(normalized: NormalizedResult) {
 	return {
-		metrics: [
-			{
-				key: "return",
-				label: "Return",
-				value: normalized.returnPct,
-				format: "percent",
-				tone: normalized.returnPct >= 0 ? "positive" : "negative",
-			},
-			{
-				key: "drawdown",
-				label: "Max Drawdown",
-				value: normalized.drawdownPct,
-				format: "percent",
-				tone: "negative",
-			},
-			{
-				key: "win_rate",
-				label: "Win Rate",
-				value: normalized.winRate * 100,
-				format: "percent",
-			},
-			{
-				key: "trades",
-				label: "Trades",
-				value: normalized.totalTrades,
-				format: "integer",
-			},
-		],
+		metrics: [] as Array<{
+			key: string;
+			label: string;
+			value: number;
+			format: string;
+			tone?: string;
+		}>,
 		// Persist the full trade list so the UI can render a trade log
-		// with running equity. Previously only the 4 summary metrics
-		// were stored — individual trades were computed then discarded.
+		// with running equity. Individual trades would otherwise be
+		// computed then discarded.
 		trades: normalized.trades,
 	};
 }
@@ -698,18 +693,25 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 								runId: run!.id,
 								runNumber: run!.runNumber,
 								isBaseline: run!.isBaseline,
-								metrics: resultPayload.metrics,
+								rawStats: {
+									returnPct: backtestResult.normalized.returnPct,
+									drawdownPct: backtestResult.normalized.drawdownPct,
+									winRatePct: backtestResult.normalized.winRate * 100,
+									totalTrades: backtestResult.normalized.totalTrades,
+								},
 								autoDispatched: "risk_manager",
 								message:
-									`Run #${run!.runNumber} completed. Risk Manager has been ` +
-									`automatically dispatched to review it — DO NOT call ` +
-									`request_validation yourself, it's already in flight. ` +
-									`End your turn NOW with a short one-line acknowledgement ` +
-									`(e.g. "Run #${run!.runNumber} 완료, RM 리뷰 중입니다"). ` +
-									`Do NOT analyze the metrics in detail — that's the Risk ` +
-									`Manager's job and you'll be retriggered with its verdict ` +
-									`in context. Do NOT ask the user whether to validate — ` +
-									`validation is automatic for every iteration run.`,
+									`Run #${run!.runNumber} completed. ` +
+									`BEFORE ending your turn, call \`record_run_metrics\` with the ` +
+									`metrics that actually describe this strategy — use \`rawStats\` ` +
+									`above as a starting point but ADD / REPLACE with strategy-` +
+									`specific ones (inventory skew, hit rate, spread capture, etc.). ` +
+									`The UI and Risk Manager see only what you record; a blank run ` +
+									`is uninformative and RM will flag it. Then end your turn with ` +
+									`a short acknowledgement. Risk Manager has already been ` +
+									`auto-dispatched — DO NOT call request_validation, and do NOT ` +
+									`analyze the metrics in detail (that is the RM's job; you will ` +
+									`be retriggered with its verdict in context).`,
 							},
 							null,
 							2,
@@ -725,13 +727,23 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 							runId: run!.id,
 							runNumber: run!.runNumber,
 							isBaseline: run!.isBaseline,
-							metrics: resultPayload.metrics,
+							rawStats: {
+								returnPct: backtestResult.normalized.returnPct,
+								drawdownPct: backtestResult.normalized.drawdownPct,
+								winRatePct: backtestResult.normalized.winRate * 100,
+								totalTrades: backtestResult.normalized.totalTrades,
+							},
 							message: run!.isBaseline
-								? `Run #${run!.runNumber} is the baseline — review the metrics, ` +
+								? `Run #${run!.runNumber} is the baseline. Call \`record_run_metrics\` ` +
+									`with the metrics that describe this strategy (the \`rawStats\` ` +
+									`above are the engine universals — feel free to include them, ` +
+									`replace them, or add strategy-specific ones like inventory ` +
+									`deviation, hit rate, spread capture). Then review the result, ` +
 									`decide your first iteration direction, and call run_backtest ` +
 									`again with the improvement. Risk Manager will auto-review ` +
 									`every iteration after this one.`
-								: undefined,
+								: `Call \`record_run_metrics\` with the metrics for this run before ` +
+									`ending your turn.`,
 						},
 						null,
 						2,
@@ -893,6 +905,108 @@ export function createQuantdeskMcpServer(ctx: McpServerContext): McpServer {
 			} catch (err) {
 				return errorResult(
 					`set_experiment_title failed: ${err instanceof Error ? err.message : String(err)}`,
+				);
+			}
+		},
+	);
+
+	// ── record_run_metrics ─────────────────────────────────────────────
+	//
+	// The engine adapter emits four default metrics (Return, Max Drawdown,
+	// Win Rate, Trades) via `deriveMetrics`. Those are universal stats —
+	// not the full story for any non-trivial strategy. Market makers care
+	// about inventory skew and volume-to-liquidity ratio; mean-reversion
+	// strategies care about hit rate at different horizons; you name it.
+	// This tool lets the analyst append (or override) arbitrary metrics
+	// on a completed run so the Run panel surfaces exactly what matters
+	// for the strategy under test. The UI already renders
+	// `run.result.metrics` as an array, so new keys show up automatically.
+	server.registerTool(
+		"record_run_metrics",
+		{
+			description:
+				"Append or override strategy-specific metrics on a completed run. " +
+				"Use this after `run_backtest` lands to publish measurements the " +
+				"engine doesn't compute by default — e.g. RPI, inventory " +
+				"deviation, volume-to-liquidity ratio, sharpe, sortino. " +
+				"Metrics are merged by `key`: new keys are appended, same-key " +
+				"entries replace the engine default (so you can e.g. override " +
+				"the generic `return` with a risk-adjusted one). Pass " +
+				"`replace: true` to discard the engine defaults entirely. " +
+				"Prefer `runNumber` (Run #N from the history) over `runId`. " +
+				"Total metrics per run are capped at 12 to keep the panel " +
+				"readable.",
+			inputSchema: {
+				runId: z.string().uuid().optional(),
+				runNumber: z.coerce.number().int().positive().optional(),
+				metrics: z.array(runMetricSchema).min(1).max(12),
+				replace: z.boolean().optional().default(false),
+			},
+		},
+		async (args) => {
+			try {
+				const targetRun = await findValidationRun(ctx.experimentId, args.runId, args.runNumber);
+				if (!targetRun) {
+					return errorResult(
+						args.runId || args.runNumber != null
+							? "record_run_metrics: run not found in this experiment"
+							: "record_run_metrics: no runs in this experiment",
+					);
+				}
+				if (targetRun.status !== "completed") {
+					return errorResult(
+						`record_run_metrics: Run #${targetRun.runNumber} is ${targetRun.status}, only completed runs accept metrics`,
+					);
+				}
+
+				const existing = (targetRun.result as Record<string, unknown> | null) ?? {};
+				const existingMetrics = Array.isArray(existing.metrics)
+					? (existing.metrics as RunMetric[])
+					: [];
+
+				let merged: RunMetric[];
+				if (args.replace) {
+					merged = args.metrics;
+				} else {
+					const byKey = new Map<string, RunMetric>();
+					for (const m of existingMetrics) byKey.set(m.key, m);
+					for (const m of args.metrics) byKey.set(m.key, m);
+					merged = [...byKey.values()];
+				}
+				if (merged.length > 12) {
+					return errorResult(
+						`record_run_metrics: merged metric count is ${merged.length}, exceeds the 12-metric cap`,
+					);
+				}
+
+				const nextResult = { ...existing, metrics: merged };
+				const [updated] = await db
+					.update(runs)
+					.set({ result: nextResult })
+					.where(eq(runs.id, targetRun.id))
+					.returning();
+
+				publishExperimentEvent({
+					experimentId: ctx.experimentId,
+					type: "run.status",
+					payload: { runId: updated!.id, status: updated!.status, result: updated!.result },
+				});
+
+				return textResult(
+					JSON.stringify(
+						{
+							runId: updated!.id,
+							runNumber: updated!.runNumber,
+							replaced: args.replace ?? false,
+							metrics: merged,
+						},
+						null,
+						2,
+					),
+				);
+			} catch (err) {
+				return errorResult(
+					`record_run_metrics failed: ${err instanceof Error ? err.message : String(err)}`,
 				);
 			}
 		},

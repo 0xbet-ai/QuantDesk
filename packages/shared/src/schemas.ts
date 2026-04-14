@@ -63,3 +63,26 @@ export type RunStatus = z.infer<typeof runStatusSchema>;
 
 export const engineNameSchema = z.enum(["freqtrade", "nautilus", "generic"]);
 export type EngineName = z.infer<typeof engineNameSchema>;
+
+/**
+ * A single run metric. Engine adapters emit a default set (return, max
+ * drawdown, win rate, trades); the analyst can append strategy-specific
+ * metrics on top via the `record_run_metrics` MCP tool. The UI renders
+ * whatever array lands in `run.result.metrics`, so adding a key is the
+ * only work needed to surface a new measurement.
+ */
+export const runMetricSchema = z.object({
+	key: z
+		.string()
+		.min(1)
+		.max(64)
+		.regex(/^[a-z0-9_][a-z0-9_.-]*$/, {
+			message: "metric key must be snake_case (lowercase letters, digits, _, -, .)",
+		}),
+	label: z.string().min(1).max(64),
+	value: z.number().finite(),
+	format: z.enum(["percent", "number", "integer", "currency"]),
+	tone: z.enum(["positive", "negative", "neutral"]).optional(),
+});
+
+export type RunMetric = z.infer<typeof runMetricSchema>;

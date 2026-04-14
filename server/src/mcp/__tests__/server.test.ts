@@ -23,6 +23,7 @@ describe("createQuantdeskMcpServer", () => {
 				"get_paper_status",
 				"go_paper",
 				"new_experiment",
+				"record_run_metrics",
 				"register_dataset",
 				"request_validation",
 				"run_backtest",
