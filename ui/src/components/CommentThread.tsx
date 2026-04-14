@@ -28,8 +28,8 @@ import { TurnCard, type TurnLifecycleStatus } from "./TurnCard.js";
 import type { TranscriptEntry } from "./transcript/RunTranscriptView.js";
 import { RunTranscriptView } from "./transcript/RunTranscriptView.js";
 import { Button } from "./ui/button.js";
-import { Input } from "./ui/input.js";
 import { Separator } from "./ui/separator.js";
+import { Textarea } from "./ui/textarea.js";
 
 interface Props {
 	experiment: Experiment;
@@ -188,12 +188,27 @@ interface ChatInputBarProps {
  * button's enabled/disabled state is toggled via `ref.disabled` in
  * the same `onInput` handler (one DOM write, no state).
  */
+/**
+ * Auto-resize the textarea to fit content up to `CHAT_INPUT_MAX_HEIGHT`
+ * pixels, after which the textarea scrolls. ChatGPT-style behavior.
+ * Kept as a plain DOM mutation so it composes with the uncontrolled
+ * `onInput` path (no React state, no re-render per keystroke).
+ */
+const CHAT_INPUT_MIN_HEIGHT = 36; // one row, matches prior <Input> height
+const CHAT_INPUT_MAX_HEIGHT = 240; // ~10 rows, then the textarea scrolls
+function autoResize(el: HTMLTextAreaElement) {
+	el.style.height = "auto";
+	const next = Math.min(Math.max(el.scrollHeight, CHAT_INPUT_MIN_HEIGHT), CHAT_INPUT_MAX_HEIGHT);
+	el.style.height = `${next}px`;
+	el.style.overflowY = el.scrollHeight > CHAT_INPUT_MAX_HEIGHT ? "auto" : "hidden";
+}
+
 const ChatInputBar = memo(function ChatInputBar({
 	disabled,
 	placeholder,
 	onSend,
 }: ChatInputBarProps) {
-	const inputRef = useRef<HTMLInputElement>(null);
+	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const btnRef = useRef<HTMLButtonElement>(null);
 	const busyRef = useRef(false);
 
@@ -203,6 +218,7 @@ const ChatInputBar = memo(function ChatInputBar({
 			const text = (e as CustomEvent<string>).detail;
 			if (text && inputRef.current) {
 				inputRef.current.value = text;
+				autoResize(inputRef.current);
 				if (btnRef.current) btnRef.current.disabled = false;
 			}
 		};
@@ -218,6 +234,7 @@ const ChatInputBar = memo(function ChatInputBar({
 		busyRef.current = true;
 		if (btnRef.current) btnRef.current.disabled = true;
 		el.value = "";
+		autoResize(el);
 		try {
 			await Promise.resolve(onSend(trimmed));
 		} finally {
@@ -238,20 +255,36 @@ const ChatInputBar = memo(function ChatInputBar({
 		}
 	}, [disabled]);
 
+	// Size the textarea to its one-row baseline on first mount.
+	useEffect(() => {
+		if (inputRef.current) autoResize(inputRef.current);
+	}, []);
+
 	return (
-		<div className="flex gap-2">
-			<Input
+		<div className="flex items-end gap-2">
+			<Textarea
 				ref={inputRef}
 				defaultValue=""
+				rows={1}
+				style={{ minHeight: `${CHAT_INPUT_MIN_HEIGHT}px`, maxHeight: `${CHAT_INPUT_MAX_HEIGHT}px` }}
+				className="py-2 leading-5"
 				onInput={() => {
-					// Toggle send button enabled/disabled WITHOUT setState —
+					// Resize and toggle send-button state WITHOUT setState —
 					// pure DOM write, zero React re-render.
+					if (inputRef.current) autoResize(inputRef.current);
 					if (btnRef.current) {
 						btnRef.current.disabled = disabled || !inputRef.current?.value.trim();
 					}
 				}}
 				onKeyDown={(e) => {
-					if (e.key === "Enter" && !e.nativeEvent.isComposing && !disabled) submit();
+					// Enter submits; Shift+Enter inserts a newline (ChatGPT
+					// convention). IME composition is always left alone so
+					// Korean / Japanese / Chinese confirmation doesn't fire a
+					// send by accident.
+					if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !disabled) {
+						e.preventDefault();
+						submit();
+					}
 				}}
 				placeholder={placeholder}
 				disabled={disabled}
