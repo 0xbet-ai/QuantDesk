@@ -10,9 +10,23 @@ export function buildGenericModeBlock(): string {
 
 This desk has no managed framework — you write both the strategy and
 the backtest entrypoint from scratch. Structure the code however best
-fits the venue and hypothesis. Pick the language that best fits the
-venue (Python for most quant work, Node/bun if the venue has a strong
-JS SDK, Rust/Go for perf-sensitive or native-SDK cases).
+fits the venue and hypothesis.
+
+### Available runtimes
+The sandbox image bundles **five** runtimes, all preinstalled:
+
+  - **python** (python3 + pip) — \`.py\`
+  - **node**   (node + npm)    — \`.js\` / \`.mjs\` / \`.cjs\`
+  - **bun**                    — \`.ts\`
+  - **rust**   (rustc 1.83, cargo) — \`.rs\` (requires \`Cargo.toml\` + \`src/main.rs\`)
+  - **go**     (golang)        — \`.go\`
+
+Runtime is auto-selected from the script's file extension. Pick the
+language that best fits the venue (Python for most quant work,
+Node/bun if the venue has a strong JS SDK, Rust/Go for perf-sensitive
+or native-SDK cases). Do NOT verify runtime availability via \`Bash\`
+— that runs on the host, not in the sandbox. All five are guaranteed
+present; write the script and run it.
 
 ### Data acquisition
 Follow the "Data acquisition" steps in the Tools glossary: design your
