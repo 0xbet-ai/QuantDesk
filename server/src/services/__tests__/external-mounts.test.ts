@@ -2,11 +2,12 @@
  * Phase 10 — validateExternalMount(s) unit tests.
  */
 
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { SEED_PATH_MAX_BYTES } from "@quantdesk/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { validateExternalMount, validateExternalMounts } from "../seed-path.js";
+import { validateExternalMount, validateExternalMounts, validateSeedPath } from "../seed-path.js";
 
 let tmpRoot: string;
 let goodDir: string;
@@ -46,6 +47,22 @@ describe("validateExternalMount", () => {
 		const result = validateExternalMount({ label: "good", hostPath: "/etc" });
 		expect(result.ok).toBe(false);
 		if (!result.ok) expect(result.reason).toMatch(/external mount "good"/);
+	});
+
+	it("accepts a directory larger than SEED_PATH_MAX_BYTES", async () => {
+		// External mounts are bind-mounted read-only at container start, not
+		// copied into the workspace, so the seed-path size cap must not apply.
+		const bigDir = join(tmpRoot, "big");
+		await mkdir(bigDir, { recursive: true });
+		const payload = Buffer.alloc(SEED_PATH_MAX_BYTES + 1024, 0);
+		await writeFile(join(bigDir, "blob.bin"), payload);
+
+		const seedResult = validateSeedPath(bigDir);
+		expect(seedResult.ok).toBe(false);
+		if (!seedResult.ok) expect(seedResult.reason).toMatch(/exceeds the .* MB cap/);
+
+		const mountResult = validateExternalMount({ label: "big_ref", hostPath: bigDir });
+		expect(mountResult.ok).toBe(true);
 	});
 });
 

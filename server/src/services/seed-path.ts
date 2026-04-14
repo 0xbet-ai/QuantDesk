@@ -21,6 +21,16 @@ export type SeedPathValidation =
 	| { ok: true; absolutePath: string; totalBytes: number }
 	| { ok: false; reason: string };
 
+export interface ValidateSeedPathOptions {
+	/**
+	 * Skip the `SEED_PATH_MAX_BYTES` size check. External bind-mounts reuse
+	 * this validator for the deny-list logic but must not be size-capped —
+	 * they are not copied, just mounted read-only at container start
+	 * (`doc/desk/STORAGE.md` "Workspace bootstrap").
+	 */
+	skipSizeCheck?: boolean;
+}
+
 /**
  * Validate a host path before bootstrapping a desk workspace from it.
  *
@@ -31,8 +41,12 @@ export type SeedPathValidation =
  *   - paths inside well-known secret-bearing directories
  *   - paths anchored under `/etc`, `/root`, etc.
  *   - directories whose total file size exceeds `SEED_PATH_MAX_BYTES`
+ *     (unless `opts.skipSizeCheck` is set)
  */
-export function validateSeedPath(rawPath: string): SeedPathValidation {
+export function validateSeedPath(
+	rawPath: string,
+	opts: ValidateSeedPathOptions = {},
+): SeedPathValidation {
 	if (!rawPath || typeof rawPath !== "string") {
 		return { ok: false, reason: "seed path is required" };
 	}
@@ -76,6 +90,10 @@ export function validateSeedPath(rawPath: string): SeedPathValidation {
 	}
 	if (!stat.isDirectory()) {
 		return { ok: false, reason: "seed path must be a directory" };
+	}
+
+	if (opts.skipSizeCheck) {
+		return { ok: true, absolutePath, totalBytes: 0 };
 	}
 
 	let totalBytes = 0;
@@ -134,7 +152,7 @@ export function validateExternalMount(mount: {
 			reason: `external mount label "${mount.label}" must match ${EXTERNAL_MOUNT_LABEL_PATTERN.source}`,
 		};
 	}
-	const pathCheck = validateSeedPath(mount.hostPath);
+	const pathCheck = validateSeedPath(mount.hostPath, { skipSizeCheck: true });
 	if (!pathCheck.ok) {
 		return { ok: false, reason: `external mount "${mount.label}": ${pathCheck.reason}` };
 	}
