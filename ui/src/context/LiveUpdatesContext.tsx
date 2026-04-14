@@ -17,7 +17,15 @@ interface LiveEvent {
 		| "run.log_chunk"
 		| "paper.status"
 		| "paper.log"
-		| "experiment.created";
+		| "experiment.created"
+		// Synthetic, client-only — fired after a WebSocket drop + successful
+		// reconnect. The server cannot replay the events we missed in the
+		// gap, so subscribers (CommentThread, PropsPanel, …) listen for this
+		// and re-hydrate their state from REST. Without it, a terminal
+		// `turn.status=completed` delivered during the disconnect window
+		// is lost and the composer stays stuck on "Agent is working…"
+		// until the user hard-refreshes.
+		| "reconnect";
 	payload: Record<string, unknown>;
 	createdAt: string;
 }
@@ -48,8 +56,27 @@ export function LiveUpdatesProvider({ children }: { children: ReactNode }) {
 		const ws = new WebSocket(`${protocol}//${host}/api/experiments/${experimentId}/events/ws`);
 
 		ws.onopen = () => {
-			// Successful connection — reset backoff for next failure.
+			// If we had any reconnect attempts recorded, this `onopen` is
+			// recovering from a drop. Fire a synthetic `reconnect` event
+			// so subscribers re-pull state — events that fired during the
+			// gap (e.g. a terminal `turn.status=completed`) are NOT
+			// replayed by the server, so the client is authoritative only
+			// after a fresh REST fetch.
+			const wasReconnect = (reconnectAttemptsRef.current.get(experimentId) ?? 0) > 0;
 			reconnectAttemptsRef.current.delete(experimentId);
+			if (wasReconnect) {
+				const handlers = handlersRef.current.get(experimentId);
+				if (handlers) {
+					const synthetic: LiveEvent = {
+						id: -1,
+						experimentId,
+						type: "reconnect",
+						payload: {},
+						createdAt: new Date().toISOString(),
+					};
+					for (const h of handlers) h(synthetic);
+				}
+			}
 		};
 
 		ws.onmessage = (e) => {

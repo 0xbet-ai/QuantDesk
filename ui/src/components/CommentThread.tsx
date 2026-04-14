@@ -701,6 +701,15 @@ export function CommentThread({
 		if (event.type === "comment.new") {
 			refresh();
 		}
+		if (event.type === "reconnect") {
+			// WebSocket dropped and came back — the server cannot replay the
+			// events we missed, so re-hydrate state from REST. Without this,
+			// a terminal `turn.status=completed` delivered during the gap
+			// never clears `thinkingRole` and the composer stays locked on
+			// "Agent is working…" until a manual page refresh.
+			pendingSendRef.current = false;
+			refresh();
+		}
 		if (event.type === "experiment.updated") {
 			onExperimentUpdated?.();
 		}
